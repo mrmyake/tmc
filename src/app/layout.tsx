@@ -4,6 +4,10 @@ import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { Analytics } from "@/components/layout/Analytics";
+import { CookieConsent } from "@/components/layout/CookieConsent";
+import { FooterCTA } from "@/components/blocks/FooterCTA";
+import { LeadMagnetBanner } from "@/components/blocks/LeadMagnetBanner";
 import {
   getLocalBusinessSchema,
   getWebsiteSchema,
@@ -77,7 +81,11 @@ export default function RootLayout({
         <main className="flex-1">
           <PageTransition>{children}</PageTransition>
         </main>
+        <FooterCTA />
         <Footer />
+        <LeadMagnetBanner />
+        <Analytics />
+        <CookieConsent />
       </body>
     </html>
   );

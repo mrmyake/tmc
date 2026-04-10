@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { Check } from "lucide-react";
+import { trackLead, trackFormStart } from "@/lib/analytics";
 
 const inputStyles =
   "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
@@ -20,6 +21,14 @@ const benefits = [
 
 export function ProeflesContent() {
   const [submitted, setSubmitted] = useState(false);
+  const tracked = useRef(false);
+
+  const handleFocus = () => {
+    if (!tracked.current) {
+      trackFormStart("proefles_form");
+      tracked.current = true;
+    }
+  };
 
   if (submitted) {
     return (
@@ -94,9 +103,11 @@ export function ProeflesContent() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    // TODO: Formspree / Resend integratie
+                    trackLead("proefles_booking", 20);
+                    // TODO: Brevo API integratie
                     setSubmitted(true);
                   }}
+                  onFocus={handleFocus}
                   className="space-y-4"
                 >
                   <input

@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/Button";
+import { trackLead, trackFormStart } from "@/lib/analytics";
 
 const inputStyles =
   "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
+  const tracked = useRef(false);
+
+  const handleFocus = () => {
+    if (!tracked.current) {
+      trackFormStart("contact_form");
+      tracked.current = true;
+    }
+  };
 
   if (submitted) {
     return (
@@ -26,9 +35,11 @@ export function ContactForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        // TODO: Formspree / Resend integratie
+        trackLead("contact_form", 10);
+        // TODO: Brevo API integratie
         setSubmitted(true);
       }}
+      onFocus={handleFocus}
       className="space-y-5"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
