@@ -11,7 +11,7 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 // 1. Ga naar https://featurable.com en maak een gratis account
 // 2. Maak een nieuwe widget aan en koppel het Google Business Profile van PT Loosdrecht
 // 3. Kopieer de widget ID en plak die hieronder
-const FEATURABLE_WIDGET_ID = "JOUW_WIDGET_ID_HIER";
+const FEATURABLE_WIDGET_ID = "ef34740b-2ef8-467f-abbf-e58e3d348bdf";
 
 export function TestimonialCarousel() {
   const hasWidgetId = FEATURABLE_WIDGET_ID !== "JOUW_WIDGET_ID_HIER";
