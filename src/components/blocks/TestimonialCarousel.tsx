@@ -1,27 +1,21 @@
 "use client";
 
+import { ReactGoogleReviews } from "react-google-reviews";
+import "react-google-reviews/dist/index.css";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
-import { TESTIMONIALS } from "@/lib/constants";
-import { Quote, Star } from "lucide-react";
 
-function Stars({ count = 5 }: { count?: number }) {
-  return (
-    <div className="flex gap-1 mb-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <Star
-          key={i}
-          size={16}
-          className="text-accent fill-accent"
-        />
-      ))}
-    </div>
-  );
-}
+// TODO: Vervang met je eigen Featurable widget ID
+// 1. Ga naar https://featurable.com en maak een gratis account
+// 2. Maak een nieuwe widget aan en koppel het Google Business Profile van PT Loosdrecht
+// 3. Kopieer de widget ID en plak die hieronder
+const FEATURABLE_WIDGET_ID = "JOUW_WIDGET_ID_HIER";
 
 export function TestimonialCarousel() {
+  const hasWidgetId = FEATURABLE_WIDGET_ID !== "JOUW_WIDGET_ID_HIER";
+
   return (
     <Section bg="elevated">
       <Container>
@@ -33,30 +27,34 @@ export function TestimonialCarousel() {
           />
         </ScrollReveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {TESTIMONIALS.map((testimonial, i) => (
-            <ScrollReveal key={testimonial.name} delay={i * 0.1}>
-              <div className="p-6 md:p-8">
-                <Stars />
-                <Quote size={24} className="text-accent/40 mb-4" />
-                <p className="text-text leading-relaxed mb-6 italic">
-                  &ldquo;{testimonial.text}&rdquo;
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-accent/20 text-accent flex items-center justify-center text-sm font-medium rounded-full">
-                    {testimonial.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-text font-medium">
-                      {testimonial.name}
-                    </p>
-                    <p className="text-xs text-text-muted">Google Review</p>
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
-          ))}
-        </div>
+        <ScrollReveal delay={0.15}>
+          {hasWidgetId ? (
+            <div className="max-w-5xl mx-auto">
+              <ReactGoogleReviews
+                layout="carousel"
+                featurableId={FEATURABLE_WIDGET_ID}
+                theme="dark"
+                carouselAutoplay={true}
+                carouselSpeed={5000}
+                maxCharacters={200}
+                structuredData={true}
+              />
+            </div>
+          ) : (
+            <div className="text-center py-12 border border-dashed border-bg-subtle max-w-2xl mx-auto">
+              <p className="text-text-muted text-sm">
+                Google Reviews widget wordt hier geladen zodra de Featurable
+                widget ID is ingesteld.
+              </p>
+              <p className="text-text-muted text-xs mt-2">
+                Zie instructies in{" "}
+                <code className="text-accent">
+                  src/components/blocks/TestimonialCarousel.tsx
+                </code>
+              </p>
+            </div>
+          )}
+        </ScrollReveal>
 
         <ScrollReveal delay={0.3}>
           <div className="text-center mt-10">
