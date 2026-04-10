@@ -45,19 +45,22 @@ export function OverContent() {
               <div className="space-y-4 text-text-muted leading-relaxed">
                 <p>
                   The Movement Club is geboren uit de overtuiging dat fitness
-                  persoonlijk moet zijn. Na jaren werken in grote sportscholen
-                  zag {SITE.trainer.name} hoe leden verdwalen in drukte, slechte
-                  begeleiding en one-size-fits-all schema&apos;s.
+                  persoonlijk moet zijn. Als oprichtster van PT Loosdrecht
+                  begeleidde {SITE.trainer.name} jarenlang klanten met dezelfde
+                  toewijding die haar kenmerkt. Maar ze wilde meer — een eigen
+                  studio waar elk lid écht gekend wordt.
                 </p>
                 <p>
-                  De visie was helder: een intieme studio waar elk lid gekend
-                  wordt. Waar de training niet draait om trends, maar om jouw
-                  lichaam, jouw doelen en jouw tempo.
+                  Haar visie was helder: een intieme plek waar de training niet
+                  draait om trends, maar om jouw lichaam, jouw doelen en jouw
+                  tempo. Geen anonieme sportschool, maar persoonlijke begeleiding
+                  op het hoogste niveau.
                 </p>
                 <p>
-                  In 2024 werd die visie werkelijkheid. Op de Industrieweg in
-                  Loosdrecht opende The Movement Club de deuren — 160m² puur
-                  gericht op kwalitatieve training in een omgeving die inspireert.
+                  Met de ervaring en reputatie opgebouwd bij PT Loosdrecht werd
+                  die visie werkelijkheid. Op de Industrieweg in Loosdrecht
+                  opende The Movement Club de deuren — 160m² puur gericht op
+                  kwalitatieve training in een omgeving die inspireert.
                 </p>
               </div>
             </ScrollReveal>
@@ -129,8 +132,60 @@ export function OverContent() {
         </Container>
       </Section>
 
-      {/* CTA */}
+      {/* Hormoonprofiel cross-link */}
       <Section>
+        <Container>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <ScrollReveal>
+              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+                Holistisch trainen
+              </span>
+              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
+                Meer dan alleen training
+              </h2>
+              <div className="space-y-4 text-text-muted leading-relaxed">
+                <p>
+                  Marlon kijkt verder dan de training alleen. Via{" "}
+                  <a
+                    href="https://hormoonprofiel.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:text-accent-hover transition-colors underline underline-offset-4"
+                  >
+                    Hormoonprofiel.com
+                  </a>{" "}
+                  biedt zij inzicht in hoe hormonen invloed hebben op je energie,
+                  herstel en resultaat.
+                </p>
+                <p>
+                  Door training, voeding en hormoonbalans samen te brengen
+                  ontstaat een compleet beeld — en een aanpak die écht werkt.
+                  Voor vrouwen én mannen.
+                </p>
+              </div>
+              <div className="mt-8">
+                <Button
+                  href="https://hormoonprofiel.com"
+                  variant="secondary"
+                >
+                  Ontdek Hormoonprofiel
+                </Button>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={0.15}>
+              <div className="aspect-[4/3] bg-bg-elevated flex items-center justify-center">
+                {/* {FOTO: Marlon in consult of holistisch beeld} */}
+                <span className="text-text-muted text-sm uppercase tracking-widest">
+                  Hormoonprofiel
+                </span>
+              </div>
+            </ScrollReveal>
+          </div>
+        </Container>
+      </Section>
+
+      {/* CTA */}
+      <Section bg="elevated">
         <Container className="text-center">
           <ScrollReveal>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4">

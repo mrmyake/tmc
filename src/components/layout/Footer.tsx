@@ -47,6 +47,17 @@ export function Footer() {
                 </Link>
               </li>
             </ul>
+            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-4 mt-8">
+              Ook van Marlon
+            </h4>
+            <a
+              href={SITE.hormoonprofiel}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-text-muted hover:text-text transition-colors"
+            >
+              Hormoonprofiel.com →
+            </a>
           </div>
 
           {/* Contact */}

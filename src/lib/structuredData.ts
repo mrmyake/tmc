@@ -39,7 +39,7 @@ export function getLocalBusinessSchema() {
     ],
     priceRange: "€€€",
     image: `${SITE.url}/images/hero/studio.jpg`,
-    sameAs: [SITE.instagram],
+    sameAs: [SITE.instagram, SITE.hormoonprofiel],
   };
 }
 

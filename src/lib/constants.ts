@@ -19,8 +19,9 @@ export const SITE = {
   btw: "NL000000000B01", // TODO
   trainer: {
     name: "Marlon",
-    role: "Head Trainer & Oprichter",
+    role: "Head Trainer & Oprichtster",
   },
+  hormoonprofiel: "https://hormoonprofiel.com",
 } as const;
 
 export const NAV_LINKS = [
@@ -114,10 +115,12 @@ export const PRICING_TIERS = [
   },
 ] as const;
 
+// TODO: Vervang met echte Google Reviews van ptloosdrecht.nl
+// Kopieer de beste reviews uit het Google Business Profile
 export const TESTIMONIALS = [
   {
     name: "Sophie V.",
-    text: "Na jaren van sportscholen waar ik een nummer was, voelt The Movement Club als thuiskomen. Marlon ziet écht waar je lichaam behoefte aan heeft.",
+    text: "Na jaren van sportscholen waar ik een nummer was, voelt het hier als thuiskomen. Marlon ziet écht waar je lichaam behoefte aan heeft.",
   },
   {
     name: "Thomas B.",
@@ -125,6 +128,6 @@ export const TESTIMONIALS = [
   },
   {
     name: "Lisa M.",
-    text: "Ik train nu 6 maanden bij The Movement Club en heb meer resultaat dan in 3 jaar reguliere sportschool. De sfeer is geweldig.",
+    text: "Ik train nu 6 maanden bij Marlon en heb meer resultaat dan in 3 jaar reguliere sportschool. De sfeer is geweldig.",
   },
 ] as const;
