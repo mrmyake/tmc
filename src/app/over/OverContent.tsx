@@ -68,8 +68,27 @@ export function OverContent() {
         </Container>
       </Section>
 
-      {/* Visie */}
+      {/* Mobility Check CTA */}
       <Section>
+        <Container className="max-w-3xl text-center">
+          <ScrollReveal>
+            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+              Gratis screening
+            </span>
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+              Ontdek hoe je beweegt
+            </h2>
+            <p className="text-text-muted mb-6">
+              Boek een gratis Mobility Check en krijg een persoonlijk
+              bewegingsprofiel van Marlon.
+            </p>
+            <Button href="/mobility-check">Plan mijn Mobility Check</Button>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
+      {/* Visie */}
+      <Section bg="elevated">
         <Container className="max-w-3xl">
           <ScrollReveal>
             <SectionHeading

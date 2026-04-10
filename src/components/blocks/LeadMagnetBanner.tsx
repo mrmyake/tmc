@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -15,8 +15,13 @@ export function LeadMagnetBanner() {
   const [loading, setLoading] = useState(false);
   const tracked = useRef(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
+    // Don't show on lead magnet pages
+    const excludedPaths = ["/beweeg-beter", "/mobility-reset", "/mobility-check"];
+    if (excludedPaths.some((p) => pathname.startsWith(p))) return;
+
     // Don't show if already dismissed this session
     if (sessionStorage.getItem("tmc_banner_shown")) return;
 

@@ -46,7 +46,12 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.8 }}
         >
-          <Button href="/proefles">Boek een proefles</Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button href="/proefles">Boek een proefles</Button>
+            <Button href="/beweeg-beter" variant="secondary">
+              Of download onze gratis guide
+            </Button>
+          </div>
         </motion.div>
       </Container>
 

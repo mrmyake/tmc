@@ -48,6 +48,35 @@ export function Footer() {
               </li>
             </ul>
             <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-4 mt-8">
+              Gratis starten
+            </h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/beweeg-beter"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  Beweeg Beter Guide
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/mobility-reset"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  7-Dagen Mobility Reset
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/mobility-check"
+                  className="text-sm text-text-muted hover:text-text transition-colors"
+                >
+                  Gratis Mobility Check
+                </Link>
+              </li>
+            </ul>
+            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-4 mt-8">
               Ook van Marlon
             </h4>
             <a

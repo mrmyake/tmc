@@ -177,6 +177,25 @@ export function AanbodContent() {
         </Section>
       ))}
 
+      {/* Mobility Reset CTA */}
+      <Section bg="elevated">
+        <Container className="max-w-3xl text-center">
+          <ScrollReveal>
+            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+              Gratis programma
+            </span>
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+              Benieuwd hoe mobiel je bent?
+            </h2>
+            <p className="text-text-muted mb-6">
+              Probeer de gratis 7-Dagen Mobility Reset — elke dag een korte
+              video van Marlon.
+            </p>
+            <Button href="/mobility-reset">Start de reset</Button>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
       {/* FAQ */}
       <Section>
         <Container className="max-w-3xl">
@@ -212,6 +231,15 @@ export function AanbodContent() {
               Boek een vrijblijvende proefles en ontdek welke training bij jou past.
             </p>
             <Button href="/proefles">Boek een proefles</Button>
+            <p className="text-text-muted text-sm mt-6">
+              Nog niet klaar om te starten?{" "}
+              <a
+                href="/beweeg-beter"
+                className="text-accent hover:text-accent-hover transition-colors underline underline-offset-4"
+              >
+                Download de gratis Beweeg Beter guide
+              </a>
+            </p>
           </ScrollReveal>
         </Container>
       </Section>
