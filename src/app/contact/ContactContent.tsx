@@ -5,6 +5,7 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { ContactForm } from "@/components/blocks/ContactForm";
+import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { Button } from "@/components/ui/Button";
 import { SITE } from "@/lib/constants";
 import { MapPin, Clock, Phone, Mail, MessageCircle } from "lucide-react";
@@ -35,6 +36,7 @@ export function ContactContent() {
                 Stuur ons een bericht
               </h3>
               <ContactForm />
+              <GoogleReviewsBadge />
             </ScrollReveal>
 
             {/* Info */}

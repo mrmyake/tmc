@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { Check } from "lucide-react";
 
 const inputStyles =
@@ -81,6 +82,7 @@ export function ProeflesContent() {
                   </li>
                 ))}
               </ul>
+              <GoogleReviewsBadge />
             </ScrollReveal>
 
             {/* Right: form */}
