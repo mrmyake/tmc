@@ -33,10 +33,18 @@ export function ContactForm() {
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         trackLead("contact_form", 10);
-        // TODO: Brevo API integratie
+        const form = e.currentTarget;
+        const formData = new FormData(form);
+        try {
+          await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Object.fromEntries(formData.entries())),
+          });
+        } catch { /* continue */ }
         setSubmitted(true);
       }}
       onFocus={handleFocus}

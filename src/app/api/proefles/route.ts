@@ -4,21 +4,20 @@ import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 export async function POST(request: Request) {
   const data = await request.json();
 
-  if (!data.email || !data.firstName) {
+  if (!data.email || !data.name) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
   await addSubscriber({
     email: data.email,
-    name: `${data.firstName} ${data.lastName || ""}`.trim(),
+    name: data.name,
     fields: {
       phone: data.phone || "",
-      preferred_day: data.day || "",
-      preferred_time: data.time || "",
+      preference: data.preference || "",
       experience: data.experience || "",
-      goals: data.goals || "",
+      message: data.message || "",
     },
-    groups: GROUPS.MOBILITY_CHECK ? [GROUPS.MOBILITY_CHECK] : [],
+    groups: GROUPS.PROEFLES ? [GROUPS.PROEFLES] : [],
   });
 
   return NextResponse.json({ success: true });

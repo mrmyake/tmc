@@ -101,10 +101,18 @@ export function ProeflesContent() {
                   Meld je aan
                 </h2>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     trackLead("proefles_booking", 20);
-                    // TODO: Brevo API integratie
+                    const form = e.currentTarget;
+                    const formData = new FormData(form);
+                    try {
+                      await fetch("/api/proefles", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(Object.fromEntries(formData.entries())),
+                      });
+                    } catch { /* continue */ }
                     setSubmitted(true);
                   }}
                   onFocus={handleFocus}

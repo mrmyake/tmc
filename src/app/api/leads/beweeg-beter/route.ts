@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 
 export async function POST(request: Request) {
   const { name, email } = await request.json();
@@ -7,22 +8,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  // TODO: Brevo API — add contact + tag "pdf_lead"
-  // const response = await fetch("https://api.brevo.com/v3/contacts", {
-  //   method: "POST",
-  //   headers: {
-  //     "api-key": process.env.BREVO_API_KEY!,
-  //     "Content-Type": "application/json",
-  //   },
-  //   body: JSON.stringify({
-  //     email,
-  //     attributes: { FIRSTNAME: name },
-  //     listIds: [/* your list ID */],
-  //     updateEnabled: true,
-  //   }),
-  // });
-
-  console.log("[Lead] beweeg-beter:", { name, email });
+  await addSubscriber({
+    email,
+    name,
+    groups: GROUPS.PDF_LEAD ? [GROUPS.PDF_LEAD] : [],
+  });
 
   return NextResponse.json({ success: true });
 }
