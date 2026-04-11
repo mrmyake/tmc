@@ -6,10 +6,14 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Card } from "@/components/ui/Card";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
-import { PRICING_TIERS } from "@/lib/constants";
 import { Check } from "lucide-react";
+import type { SanityPricingTier } from "../../../sanity/lib/fetch";
 
-export function PricingTable() {
+interface PricingTableProps {
+  tiers: SanityPricingTier[];
+}
+
+export function PricingTable({ tiers }: PricingTableProps) {
   return (
     <Section>
       <Container>
@@ -22,15 +26,15 @@ export function PricingTable() {
         </ScrollReveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {PRICING_TIERS.map((tier, i) => (
-            <ScrollReveal key={tier.name} delay={i * 0.1}>
+          {tiers.map((tier, i) => (
+            <ScrollReveal key={tier._id} delay={i * 0.1}>
               <Card
                 className={`h-full flex flex-col relative ${
-                  tier.popular ? "border-accent" : ""
+                  tier.highlighted ? "border-accent" : ""
                 }`}
                 hover={false}
               >
-                {tier.popular && (
+                {tier.highlighted && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-bg text-xs font-medium uppercase tracking-widest px-4 py-1">
                     Populair
                   </span>
@@ -39,7 +43,12 @@ export function PricingTable() {
                   <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-2">
                     {tier.name}
                   </h3>
-                  <p className="text-text-muted text-sm">{tier.description}</p>
+                  <p className="text-text-muted text-sm">{tier.subtitle}</p>
+                  {tier.price && (
+                    <p className="text-accent text-2xl font-medium mt-2">
+                      {tier.price}
+                    </p>
+                  )}
                 </div>
                 <ul className="space-y-3 mb-8 flex-1">
                   {tier.features.map((feature) => (
@@ -56,11 +65,11 @@ export function PricingTable() {
                   ))}
                 </ul>
                 <Button
-                  href="/contact"
-                  variant={tier.popular ? "primary" : "secondary"}
+                  href={tier.ctaLink}
+                  variant={tier.highlighted ? "primary" : "secondary"}
                   className="w-full text-center"
                 >
-                  {tier.cta}
+                  {tier.ctaText}
                 </Button>
               </Card>
             </ScrollReveal>

@@ -4,9 +4,13 @@ import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
-import { SITE } from "@/lib/constants";
+import type { SanitySettings } from "../../../sanity/lib/fetch";
 
-export function Hero() {
+interface HeroProps {
+  settings: SanitySettings;
+}
+
+export function Hero({ settings }: HeroProps) {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* {FOTO: Fullscreen hero - donkere gym sfeer, moody lighting, premium apparatuur} */}
@@ -20,7 +24,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-6"
         >
-          Boutique Training Studio — Loosdrecht
+          Boutique Training Studio — {settings.address.city}
         </motion.span>
 
         <motion.h1
@@ -29,7 +33,7 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl lg:text-7xl xl:text-8xl text-text mb-6 leading-[1.1]"
         >
-          {SITE.tagline}
+          {settings.tagline}
         </motion.h1>
 
         <motion.p
@@ -38,7 +42,8 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="text-text-muted text-lg md:text-xl max-w-2xl mx-auto mb-10"
         >
-          {SITE.description}
+          Boutique training studio in {settings.address.city}. Persoonlijk.
+          Exclusief. Resultaatgericht.
         </motion.p>
 
         <motion.div

@@ -5,10 +5,17 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
-import { SITE } from "@/lib/constants";
 import { MapPin, Clock, MessageCircle } from "lucide-react";
+import type { SanitySettings, SanityOpeningHours } from "../../../sanity/lib/fetch";
 
-export function ContactSection() {
+interface ContactSectionProps {
+  settings: SanitySettings;
+  hours: SanityOpeningHours;
+}
+
+export function ContactSection({ settings, hours }: ContactSectionProps) {
+  const whatsappUrl = `https://wa.me/${settings.whatsappNumber}`;
+
   return (
     <Section id="contact">
       <Container>
@@ -16,7 +23,7 @@ export function ContactSection() {
           <SectionHeading
             label="Locatie & Contact"
             heading="Kom langs"
-            subtext="We verwelkomen je graag in onze studio aan de Industrieweg in Loosdrecht."
+            subtext={`We verwelkomen je graag in onze studio aan de ${settings.address.street} in ${settings.address.city}.`}
           />
         </ScrollReveal>
 
@@ -39,56 +46,50 @@ export function ContactSection() {
           <ScrollReveal delay={0.15}>
             <div className="space-y-8">
               <div className="flex gap-4">
-                <MapPin
-                  size={20}
-                  className="text-accent mt-1 shrink-0"
-                />
+                <MapPin size={20} className="text-accent mt-1 shrink-0" />
                 <div>
                   <h4 className="text-text font-medium mb-1">Adres</h4>
                   <p className="text-text-muted text-sm">
-                    {SITE.address.street}
+                    {settings.address.street}
                     <br />
-                    {SITE.address.zip} {SITE.address.city}
+                    {settings.address.postalCode} {settings.address.city}
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <Clock
-                  size={20}
-                  className="text-accent mt-1 shrink-0"
-                />
+                <Clock size={20} className="text-accent mt-1 shrink-0" />
                 <div>
                   <h4 className="text-text font-medium mb-1">Openingstijden</h4>
                   <div className="text-text-muted text-sm space-y-1">
-                    <p>Maandag – Vrijdag: 07:00 – 21:00</p>
-                    <p>Zaterdag: 08:00 – 14:00</p>
-                    <p>Zondag: Gesloten</p>
+                    {hours.schedule.map((s) => (
+                      <p key={s.day}>
+                        {s.day}: {s.closed ? "Gesloten" : `${s.open} – ${s.close}`}
+                      </p>
+                    ))}
                   </div>
+                  {hours.note && (
+                    <p className="text-text-muted text-xs mt-2 italic">
+                      {hours.note}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <MessageCircle
-                  size={20}
-                  className="text-accent mt-1 shrink-0"
-                />
+                <MessageCircle size={20} className="text-accent mt-1 shrink-0" />
                 <div>
                   <h4 className="text-text font-medium mb-1">Direct contact</h4>
                   <p className="text-text-muted text-sm mb-3">
                     Stuur ons een bericht via WhatsApp of mail naar{" "}
                     <a
-                      href={`mailto:${SITE.email}`}
+                      href={`mailto:${settings.email}`}
                       className="text-accent hover:text-accent-hover transition-colors"
                     >
-                      {SITE.email}
+                      {settings.email}
                     </a>
                   </p>
-                  <Button
-                    href={SITE.whatsapp}
-                    variant="secondary"
-                    className="text-sm"
-                  >
+                  <Button href={whatsappUrl} variant="secondary" className="text-sm">
                     WhatsApp ons
                   </Button>
                 </div>

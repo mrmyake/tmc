@@ -6,18 +6,37 @@ import { OfferingCards } from "@/components/blocks/OfferingCards";
 import { PricingTable } from "@/components/blocks/PricingTable";
 import { TestimonialCarousel } from "@/components/blocks/TestimonialCarousel";
 import { ContactSection } from "@/components/blocks/ContactSection";
+import {
+  getSiteSettings,
+  getTrainers,
+  getOfferings,
+  getPricing,
+  getOpeningHours,
+} from "../../sanity/lib/fetch";
 
-export default function HomePage() {
+export const revalidate = 60; // Revalidate every 60 seconds
+
+export default async function HomePage() {
+  const [settings, trainers, offerings, pricing, hours] = await Promise.all([
+    getSiteSettings(),
+    getTrainers(),
+    getOfferings(),
+    getPricing(),
+    getOpeningHours(),
+  ]);
+
+  const trainer = trainers[0];
+
   return (
     <>
-      <Hero />
+      <Hero settings={settings} />
       <PhilosophyGrid />
       <StudioSection />
-      <TrainerSpotlight />
-      <OfferingCards />
-      <PricingTable />
+      <TrainerSpotlight trainer={trainer} />
+      <OfferingCards offerings={offerings} />
+      <PricingTable tiers={pricing} />
       <TestimonialCarousel />
-      <ContactSection />
+      <ContactSection settings={settings} hours={hours} />
     </>
   );
 }
