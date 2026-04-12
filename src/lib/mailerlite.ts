@@ -45,11 +45,10 @@ export async function addSubscriber(data: SubscriberData) {
   });
 }
 
-// TODO: Create these groups in Mailerlite and fill in the IDs
 export const GROUPS = {
-  PDF_LEAD: "", // Beweeg Beter guide downloaders
-  MOBILITY_RESET: "", // 7-Dagen Mobility Reset opt-ins
-  MOBILITY_CHECK: "", // Mobility Check bookings
-  PROEFLES: "", // Proefles bookings
-  CONTACT: "", // Contact form submissions
+  PDF_LEAD: "184521718447998634",
+  MOBILITY_RESET: "184521727523423599",
+  MOBILITY_CHECK: "184521735663519061",
+  PROEFLES: "184521743018230980",
+  CONTACT: "184521748487603774",
 } as const;
