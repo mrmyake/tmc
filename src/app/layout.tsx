@@ -6,6 +6,9 @@ import {
   getLocalBusinessSchema,
   getWebsiteSchema,
 } from "@/lib/structuredData";
+import { getSiteSettings } from "../../sanity/lib/fetch";
+
+export const revalidate = 60;
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -48,11 +51,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getSiteSettings();
+
   return (
     <html
       lang="nl"
@@ -71,7 +76,7 @@ export default function RootLayout({
             __html: JSON.stringify(getWebsiteSchema()),
           }}
         />
-        <SiteShell>{children}</SiteShell>
+        <SiteShell settings={settings}>{children}</SiteShell>
       </body>
     </html>
   );

@@ -8,8 +8,14 @@ import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { LeadMagnetBanner } from "@/components/blocks/LeadMagnetBanner";
 import { Analytics } from "./Analytics";
 import { CookieConsent } from "./CookieConsent";
+import type { SanitySettings } from "../../../sanity/lib/fetch";
 
-export function SiteShell({ children }: { children: React.ReactNode }) {
+interface SiteShellProps {
+  children: React.ReactNode;
+  settings: SanitySettings;
+}
+
+export function SiteShell({ children, settings }: SiteShellProps) {
   const pathname = usePathname();
   const isStudio = pathname.startsWith("/studio");
 
@@ -24,7 +30,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         <PageTransition>{children}</PageTransition>
       </main>
       <FooterCTA />
-      <Footer />
+      <Footer settings={settings} />
       <LeadMagnetBanner />
       <Analytics />
       <CookieConsent />

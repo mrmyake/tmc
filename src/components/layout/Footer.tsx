@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { NAV_LINKS, SITE } from "@/lib/constants";
+import { NAV_LINKS } from "@/lib/constants";
 import { Container } from "./Container";
+import type { SanitySettings } from "../../../sanity/lib/fetch";
 
-export function Footer() {
+interface FooterProps {
+  settings: SanitySettings;
+}
+
+export function Footer({ settings }: FooterProps) {
   return (
     <footer className="bg-bg-elevated border-t border-bg-subtle">
       <Container className="py-16">
@@ -13,10 +18,10 @@ export function Footer() {
               href="/"
               className="font-[family-name:var(--font-playfair)] text-2xl text-text"
             >
-              {SITE.name}
+              {settings.studioName}
             </Link>
             <p className="mt-4 text-text-muted text-sm leading-relaxed">
-              Boutique training studio in Loosdrecht.
+              Boutique training studio in {settings.address.city}.
               <br />
               Persoonlijk. Exclusief. Resultaatgericht.
             </p>
@@ -80,7 +85,7 @@ export function Footer() {
               Ook van Marlon
             </h4>
             <a
-              href={SITE.hormoonprofiel}
+              href="https://hormoonprofiel.com"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-text-muted hover:text-text transition-colors"
@@ -95,49 +100,51 @@ export function Footer() {
               Contact
             </h4>
             <address className="not-italic text-sm text-text-muted space-y-2">
-              <p>{SITE.address.street}</p>
+              <p>{settings.address.street}</p>
               <p>
-                {SITE.address.zip} {SITE.address.city}
+                {settings.address.postalCode} {settings.address.city}
               </p>
               <p className="pt-2">
                 <a
-                  href={`mailto:${SITE.email}`}
+                  href={`mailto:${settings.email}`}
                   className="hover:text-text transition-colors"
                 >
-                  {SITE.email}
+                  {settings.email}
                 </a>
               </p>
               <p>
                 <a
-                  href={`tel:${SITE.phone.replace(/\s/g, "")}`}
+                  href={`tel:${settings.phone.replace(/\s/g, "")}`}
                   className="hover:text-text transition-colors"
                 >
-                  {SITE.phone}
+                  {settings.phone}
                 </a>
               </p>
             </address>
-            <div className="mt-6">
-              <a
-                href={SITE.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-text-muted hover:text-accent transition-colors"
-                aria-label="Instagram"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
-              </a>
-            </div>
+            {settings.instagramUrl && (
+              <div className="mt-6">
+                <a
+                  href={settings.instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-text-muted hover:text-accent transition-colors"
+                  aria-label="Instagram"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+                </a>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-bg-subtle flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-muted">
           <p>
-            &copy; {new Date().getFullYear()} {SITE.name}. Alle rechten
-            voorbehouden.
+            &copy; {new Date().getFullYear()} {settings.studioName}. Alle
+            rechten voorbehouden.
           </p>
           <p>
-            KvK: {SITE.kvk} &middot; BTW: {SITE.btw}
+            KvK: {settings.kvkNumber} &middot; BTW: {settings.btwNumber}
           </p>
         </div>
       </Container>
