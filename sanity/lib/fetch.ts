@@ -6,6 +6,7 @@ import {
   offeringsQuery,
   pricingQuery,
   faqsByPageQuery,
+  siteImagesQuery,
 } from "./queries";
 import {
   SITE,
@@ -172,6 +173,36 @@ export async function getFaqs(page: string): Promise<SanityFaq[]> {
   const data = await safeFetch<SanityFaq[]>(faqsByPageQuery, { page });
   if (data && data.length > 0) return data;
   return [];
+}
+
+// Site Images
+export interface SanityImage {
+  asset: { _ref: string };
+  hotspot?: { x: number; y: number };
+}
+
+export interface SanityGalleryImage extends SanityImage {
+  caption?: string;
+}
+
+export interface SanitySiteImages {
+  hero?: SanityImage;
+  studio?: SanityImage;
+  offeringPersonalTraining?: SanityImage;
+  offeringSmallGroup?: SanityImage;
+  offeringMobility?: SanityImage;
+  offeringStrength?: SanityImage;
+  overMarlon?: SanityImage;
+  hormoonprofiel?: SanityImage;
+  gallery?: SanityGalleryImage[];
+  beweegBeterCover?: SanityImage;
+  mobilityResetThumb?: SanityImage;
+  ogImage?: SanityImage;
+}
+
+export async function getSiteImages(): Promise<SanitySiteImages> {
+  const data = await safeFetch<SanitySiteImages>(siteImagesQuery);
+  return data || {};
 }
 
 // Re-export PILLARS (not in CMS, static)

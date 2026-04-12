@@ -12,26 +12,29 @@ import {
   getOfferings,
   getPricing,
   getOpeningHours,
+  getSiteImages,
 } from "../../sanity/lib/fetch";
 
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function HomePage() {
-  const [settings, trainers, offerings, pricing, hours] = await Promise.all([
-    getSiteSettings(),
-    getTrainers(),
-    getOfferings(),
-    getPricing(),
-    getOpeningHours(),
-  ]);
+  const [settings, trainers, offerings, pricing, hours, images] =
+    await Promise.all([
+      getSiteSettings(),
+      getTrainers(),
+      getOfferings(),
+      getPricing(),
+      getOpeningHours(),
+      getSiteImages(),
+    ]);
 
   const trainer = trainers[0];
 
   return (
     <>
-      <Hero settings={settings} />
+      <Hero settings={settings} heroImage={images.hero} />
       <PhilosophyGrid />
-      <StudioSection />
+      <StudioSection image={images.studio} />
       <TrainerSpotlight trainer={trainer} />
       <OfferingCards offerings={offerings} />
       <PricingTable tiers={pricing} />

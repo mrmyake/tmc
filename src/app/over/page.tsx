@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { OverContent } from "./OverContent";
+import { getSiteImages } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "Over The Movement Club | Onze Filosofie & Trainer Marlon",
@@ -13,6 +14,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OverPage() {
-  return <OverContent />;
+export default async function OverPage() {
+  const images = await getSiteImages();
+  return (
+    <OverContent
+      marlonImage={images.overMarlon}
+      hormoonprofielImage={images.hormoonprofiel}
+      gallery={images.gallery}
+    />
+  );
 }

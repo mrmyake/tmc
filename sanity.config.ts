@@ -28,6 +28,13 @@ export default defineConfig({
                   .schemaType("openingHours")
                   .documentId("openingHours")
               ),
+            S.listItem()
+              .title("Website Afbeeldingen")
+              .child(
+                S.document()
+                  .schemaType("siteImages")
+                  .documentId("siteImages")
+              ),
             S.divider(),
             S.documentTypeListItem("trainer").title("Trainers"),
             S.documentTypeListItem("offering").title("Trainingsaanbod"),

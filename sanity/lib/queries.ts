@@ -14,6 +14,8 @@ export const faqsByPageQuery = `*[_type == "faq" && page == $page] | order(order
 
 export const blogPostsQuery = `*[_type == "blogPost"] | order(publishedAt desc)`;
 
+export const siteImagesQuery = `*[_type == "siteImages"][0]`;
+
 export const blogPostBySlugQuery = `*[_type == "blogPost" && slug.current == $slug][0]{
   ...,
   author->{ name, photo }

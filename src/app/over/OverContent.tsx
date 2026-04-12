@@ -6,8 +6,16 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { SITE } from "@/lib/constants";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage, SanityGalleryImage } from "../../../sanity/lib/fetch";
 
-export function OverContent() {
+interface OverContentProps {
+  marlonImage?: SanityImage;
+  hormoonprofielImage?: SanityImage;
+  gallery?: SanityGalleryImage[];
+}
+
+export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverContentProps) {
   return (
     <>
       {/* Page header */}
@@ -28,12 +36,19 @@ export function OverContent() {
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <ScrollReveal>
-              <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
-                {/* {FOTO: Marlon in de studio, actie of portret} */}
-                <span className="text-text-muted text-sm uppercase tracking-widest">
-                  Foto {SITE.trainer.name}
-                </span>
-              </div>
+              {marlonImage?.asset ? (
+                <img
+                  src={urlFor(marlonImage).width(1200).height(900).quality(80).url()}
+                  alt={`${SITE.trainer.name} in de studio`}
+                  className="w-full aspect-[4/3] object-cover"
+                />
+              ) : (
+                <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
+                  <span className="text-text-muted text-sm uppercase tracking-widest">
+                    Foto {SITE.trainer.name}
+                  </span>
+                </div>
+              )}
             </ScrollReveal>
             <ScrollReveal delay={0.15}>
               <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
@@ -130,23 +145,32 @@ export function OverContent() {
             />
           </ScrollReveal>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              "Studio overzicht — apparatuur en ruimte",
-              "Detail — premium apparatuur close-up",
-              "Sfeer — verlichting en materialen",
-              "Training in actie — small group",
-              "Mobility area — stretching zone",
-              "Entree en ontvangst",
-            ].map((desc, i) => (
-              <ScrollReveal key={desc} delay={i * 0.08}>
-                <div className="aspect-square bg-bg-subtle flex items-center justify-center p-4">
-                  {/* {FOTO: ${desc}} */}
-                  <span className="text-text-muted text-xs text-center uppercase tracking-widest">
-                    {desc}
-                  </span>
-                </div>
-              </ScrollReveal>
-            ))}
+            {gallery && gallery.length > 0
+              ? gallery.map((img, i) => (
+                  <ScrollReveal key={i} delay={i * 0.08}>
+                    <img
+                      src={urlFor(img).width(800).height(800).quality(80).url()}
+                      alt={img.caption || `Studio foto ${i + 1}`}
+                      className="w-full aspect-square object-cover"
+                    />
+                  </ScrollReveal>
+                ))
+              : [
+                  "Studio overzicht",
+                  "Premium apparatuur",
+                  "Sfeer en verlichting",
+                  "Small group training",
+                  "Mobility area",
+                  "Entree en ontvangst",
+                ].map((desc, i) => (
+                  <ScrollReveal key={desc} delay={i * 0.08}>
+                    <div className="aspect-square bg-bg-subtle flex items-center justify-center p-4">
+                      <span className="text-text-muted text-xs text-center uppercase tracking-widest">
+                        {desc}
+                      </span>
+                    </div>
+                  </ScrollReveal>
+                ))}
           </div>
         </Container>
       </Section>
@@ -192,12 +216,19 @@ export function OverContent() {
               </div>
             </ScrollReveal>
             <ScrollReveal delay={0.15}>
-              <div className="aspect-[4/3] bg-bg-elevated flex items-center justify-center">
-                {/* {FOTO: Marlon in consult of holistisch beeld} */}
-                <span className="text-text-muted text-sm uppercase tracking-widest">
-                  Hormoonprofiel
-                </span>
-              </div>
+              {hormoonprofielImage?.asset ? (
+                <img
+                  src={urlFor(hormoonprofielImage).width(1200).height(900).quality(80).url()}
+                  alt="Hormoonprofiel - holistisch trainen"
+                  className="w-full aspect-[4/3] object-cover"
+                />
+              ) : (
+                <div className="aspect-[4/3] bg-bg-elevated flex items-center justify-center">
+                  <span className="text-text-muted text-sm uppercase tracking-widest">
+                    Hormoonprofiel
+                  </span>
+                </div>
+              )}
             </ScrollReveal>
           </div>
         </Container>

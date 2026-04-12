@@ -4,23 +4,34 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage } from "../../../sanity/lib/fetch";
 
-export function StudioSection() {
+interface StudioSectionProps {
+  image?: SanityImage;
+}
+
+export function StudioSection({ image }: StudioSectionProps) {
   return (
     <Section bg="elevated">
       <Container>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Image placeholder */}
           <ScrollReveal>
-            <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
-              {/* {FOTO: Studio interieur - premium apparatuur, moody sfeer, warm licht} */}
-              <span className="text-text-muted text-sm uppercase tracking-widest">
-                Studio foto
-              </span>
-            </div>
+            {image?.asset ? (
+              <img
+                src={urlFor(image).width(1200).height(900).quality(80).url()}
+                alt="The Movement Club studio interieur"
+                className="w-full aspect-[4/3] object-cover"
+              />
+            ) : (
+              <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
+                <span className="text-text-muted text-sm uppercase tracking-widest">
+                  Studio foto
+                </span>
+              </div>
+            )}
           </ScrollReveal>
 
-          {/* Text */}
           <ScrollReveal delay={0.15}>
             <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
               De studio

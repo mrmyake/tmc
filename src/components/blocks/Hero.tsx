@@ -4,18 +4,28 @@ import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
-import type { SanitySettings } from "../../../sanity/lib/fetch";
+import type { SanitySettings, SanityImage } from "../../../sanity/lib/fetch";
+import { urlFor } from "../../../sanity/lib/client";
 
 interface HeroProps {
   settings: SanitySettings;
+  heroImage?: SanityImage;
 }
 
-export function Hero({ settings }: HeroProps) {
+export function Hero({ settings, heroImage }: HeroProps) {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* {FOTO: Fullscreen hero - donkere gym sfeer, moody lighting, premium apparatuur} */}
-      <div className="absolute inset-0 bg-bg" />
-      <div className="absolute inset-0 bg-gradient-to-b from-bg/40 via-bg/20 to-bg" />
+      {heroImage?.asset ? (
+        <img
+          src={urlFor(heroImage).width(2560).quality(80).url()}
+          alt="The Movement Club studio"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-bg" />
+      )}
+      <div className="absolute inset-0 bg-bg/60" />
+      <div className="absolute inset-0 bg-gradient-to-b from-bg/40 via-transparent to-bg" />
 
       <Container className="relative z-10 text-center pt-20">
         <motion.span
