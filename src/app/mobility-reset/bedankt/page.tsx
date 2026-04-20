@@ -22,7 +22,7 @@ export default function BedanktPage() {
             Je reset start morgen ochtend!
           </h1>
           <p className="text-text-muted text-lg mb-2">
-            Check je inbox — je ontvangt een welkomstmail.
+            Check je inbox, je ontvangt een welkomstmail.
           </p>
           <p className="text-text-muted mb-8">
             Morgenochtend krijg je Dag 1: Heupen & Onderrug.
@@ -32,7 +32,7 @@ export default function BedanktPage() {
               In de tussentijd
             </h2>
             <p className="text-text-muted mb-6">
-              Ontdek ons volledige trainingsaanbod — van personal training tot
+              Ontdek ons volledige trainingsaanbod, van personal training tot
               small group sessions.
             </p>
             <Button href="/aanbod">Bekijk het aanbod</Button>

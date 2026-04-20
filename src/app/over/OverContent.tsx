@@ -62,7 +62,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                   The Movement Club is geboren uit de overtuiging dat fitness
                   persoonlijk moet zijn. Als oprichtster van PT Loosdrecht
                   begeleidde {SITE.trainer.name} jarenlang klanten met dezelfde
-                  toewijding die haar kenmerkt. Maar ze wilde meer — een eigen
+                  toewijding die haar kenmerkt. Maar ze wilde meer: een eigen
                   studio waar elk lid écht gekend wordt.
                 </p>
                 <p>
@@ -74,7 +74,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                 <p>
                   Met de ervaring en reputatie opgebouwd bij PT Loosdrecht werd
                   die visie werkelijkheid. Op de Industrieweg in Loosdrecht
-                  opende The Movement Club de deuren — 160m² puur gericht op
+                  opende The Movement Club de deuren. 160m² puur gericht op
                   kwalitatieve training in een omgeving die inspireert.
                 </p>
               </div>
@@ -116,7 +116,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
               <p>
                 Wij geloven dat goed bewegen de basis is van alles. Niet alleen
                 voor sportprestaties, maar voor je dagelijks leven. Hoe je
-                loopt, bukt, tilt, draait — het begint allemaal bij
+                loopt, bukt, tilt, draait: het begint allemaal bij
                 beweegkwaliteit.
               </p>
               <p>
@@ -141,7 +141,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
             <SectionHeading
               label="De studio"
               heading="Een ruimte die inspireert"
-              subtext="Elk detail is doordacht — van de apparatuur tot de verlichting."
+              subtext="Elk detail is doordacht, van de apparatuur tot de verlichting."
             />
           </ScrollReveal>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -202,7 +202,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                 </p>
                 <p>
                   Door training, voeding en hormoonbalans samen te brengen
-                  ontstaat een compleet beeld — en een aanpak die écht werkt.
+                  ontstaat een compleet beeld, en een aanpak die écht werkt.
                   Voor vrouwen én mannen.
                 </p>
               </div>

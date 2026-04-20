@@ -42,7 +42,7 @@ const trainings = [
     title: "Mobility Sessions",
     subtitle: "Het fundament van goed bewegen",
     description:
-      "Mobility is geen nice-to-have — het is de basis. In deze sessies werken we gericht aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn. Ideaal als aanvulling op je training of als zelfstandig traject.",
+      "Mobility is geen nice-to-have, het is de basis. In deze sessies werken we gericht aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn. Ideaal als aanvulling op je training of als zelfstandig traject.",
     forWhom: "Voor iedereen met stijfheid, blessure-gevoeligheid of zittend werk.",
     expect: [
       "Gerichte mobiliteitsroutines",
@@ -57,7 +57,7 @@ const trainings = [
     title: "Strength Programs",
     subtitle: "Gestructureerd sterker worden",
     description:
-      "Een doordacht krachtprogramma dat periodisatie, progressieve overload en herstelbeheer combineert. Geen random workouts, maar een plan dat je meetbaar sterker maakt — week na week.",
+      "Een doordacht krachtprogramma dat periodisatie, progressieve overload en herstelbeheer combineert. Geen random workouts, maar een plan dat je meetbaar sterker maakt, week na week.",
     forWhom: "Voor gevorderden die structuur en progressie zoeken in hun krachttraining.",
     expect: [
       "Periodisatie-schema op maat",
@@ -72,7 +72,7 @@ const trainings = [
 const faqs = [
   {
     q: "Heb ik ervaring nodig om te starten?",
-    a: "Nee. Of je nu beginner bent of gevorderd — we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.",
+    a: "Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.",
   },
   {
     q: "Kan ik verschillende trainingsvormen combineren?",
@@ -153,7 +153,7 @@ export function AanbodContent() {
                           key={item}
                           className="text-text-muted text-sm flex items-start gap-2"
                         >
-                          <span className="text-accent mt-1">—</span>
+                          <span className="text-accent mt-1">·</span>
                           {item}
                         </li>
                       ))}
@@ -188,7 +188,7 @@ export function AanbodContent() {
               Benieuwd hoe mobiel je bent?
             </h2>
             <p className="text-text-muted mb-6">
-              Probeer de gratis 7-Dagen Mobility Reset — elke dag een korte
+              Probeer de gratis 7-Dagen Mobility Reset. Elke dag een korte
               video van Marlon.
             </p>
             <Button href="/mobility-reset">Start de reset</Button>

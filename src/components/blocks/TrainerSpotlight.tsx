@@ -40,7 +40,7 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
                 <p>
                   Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en
                   altijd gericht op duurzaam resultaat. Geen shortcuts, geen
-                  hypes — alleen wat werkt voor jouw lichaam.
+                  hypes. Alleen wat werkt voor jouw lichaam.
                 </p>
               </div>
             )}
@@ -50,7 +50,7 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
                   &ldquo;{trainer.quote}&rdquo;
                 </p>
                 <cite className="block mt-3 text-sm text-text-muted not-italic">
-                  — {trainer.name}
+                  – {trainer.name}
                 </cite>
               </blockquote>
             )}

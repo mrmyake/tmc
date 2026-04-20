@@ -82,7 +82,7 @@ export function MobilityResetContent() {
                 <div className="text-center">
                   <Play size={40} className="text-accent mx-auto mb-2" />
                   <p className="text-text-muted text-sm">
-                    Preview: Dag 1 — Heupen & Onderrug
+                    Preview: Dag 1 · Heupen & Onderrug
                   </p>
                 </div>
                 {/* {FOTO: Video thumbnail dag 1} */}
@@ -101,7 +101,7 @@ export function MobilityResetContent() {
                     key={item}
                     className="flex items-start gap-2 text-text text-sm"
                   >
-                    <span className="text-accent mt-0.5">—</span>
+                    <span className="text-accent mt-0.5">·</span>
                     {item}
                   </li>
                 ))}

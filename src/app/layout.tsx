@@ -39,7 +39,7 @@ export const metadata: Metadata = {
         url: "/images/og-default.jpg",
         width: 1200,
         height: 630,
-        alt: "The Movement Club — Boutique Training Studio Loosdrecht",
+        alt: "The Movement Club | Boutique Training Studio Loosdrecht",
       },
     ],
   },

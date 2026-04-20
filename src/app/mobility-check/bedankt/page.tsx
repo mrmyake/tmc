@@ -32,7 +32,7 @@ export default function BedanktPage() {
               In de tussentijd
             </h2>
             <p className="text-text-muted mb-6">
-              Download de gratis Beweeg Beter guide — 5 oefeningen die je
+              Download de gratis Beweeg Beter guide: 5 oefeningen die je
               vandaag nog kunt doen.
             </p>
             <Button href="/beweeg-beter">Download de guide</Button>

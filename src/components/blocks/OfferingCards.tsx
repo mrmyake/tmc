@@ -21,7 +21,7 @@ export function OfferingCards({ offerings }: OfferingCardsProps) {
           <SectionHeading
             label="Het aanbod"
             heading="Training die bij jou past"
-            subtext="Of je nu kiest voor persoonlijke begeleiding of de energie van een kleine groep — elke sessie is doordacht en op maat."
+            subtext="Of je nu kiest voor persoonlijke begeleiding of de energie van een kleine groep. Elke sessie is doordacht en op maat."
           />
         </ScrollReveal>
 

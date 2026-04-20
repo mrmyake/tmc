@@ -17,7 +17,7 @@ export function TestimonialCarousel() {
           <SectionHeading
             label="Google Reviews"
             heading="Wat onze klanten zeggen"
-            subtext="Beoordeeld met ★★★★★ op Google — voorheen PT Loosdrecht."
+            subtext="Beoordeeld met ★★★★★ op Google, voorheen PT Loosdrecht."
           />
         </ScrollReveal>
 

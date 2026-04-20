@@ -33,7 +33,7 @@ export function CrowdfundingFooterCta({
           </h2>
           <p className="text-text-muted text-lg mb-10">
             Kies jouw tier, claim je plek, en bouw met ons mee. Deel het met je
-            crew — samen maken we The Movement Club.
+            crew. Samen maken we The Movement Club.
           </p>
 
           <div className="mb-10">

@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     // 2. Mollie payment
     const payment = await mollie.payments.create({
       amount: { currency: "EUR", value: amountValue },
-      description: `The Movement Club — ${tier.name}`,
+      description: `The Movement Club | ${tier.name}`,
       redirectUrl: `${siteUrl}/crowdfunding/bedankt?backer=${backer.id}`,
       webhookUrl: `${siteUrl}/api/crowdfunding/webhook`,
       method: [

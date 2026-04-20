@@ -42,7 +42,7 @@ export function StudioSection({ image }: StudioSectionProps) {
             <div className="space-y-4 text-text-muted leading-relaxed">
               <p>
                 Geen drukte, geen wachtrijen, geen anonimiteit. The Movement
-                Club is bewust kleinschalig — zodat elke training voelt alsof de
+                Club is bewust kleinschalig, zodat elke training voelt alsof de
                 studio er alleen voor jou is.
               </p>
               <p>

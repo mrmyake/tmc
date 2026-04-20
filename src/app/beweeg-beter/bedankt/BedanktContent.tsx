@@ -32,7 +32,7 @@ export function BedanktContent() {
               Je guide is onderweg!
             </h1>
             <p className="text-text-muted text-lg mb-2">
-              Check je inbox — de Beweeg Beter guide staat klaar.
+              Check je inbox, de Beweeg Beter guide staat klaar.
             </p>
             <p className="text-text-muted mb-8">
               De download start ook automatisch.
@@ -42,7 +42,7 @@ export function BedanktContent() {
                 Volgende stap
               </h2>
               <p className="text-text-muted mb-6">
-                Klaar voor meer? Start de 7-Dagen Mobility Reset — elke dag een
+                Klaar voor meer? Start de 7-Dagen Mobility Reset. Elke dag een
                 korte video van Marlon.
               </p>
               <Button href="/mobility-reset">

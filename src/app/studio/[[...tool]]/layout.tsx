@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "The Movement Club — Studio",
+  title: "The Movement Club | Studio",
   robots: { index: false },
 };
 

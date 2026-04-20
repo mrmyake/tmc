@@ -33,7 +33,7 @@ export function BackersSection({ backers, totalBackers }: Props) {
 
         {backers.length === 0 ? (
           <p className="text-center text-text-muted">
-            Nog geen backers — jouw naam kan hier als eerste staan.
+            Nog geen backers. Jouw naam kan hier als eerste staan.
           </p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">

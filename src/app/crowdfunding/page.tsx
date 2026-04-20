@@ -15,12 +15,12 @@ import { daysUntil } from "@/lib/crowdfunding-helpers";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Make A Move — Crowdfunding",
+  title: "Make A Move | Crowdfunding",
   description:
     "Word founding member van The Movement Club in Loosdrecht. Kies jouw tier, claim je plek, en bouw met ons mee.",
   alternates: { canonical: "https://themovementclub.nl/crowdfunding" },
   openGraph: {
-    title: "Make A Move — The Movement Club Crowdfunding",
+    title: "Make A Move | The Movement Club Crowdfunding",
     description:
       "Word founding member van The Movement Club in Loosdrecht. Geen anonieme investeerders. Wij bouwen deze gym samen.",
     url: "https://themovementclub.nl/crowdfunding",

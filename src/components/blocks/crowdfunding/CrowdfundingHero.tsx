@@ -54,8 +54,8 @@ export function CrowdfundingHero({
               className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-6"
             >
               {active
-                ? "Crowdfunding — Loosdrecht"
-                : "Binnenkort — Loosdrecht"}
+                ? "Crowdfunding · Loosdrecht"
+                : "Binnenkort · Loosdrecht"}
             </motion.span>
 
             <motion.h1

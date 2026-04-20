@@ -76,7 +76,7 @@ export function ProeflesContent() {
               <p className="text-text-muted text-lg leading-relaxed mb-8">
                 Benieuwd of The Movement Club bij je past? Boek een gratis
                 proefles en ontdek het zelf. Geen verplichtingen, geen
-                verkooppraatje — gewoon een goede training.
+                verkooppraatje, gewoon een goede training.
               </p>
               <ul className="space-y-4">
                 {benefits.map((benefit) => (
@@ -147,9 +147,9 @@ export function ProeflesContent() {
                   />
                   <select name="experience" required className={inputStyles}>
                     <option value="">Ervaring *</option>
-                    <option value="beginner">Beginner — weinig tot geen ervaring</option>
-                    <option value="gemiddeld">Gemiddeld — ik train regelmatig</option>
-                    <option value="gevorderd">Gevorderd — ik train al jaren</option>
+                    <option value="beginner">Beginner (weinig tot geen ervaring)</option>
+                    <option value="gemiddeld">Gemiddeld (ik train regelmatig)</option>
+                    <option value="gevorderd">Gevorderd (ik train al jaren)</option>
                   </select>
                   <textarea
                     name="message"

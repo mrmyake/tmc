@@ -34,7 +34,7 @@ export function Hero({ settings, heroImage }: HeroProps) {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-6"
         >
-          Boutique Training Studio — {settings.address.city}
+          Boutique Training Studio · {settings.address.city}
         </motion.span>
 
         <motion.h1

@@ -81,7 +81,7 @@ async function seed() {
           {
             _type: "span",
             _key: "s2",
-            text: "Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat. Geen shortcuts, geen hypes — alleen wat werkt voor jouw lichaam.",
+            text: "Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat. Geen shortcuts, geen hypes. Alleen wat werkt voor jouw lichaam.",
           },
         ],
         markDefs: [],
@@ -235,7 +235,7 @@ async function seed() {
 
   // 6. FAQs
   const faqs = [
-    { q: "Heb ik ervaring nodig om te starten?", a: "Nee. Of je nu beginner bent of gevorderd — we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.", page: "aanbod", order: 1 },
+    { q: "Heb ik ervaring nodig om te starten?", a: "Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.", page: "aanbod", order: 1 },
     { q: "Kan ik verschillende trainingsvormen combineren?", a: "Absoluut. Veel leden combineren bijvoorbeeld small group training met een maandelijkse personal training sessie of mobility sessions.", page: "aanbod", order: 2 },
     { q: "Hoe groot zijn de groepen bij Small Group Training?", a: "Maximaal 6 personen. Zo garanderen we dat iedereen persoonlijke aandacht krijgt en de techniek correct wordt uitgevoerd.", page: "aanbod", order: 3 },
     { q: "Wat als ik een blessure heb?", a: "Bij een blessure passen we het programma aan. We werken samen met fysiotherapeuten in de regio voor een geïntegreerde aanpak.", page: "aanbod", order: 4 },
@@ -254,7 +254,7 @@ async function seed() {
     },
     {
       q: "Wat als het doel niet gehaald wordt?",
-      a: "De gym gaat door — ook als we het doelbedrag niet volledig halen. Alle bedragen gaan naar de inrichting van de studio en elke backer krijgt gewoon zijn gekozen tier (lidmaatschap, strippenkaart of PT-programma). Geen refunds, wel de zekerheid dat je krijgt waarvoor je hebt betaald.",
+      a: "De gym gaat door, ook als we het doelbedrag niet volledig halen. Alle bedragen gaan naar de inrichting van de studio en elke backer krijgt gewoon zijn gekozen tier (lidmaatschap, strippenkaart of PT-programma). Geen refunds, wel de zekerheid dat je krijgt waarvoor je hebt betaald.",
       order: 2,
     },
     {
@@ -318,7 +318,7 @@ async function seed() {
     goal: 50000,
     headline: "Make A Move",
     subline:
-      "Word founding member van The Movement Club — de nieuwe boutique gym in Loosdrecht. Geen anonieme investeerders. Wij bouwen dit samen.",
+      "Word founding member van The Movement Club, de nieuwe boutique gym in Loosdrecht. Geen anonieme investeerders. Wij bouwen dit samen.",
     story: [
       {
         _type: "block",
@@ -327,7 +327,7 @@ async function seed() {
           {
             _type: "span",
             _key: "s1",
-            text: "The Movement Club is de nieuwe boutique gym in Loosdrecht. Klein, persoonlijk en high-end. High-end equipment, groepslessen, yoga & mobility, personal training en online programma's — alles onder één dak. Geen anonieme massa, geen eindeloze sportscholencontracten.",
+            text: "The Movement Club is de nieuwe boutique gym in Loosdrecht. Klein, persoonlijk en high-end. High-end equipment, groepslessen, yoga & mobility, personal training en online programma's. Alles onder één dak. Geen anonieme massa, geen eindeloze sportscholencontracten.",
           },
         ],
         markDefs: [],
@@ -340,7 +340,7 @@ async function seed() {
           {
             _type: "span",
             _key: "s2",
-            text: "We bouwen deze gym samen met onze toekomstige leden. Geen anonieme investeerders. Geen concessies. Jij bent er vanaf dag één bij — met je naam op de Founders Wall. Make A Move.",
+            text: "We bouwen deze gym samen met onze toekomstige leden. Geen anonieme investeerders. Geen concessies. Jij bent er vanaf dag één bij, met je naam op de Founders Wall. Make A Move.",
           },
         ],
         markDefs: [],
@@ -365,7 +365,7 @@ async function seed() {
       "Ik heb mijn move gemaakt. Jij ook? 💪 Word founding member van The Movement Club in Loosdrecht:",
     thankYouTitle: "Welkom bij The Movement Club!",
     thankYouText:
-      "Je hebt zojuist je plek gereserveerd als founding member. We houden je op de hoogte over de opening en je eerste training. Deel het met je crew — samen maken we The Movement Club.",
+      "Je hebt zojuist je plek gereserveerd als founding member. We houden je op de hoogte over de opening en je eerste training. Deel het met je crew. Samen maken we The Movement Club.",
   });
   console.log("✓ crowdfundingSettings");
 

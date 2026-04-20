@@ -75,7 +75,7 @@ export function BeweegBeterContent() {
                 Gratis guide
               </span>
               <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4 leading-[1.15]">
-                Beweeg Beter — 5 dagelijkse oefeningen voor meer mobiliteit en
+                Beweeg Beter: 5 dagelijkse oefeningen voor meer mobiliteit en
                 kracht
               </h1>
               <p className="text-text-muted text-lg mb-6">
@@ -92,7 +92,7 @@ export function BeweegBeterContent() {
                     key={item}
                     className="flex items-start gap-2 text-text text-sm"
                   >
-                    <span className="text-accent mt-0.5">—</span>
+                    <span className="text-accent mt-0.5">·</span>
                     {item}
                   </li>
                 ))}
