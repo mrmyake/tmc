@@ -38,7 +38,7 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
                   klant met dezelfde passie en precisie.
                 </p>
                 <p>
-                  Haar aanpak is persoonlijk, wetenschappelijk onderbouwd en
+                  Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en
                   altijd gericht op duurzaam resultaat. Geen shortcuts, geen
                   hypes — alleen wat werkt voor jouw lichaam.
                 </p>

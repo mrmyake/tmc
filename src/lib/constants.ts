@@ -19,7 +19,7 @@ export const SITE = {
   btw: "NL000000000B01", // TODO
   trainer: {
     name: "Marlon",
-    role: "Head Trainer & Oprichtster",
+    role: "Head Trainer & Oprichter",
   },
   hormoonprofiel: "https://hormoonprofiel.com",
 } as const;

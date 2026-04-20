@@ -59,7 +59,7 @@ async function seed() {
     _id: "trainer-marlon",
     _type: "trainer",
     name: "Marlon",
-    role: "Head Trainer & Oprichtster",
+    role: "Head Trainer & Oprichter",
     bio: [
       {
         _type: "block",
@@ -81,7 +81,7 @@ async function seed() {
           {
             _type: "span",
             _key: "s2",
-            text: "Haar aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat. Geen shortcuts, geen hypes — alleen wat werkt voor jouw lichaam.",
+            text: "Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat. Geen shortcuts, geen hypes — alleen wat werkt voor jouw lichaam.",
           },
         ],
         markDefs: [],
@@ -254,7 +254,7 @@ async function seed() {
     },
     {
       q: "Wat als het doel niet gehaald wordt?",
-      a: "Dan krijg je je geld volledig terug. Geen risico, geen kleine lettertjes.",
+      a: "De gym gaat door — ook als we het doelbedrag niet volledig halen. Alle bedragen gaan naar de inrichting van de studio en elke backer krijgt gewoon zijn gekozen tier (lidmaatschap, strippenkaart of PT-programma). Geen refunds, wel de zekerheid dat je krijgt waarvoor je hebt betaald.",
       order: 2,
     },
     {
