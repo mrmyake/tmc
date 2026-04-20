@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppNav } from "./AppNav";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ export default async function AppLayout({
     // matcher misgaat.
     redirect("/login");
   }
+
+  // Self-heal: als de auth-trigger ooit heeft gefaald of een user via
+  // admin-API is aangemaakt zonder profile-rij, repareren we dat hier.
+  await ensureProfile(user);
 
   const { data: profile } = await supabase
     .from("profiles")
