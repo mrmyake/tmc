@@ -42,6 +42,28 @@ export default defineConfig({
             S.documentTypeListItem("testimonial").title("Testimonials"),
             S.documentTypeListItem("faq").title("FAQ"),
             S.divider(),
+            S.listItem().title("Member system").child(
+              S.list()
+                .title("Member system")
+                .items([
+                  S.documentTypeListItem("classPillar").title("Pijlers"),
+                  S.documentTypeListItem("classType").title("Lestypes"),
+                  S.documentTypeListItem("scheduleTemplate").title(
+                    "Rooster-templates"
+                  ),
+                  S.documentTypeListItem("membershipPlan").title(
+                    "Membership Plans"
+                  ),
+                  S.listItem()
+                    .title("Booking Instellingen")
+                    .child(
+                      S.document()
+                        .schemaType("bookingSettings")
+                        .documentId("bookingSettings")
+                    ),
+                ])
+            ),
+            S.divider(),
             S.listItem()
               .title("Crowdfunding Instellingen")
               .child(
