@@ -19,8 +19,12 @@ interface SiteShellProps {
 export function SiteShell({ children, settings }: SiteShellProps) {
   const pathname = usePathname();
   const isStudio = pathname.startsWith("/studio");
+  const isApp = pathname === "/app" || pathname.startsWith("/app/");
+  const isLogin = pathname === "/login";
 
-  if (isStudio) {
+  if (isStudio || isApp || isLogin) {
+    // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
+    // navbar, footer CTA of lead magnet banner.
     return <>{children}</>;
   }
 
