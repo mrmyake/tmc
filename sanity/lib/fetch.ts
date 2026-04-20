@@ -7,6 +7,8 @@ import {
   pricingQuery,
   faqsByPageQuery,
   siteImagesQuery,
+  crowdfundingSettingsQuery,
+  crowdfundingTiersQuery,
 } from "./queries";
 import {
   SITE,
@@ -203,6 +205,62 @@ export interface SanitySiteImages {
 export async function getSiteImages(): Promise<SanitySiteImages> {
   const data = await safeFetch<SanitySiteImages>(siteImagesQuery);
   return data || {};
+}
+
+// Crowdfunding
+export interface SanityBudgetItem {
+  _key?: string;
+  label: string;
+  amount: number;
+}
+
+export interface SanityCrowdfundingSettings {
+  active: boolean;
+  goal: number;
+  startDate?: string;
+  endDate?: string;
+  headline: string;
+  subline?: string;
+  heroImage?: SanityImage;
+  story?: unknown[];
+  budgetItems?: SanityBudgetItem[];
+  whatsappShareText?: string;
+  thankYouTitle?: string;
+  thankYouText?: string;
+}
+
+export interface SanityCrowdfundingTier {
+  _id: string;
+  tierId: string;
+  name: string;
+  tagline?: string;
+  description?: string;
+  price: number;
+  normalPrice?: number;
+  maxSlots?: number;
+  includes?: string[];
+  badge?: string;
+  highlighted: boolean;
+  active: boolean;
+  order: number;
+}
+
+export async function getCrowdfundingSettings(): Promise<SanityCrowdfundingSettings | null> {
+  return await safeFetch<SanityCrowdfundingSettings>(crowdfundingSettingsQuery);
+}
+
+export async function getCrowdfundingTiers(): Promise<SanityCrowdfundingTier[]> {
+  const data = await safeFetch<SanityCrowdfundingTier[]>(crowdfundingTiersQuery);
+  return data || [];
+}
+
+export async function getCrowdfundingTierById(
+  tierId: string
+): Promise<SanityCrowdfundingTier | null> {
+  return await safeFetch<SanityCrowdfundingTier>(
+    `*[_type == "crowdfundingTier" && tierId == $tierId][0]`,
+    { tierId }
+  );
 }
 
 // Re-export PILLARS (not in CMS, static)

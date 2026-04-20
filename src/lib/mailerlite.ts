@@ -51,4 +51,7 @@ export const GROUPS = {
   MOBILITY_CHECK: "184521735663519061",
   PROEFLES: "184521743018230980",
   CONTACT: "184521748487603774",
+  // Env-driven: maak de group in MailerLite Studio en zet het ID in .env.local
+  // als MAILERLITE_CROWDFUNDING_BACKER_GROUP_ID. Leeg = geen MailerLite sync.
+  CROWDFUNDING_BACKER: process.env.MAILERLITE_CROWDFUNDING_BACKER_GROUP_ID ?? "",
 } as const;

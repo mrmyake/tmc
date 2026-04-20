@@ -8,7 +8,7 @@ type EventParams = {
   event_category?: string;
   event_label?: string;
   value?: number;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | boolean | undefined;
 };
 
 export const trackEvent = (eventName: string, params?: EventParams) => {
@@ -44,5 +44,69 @@ export const trackFormStart = (formName: string) => {
   trackEvent("form_start", {
     event_category: "engagement",
     event_label: formName,
+  });
+};
+
+export const trackOutbound = (destination: string) => {
+  trackEvent("click_outbound", {
+    event_category: "navigation",
+    event_label: destination,
+  });
+};
+
+// ---- Crowdfunding ----
+
+export const trackViewItemList = (listName: string) => {
+  trackEvent("view_item_list", {
+    event_category: "crowdfunding",
+    item_list_name: listName,
+  });
+};
+
+export const trackSelectItem = (tierId: string, tierName: string) => {
+  trackEvent("select_item", {
+    event_category: "crowdfunding",
+    event_label: tierName,
+    tier_id: tierId,
+  });
+};
+
+export const trackBeginCheckout = (
+  tierId: string,
+  tierName: string,
+  value: number
+) => {
+  trackEvent("begin_checkout", {
+    event_category: "crowdfunding",
+    event_label: tierName,
+    tier_id: tierId,
+    value,
+    currency: "EUR",
+  });
+};
+
+export const trackPurchase = (params: {
+  transactionId: string;
+  tierId: string;
+  tierName: string;
+  value: number;
+}) => {
+  trackEvent("purchase", {
+    event_category: "crowdfunding",
+    transaction_id: params.transactionId,
+    tier_id: params.tierId,
+    event_label: params.tierName,
+    value: params.value,
+    currency: "EUR",
+  });
+};
+
+export const trackShare = (
+  method: "whatsapp" | "instagram" | "facebook" | "copy"
+) => {
+  trackEvent("share", {
+    event_category: "crowdfunding",
+    event_label: `share_${method}`,
+    method,
   });
 };

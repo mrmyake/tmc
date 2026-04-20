@@ -42,6 +42,17 @@ export default defineConfig({
             S.documentTypeListItem("testimonial").title("Testimonials"),
             S.documentTypeListItem("faq").title("FAQ"),
             S.divider(),
+            S.listItem()
+              .title("Crowdfunding Instellingen")
+              .child(
+                S.document()
+                  .schemaType("crowdfundingSettings")
+                  .documentId("crowdfundingSettings")
+              ),
+            S.documentTypeListItem("crowdfundingTier").title(
+              "Crowdfunding Tiers"
+            ),
+            S.divider(),
             S.documentTypeListItem("blogPost").title("Blog"),
           ]),
     }),

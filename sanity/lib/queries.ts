@@ -20,3 +20,7 @@ export const blogPostBySlugQuery = `*[_type == "blogPost" && slug.current == $sl
   ...,
   author->{ name, photo }
 }`;
+
+export const crowdfundingSettingsQuery = `*[_type == "crowdfundingSettings"][0]`;
+
+export const crowdfundingTiersQuery = `*[_type == "crowdfundingTier" && active == true] | order(order asc)`;

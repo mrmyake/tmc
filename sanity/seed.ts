@@ -246,8 +246,51 @@ async function seed() {
     { q: "Wat als ik blessures heb?", a: "Juist dan is een screening waardevol. Marlon past alles aan op jouw situatie.", page: "mobility-check", order: 4 },
   ];
 
-  for (let i = 0; i < faqs.length; i++) {
-    const f = faqs[i];
+  const crowdfundingFaqs = [
+    {
+      q: "Wanneer gaat de gym open?",
+      a: "We mikken op de zomer van 2026. Zodra de crowdfunding is afgerond starten we met de inrichting.",
+      order: 1,
+    },
+    {
+      q: "Wat als het doel niet gehaald wordt?",
+      a: "Dan krijg je je geld volledig terug. Geen risico, geen kleine lettertjes.",
+      order: 2,
+    },
+    {
+      q: "Kan ik mijn tier upgraden?",
+      a: "Ja, neem contact op en we regelen het verschil.",
+      order: 3,
+    },
+    {
+      q: "Waar is The Movement Club?",
+      a: "Industrieweg 14P, Loosdrecht.",
+      order: 4,
+    },
+    {
+      q: "Wie is Marlon?",
+      a: "Marlon is een ervaren trainer met een sterke track record in Loosdrecht en omgeving. Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat.",
+      order: 5,
+    },
+    {
+      q: "Wat houdt full access in?",
+      a: "Vrij trainen op alle equipment, alle groepslessen, yoga & mobility classes, en toegang tot het online programma.",
+      order: 6,
+    },
+    {
+      q: "Hoe werkt betaling?",
+      a: "Je betaalt eenmalig via iDEAL of creditcard. Geen abonnement, geen automatische incasso.",
+      order: 7,
+    },
+  ];
+
+  const allFaqs = [
+    ...faqs,
+    ...crowdfundingFaqs.map((f) => ({ ...f, page: "crowdfunding" as const })),
+  ];
+
+  for (let i = 0; i < allFaqs.length; i++) {
+    const f = allFaqs[i];
     await client.createOrReplace({
       _id: `faq-${f.page}-${f.order}`,
       _type: "faq",
@@ -265,7 +308,253 @@ async function seed() {
       order: f.order,
     });
   }
-  console.log("✓ faqs (9)");
+  console.log(`✓ faqs (${allFaqs.length})`);
+
+  // 7. Crowdfunding Settings
+  await client.createOrReplace({
+    _id: "crowdfundingSettings",
+    _type: "crowdfundingSettings",
+    active: false,
+    goal: 50000,
+    headline: "Make A Move",
+    subline:
+      "Word founding member van The Movement Club — de nieuwe boutique gym in Loosdrecht. Geen anonieme investeerders. Wij bouwen dit samen.",
+    story: [
+      {
+        _type: "block",
+        _key: "story1",
+        children: [
+          {
+            _type: "span",
+            _key: "s1",
+            text: "The Movement Club is de nieuwe boutique gym in Loosdrecht. Klein, persoonlijk en high-end. High-end equipment, groepslessen, yoga & mobility, personal training en online programma's — alles onder één dak. Geen anonieme massa, geen eindeloze sportscholencontracten.",
+          },
+        ],
+        markDefs: [],
+        style: "normal",
+      },
+      {
+        _type: "block",
+        _key: "story2",
+        children: [
+          {
+            _type: "span",
+            _key: "s2",
+            text: "We bouwen deze gym samen met onze toekomstige leden. Geen anonieme investeerders. Geen concessies. Jij bent er vanaf dag één bij — met je naam op de Founders Wall. Make A Move.",
+          },
+        ],
+        markDefs: [],
+        style: "normal",
+      },
+    ],
+    budgetItems: [
+      {
+        _key: "b1",
+        label: "Equipment & inrichting",
+        amount: 30000,
+      },
+      {
+        _key: "b2",
+        label: "Vloer, spiegels, afwerking",
+        amount: 10000,
+      },
+      { _key: "b3", label: "Branding & signage", amount: 5000 },
+      { _key: "b4", label: "Lancering & marketing", amount: 5000 },
+    ],
+    whatsappShareText:
+      "Ik heb mijn move gemaakt. Jij ook? 💪 Word founding member van The Movement Club in Loosdrecht:",
+    thankYouTitle: "Welkom bij The Movement Club!",
+    thankYouText:
+      "Je hebt zojuist je plek gereserveerd als founding member. We houden je op de hoogte over de opening en je eerste training. Deel het met je crew — samen maken we The Movement Club.",
+  });
+  console.log("✓ crowdfundingSettings");
+
+  // 8. Crowdfunding Tiers
+  const crowdfundingTiers = [
+    {
+      tierId: "first-move",
+      name: "FIRST MOVE",
+      tagline: "Zet de eerste stap.",
+      description:
+        "De kleinste move is nog steeds een move. Jouw naam op de Founders Wall.",
+      price: 29,
+      maxSlots: 50,
+      includes: ["Naam op de Founders Wall in de gym"],
+      highlighted: false,
+      badge: null,
+      order: 1,
+    },
+    {
+      tierId: "flow",
+      name: "FLOW",
+      tagline: "Find your flow.",
+      description:
+        "Strippenkaart voor onze yoga & mobility lessen. Jouw ritme.",
+      price: 99,
+      normalPrice: 150,
+      maxSlots: null,
+      includes: [
+        "Strippenkaart: 10 yoga & mobility lessen",
+        "34% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: false,
+      badge: null,
+      order: 2,
+    },
+    {
+      tierId: "kickstart",
+      name: "KICKSTART",
+      tagline: "Your move starts here.",
+      description: "Eén maand full access. Ervaar de club.",
+      price: 129,
+      normalPrice: 150,
+      maxSlots: 50,
+      includes: [
+        "1 maand full access",
+        "Vrij trainen op high-end equipment",
+        "Alle groepslessen, yoga & mobility",
+        "14% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: false,
+      badge: "EARLY BIRD",
+      order: 3,
+    },
+    {
+      tierId: "momentum",
+      name: "MOMENTUM",
+      tagline: "Drie maanden om je fundament te leggen.",
+      description:
+        "Drie maanden full access. Genoeg tijd om gewoonte te worden.",
+      price: 379,
+      normalPrice: 450,
+      maxSlots: 40,
+      includes: [
+        "3 maanden full access",
+        "Vrij trainen, groepslessen, yoga & mobility",
+        "Naam op Founders Wall",
+        "16% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: false,
+      badge: null,
+      order: 4,
+    },
+    {
+      tierId: "the-squad",
+      name: "THE SQUAD",
+      tagline: "Move your crew.",
+      description: "Voor jou en drie vrienden. Samen sterker.",
+      price: 449,
+      normalPrice: 600,
+      maxSlots: 20,
+      includes: [
+        "4 personen × 1 maand full access",
+        "Vrij trainen, groepslessen, yoga & mobility",
+        "Squad foto op de Founders Wall",
+        "25% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: false,
+      badge: "GROEPSAANKOOP",
+      order: 5,
+    },
+    {
+      tierId: "all-in",
+      name: "ALL IN",
+      tagline: "All in. No excuses.",
+      description:
+        "Een vol jaar full access. Onze meest gekozen founding tier.",
+      price: 1295,
+      normalPrice: 1800,
+      maxSlots: 25,
+      includes: [
+        "12 maanden full access",
+        "Vrij trainen, groepslessen, yoga & mobility",
+        "Welkomspakket (t-shirt, shaker, band)",
+        "Naam op Founders Wall",
+        "28% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: true,
+      badge: "POPULAIR",
+      order: 6,
+    },
+    {
+      tierId: "power-move",
+      name: "POWER MOVE",
+      tagline: "Het complete 12-weken programma.",
+      description: "Met een van onze trainers. Meting, plan, resultaat.",
+      price: 1995,
+      normalPrice: 2409,
+      maxSlots: 10,
+      includes: [
+        "12-weken programma met een van onze trainers",
+        "Meting + 2× personal training per week",
+        "Groepslessen, voedingsbegeleiding",
+        "Trainingsschema op maat",
+        "17% korting t.o.v. reguliere prijs",
+      ],
+      highlighted: false,
+      badge: null,
+      order: 7,
+    },
+    {
+      tierId: "legacy",
+      name: "LEGACY",
+      tagline: "Leave your mark. Full access, voor altijd.",
+      description: "Lifetime membership. Breakeven na 23 maanden.",
+      price: 3495,
+      maxSlots: 10,
+      includes: [
+        "Lifetime membership",
+        "Vrij trainen, groepslessen, yoga & mobility",
+        "Welkomspakket",
+        "Founders Wall met gouden vermelding",
+        "Breakeven na 23 maanden",
+      ],
+      highlighted: false,
+      badge: "LIFETIME",
+      order: 8,
+    },
+    {
+      tierId: "the-original",
+      name: "THE ORIGINAL",
+      tagline: "Be the original.",
+      description:
+        "Gegarandeerd Marlon als jouw PT. Jouw naam voor altijd in de gym.",
+      price: 4995,
+      maxSlots: 3,
+      includes: [
+        "Lifetime membership",
+        "Gegarandeerd Marlon als jouw personal trainer",
+        "Jaarlijks persoonlijk trainingsplan",
+        "Eigen locker met naamplaatje",
+        "Jouw naam op een apparaat",
+        "Maandelijkse private session met Marlon",
+        "Founding dinner voor de opening",
+      ],
+      highlighted: false,
+      badge: "3 BESCHIKBAAR",
+      order: 9,
+    },
+  ];
+
+  for (const t of crowdfundingTiers) {
+    await client.createOrReplace({
+      _id: `crowdfundingTier-${t.tierId}`,
+      _type: "crowdfundingTier",
+      tierId: t.tierId,
+      name: t.name,
+      tagline: t.tagline,
+      description: t.description,
+      price: t.price,
+      normalPrice: t.normalPrice ?? undefined,
+      maxSlots: t.maxSlots ?? undefined,
+      includes: t.includes,
+      badge: t.badge ?? undefined,
+      highlighted: t.highlighted,
+      active: true,
+      order: t.order,
+    });
+  }
+  console.log(`✓ crowdfundingTiers (${crowdfundingTiers.length})`);
 
   console.log("\nDone! All content seeded to Sanity.");
 }

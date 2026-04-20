@@ -8,6 +8,7 @@ import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { LeadMagnetBanner } from "@/components/blocks/LeadMagnetBanner";
 import { Analytics } from "./Analytics";
 import { CookieConsent } from "./CookieConsent";
+import { UtmTracker } from "./UtmTracker";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
 interface SiteShellProps {
@@ -34,6 +35,7 @@ export function SiteShell({ children, settings }: SiteShellProps) {
       <LeadMagnetBanner />
       <Analytics />
       <CookieConsent />
+      <UtmTracker />
     </>
   );
 }
