@@ -17,11 +17,10 @@ export function anonymizeName(fullName: string): string {
 }
 
 export function formatEuro(amount: number): string {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: "EUR",
+  const n = new Intl.NumberFormat("nl-NL", {
     maximumFractionDigits: 0,
   }).format(amount);
+  return `€${n},-`;
 }
 
 export function relativeTimeNL(dateString: string): string {
