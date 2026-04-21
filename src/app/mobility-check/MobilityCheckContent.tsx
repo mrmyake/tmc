@@ -8,12 +8,21 @@ import { LeadPageLayout } from "@/components/layout/LeadPageLayout";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
-import { ClipboardCheck, Eye, FileText } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Eye, FileText } from "lucide-react";
 
-const inputStyles =
-  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
+function SelectChevron() {
+  return (
+    <ChevronDown
+      size={16}
+      strokeWidth={1.5}
+      aria-hidden
+      className="absolute right-0 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+    />
+  );
+}
 
 const steps = [
   {
@@ -178,72 +187,120 @@ export function MobilityCheckContent() {
               <form
                 onSubmit={handleSubmit}
                 onFocus={handleFocus}
-                className="space-y-4"
+                className="space-y-8"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    name="firstName"
-                    placeholder="Voornaam *"
-                    required
-                    className={inputStyles}
-                  />
-                  <input
-                    type="text"
-                    name="lastName"
-                    placeholder="Achternaam *"
-                    required
-                    className={inputStyles}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  <Field label="Voornaam">
+                    <input
+                      type="text"
+                      name="firstName"
+                      required
+                      autoComplete="given-name"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="Achternaam">
+                    <input
+                      type="text"
+                      name="lastName"
+                      required
+                      autoComplete="family-name"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
                 </div>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="E-mailadres *"
-                  required
-                  className={inputStyles}
-                />
-                <input
-                  type="tel"
-                  name="phone"
-                  placeholder="Telefoonnummer *"
-                  required
-                  className={inputStyles}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <select name="day" required className={inputStyles}>
-                    <option value="">Voorkeur dag *</option>
-                    <option value="maandag">Maandag</option>
-                    <option value="dinsdag">Dinsdag</option>
-                    <option value="woensdag">Woensdag</option>
-                    <option value="donderdag">Donderdag</option>
-                    <option value="vrijdag">Vrijdag</option>
-                    <option value="zaterdag">Zaterdag</option>
-                  </select>
-                  <select name="time" required className={inputStyles}>
-                    <option value="">Voorkeur tijdstip *</option>
-                    <option value="ochtend">Ochtend</option>
-                    <option value="middag">Middag</option>
-                    <option value="avond">Avond</option>
-                  </select>
+                <Field label="E-mailadres">
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    autoComplete="email"
+                    className={fieldInputClasses}
+                  />
+                </Field>
+                <Field label="Telefoon">
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    autoComplete="tel"
+                    className={fieldInputClasses}
+                  />
+                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  <Field label="Voorkeur dag">
+                    <div className="relative">
+                      <select
+                        name="day"
+                        required
+                        defaultValue=""
+                        className={`${fieldInputClasses} appearance-none pr-8`}
+                      >
+                        <option value="" disabled>
+                          Kies een dag
+                        </option>
+                        <option value="maandag">Maandag</option>
+                        <option value="dinsdag">Dinsdag</option>
+                        <option value="woensdag">Woensdag</option>
+                        <option value="donderdag">Donderdag</option>
+                        <option value="vrijdag">Vrijdag</option>
+                        <option value="zaterdag">Zaterdag</option>
+                      </select>
+                      <SelectChevron />
+                    </div>
+                  </Field>
+                  <Field label="Voorkeur tijdstip">
+                    <div className="relative">
+                      <select
+                        name="time"
+                        required
+                        defaultValue=""
+                        className={`${fieldInputClasses} appearance-none pr-8`}
+                      >
+                        <option value="" disabled>
+                          Kies een tijdstip
+                        </option>
+                        <option value="ochtend">Ochtend</option>
+                        <option value="middag">Middag</option>
+                        <option value="avond">Avond</option>
+                      </select>
+                      <SelectChevron />
+                    </div>
+                  </Field>
                 </div>
-                <select name="experience" required className={inputStyles}>
-                  <option value="">Sportervaring *</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="gemiddeld">Gemiddeld</option>
-                  <option value="gevorderd">Gevorderd</option>
-                </select>
-                <textarea
-                  name="goals"
-                  placeholder="Klachten of doelen (optioneel)"
-                  rows={3}
-                  className={`${inputStyles} resize-none`}
-                />
+                <Field label="Sportervaring">
+                  <div className="relative">
+                    <select
+                      name="experience"
+                      required
+                      defaultValue=""
+                      className={`${fieldInputClasses} appearance-none pr-8`}
+                    >
+                      <option value="" disabled>
+                        Kies je niveau
+                      </option>
+                      <option value="beginner">Beginner</option>
+                      <option value="gemiddeld">Gemiddeld</option>
+                      <option value="gevorderd">Gevorderd</option>
+                    </select>
+                    <SelectChevron />
+                  </div>
+                </Field>
+                <Field
+                  label="Klachten of doelen"
+                  hint="Optioneel"
+                >
+                  <textarea
+                    name="goals"
+                    rows={3}
+                    className={`${fieldInputClasses} resize-none`}
+                  />
+                </Field>
                 <Button
                   type="submit"
                   className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
                 >
-                  {loading ? "Bezig..." : "Plan mijn Mobility Check"}
+                  {loading ? "Versturen" : "Plan mijn Mobility Check"}
                 </Button>
                 <p className="text-text-muted text-xs text-center">
                   Volledig gratis en vrijblijvend.

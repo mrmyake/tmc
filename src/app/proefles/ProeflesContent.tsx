@@ -5,12 +5,10 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { trackLead, trackFormStart } from "@/lib/analytics";
-
-const inputStyles =
-  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 const benefits = [
   "Kennismaking met trainer Marlon",
@@ -112,53 +110,86 @@ export function ProeflesContent() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(Object.fromEntries(formData.entries())),
                       });
-                    } catch { /* continue */ }
+                    } catch {
+                      /* continue */
+                    }
                     setSubmitted(true);
                   }}
                   onFocus={handleFocus}
-                  className="space-y-4"
+                  className="space-y-7"
                 >
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Naam *"
-                    required
-                    className={inputStyles}
-                  />
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="E-mailadres *"
-                    required
-                    className={inputStyles}
-                  />
-                  <input
-                    type="tel"
-                    name="phone"
-                    placeholder="Telefoonnummer *"
-                    required
-                    className={inputStyles}
-                  />
-                  <input
-                    type="text"
-                    name="preference"
-                    placeholder="Voorkeur dag/tijd (optioneel)"
-                    className={inputStyles}
-                  />
-                  <select name="experience" required className={inputStyles}>
-                    <option value="">Ervaring *</option>
-                    <option value="beginner">Beginner (weinig tot geen ervaring)</option>
-                    <option value="gemiddeld">Gemiddeld (ik train regelmatig)</option>
-                    <option value="gevorderd">Gevorderd (ik train al jaren)</option>
-                  </select>
-                  <textarea
-                    name="message"
-                    placeholder="Heb je nog iets dat je wilt delen? (optioneel)"
-                    rows={3}
-                    className={`${inputStyles} resize-none`}
-                  />
+                  <Field label="Naam">
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      autoComplete="name"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="E-mailadres">
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      autoComplete="email"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="Telefoon">
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      autoComplete="tel"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="Voorkeur dag of tijd" hint="Optioneel">
+                    <input
+                      type="text"
+                      name="preference"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="Ervaring">
+                    <div className="relative">
+                      <select
+                        name="experience"
+                        required
+                        defaultValue=""
+                        className={`${fieldInputClasses} appearance-none pr-8`}
+                      >
+                        <option value="" disabled>
+                          Kies je niveau
+                        </option>
+                        <option value="beginner">
+                          Beginner (weinig tot geen ervaring)
+                        </option>
+                        <option value="gemiddeld">
+                          Gemiddeld (ik train regelmatig)
+                        </option>
+                        <option value="gevorderd">
+                          Gevorderd (ik train al jaren)
+                        </option>
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        strokeWidth={1.5}
+                        aria-hidden
+                        className="absolute right-0 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Nog iets te delen" hint="Optioneel">
+                    <textarea
+                      name="message"
+                      rows={3}
+                      className={`${fieldInputClasses} resize-none`}
+                    />
+                  </Field>
                   <Button type="submit" className="w-full text-center">
-                    Boek mijn proefles
+                    Plan mijn proefles
                   </Button>
                   <p className="text-text-muted text-xs text-center pt-2">
                     Vrijblijvend en gratis. We nemen binnen 24 uur contact op.

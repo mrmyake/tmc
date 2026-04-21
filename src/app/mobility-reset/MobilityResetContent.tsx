@@ -7,12 +7,10 @@ import { Section } from "@/components/layout/Section";
 import { LeadPageLayout } from "@/components/layout/LeadPageLayout";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { Play } from "lucide-react";
-
-const inputStyles =
-  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 const days = [
   "Heupen & Onderrug",
@@ -140,27 +138,31 @@ export function MobilityResetContent() {
                 <form
                   onSubmit={handleSubmit}
                   onFocus={handleFocus}
-                  className="space-y-4"
+                  className="space-y-6"
                 >
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Voornaam *"
-                    required
-                    className={inputStyles}
-                  />
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="E-mailadres *"
-                    required
-                    className={inputStyles}
-                  />
+                  <Field label="Voornaam">
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      autoComplete="given-name"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="E-mailadres">
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      autoComplete="email"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
                   <Button
                     type="submit"
                     className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
                   >
-                    {loading ? "Bezig..." : "Start mijn reset"}
+                    {loading ? "Versturen" : "Start mijn reset"}
                   </Button>
                   <p className="text-text-muted text-xs text-center">
                     Gratis en vrijblijvend. Geen spam.
