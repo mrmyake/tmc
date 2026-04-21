@@ -60,80 +60,94 @@ export function MobilityResetContent() {
 
   return (
     <LeadPageLayout>
-      <Section className="pt-16 md:pt-24">
+      <Section className="pt-24 md:pt-32">
         <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-start max-w-5xl mx-auto">
             {/* Left: pitch */}
             <ScrollReveal>
-              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
                 Gratis 7-dagen programma
               </span>
-              <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4 leading-[1.15]">
-                7 Dagen Mobility Reset
+              <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
+                Zeven dagen mobility reset
               </h1>
-              <p className="text-text-muted text-lg mb-8">
-                Elke dag een korte video van Marlon. Beweeg beter in een week.
+              <p className="text-text-muted text-lg mb-10">
+                Elke dag een korte video van Marlon. Beweeg vrijer in een week.
               </p>
 
               {/* Video preview */}
-              <div className="aspect-video bg-bg-elevated border border-bg-subtle flex items-center justify-center mb-8">
+              <div className="aspect-video bg-bg-elevated flex items-center justify-center mb-12 relative">
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                />
                 <div className="text-center">
-                  <Play size={40} className="text-accent mx-auto mb-2" />
-                  <p className="text-text-muted text-sm">
-                    Preview: Dag 1 · Heupen & Onderrug
-                  </p>
+                  <Play
+                    size={40}
+                    strokeWidth={1.5}
+                    className="text-accent mx-auto mb-3"
+                  />
+                  <span className="tmc-eyebrow text-text-muted">
+                    Preview · Dag 01 · Heupen & onderrug
+                  </span>
                 </div>
-                {/* {FOTO: Video thumbnail dag 1} */}
               </div>
 
-              <h3 className="text-text font-medium text-sm uppercase tracking-widest mb-4">
-                Wat je krijgt
-              </h3>
-              <ul className="space-y-3 mb-8">
+              <span className="tmc-eyebrow block mb-5">Wat je krijgt</span>
+              <ul className="space-y-0 mb-12 border-y border-bg-subtle divide-y divide-bg-subtle">
                 {[
                   "7 video's van 2-3 minuten",
                   "Van heupen tot schouders, van adem tot kracht",
-                  "Dag 7: jouw persoonlijke volgende stap",
-                ].map((item) => (
+                  "Dag 7: je persoonlijke volgende stap",
+                ].map((item, i) => (
                   <li
                     key={item}
-                    className="flex items-start gap-2 text-text text-sm"
+                    className="py-4 flex items-baseline gap-5"
                   >
-                    <span className="text-accent mt-0.5">·</span>
-                    {item}
+                    <span className="tmc-eyebrow text-text-muted/70 shrink-0">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-text text-sm leading-relaxed">
+                      {item}
+                    </span>
                   </li>
                 ))}
               </ul>
 
               {/* Day overview */}
-              <h3 className="text-text font-medium text-sm uppercase tracking-widest mb-4">
-                Het programma
-              </h3>
-              <div className="space-y-2">
+              <span className="tmc-eyebrow block mb-5">Het programma</span>
+              <ul className="border-y border-bg-subtle divide-y divide-bg-subtle">
                 {days.map((day, i) => (
-                  <div
+                  <li
                     key={day}
-                    className="flex items-center gap-3 text-sm"
+                    className="py-3.5 flex items-baseline gap-6"
                   >
-                    <span className="text-accent font-medium w-12 shrink-0">
+                    <span className="tmc-eyebrow tmc-eyebrow--accent w-16 shrink-0">
                       Dag {i + 1}
                     </span>
-                    <span className="text-text-muted">{day}</span>
-                  </div>
+                    <span className="text-text-muted text-sm">{day}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
 
               <GoogleReviewsBadge />
             </ScrollReveal>
 
             {/* Right: form */}
             <ScrollReveal delay={0.15}>
-              <div className="bg-bg-elevated border border-bg-subtle p-6 md:p-8 sticky top-24">
-                <h2 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-2">
-                  Start mijn reset
+              <div className="bg-bg-elevated p-8 md:p-10 sticky top-24 relative">
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                />
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+                  Start nu
+                </span>
+                <h2 className="text-2xl font-medium text-text mb-3 tracking-[-0.01em]">
+                  Ontvang dag 1
                 </h2>
-                <p className="text-text-muted text-sm mb-6">
-                  Morgenochtend ontvang je de eerste video.
+                <p className="text-text-muted text-sm mb-8">
+                  Morgenochtend staat de eerste video in je inbox.
                 </p>
                 <form
                   onSubmit={handleSubmit}
