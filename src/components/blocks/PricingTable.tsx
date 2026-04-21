@@ -30,22 +30,22 @@ export function PricingTable({ tiers }: PricingTableProps) {
             <ScrollReveal key={tier._id} delay={i * 0.1}>
               <Card
                 className={`h-full flex flex-col relative ${
-                  tier.highlighted ? "border-accent" : ""
+                  tier.highlighted ? "border-accent/60" : ""
                 }`}
                 hover={false}
               >
                 {tier.highlighted && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-bg text-xs font-medium uppercase tracking-widest px-4 py-1">
-                    Populair
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-bg text-accent text-[10px] font-medium uppercase tracking-[0.3em] px-4 py-1.5 border border-accent/40">
+                    Meest gekozen
                   </span>
                 )}
                 <div className="mb-6">
-                  <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-2">
+                  <h3 className="text-2xl font-medium text-text mb-2 tracking-[-0.01em]">
                     {tier.name}
                   </h3>
                   <p className="text-text-muted text-sm">{tier.subtitle}</p>
                   {tier.price && (
-                    <p className="text-accent text-2xl font-medium mt-2">
+                    <p className="font-[family-name:var(--font-playfair)] text-accent text-4xl mt-3 tracking-[-0.02em]">
                       {tier.price}
                     </p>
                   )}
@@ -58,6 +58,7 @@ export function PricingTable({ tiers }: PricingTableProps) {
                     >
                       <Check
                         size={16}
+                        strokeWidth={1.5}
                         className="text-accent mt-0.5 shrink-0"
                       />
                       {feature}
