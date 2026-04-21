@@ -13,12 +13,15 @@ interface ButtonProps {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent text-bg hover:bg-accent-hover",
+    "bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99]",
   secondary:
-    "border border-accent text-accent hover:bg-accent hover:text-bg",
+    "border border-text-muted/30 text-text hover:border-accent hover:text-accent active:scale-[0.99]",
   ghost:
-    "text-text-muted hover:text-text",
+    "text-text-muted hover:text-accent",
 };
+
+const base =
+  "inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer";
 
 export function Button({
   children,
@@ -28,8 +31,6 @@ export function Button({
   type = "button",
   onClick,
 }: ButtonProps) {
-  const base =
-    "inline-flex items-center justify-center px-8 py-3 text-sm font-medium uppercase tracking-[0.15em] transition-colors duration-300 cursor-pointer";
   const classes = `${base} ${variants[variant]} ${className}`;
 
   if (href) {
