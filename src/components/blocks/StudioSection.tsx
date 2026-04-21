@@ -17,24 +17,26 @@ export function StudioSection({ image }: StudioSectionProps) {
       <Container>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <ScrollReveal>
-            {image?.asset ? (
-              <img
-                src={urlFor(image).width(1200).height(900).quality(80).url()}
-                alt="The Movement Club studio interieur"
-                className="w-full aspect-[4/3] object-cover"
-              />
-            ) : (
-              <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
-                <span className="text-text-muted text-sm uppercase tracking-widest">
-                  Studio foto
-                </span>
-              </div>
-            )}
+            <div className="relative -mx-6 lg:mx-0 lg:ml-[-8vw]">
+              {image?.asset ? (
+                <img
+                  src={urlFor(image).width(1200).height(900).quality(80).url()}
+                  alt="The Movement Club studio interieur"
+                  className="w-full aspect-[4/3] object-cover"
+                />
+              ) : (
+                <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
+                  <span className="tmc-eyebrow text-text-muted">
+                    Studio foto
+                  </span>
+                </div>
+              )}
+            </div>
           </ScrollReveal>
 
           <ScrollReveal delay={0.15}>
-            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-              De studio
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              01 · De studio
             </span>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
               160m² puur voor jouw training
