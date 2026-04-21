@@ -5,6 +5,7 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { QuietLink } from "@/components/ui/QuietLink";
 
 const trainings = [
   {
@@ -112,63 +113,62 @@ export function AanbodContent() {
       {trainings.map((training, i) => (
         <Section key={training.id} id={training.id} bg={i % 2 === 0 ? "elevated" : "default"}>
           <Container>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
               <ScrollReveal>
                 <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center sticky top-28">
-                  {/* {FOTO: ${training.title} in actie} */}
-                  <span className="text-text-muted text-sm uppercase tracking-widest">
+                  <span className="tmc-eyebrow text-text-muted">
                     Foto {training.title}
                   </span>
                 </div>
               </ScrollReveal>
 
               <ScrollReveal delay={0.15}>
-                <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-3 block">
-                  {training.subtitle}
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                  {String(i + 1).padStart(2, "0")} · {training.subtitle}
                 </span>
-                <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
+                <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-8 leading-[1.05] tracking-[-0.02em]">
                   {training.title}
                 </h2>
-                <p className="text-text-muted leading-relaxed mb-6">
+                <p className="text-text-muted text-lg leading-relaxed mb-10">
                   {training.description}
                 </p>
 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   <div>
-                    <h4 className="text-text font-medium text-sm uppercase tracking-widest mb-2">
-                      Voor wie
-                    </h4>
-                    <p className="text-text-muted text-sm leading-relaxed">
+                    <span className="tmc-eyebrow block mb-3">Voor wie</span>
+                    <p className="text-text text-sm leading-relaxed">
                       {training.forWhom}
                     </p>
                   </div>
 
                   <div>
-                    <h4 className="text-text font-medium text-sm uppercase tracking-widest mb-2">
+                    <span className="tmc-eyebrow block mb-4">
                       Wat kun je verwachten
-                    </h4>
-                    <ul className="space-y-2">
-                      {training.expect.map((item) => (
+                    </span>
+                    <ul className="border-y border-bg-subtle divide-y divide-bg-subtle">
+                      {training.expect.map((item, j) => (
                         <li
                           key={item}
-                          className="text-text-muted text-sm flex items-start gap-2"
+                          className="py-3.5 flex items-baseline gap-5"
                         >
-                          <span className="text-accent mt-1">·</span>
-                          {item}
+                          <span className="tmc-eyebrow text-text-muted/70 shrink-0">
+                            {String(j + 1).padStart(2, "0")}
+                          </span>
+                          <span className="text-text text-sm leading-relaxed">
+                            {item}
+                          </span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   <div>
-                    <h4 className="text-text font-medium text-sm uppercase tracking-widest mb-2">
-                      Frequentie
-                    </h4>
-                    <p className="text-text-muted text-sm">{training.frequency}</p>
+                    <span className="tmc-eyebrow block mb-3">Frequentie</span>
+                    <p className="text-text text-sm">{training.frequency}</p>
                   </div>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-10">
                   <Button href="/proefles">Probeer het zelf</Button>
                 </div>
               </ScrollReveal>
@@ -181,14 +181,14 @@ export function AanbodContent() {
       <Section bg="elevated">
         <Container className="max-w-3xl text-center">
           <ScrollReveal>
-            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
               Gratis programma
             </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Benieuwd hoe mobiel je bent?
             </h2>
-            <p className="text-text-muted mb-6">
-              Probeer de gratis 7-Dagen Mobility Reset. Elke dag een korte
+            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
+              Probeer de gratis zeven-dagen mobility reset. Elke dag een korte
               video van Marlon.
             </p>
             <Button href="/mobility-reset">Start de reset</Button>
@@ -205,14 +205,21 @@ export function AanbodContent() {
               heading="Nog vragen?"
             />
           </ScrollReveal>
-          <div className="space-y-6">
+          <div className="border-t border-bg-subtle">
             {faqs.map((faq, i) => (
-              <ScrollReveal key={faq.q} delay={i * 0.08}>
-                <div className="border-b border-bg-subtle pb-6">
-                  <h3 className="text-text font-medium mb-2">{faq.q}</h3>
-                  <p className="text-text-muted text-sm leading-relaxed">
-                    {faq.a}
-                  </p>
+              <ScrollReveal key={faq.q} delay={i * 0.06}>
+                <div className="py-6 border-b border-bg-subtle flex gap-8">
+                  <span className="tmc-eyebrow text-text-muted/70 shrink-0 pt-1">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
+                      {faq.q}
+                    </h3>
+                    <p className="text-text-muted text-sm leading-relaxed">
+                      {faq.a}
+                    </p>
+                  </div>
                 </div>
               </ScrollReveal>
             ))}
@@ -224,21 +231,22 @@ export function AanbodContent() {
       <Section bg="elevated">
         <Container className="text-center">
           <ScrollReveal>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4">
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              Kom langs
+            </span>
+            <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Klaar om te beginnen?
             </h2>
-            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
-              Boek een vrijblijvende proefles en ontdek welke training bij jou past.
+            <p className="text-text-muted text-lg mb-10 max-w-xl mx-auto">
+              Plan een vrijblijvende proefles en ontdek welke training bij jou
+              past.
             </p>
-            <Button href="/proefles">Boek een proefles</Button>
-            <p className="text-text-muted text-sm mt-6">
+            <Button href="/proefles">Plan je proefles</Button>
+            <p className="text-text-muted text-sm mt-8">
               Nog niet klaar om te starten?{" "}
-              <a
-                href="/beweeg-beter"
-                className="text-accent hover:text-accent-hover transition-colors underline underline-offset-4"
-              >
-                Download de gratis Beweeg Beter guide
-              </a>
+              <QuietLink href="/beweeg-beter" className="inline">
+                Download de Beweeg Beter guide
+              </QuietLink>
             </p>
           </ScrollReveal>
         </Container>
