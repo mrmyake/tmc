@@ -1,60 +1,11 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { Container } from "./Container";
+import { QuietLink } from "@/components/ui/QuietLink";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
 interface FooterProps {
   settings: SanitySettings;
-}
-
-function QuietLink({
-  href,
-  external,
-  children,
-}: {
-  href: string;
-  external?: boolean;
-  children: React.ReactNode;
-}) {
-  const classes =
-    "group relative inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text";
-  const underline = (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute left-0 right-0 -bottom-0.5 h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:scale-x-100"
-    />
-  );
-
-  if (external) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={classes}
-      >
-        <span className="relative">
-          {children}
-          {underline}
-        </span>
-        <ArrowUpRight
-          size={14}
-          strokeWidth={1.5}
-          className="transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-        />
-      </a>
-    );
-  }
-
-  return (
-    <Link href={href} className={classes}>
-      <span className="relative">
-        {children}
-        {underline}
-      </span>
-    </Link>
-  );
 }
 
 export function Footer({ settings }: FooterProps) {

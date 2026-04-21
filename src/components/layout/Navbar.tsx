@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
+import { QuietLink } from "@/components/ui/QuietLink";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -54,22 +55,15 @@ export function Navbar() {
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
             return (
-              <Link
+              <QuietLink
                 key={link.href}
                 href={link.href}
-                aria-current={isActive ? "page" : undefined}
-                className={`group relative inline-block text-[15px] py-1 transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
-                  isActive ? "text-text" : "text-text-muted"
-                }`}
+                active={isActive}
+                ariaCurrent={isActive ? "page" : undefined}
+                className="text-[15px] py-1"
               >
                 {link.label}
-                <span
-                  aria-hidden
-                  className={`pointer-events-none absolute left-0 right-0 -bottom-0.5 h-px origin-left bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
-                    isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                  }`}
-                />
-              </Link>
+              </QuietLink>
             );
           })}
           <Button href="/proefles" className="ml-4">
@@ -114,23 +108,14 @@ export function Navbar() {
                       delay: i * 0.05 + 0.08,
                     }}
                   >
-                    <Link
+                    <QuietLink
                       href={link.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={`group relative inline-block text-xl pb-1 transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
-                        isActive ? "text-text" : "text-text-muted"
-                      }`}
+                      active={isActive}
+                      ariaCurrent={isActive ? "page" : undefined}
+                      className="text-xl pb-1"
                     >
                       {link.label}
-                      <span
-                        aria-hidden
-                        className={`pointer-events-none absolute left-0 right-0 bottom-0 h-px origin-left bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
-                          isActive
-                            ? "scale-x-100"
-                            : "scale-x-0 group-hover:scale-x-100"
-                        }`}
-                      />
-                    </Link>
+                    </QuietLink>
                   </motion.div>
                 );
               })}

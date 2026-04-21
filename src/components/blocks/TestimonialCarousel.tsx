@@ -2,11 +2,11 @@
 
 import { ReactGoogleReviews } from "react-google-reviews";
 import "react-google-reviews/dist/index.css";
-import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
+import { QuietLink } from "@/components/ui/QuietLink";
 
 const FEATURABLE_WIDGET_ID = "ef34740b-2ef8-467f-abbf-e58e3d348bdf";
 
@@ -40,25 +40,12 @@ export function TestimonialCarousel() {
 
         <ScrollReveal delay={0.3}>
           <div className="text-center mt-10">
-            <a
+            <QuietLink
               href="https://www.google.com/maps/place/PT+Loosdrecht/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text"
+              external
             >
-              <span className="relative">
-                Bekijk alle reviews op Google
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute left-0 right-0 -bottom-0.5 h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:scale-x-100"
-                />
-              </span>
-              <ArrowUpRight
-                size={14}
-                strokeWidth={1.5}
-                className="transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-              />
-            </a>
+              Bekijk alle reviews op Google
+            </QuietLink>
           </div>
         </ScrollReveal>
       </Container>
