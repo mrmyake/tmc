@@ -12,7 +12,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - **Repo locatie:** `~/projects/tmc`
 - **GA4 Measurement ID:** `G-2VFCDM4KRZ`
 - **Sanity project:** `hn9lkvte` (dataset: `production`), studio op `/studio`
-- **Supabase project:** `cdkgjiotqlxnoxhfcjic.supabase.co` (alleen voor crowdfunding backers + forms)
+- **Supabase project:** `iljyitdazzhalblqetkx.supabase.co` (crowdfunding backers, forms, en vanaf april 2026 het ledensysteem)
 - **Email tool:** MailerLite (`MAILERLITE_API_KEY` in env)
 
 ### Wat al gebouwd is (niet opnieuw bouwen)
