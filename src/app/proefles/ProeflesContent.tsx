@@ -7,7 +7,7 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 
 const benefits = [
@@ -33,20 +33,20 @@ export function ProeflesContent() {
       <Section className="pt-32 md:pt-40 min-h-[80vh] flex items-center">
         <Container className="max-w-2xl text-center">
           <ScrollReveal>
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-accent/10 text-accent mb-6">
-              <Check size={32} />
-            </div>
-            <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4">
-              Je aanmelding is ontvangen!
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-6">
+              Verstuurd
+            </span>
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
+              Je aanmelding is ontvangen.
             </h1>
-            <p className="text-text-muted text-lg mb-2">
+            <p className="text-text-muted text-lg mb-3">
               Bedankt voor je interesse in The Movement Club.
             </p>
             <p className="text-text-muted">
               We nemen binnen 24 uur contact met je op om een moment in te
-              plannen. Tot snel!
+              plannen. Tot snel.
             </p>
-            <div className="mt-8">
+            <div className="mt-10">
               <Button href="/" variant="secondary">
                 Terug naar home
               </Button>
@@ -62,30 +62,34 @@ export function ProeflesContent() {
       {/* Hero */}
       <Section className="pt-32 md:pt-40">
         <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-start">
             {/* Left: pitch */}
             <ScrollReveal>
-              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-                Gratis & Vrijblijvend
+              <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
+                <span aria-hidden className="w-12 h-px bg-accent" />
+                Gratis · Vrijblijvend
+                <span aria-hidden className="w-12 h-px bg-accent" />
               </span>
-              <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.15]">
+              <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-8 leading-[1.05] tracking-[-0.02em]">
                 Ervaar The Movement Club
               </h1>
-              <p className="text-text-muted text-lg leading-relaxed mb-8">
-                Benieuwd of The Movement Club bij je past? Boek een gratis
+              <p className="text-text-muted text-lg leading-relaxed mb-10">
+                Benieuwd of The Movement Club bij je past? Plan een gratis
                 proefles en ontdek het zelf. Geen verplichtingen, geen
                 verkooppraatje, gewoon een goede training.
               </p>
-              <ul className="space-y-4">
-                {benefits.map((benefit) => (
+              <ul className="border-y border-bg-subtle divide-y divide-bg-subtle">
+                {benefits.map((benefit, i) => (
                   <li
                     key={benefit}
-                    className="flex items-center gap-3 text-text"
+                    className="py-4 flex items-baseline gap-5"
                   >
-                    <span className="flex items-center justify-center w-6 h-6 bg-accent/10 text-accent shrink-0">
-                      <Check size={14} />
+                    <span className="tmc-eyebrow text-text-muted/70 shrink-0">
+                      {String(i + 1).padStart(2, "0")}
                     </span>
-                    {benefit}
+                    <span className="text-text text-sm leading-relaxed">
+                      {benefit}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -94,8 +98,15 @@ export function ProeflesContent() {
 
             {/* Right: form */}
             <ScrollReveal delay={0.15}>
-              <div className="bg-bg-elevated border border-bg-subtle p-6 md:p-8">
-                <h2 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-6">
+              <div className="bg-bg-elevated p-8 md:p-10 relative">
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                />
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+                  Plan je sessie
+                </span>
+                <h2 className="text-2xl font-medium text-text mb-8 tracking-[-0.01em]">
                   Meld je aan
                 </h2>
                 <form
