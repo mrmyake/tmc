@@ -128,7 +128,7 @@ export default async function ProfielPage({
             <>
               <p className="text-text-muted text-sm mb-6">
                 Voltooid op{" "}
-                <span className="text-text">{intakeDoneOn}</span>. Pas 'm aan als
+                <span className="text-text">{intakeDoneOn}</span>. Pas &rsquo;m aan als
                 je situatie wijzigt.
               </p>
               <Link

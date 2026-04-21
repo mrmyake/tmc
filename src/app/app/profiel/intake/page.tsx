@@ -54,7 +54,7 @@ export default async function IntakePage() {
       </h1>
       <p className="text-text-muted mb-10 leading-relaxed">
         Een paar vragen zodat Marlon en het trainer-team je veilig en op maat
-        kunnen begeleiden. Invullen duurt 2 minuten. Alles behalve "doelen" is
+        kunnen begeleiden. Invullen duurt 2 minuten. Alles behalve &ldquo;doelen&rdquo; is
         optioneel.
       </p>
 
