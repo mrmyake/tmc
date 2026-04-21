@@ -5,10 +5,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { trackLead, trackFormStart } from "@/lib/analytics";
-
-const inputStyles =
-  "w-full bg-bg border border-bg-subtle px-3 py-2 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 export function LeadMagnetBanner() {
   const [visible, setVisible] = useState(false);
@@ -18,11 +16,8 @@ export function LeadMagnetBanner() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Don't show on lead magnet pages
     const excludedPaths = ["/beweeg-beter", "/mobility-reset", "/mobility-check"];
     if (excludedPaths.some((p) => pathname.startsWith(p))) return;
-
-    // Don't show if already dismissed this session
     if (sessionStorage.getItem("tmc_banner_shown")) return;
 
     const handleTrigger = () => {
@@ -36,7 +31,6 @@ export function LeadMagnetBanner() {
       }
     };
 
-    // Trigger after 30s OR 50% scroll
     const timer = setTimeout(() => {
       setVisible(true);
       sessionStorage.setItem("tmc_banner_shown", "1");
@@ -49,7 +43,7 @@ export function LeadMagnetBanner() {
       clearTimeout(timer);
       window.removeEventListener("scroll", handleTrigger);
     };
-  }, []);
+  }, [pathname]);
 
   const handleFocus = () => {
     if (!tracked.current) {
@@ -75,7 +69,7 @@ export function LeadMagnetBanner() {
         body: JSON.stringify(data),
       });
     } catch {
-      // Continue
+      /* continue */
     }
 
     trackLead("pdf_beweeg_beter", 1);
@@ -87,51 +81,61 @@ export function LeadMagnetBanner() {
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ x: 400, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 400, opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="fixed bottom-4 right-4 z-40 w-[340px] max-w-[calc(100vw-2rem)] bg-bg-elevated border border-bg-subtle shadow-2xl p-5"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
+          transition={{ duration: 0.5, ease: [0.2, 0.7, 0.1, 1] }}
+          className="fixed bottom-4 right-4 z-40 w-[360px] max-w-[calc(100vw-2rem)] bg-bg-elevated border border-bg-subtle"
         >
-          <button
-            onClick={() => setVisible(false)}
-            className="absolute top-3 right-3 text-text-muted hover:text-text transition-colors"
-            aria-label="Sluiten"
-          >
-            <X size={18} />
-          </button>
-          <p className="font-[family-name:var(--font-playfair)] text-lg text-text mb-1 pr-6">
-            Gratis guide
-          </p>
-          <p className="text-text-muted text-sm mb-4">
-            5 oefeningen voor betere mobiliteit
-          </p>
-          <form
-            onSubmit={handleSubmit}
-            onFocus={handleFocus}
-            className="space-y-3"
-          >
-            <input
-              type="text"
-              name="name"
-              placeholder="Voornaam"
-              required
-              className={inputStyles}
-            />
-            <input
-              type="email"
-              name="email"
-              placeholder="E-mailadres"
-              required
-              className={inputStyles}
-            />
-            <Button
-              type="submit"
-              className={`w-full text-center text-xs ${loading ? "opacity-50 pointer-events-none" : ""}`}
+          <div
+            aria-hidden
+            className="h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+          />
+          <div className="p-6">
+            <button
+              onClick={() => setVisible(false)}
+              className="absolute top-3 right-3 text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text"
+              aria-label="Sluiten"
             >
-              {loading ? "Bezig..." : "Download gratis"}
-            </Button>
-          </form>
+              <X size={18} strokeWidth={1.5} />
+            </button>
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+              Gratis guide
+            </span>
+            <p className="text-text text-base font-medium mb-5 tracking-[-0.01em] pr-6">
+              5 oefeningen voor betere mobiliteit
+            </p>
+            <form
+              onSubmit={handleSubmit}
+              onFocus={handleFocus}
+              className="space-y-5"
+            >
+              <Field label="Voornaam">
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  autoComplete="given-name"
+                  className={fieldInputClasses}
+                />
+              </Field>
+              <Field label="E-mailadres">
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  autoComplete="email"
+                  className={fieldInputClasses}
+                />
+              </Field>
+              <Button
+                type="submit"
+                className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
+              >
+                {loading ? "Versturen" : "Download gratis"}
+              </Button>
+            </form>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
