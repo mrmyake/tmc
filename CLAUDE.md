@@ -57,7 +57,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 - **Naam:** The Movement Club
 - **Locatie:** Industrieweg 14P, 1231 MX Loosdrecht
-- **Head trainer:** Marlon (man, oprichter, ook achter hormoonprofiel.com)
+- **Head trainer:** Marlon (vrouw, oprichtster, ook achter hormoonprofiel.com)
 - **Positionering:** Luxe, besloten, boutique, max 6 per groep
 - **Pijlers:** Movement / Mobility / Strength
 - **Doelgroep:** 30-55 jaar, bovengemiddeld inkomen, kwaliteitsgericht
