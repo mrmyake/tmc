@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
-import { FileDown } from "lucide-react";
+
+const bullets = [
+  "5 oefeningen die je in 10 minuten doet",
+  "Van hip mobility tot thoracic rotation",
+  "Met veelgemaakte fouten en tips",
+];
 
 export function BeweegBeterContent() {
   const [loading, setLoading] = useState(false);
@@ -50,48 +55,60 @@ export function BeweegBeterContent() {
 
   return (
     <LeadPageLayout>
-      <Section className="pt-16 md:pt-24">
+      <Section className="pt-24 md:pt-32">
         <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center max-w-5xl mx-auto">
-            {/* Left: PDF mockup */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-center max-w-5xl mx-auto">
+            {/* Left: PDF mockup — editorial cover */}
             <ScrollReveal>
-              <div className="aspect-[3/4] bg-bg-elevated border border-bg-subtle flex flex-col items-center justify-center p-8">
-                <FileDown size={48} className="text-accent mb-6" />
-                <p className="font-[family-name:var(--font-playfair)] text-2xl text-text text-center mb-2">
-                  Beweeg Beter
+              <div className="aspect-[3/4] bg-bg-elevated flex flex-col items-center justify-center p-10 text-center relative">
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                />
+                <span className="tmc-eyebrow tmc-eyebrow--accent mb-8">
+                  PDF guide
+                </span>
+                <p className="font-[family-name:var(--font-playfair)] text-4xl text-text leading-[1.05] tracking-[-0.02em] mb-4">
+                  Beweeg beter.
                 </p>
-                <p className="text-text-muted text-sm text-center">
-                  5 dagelijkse oefeningen voor meer mobiliteit en kracht
+                <p className="text-text-muted text-sm max-w-[22ch]">
+                  Vijf oefeningen voor meer mobiliteit en kracht.
                 </p>
-                {/* {FOTO: PDF mockup / cover design} */}
+                <div
+                  aria-hidden
+                  className="my-8 w-16 h-px bg-text-muted/30"
+                />
+                <span className="tmc-eyebrow text-text-muted/70">
+                  Door Marlon · The Movement Club
+                </span>
               </div>
             </ScrollReveal>
 
             {/* Right: form */}
             <ScrollReveal delay={0.15}>
-              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
                 Gratis guide
               </span>
-              <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4 leading-[1.15]">
-                Beweeg Beter: 5 dagelijkse oefeningen voor meer mobiliteit en
-                kracht
+              <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
+                Beweeg beter in tien minuten per dag
               </h1>
-              <p className="text-text-muted text-lg mb-6">
-                Gratis guide van trainer Marlon. Download direct.
+              <p className="text-text-muted text-lg mb-8">
+                Vijf oefeningen die Marlon zelf gebruikt. Direct bruikbaar,
+                rustig uitgelegd.
               </p>
 
-              <ul className="space-y-3 mb-8">
-                {[
-                  "5 oefeningen die je in 10 minuten doet",
-                  "Van hip mobility tot thoracic rotation",
-                  "Inclusief veelgemaakte fouten en tips",
-                ].map((item) => (
+              <ul className="space-y-0 mb-10 border-y border-bg-subtle divide-y divide-bg-subtle">
+                {bullets.map((item, i) => (
                   <li
                     key={item}
-                    className="flex items-start gap-2 text-text text-sm"
+                    className="py-4 flex items-baseline gap-5"
                   >
-                    <span className="text-accent mt-0.5">·</span>
-                    {item}
+                    <span className="tmc-eyebrow text-text-muted/70 shrink-0">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-text text-sm leading-relaxed">
+                      {item}
+                    </span>
                   </li>
                 ))}
               </ul>
