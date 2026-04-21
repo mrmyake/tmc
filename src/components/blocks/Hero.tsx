@@ -14,6 +14,23 @@ interface HeroProps {
 
 const clubEase: [number, number, number, number] = [0.2, 0.7, 0.1, 1];
 
+function renderTaglineWithAccent(tagline: string, accent?: string) {
+  if (!accent) return tagline;
+  const trimmed = accent.trim();
+  if (!trimmed) return tagline;
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = tagline.split(new RegExp(`(${escaped})`, "gi"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === trimmed.toLowerCase() ? (
+      <em key={i} className="not-italic text-accent">
+        {part}
+      </em>
+    ) : (
+      part
+    ),
+  );
+}
+
 export function Hero({ settings, heroImage }: HeroProps) {
   return (
     <section className="tmc-grain relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -49,7 +66,7 @@ export function Hero({ settings, heroImage }: HeroProps) {
           transition={{ duration: 0.8, delay: 0.4, ease: clubEase }}
           className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl lg:text-8xl xl:text-[9rem] text-text mb-8 leading-[1.02] tracking-[-0.02em]"
         >
-          {settings.tagline}
+          {renderTaglineWithAccent(settings.tagline, settings.taglineAccent)}
         </motion.h1>
 
         <motion.p

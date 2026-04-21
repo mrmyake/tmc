@@ -15,7 +15,14 @@ export default defineType({
       name: "tagline",
       title: "Tagline",
       type: "string",
-      description: "Korte beschrijving onder de naam",
+      description: "Hoofdregel op de homepage-hero. Eén sterke zin.",
+    }),
+    defineField({
+      name: "taglineAccent",
+      title: "Tagline accent-woord",
+      type: "string",
+      description:
+        "Optioneel. Één of twee woorden uit de tagline die in champagne-accent moeten verschijnen. Moeten exact voorkomen in de tagline (niet hoofdlettergevoelig). Bijvoorbeeld: als de tagline is 'Beweeg met intentie.', vul hier 'intentie' in. Leeg laten = hele tagline in standaardkleur.",
     }),
     defineField({
       name: "phone",

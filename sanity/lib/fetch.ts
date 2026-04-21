@@ -21,6 +21,7 @@ import {
 export interface SanitySettings {
   studioName: string;
   tagline: string;
+  taglineAccent?: string;
   phone: string;
   email: string;
   whatsappNumber: string;
