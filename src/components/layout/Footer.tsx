@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { Container } from "./Container";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
@@ -7,144 +8,163 @@ interface FooterProps {
   settings: SanitySettings;
 }
 
+function QuietLink({
+  href,
+  external,
+  children,
+}: {
+  href: string;
+  external?: boolean;
+  children: React.ReactNode;
+}) {
+  const classes =
+    "group relative inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text";
+  const underline = (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-0 right-0 -bottom-0.5 h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:scale-x-100"
+    />
+  );
+
+  if (external) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={classes}
+      >
+        <span className="relative">
+          {children}
+          {underline}
+        </span>
+        <ArrowUpRight
+          size={14}
+          strokeWidth={1.5}
+          className="transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={classes}>
+      <span className="relative">
+        {children}
+        {underline}
+      </span>
+    </Link>
+  );
+}
+
 export function Footer({ settings }: FooterProps) {
   return (
-    <footer className="bg-bg-elevated border-t border-bg-subtle">
-      <Container className="py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {/* Brand */}
+    <footer className="bg-bg-elevated">
+      <div
+        aria-hidden
+        className="h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent"
+      />
+      <Container className="py-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-14 md:gap-12">
           <div>
             <Link
               href="/"
-              className="font-[family-name:var(--font-playfair)] text-2xl text-text"
+              className="font-[family-name:var(--font-playfair)] text-3xl text-text leading-none tracking-[-0.01em]"
             >
-              {settings.studioName}
+              The Movement{" "}
+              <em className="not-italic text-accent">Club</em>
             </Link>
-            <p className="mt-4 text-text-muted text-sm leading-relaxed">
-              Boutique training studio in {settings.address.city}.
-              <br />
-              Persoonlijk. Exclusief. Resultaatgericht.
+            <p className="mt-6 text-text-muted text-sm leading-relaxed max-w-xs">
+              Boutique training studio in {settings.address.city}. Kleine
+              groepen, echte coaching, patronen die blijven.
             </p>
           </div>
 
-          {/* Navigation */}
-          <div>
-            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-6">
-              Navigatie
-            </h4>
-            <ul className="space-y-3">
-              {NAV_LINKS.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-text-muted hover:text-text transition-colors"
-                  >
-                    {link.label}
-                  </Link>
+          <div className="space-y-10">
+            <div>
+              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+                Navigatie
+              </h4>
+              <ul className="space-y-3">
+                {NAV_LINKS.map((link) => (
+                  <li key={link.href}>
+                    <QuietLink href={link.href}>{link.label}</QuietLink>
+                  </li>
+                ))}
+                <li>
+                  <QuietLink href="/proefles">Plan je proefles</QuietLink>
                 </li>
-              ))}
-              <li>
-                <Link
-                  href="/proefles"
-                  className="text-sm text-accent hover:text-accent-hover transition-colors"
-                >
-                  Boek een proefles
-                </Link>
-              </li>
-            </ul>
-            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-4 mt-8">
-              Gratis starten
-            </h4>
-            <ul className="space-y-3">
-              <li>
-                <Link
-                  href="/beweeg-beter"
-                  className="text-sm text-text-muted hover:text-text transition-colors"
-                >
-                  Beweeg Beter Guide
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/mobility-reset"
-                  className="text-sm text-text-muted hover:text-text transition-colors"
-                >
-                  7-Dagen Mobility Reset
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/mobility-check"
-                  className="text-sm text-text-muted hover:text-text transition-colors"
-                >
-                  Gratis Mobility Check
-                </Link>
-              </li>
-            </ul>
-            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-4 mt-8">
-              Ook van Marlon
-            </h4>
-            <a
-              href="https://hormoonprofiel.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-text-muted hover:text-text transition-colors"
-            >
-              Hormoonprofiel.com →
-            </a>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+                Gratis starten
+              </h4>
+              <ul className="space-y-3">
+                <li>
+                  <QuietLink href="/beweeg-beter">Beweeg Beter guide</QuietLink>
+                </li>
+                <li>
+                  <QuietLink href="/mobility-reset">
+                    7-Dagen Mobility Reset
+                  </QuietLink>
+                </li>
+                <li>
+                  <QuietLink href="/mobility-check">
+                    Gratis Mobility Check
+                  </QuietLink>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+                Ook van Marlon
+              </h4>
+              <QuietLink href="https://hormoonprofiel.com" external>
+                Hormoonprofiel.com
+              </QuietLink>
+            </div>
           </div>
 
-          {/* Contact */}
           <div>
-            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-accent mb-6">
+            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
               Contact
             </h4>
             <address className="not-italic text-sm text-text-muted space-y-2">
               <p>{settings.address.street}</p>
               <p>
-                {settings.address.postalCode} {settings.address.city}
+                {settings.address.postalCode} · {settings.address.city}
               </p>
-              <p className="pt-2">
-                <a
-                  href={`mailto:${settings.email}`}
-                  className="hover:text-text transition-colors"
-                >
+              <p className="pt-3">
+                <QuietLink href={`mailto:${settings.email}`}>
                   {settings.email}
-                </a>
+                </QuietLink>
               </p>
               <p>
-                <a
-                  href={`tel:${settings.phone.replace(/\s/g, "")}`}
-                  className="hover:text-text transition-colors"
-                >
+                <QuietLink href={`tel:${settings.phone.replace(/\s/g, "")}`}>
                   {settings.phone}
-                </a>
+                </QuietLink>
               </p>
             </address>
             {settings.instagramUrl && (
-              <div className="mt-6">
-                <a
-                  href={settings.instagramUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-text-muted hover:text-accent transition-colors"
-                  aria-label="Instagram"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
-                </a>
+              <div className="mt-8">
+                <QuietLink href={settings.instagramUrl} external>
+                  Instagram
+                </QuietLink>
               </div>
             )}
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-16 pt-8 border-t border-bg-subtle flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-muted">
+        <div className="mt-20 pt-8 border-t border-bg-subtle flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-muted">
           <p>
             &copy; {new Date().getFullYear()} {settings.studioName}. Alle
             rechten voorbehouden.
           </p>
           <p>
-            KvK: {settings.kvkNumber} &middot; BTW: {settings.btwNumber}
+            KvK {settings.kvkNumber} · BTW {settings.btwNumber}
           </p>
         </div>
       </Container>
