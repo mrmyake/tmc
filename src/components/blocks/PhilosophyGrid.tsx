@@ -27,10 +27,10 @@ export function PhilosophyGrid() {
             return (
               <ScrollReveal key={pillar.title} delay={i * 0.15}>
                 <div className="text-center p-8">
-                  <div className="inline-flex items-center justify-center w-14 h-14 mb-6 border border-accent/30 text-accent">
-                    <Icon size={24} />
+                  <div className="inline-flex items-center justify-center w-14 h-14 mb-8 text-accent border-t border-accent">
+                    <Icon size={22} strokeWidth={1.25} />
                   </div>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-3">
+                  <h3 className="text-2xl font-medium text-text mb-3 tracking-[-0.02em]">
                     {pillar.title}
                   </h3>
                   <p className="text-text-muted leading-relaxed">
