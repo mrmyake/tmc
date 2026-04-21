@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
 import {
@@ -10,13 +10,14 @@ import { getSiteSettings } from "../../sanity/lib/fetch";
 
 export const revalidate = 60;
 
-const playfair = Playfair_Display({
+const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-playfair",
   display: "swap",
+  axes: ["opsz", "SOFT"],
 });
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-dm-sans",
   display: "swap",
@@ -61,7 +62,7 @@ export default async function RootLayout({
   return (
     <html
       lang="nl"
-      className={`${playfair.variable} ${dmSans.variable} antialiased`}
+      className={`${fraunces.variable} ${inter.variable} antialiased`}
     >
       <body className="min-h-screen flex flex-col">
         <script
