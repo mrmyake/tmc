@@ -5,11 +5,10 @@ interface CardProps {
 }
 
 export function Card({ children, className = "", hover = true }: CardProps) {
+  const hoverClasses = hover ? "hover:border-accent/40" : "";
   return (
     <div
-      className={`bg-bg-elevated border border-bg-subtle p-6 md:p-8 transition-all duration-300 ${
-        hover ? "hover:scale-[1.02] hover:shadow-lg hover:shadow-accent/5" : ""
-      } ${className}`}
+      className={`bg-bg-elevated border border-transparent p-8 transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${hoverClasses} ${className}`}
     >
       {children}
     </div>
