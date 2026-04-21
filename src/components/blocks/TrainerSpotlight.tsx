@@ -20,8 +20,8 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Text first on mobile, but visually second on desktop */}
           <ScrollReveal className="order-2 lg:order-1">
-            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-              {trainer.role}
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              02 · {trainer.role}
             </span>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
               Maak kennis met {trainer.name}
@@ -45,12 +45,19 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
               </div>
             )}
             {trainer.quote && (
-              <blockquote className="mt-8 pl-6 border-l-2 border-accent">
-                <p className="font-[family-name:var(--font-playfair)] text-lg text-text italic">
-                  &ldquo;{trainer.quote}&rdquo;
+              <blockquote className="mt-10 relative pl-8">
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-0 font-[family-name:var(--font-playfair)] text-5xl text-accent leading-none select-none"
+                >
+                  &ldquo;
+                </span>
+                <p className="font-[family-name:var(--font-playfair)] text-2xl text-text leading-snug">
+                  {trainer.quote}
                 </p>
-                <cite className="block mt-3 text-sm text-text-muted not-italic">
-                  – {trainer.name}
+                <cite className="mt-4 flex items-center gap-3 text-xs text-text-muted not-italic uppercase tracking-[0.2em]">
+                  <span aria-hidden className="w-6 h-px bg-text-muted/60" />
+                  {trainer.name}
                 </cite>
               </blockquote>
             )}
