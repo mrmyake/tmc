@@ -1,63 +1,54 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
-:root {
-  --color-bg: #0C0C0C;
-  --color-bg-elevated: #161616;
-  --color-bg-subtle: #1E1E1E;
-  --color-text: #F5F0EB;
-  --color-text-muted: #8A8578;
-  --color-accent: #C9A96E;
-  --color-accent-hover: #B8944F;
-  --color-white: #FFFFFF;
-}
-
+/* ---- Tailwind 4 theme bindings (map nieuwe tokens naar oude namen) ---- */
 @theme inline {
-  --color-bg: var(--color-bg);
-  --color-bg-elevated: var(--color-bg-elevated);
-  --color-bg-subtle: var(--color-bg-subtle);
-  --color-text: var(--color-text);
-  --color-text-muted: var(--color-text-muted);
-  --color-accent: var(--color-accent);
-  --color-accent-hover: var(--color-accent-hover);
+  /* Surfaces */
+  --color-bg:            var(--ink-900);
+  --color-bg-elevated:   var(--ink-800);
+  --color-bg-subtle:     var(--ink-700);
 
-  --font-display: "Playfair Display", serif;
-  --font-body: "DM Sans", sans-serif;
+  /* Text */
+  --color-text:          var(--stone-100);
+  --color-text-muted:    var(--stone-400);
+
+  /* Accent */
+  --color-accent:         var(--champagne);
+  --color-accent-hover:   var(--champagne-deep);
+
+  --color-white: #FFFFFF;
+
+  /* Fonts — we map de oude CSS-vars (playfair/dm-sans) in stap 1.3 */
+  --font-display: var(--font-serif-display);
+  --font-body:    var(--font-sans);
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
-/* Selection color */
 ::selection {
-  background-color: var(--color-accent);
-  color: var(--color-bg);
+  background-color: var(--accent);
+  color: var(--ink-900);
 }
 
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
-  *,
-  *::before,
-  *::after {
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* Focus styles for accessibility */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
