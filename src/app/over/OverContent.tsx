@@ -5,6 +5,7 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { QuietLink } from "@/components/ui/QuietLink";
 import { SITE } from "@/lib/constants";
 import { urlFor } from "../../../sanity/lib/client";
 import type { SanityImage, SanityGalleryImage } from "../../../sanity/lib/fetch";
@@ -51,10 +52,10 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
               )}
             </ScrollReveal>
             <ScrollReveal delay={0.15}>
-              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-                Waarom The Movement Club
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                01 · Waarom
               </span>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
+              <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-8 leading-[1.05] tracking-[-0.02em]">
                 Ontstaan uit overtuiging
               </h2>
               <div className="space-y-4 text-text-muted leading-relaxed">
@@ -87,13 +88,13 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
       <Section>
         <Container className="max-w-3xl text-center">
           <ScrollReveal>
-            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
               Gratis screening
             </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Ontdek hoe je beweegt
             </h2>
-            <p className="text-text-muted mb-6">
+            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
               Boek een gratis Mobility Check en krijg een persoonlijk
               bewegingsprofiel van Marlon.
             </p>
@@ -120,10 +121,13 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                 beweegkwaliteit.
               </p>
               <p>
-                Onze aanpak combineert drie disciplines: <em>movement</em> voor
-                natuurlijke bewegingspatronen, <em>mobility</em> voor
-                flexibiliteit en herstel, en <em>strength</em> voor kracht die
-                functioneel en overdraagbaar is.
+                Onze aanpak combineert drie disciplines:{" "}
+                <em className="not-italic text-text font-medium">movement</em>{" "}
+                voor natuurlijke bewegingspatronen,{" "}
+                <em className="not-italic text-text font-medium">mobility</em>{" "}
+                voor flexibiliteit en herstel, en{" "}
+                <em className="not-italic text-text font-medium">strength</em>{" "}
+                voor kracht die functioneel en overdraagbaar is.
               </p>
               <p>
                 We trainen niet voor de spiegel. We trainen voor het leven
@@ -180,23 +184,22 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <ScrollReveal>
-              <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-                Holistisch trainen
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                02 · Holistisch
               </span>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
+              <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-8 leading-[1.05] tracking-[-0.02em]">
                 Meer dan alleen training
               </h2>
               <div className="space-y-4 text-text-muted leading-relaxed">
                 <p>
                   Marlon kijkt verder dan de training alleen. Via{" "}
-                  <a
+                  <QuietLink
                     href="https://hormoonprofiel.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:text-accent-hover transition-colors underline underline-offset-4"
+                    external
+                    className="inline"
                   >
                     Hormoonprofiel.com
-                  </a>{" "}
+                  </QuietLink>{" "}
                   biedt zij inzicht in hoe hormonen invloed hebben op je energie,
                   herstel en resultaat.
                 </p>
@@ -238,14 +241,17 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
       <Section bg="elevated">
         <Container className="text-center">
           <ScrollReveal>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-4">
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              Kom langs
+            </span>
+            <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Benieuwd geworden?
             </h2>
-            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
+            <p className="text-text-muted text-lg mb-10 max-w-xl mx-auto">
               Kom langs voor een vrijblijvende proefles en ervaar zelf wat The
               Movement Club anders maakt.
             </p>
-            <Button href="/proefles">Boek een proefles</Button>
+            <Button href="/proefles">Plan je proefles</Button>
           </ScrollReveal>
         </Container>
       </Section>
