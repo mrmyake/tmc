@@ -45,3 +45,9 @@ next-env.d.ts
 .claude/
 .agents/
 skills-lock.json
+
+# Stitch design mockups (reference only)
+stitch/
+
+# Supabase CLI cache
+supabase/.temp/
