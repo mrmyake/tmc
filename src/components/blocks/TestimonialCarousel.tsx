@@ -2,6 +2,7 @@
 
 import { ReactGoogleReviews } from "react-google-reviews";
 import "react-google-reviews/dist/index.css";
+import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -15,23 +16,25 @@ export function TestimonialCarousel() {
       <Container>
         <ScrollReveal>
           <SectionHeading
-            label="Google Reviews"
-            heading="Wat onze klanten zeggen"
-            subtext="Beoordeeld met ★★★★★ op Google, voorheen PT Loosdrecht."
+            label="Reviews"
+            heading="Wat onze leden zeggen"
+            subtext="Beoordeeld op Google, voorheen onder de naam PT Loosdrecht."
           />
         </ScrollReveal>
 
         <ScrollReveal delay={0.15}>
-          <div className="max-w-5xl mx-auto">
-            <ReactGoogleReviews
-              layout="carousel"
-              featurableId={FEATURABLE_WIDGET_ID}
-              theme="dark"
-              carouselAutoplay={true}
-              carouselSpeed={5000}
-              maxCharacters={200}
-              structuredData={true}
-            />
+          <div className="bg-bg border-y border-bg-subtle py-12 px-4 md:px-6 -mx-6 lg:mx-0">
+            <div className="max-w-5xl mx-auto">
+              <ReactGoogleReviews
+                layout="carousel"
+                featurableId={FEATURABLE_WIDGET_ID}
+                theme="dark"
+                carouselAutoplay={true}
+                carouselSpeed={5000}
+                maxCharacters={200}
+                structuredData={true}
+              />
+            </div>
           </div>
         </ScrollReveal>
 
@@ -41,9 +44,20 @@ export function TestimonialCarousel() {
               href="https://www.google.com/maps/place/PT+Loosdrecht/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-accent hover:text-accent-hover transition-colors underline underline-offset-4"
+              className="group relative inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text"
             >
-              Bekijk alle reviews op Google →
+              <span className="relative">
+                Bekijk alle reviews op Google
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-0 right-0 -bottom-0.5 h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:scale-x-100"
+                />
+              </span>
+              <ArrowUpRight
+                size={14}
+                strokeWidth={1.5}
+                className="transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              />
             </a>
           </div>
         </ScrollReveal>
