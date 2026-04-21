@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
-import { ChevronDown, ClipboardCheck, Eye, FileText } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 function SelectChevron() {
   return (
@@ -26,18 +26,15 @@ function SelectChevron() {
 
 const steps = [
   {
-    icon: ClipboardCheck,
-    title: "1. Intake",
+    title: "Intake",
     description: "Korte vragenlijst over je doelen, klachten en sportervaring.",
   },
   {
-    icon: Eye,
-    title: "2. Screening",
+    title: "Screening",
     description: "6-8 bewegingspatronen worden geanalyseerd door Marlon.",
   },
   {
-    icon: FileText,
-    title: "3. Jouw Profiel",
+    title: "Jouw profiel",
     description: "Persoonlijk rapport met bevindingen en aanbevelingen per email.",
   },
 ];
@@ -105,22 +102,22 @@ export function MobilityCheckContent() {
   return (
     <LeadPageLayout>
       {/* Hero */}
-      <Section className="pt-16 md:pt-24">
+      <Section className="pt-24 md:pt-32">
         <Container className="max-w-3xl text-center">
           <ScrollReveal>
-            <span className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-4 block">
-              Gratis & Vrijblijvend
+            <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
+              <span aria-hidden className="w-12 h-px bg-accent" />
+              Gratis · Vrijblijvend
+              <span aria-hidden className="w-12 h-px bg-accent" />
             </span>
-            <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-5xl text-text mb-4 leading-[1.15]">
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl lg:text-7xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Ontdek hoe je beweegt
             </h1>
-            <p className="text-text-muted text-lg mb-8">
-              Gratis 20-minuten mobility screening met trainer Marlon
+            <p className="text-text-muted text-lg md:text-xl max-w-2xl mx-auto mb-10">
+              Twintig minuten, één-op-één met Marlon. Een rustige screening van
+              hoe je lichaam beweegt, en een persoonlijk profiel per email.
             </p>
-            <Button
-              href="#formulier"
-              variant="primary"
-            >
+            <Button href="#formulier" variant="primary">
               Plan mijn Mobility Check
             </Button>
           </ScrollReveal>
@@ -131,25 +128,24 @@ export function MobilityCheckContent() {
       <Section bg="elevated">
         <Container>
           <ScrollReveal>
-            <SectionHeading label="Hoe het werkt" heading="In 3 stappen" />
+            <SectionHeading label="Hoe het werkt" heading="In drie stappen" />
           </ScrollReveal>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {steps.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <ScrollReveal key={step.title} delay={i * 0.1}>
-                  <div className="text-center p-6">
-                    <div className="inline-flex items-center justify-center w-14 h-14 mb-4 border border-accent/30 text-accent">
-                      <Icon size={24} />
-                    </div>
-                    <h3 className="font-[family-name:var(--font-playfair)] text-lg text-text mb-2">
-                      {step.title}
-                    </h3>
-                    <p className="text-text-muted text-sm">{step.description}</p>
-                  </div>
-                </ScrollReveal>
-              );
-            })}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-4xl mx-auto">
+            {steps.map((step, i) => (
+              <ScrollReveal key={step.title} delay={i * 0.1}>
+                <div className="pt-6 border-t border-accent">
+                  <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="text-xl font-medium text-text mb-3 tracking-[-0.01em]">
+                    {step.title}
+                  </h3>
+                  <p className="text-text-muted text-sm leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
         </Container>
       </Section>
@@ -160,15 +156,18 @@ export function MobilityCheckContent() {
           <ScrollReveal>
             <SectionHeading label="Voor wie" heading="Herken je dit?" />
           </ScrollReveal>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ul className="divide-y divide-bg-subtle border-y border-bg-subtle">
             {forWhom.map((item, i) => (
-              <ScrollReveal key={item} delay={i * 0.08}>
-                <div className="bg-bg-elevated border border-bg-subtle p-5 text-text text-sm">
-                  {item}
-                </div>
+              <ScrollReveal key={item} delay={i * 0.06}>
+                <li className="py-5 flex items-baseline gap-6">
+                  <span className="tmc-eyebrow text-text-muted/70 shrink-0">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-text text-base">{item}</span>
+                </li>
               </ScrollReveal>
             ))}
-          </div>
+          </ul>
         </Container>
       </Section>
 
@@ -177,10 +176,13 @@ export function MobilityCheckContent() {
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-5xl mx-auto">
             <ScrollReveal>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl text-text mb-4">
-                Plan je Mobility Check
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                Plan je check
+              </span>
+              <h2 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
+                Boek je moment
               </h2>
-              <p className="text-text-muted mb-8">
+              <p className="text-text-muted text-lg mb-10 max-w-md">
                 Vul het formulier in en Marlon neemt binnen 24 uur contact op om
                 een moment te prikken.
               </p>
@@ -311,16 +313,19 @@ export function MobilityCheckContent() {
             {/* FAQ */}
             <ScrollReveal delay={0.15}>
               <div className="sticky top-24">
-                <h3 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-6">
-                  Veelgestelde vragen
-                </h3>
-                <div className="space-y-5">
+                <span className="tmc-eyebrow block mb-4">Veelgestelde vragen</span>
+                <div className="border-t border-bg-subtle">
                   {faqs.map((faq) => (
-                    <div key={faq.q}>
-                      <h4 className="text-text font-medium text-sm mb-1">
+                    <div
+                      key={faq.q}
+                      className="py-5 border-b border-bg-subtle"
+                    >
+                      <h4 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
                         {faq.q}
                       </h4>
-                      <p className="text-text-muted text-sm">{faq.a}</p>
+                      <p className="text-text-muted text-sm leading-relaxed">
+                        {faq.a}
+                      </p>
                     </div>
                   ))}
                 </div>
