@@ -36,7 +36,7 @@ export function MarketingOptInToggle({
         </p>
         <p className="text-text-muted text-sm leading-relaxed max-w-md">
           Af en toe een mailtje met clubnieuws, retreats en open dagen. Geen
-          spam; je kunt 'm altijd uitzetten.
+          spam; je kunt &rsquo;m altijd uitzetten.
         </p>
         {error && (
           <p
