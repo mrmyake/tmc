@@ -36,8 +36,6 @@ export async function createBooking(
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const now = new Date();
-  const nowIso = now.toISOString();
-  const { isoWeek, isoYear } = getIsoWeekYear(now);
 
   const [
     sessionResult,
