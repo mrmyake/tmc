@@ -1,5 +1,6 @@
 import { Hero } from "@/components/blocks/Hero";
 import { PhilosophyGrid } from "@/components/blocks/PhilosophyGrid";
+import { ScheduleTeaser } from "@/components/blocks/ScheduleTeaser";
 import { StudioSection } from "@/components/blocks/StudioSection";
 import { TrainerSpotlight } from "@/components/blocks/TrainerSpotlight";
 import { OfferingCards } from "@/components/blocks/OfferingCards";
@@ -34,6 +35,7 @@ export default async function HomePage() {
     <>
       <Hero settings={settings} heroImage={images.hero} />
       <PhilosophyGrid />
+      <ScheduleTeaser />
       <StudioSection image={images.studio} />
       <TrainerSpotlight trainer={trainer} />
       <OfferingCards offerings={offerings} />
