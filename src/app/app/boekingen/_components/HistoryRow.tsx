@@ -1,4 +1,10 @@
 import { StatusBadge, type SessionStatus } from "@/components/ui/StatusBadge";
+import {
+  amsterdamParts,
+  DAY_SHORT_NL,
+  MONTH_SHORT_NL,
+  formatTime,
+} from "@/lib/format-date";
 
 export interface HistoryRowData {
   bookingId: string;
@@ -8,22 +14,6 @@ export interface HistoryRowData {
   status: SessionStatus;
 }
 
-const DAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"];
-const MONTH_SHORT = [
-  "jan",
-  "feb",
-  "mrt",
-  "apr",
-  "mei",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "okt",
-  "nov",
-  "dec",
-];
-
 export function HistoryRow({ row }: { row: HistoryRowData }) {
   const start = new Date(row.startAt);
 
@@ -31,11 +21,12 @@ export function HistoryRow({ row }: { row: HistoryRowData }) {
     <article className="grid grid-cols-[72px_1fr_auto] items-baseline gap-6 py-6 border-b border-[color:var(--ink-500)]/60">
       <div className="flex flex-col items-start gap-1">
         <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted">
-          {DAY_SHORT[start.getDay()]} · {MONTH_SHORT[start.getMonth()]}{" "}
-          {start.getFullYear()}
+          {DAY_SHORT_NL[amsterdamParts(start).weekday]} ·{" "}
+          {MONTH_SHORT_NL[amsterdamParts(start).month - 1]}{" "}
+          {amsterdamParts(start).year}
         </span>
         <span className="font-[family-name:var(--font-playfair)] text-3xl leading-none tracking-[-0.02em] text-text">
-          {start.getDate()}
+          {amsterdamParts(start).day}
         </span>
       </div>
       <div className="flex flex-col gap-1">
@@ -43,11 +34,7 @@ export function HistoryRow({ row }: { row: HistoryRowData }) {
           {row.className}
         </h3>
         <p className="text-text-muted text-sm">
-          Met {row.trainerName} ·{" "}
-          {start.toLocaleTimeString("nl-NL", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          Met {row.trainerName} · {formatTime(start)}
         </p>
       </div>
       <StatusBadge status={row.status} />

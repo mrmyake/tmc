@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { formatRelativeWhen } from "@/lib/format-date";
 
 interface NextSessionProps {
   session:
@@ -9,49 +10,6 @@ interface NextSessionProps {
         durationMinutes: number;
       }
     | null;
-}
-
-const DAYS = [
-  "zondag",
-  "maandag",
-  "dinsdag",
-  "woensdag",
-  "donderdag",
-  "vrijdag",
-  "zaterdag",
-];
-
-function formatWhen(date: Date) {
-  const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const sessionStart = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-  const dayDiff = Math.round(
-    (sessionStart.getTime() - startOfToday.getTime()) / 86400000,
-  );
-
-  const time = date.toLocaleTimeString("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  if (dayDiff === 0) return `Vandaag · ${time}`;
-  if (dayDiff === 1) return `Morgen · ${time}`;
-  if (dayDiff < 7) return `${DAYS[date.getDay()]} · ${time}`;
-
-  const datePart = date.toLocaleDateString("nl-NL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  return `${datePart} · ${time}`;
 }
 
 export function NextSessionCard({ session }: NextSessionProps) {
@@ -89,7 +47,7 @@ export function NextSessionCard({ session }: NextSessionProps) {
         Volgende sessie
       </span>
       <p className="text-text-muted text-sm font-medium uppercase tracking-[0.2em] mb-6">
-        {formatWhen(session.startAt)}
+        {formatRelativeWhen(session.startAt)}
       </p>
       <h2
         id="next-session-title"

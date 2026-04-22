@@ -3,6 +3,12 @@
 import { useState, useTransition } from "react";
 import { cancelBooking } from "@/lib/member/booking-actions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  amsterdamParts,
+  DAY_SHORT_NL,
+  MONTH_SHORT_NL,
+  formatTimeRange,
+} from "@/lib/format-date";
 
 export interface UpcomingRowData {
   bookingId: string;
@@ -16,28 +22,6 @@ export interface UpcomingRowData {
 interface UpcomingRowProps {
   row: UpcomingRowData;
   cancellationWindowHours: number;
-}
-
-const DAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"];
-const MONTH_SHORT = [
-  "jan",
-  "feb",
-  "mrt",
-  "apr",
-  "mei",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "okt",
-  "nov",
-  "dec",
-];
-
-function formatTimeRange(start: Date, end: Date) {
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
-  return `${fmt(start)} – ${fmt(end)}`;
 }
 
 function isLateCancel(startMs: number, windowHours: number): boolean {
@@ -70,10 +54,11 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
     >
       <div className="flex flex-col items-start gap-1">
         <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted">
-          {DAY_SHORT[start.getDay()]} · {MONTH_SHORT[start.getMonth()]}
+          {DAY_SHORT_NL[amsterdamParts(start).weekday]} ·{" "}
+          {MONTH_SHORT_NL[amsterdamParts(start).month - 1]}
         </span>
         <span className="font-[family-name:var(--font-playfair)] text-5xl leading-none tracking-[-0.02em]">
-          {start.getDate()}
+          {amsterdamParts(start).day}
         </span>
       </div>
       <div className="flex flex-col gap-2">

@@ -3,6 +3,7 @@
 import { forwardRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { requestMembershipCancellation } from "@/lib/member/membership-actions";
+import { formatDateLong } from "@/lib/format-date";
 
 interface CancellationDialogProps {
   membershipId: string;
@@ -13,11 +14,7 @@ interface CancellationDialogProps {
 function formatDate(d: string | null): string {
   if (!d) return "—";
   try {
-    return new Date(d).toLocaleDateString("nl-NL", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return formatDateLong(new Date(d));
   } catch {
     return d;
   }

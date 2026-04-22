@@ -2,6 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 import { StatusBadge, type SessionStatus } from "@/components/ui/StatusBadge";
+import { durationMinutes, formatTime } from "@/lib/format-date";
 
 export interface SessionRowData {
   id: string;
@@ -19,17 +20,6 @@ export interface SessionRowData {
 interface SessionRowProps {
   session: SessionRowData;
   onOpen: (session: SessionRowData) => void;
-}
-
-function formatTime(date: Date) {
-  return date.toLocaleTimeString("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function durationMinutes(start: Date, end: Date) {
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
 }
 
 export function SessionRow({ session, onOpen }: SessionRowProps) {

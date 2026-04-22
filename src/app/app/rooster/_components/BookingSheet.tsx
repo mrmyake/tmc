@@ -9,6 +9,7 @@ import {
   type BookingActionResult,
 } from "@/lib/member/booking-actions";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import type { SessionRowData } from "./SessionRow";
 
 interface BookingSheetProps {
@@ -19,20 +20,6 @@ interface BookingSheetProps {
 }
 
 const clubEase: [number, number, number, number] = [0.2, 0.7, 0.1, 1];
-
-function formatDate(date: Date) {
-  return date.toLocaleDateString("nl-NL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-}
-
-function formatTimeRange(start: Date, end: Date) {
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
-  return `${fmt(start)} – ${fmt(end)}`;
-}
 
 function hoursUntil(start: Date) {
   return (start.getTime() - Date.now()) / 3_600_000;
@@ -147,7 +134,7 @@ export function BookingSheet({
               </h2>
 
               <dl className="flex flex-col gap-5 mb-10">
-                <Detail label="Wanneer" value={formatDate(session.startAt)} />
+                <Detail label="Wanneer" value={formatWeekdayDate(session.startAt)} />
                 <Detail
                   label="Tijd"
                   value={formatTimeRange(session.startAt, session.endAt)}

@@ -1,3 +1,5 @@
+import { formatDateLong } from "@/lib/format-date";
+
 interface MandateStatusCardProps {
   active: boolean;
   planName: string | null;
@@ -7,11 +9,7 @@ interface MandateStatusCardProps {
 function formatDate(d: string | null): string {
   if (!d) return "—";
   try {
-    return new Date(d).toLocaleDateString("nl-NL", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return formatDateLong(new Date(d));
   } catch {
     return "—";
   }

@@ -1,4 +1,5 @@
 import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatDateLong } from "@/lib/format-date";
 import {
   PaymentStatusBadge,
   type PaymentStatus,
@@ -27,11 +28,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("nl-NL", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDateLong(new Date(iso));
 }
 
 export function PaymentRow({ row }: { row: PaymentRowData }) {

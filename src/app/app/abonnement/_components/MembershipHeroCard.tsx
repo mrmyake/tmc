@@ -1,4 +1,5 @@
 import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatDateLong } from "@/lib/format-date";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Betaling in behandeling",
@@ -13,11 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
 function formatDate(d: string | null): string {
   if (!d) return "—";
   try {
-    return new Date(d).toLocaleDateString("nl-NL", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return formatDateLong(new Date(d));
   } catch {
     return "—";
   }
