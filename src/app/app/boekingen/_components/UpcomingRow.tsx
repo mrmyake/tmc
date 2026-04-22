@@ -40,17 +40,19 @@ function formatTimeRange(start: Date, end: Date) {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
+function isLateCancel(startMs: number, windowHours: number): boolean {
+  return (startMs - Date.now()) / 3_600_000 < windowHours;
+}
+
 export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const start = new Date(row.startAt);
   const end = new Date(row.endAt);
-  const hoursUntil = (start.getTime() - Date.now()) / 3_600_000;
-  const lateCancel = hoursUntil < cancellationWindowHours;
 
   function doCancel() {
-    const note = lateCancel
+    const note = isLateCancel(start.getTime(), cancellationWindowHours)
       ? "Je annuleert binnen het cancel-venster. Deze sessie telt mee. Weet je het zeker?"
       : null;
     if (note && !window.confirm(note)) return;
