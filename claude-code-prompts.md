@@ -275,8 +275,8 @@ Scherm B4: Abonnement op `/app/abonnement`.
 Features:
 - Huidige abbo: naam, prijs, start, eerstvolgende factuurdatum.
 - Credits / rittenkaart-saldo (afhankelijk van abbo-type).
-- Pauze-verzoek: dialog met datum-range en reden. Creëert rij in `pause_requests` met status `pending`.
-- Opzegverzoek: dialog met opzegdatum (minimaal einde lopende periode). Creëert `cancellation_requests`. Niet direct cancellen in DB — admin bevestigt.
+- Pauze-verzoek: dialog met datum-range en reden. Creëert rij in `membership_pauses` met status `pending` (pregnancy/medical/other_approved).
+- Opzegverzoek: dialog met opzegdatum (minimaal einde lopende periode). Update `memberships` (status='cancellation_requested', cancellation_requested_at, cancellation_effective_date = max(commit_end_date, now+28d)). Niet direct cancellen in DB — admin bevestigt en triggert Mollie cancel.
 - Upgrade/downgrade naar ander abbo (dialog met tier-keuze, redirect naar Mollie voor mandate-update).
 - Historie: vorige abbo's in accordeon onderaan.
 
@@ -286,7 +286,7 @@ Design:
 - Pauze- en opzegknoppen secundair/tertiair gestyled — niet per ongeluk highlighten.
 
 Data:
-- `memberships` actief + historisch, `pause_requests`, `cancellation_requests`.
+- `memberships` actief + historisch, `membership_pauses`. (Cancellation = status-update op `memberships`, geen aparte tabel.)
 - Server actions: `requestPause`, `requestCancellation`, `changeMembership`.
 
 Acceptatie:
