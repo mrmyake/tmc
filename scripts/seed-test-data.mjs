@@ -314,6 +314,16 @@ async function syncSanityTrainers() {
 
 const CLASS_TYPES = [
   {
+    slug: "vrij-trainen-dag",
+    name: "Vrij trainen",
+    pillar: "vrij_trainen",
+    ageCategory: "adult",
+    defaultCapacity: 99,
+    defaultDurationMinutes: 960, // 16 uur: 06:00-22:00 als één dag-sessie
+    description:
+      "Open studio — kom wanneer het jou uitkomt binnen openingstijden.",
+  },
+  {
     slug: "kettlebell-basics",
     name: "Kettlebell Basics",
     pillar: "kettlebell",
@@ -582,6 +592,74 @@ async function ensureSessionsForWeek(mondayYmd, templateDefs, templateIds, class
 
 // PT slots — one-shot seed of future 1:1 slots per trainer so B7 is testable.
 // Idempotency: skip if a slot already exists for the same trainer + start_at.
+// Vrij-trainen (open studio) is geen echte gescheduleerde les — maar we
+// hebben een `class_sessions` row per dag nodig zodat het boeking-systeem
+// ertegen kan counten voor fair-use en frequency_cap. Trainer = head
+// trainer (nominaal "on call"), capacity = 99 (effectief onbeperkt,
+// later verlagen tijdens small-group overlap via een templating-update).
+async function ensureVrijTrainenSessions(trainers, classTypes) {
+  console.log("\nVrij-trainen sessies (4 weken vooruit, Europe/Amsterdam):");
+  const openStudio = classTypes.find((c) => c.slug === "vrij-trainen-dag");
+  const marlon = trainers.find((t) => t.slug === "marlon") ?? trainers[0];
+  if (!openStudio || !marlon) {
+    console.warn("  ! skip — vrij-trainen class_type of trainer ontbreekt");
+    return;
+  }
+
+  let touched = 0;
+  let skipped = 0;
+  const today = new Date();
+  const todayYmd = mondayOfWeekInAmsterdam(today);
+
+  for (let dayOffset = 0; dayOffset < 28; dayOffset += 1) {
+    const dayYmd = addDaysUtc(todayYmd, dayOffset);
+    const startUtc = zonedWallClockToUtc(
+      dayYmd.year,
+      dayYmd.month,
+      dayYmd.day,
+      6,
+      0,
+      TIME_ZONE,
+    );
+    const endUtc = zonedWallClockToUtc(
+      dayYmd.year,
+      dayYmd.month,
+      dayYmd.day,
+      22,
+      0,
+      TIME_ZONE,
+    );
+
+    const { data: existing } = await admin
+      .from("class_sessions")
+      .select("id")
+      .eq("class_type_id", openStudio.classTypeId)
+      .eq("start_at", startUtc.toISOString())
+      .maybeSingle();
+    if (existing) {
+      skipped += 1;
+      continue;
+    }
+
+    const { error } = await admin.from("class_sessions").insert({
+      class_type_id: openStudio.classTypeId,
+      trainer_id: marlon.trainerId,
+      pillar: openStudio.pillar,
+      age_category: openStudio.ageCategory,
+      start_at: startUtc.toISOString(),
+      end_at: endUtc.toISOString(),
+      capacity: 99,
+      status: "scheduled",
+    });
+    if (error) {
+      console.warn(`  ! vrij-trainen ${startUtc.toISOString()}:`, error.message);
+    } else {
+      touched += 1;
+    }
+  }
+  console.log(`  · inserted ${touched}, skipped ${skipped} existing`);
+}
+
 async function ensurePtSlots(trainers) {
   console.log("\nPT slots (1:1, next 14 days, Europe/Amsterdam):");
   const today = new Date();
@@ -670,6 +748,7 @@ async function main() {
     );
   }
 
+  await ensureVrijTrainenSessions(trainers, classTypes);
   await ensurePtSlots(trainers);
 
   console.log("\nDone.");
