@@ -57,13 +57,18 @@ export function SessionList({
       }
     : null;
 
-  if (dayGroups.length === 0) {
+  const totalSessions = dayGroups.reduce(
+    (sum, d) => sum + d.sessions.length,
+    0,
+  );
+
+  if (totalSessions === 0) {
     return (
       <div className="py-20 text-center">
         <span className="tmc-eyebrow block mb-3">Geen sessies</span>
         <p className="text-text-muted text-base max-w-md mx-auto">
-          Geen sessies gevonden voor dit filter of deze week. Probeer een
-          andere week of kies een andere discipline.
+          Geen sessies gevonden voor deze week. Probeer een andere week of
+          kies een andere discipline.
         </p>
       </div>
     );
@@ -71,7 +76,7 @@ export function SessionList({
 
   return (
     <>
-      <div className="flex flex-col gap-14">
+      <div className="flex flex-col gap-12">
         {dayGroups.map((day) => (
           <section key={day.isoDate}>
             <div className="flex items-baseline gap-4 mb-1">
@@ -81,24 +86,30 @@ export function SessionList({
                 className="flex-1 h-px bg-[color:var(--ink-500)]/50"
               />
             </div>
-            {day.sessions.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={{
-                  id: s.id,
-                  startAt: new Date(s.startAt),
-                  endAt: new Date(s.endAt),
-                  className: s.className,
-                  trainerName: s.trainerName,
-                  pillar: s.pillar,
-                  capacity: s.capacity,
-                  bookedCount: s.bookedCount,
-                  status: s.status,
-                  bookingId: s.bookingId,
-                }}
-                onOpen={(session) => setOpenSessionId(session.id)}
-              />
-            ))}
+            {day.sessions.length === 0 ? (
+              <p className="py-6 text-text-muted text-sm border-t border-[color:var(--ink-500)]/60">
+                Geen sessies.
+              </p>
+            ) : (
+              day.sessions.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={{
+                    id: s.id,
+                    startAt: new Date(s.startAt),
+                    endAt: new Date(s.endAt),
+                    className: s.className,
+                    trainerName: s.trainerName,
+                    pillar: s.pillar,
+                    capacity: s.capacity,
+                    bookedCount: s.bookedCount,
+                    status: s.status,
+                    bookingId: s.bookingId,
+                  }}
+                  onOpen={(session) => setOpenSessionId(session.id)}
+                />
+              ))
+            )}
           </section>
         ))}
       </div>

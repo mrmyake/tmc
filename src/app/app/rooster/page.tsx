@@ -8,7 +8,6 @@ import {
 import { FilterChips } from "./_components/FilterChips";
 import { SessionList } from "./_components/SessionList";
 import { WeekNavigator } from "./_components/WeekNavigator";
-import { DayStrip } from "./_components/DayStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 
 export const metadata = {
@@ -80,12 +79,10 @@ function parseWeekParam(
 
 function buildHref(params: {
   week?: string;
-  day?: string;
   pijler?: string;
 }): string {
   const qs = new URLSearchParams();
   if (params.week) qs.set("week", params.week);
-  if (params.day) qs.set("day", params.day);
   if (params.pijler) qs.set("pijler", params.pijler);
   const query = qs.toString();
   return query ? `/app/rooster?${query}` : "/app/rooster";
@@ -101,10 +98,24 @@ const DAY_LABELS = [
   "Zaterdag",
 ];
 
+const MONTH_LABELS = [
+  "jan",
+  "feb",
+  "mrt",
+  "apr",
+  "mei",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "okt",
+  "nov",
+  "dec",
+];
+
 export default async function RoosterPage(props: {
   searchParams: Promise<{
     week?: string;
-    day?: string;
     pijler?: string;
   }>;
 }) {
@@ -209,15 +220,7 @@ export default async function RoosterPage(props: {
   const cancellationWindowHours =
     settingsResult.data?.cancellation_window_hours ?? 6;
 
-  const todayIso = isoDate(now);
-  const selectedDay = searchParams.day ?? (isCurrentWeek ? todayIso : undefined);
-
-  const visibleSessions = sessions.filter((s) => {
-    if (!selectedDay) return true;
-    return isoDate(new Date(s.start_at)) === selectedDay;
-  });
-
-  const enriched = visibleSessions.map((s) => {
+  const enriched = sessions.map((s) => {
     const booking = bookingsBySession.get(s.id);
     const waitlisted = waitlistedSessions.has(s.id);
     const bookedCount = bookedBySession.get(s.id) ?? 0;
@@ -245,29 +248,26 @@ export default async function RoosterPage(props: {
     };
   });
 
-  const dayGroupsMap = new Map<string, typeof enriched>();
+  // Build day groups for every day of the visible week, even empty ones, so
+  // the editorial rhythm stays consistent and members see the full week at a
+  // glance instead of needing to toggle days.
+  const sessionsByDay = new Map<string, typeof enriched>();
   for (const s of enriched) {
     const key = isoDate(new Date(s.startAt));
-    if (!dayGroupsMap.has(key)) dayGroupsMap.set(key, []);
-    dayGroupsMap.get(key)!.push(s);
+    if (!sessionsByDay.has(key)) sessionsByDay.set(key, []);
+    sessionsByDay.get(key)!.push(s);
   }
-  const dayGroups = Array.from(dayGroupsMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([iso, list]) => {
-      const date = new Date(iso + "T00:00:00Z");
-      return {
-        isoDate: iso,
-        label: `${DAY_LABELS[date.getUTCDay()]} ${date.getUTCDate()} ${date.toLocaleDateString("nl-NL", { month: "short", timeZone: "UTC" })}`,
-        sessions: list,
-      };
-    });
 
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const dayGroups = Array.from({ length: 7 }, (_, i) => {
     const d = addDays(weekStart, i);
     const iso = isoDate(d);
-    const count = sessions.filter((s) => isoDate(new Date(s.start_at)) === iso)
-      .length;
-    return { date: d, isoDate: iso, sessionsCount: count };
+    const dayLabel = DAY_LABELS[d.getUTCDay()];
+    const monthLabel = MONTH_LABELS[d.getUTCMonth()];
+    return {
+      isoDate: iso,
+      label: `${dayLabel} ${d.getUTCDate()} ${monthLabel}`,
+      sessions: sessionsByDay.get(iso) ?? [],
+    };
   });
 
   const prevWeekStart = addDays(weekStart, -7);
@@ -275,7 +275,6 @@ export default async function RoosterPage(props: {
   const prevWeek = getIsoWeekYear(prevWeekStart);
   const nextWeek = getIsoWeekYear(nextWeekStart);
 
-  const weekParam = `${viewWeek.isoYear}-W${String(viewWeek.isoWeek).padStart(2, "0")}`;
   const prevWeekParam = `${prevWeek.isoYear}-W${String(prevWeek.isoWeek).padStart(2, "0")}`;
   const nextWeekParam = `${nextWeek.isoYear}-W${String(nextWeek.isoWeek).padStart(2, "0")}`;
 
@@ -290,20 +289,6 @@ export default async function RoosterPage(props: {
         todayHref={buildHref({ pijler: pillarFilter ?? undefined })}
       />
 
-      <div className="mb-8">
-        <DayStrip
-          days={days}
-          selectedIsoDate={selectedDay ?? ""}
-          buildHref={(iso) =>
-            buildHref({
-              week: weekParam,
-              day: iso,
-              pijler: pillarFilter ?? undefined,
-            })
-          }
-        />
-      </div>
-
       <div className="mb-12">
         <FilterChips pillars={[...PILLARS]} />
       </div>
@@ -313,7 +298,7 @@ export default async function RoosterPage(props: {
         cancellationWindowHours={cancellationWindowHours}
       />
 
-      {pillarFilter && (
+      {pillarFilter && sessions.length > 0 && (
         <p className="mt-10 text-text-muted text-xs">
           Filter actief: {PILLAR_LABELS[pillarFilter]}.
         </p>
