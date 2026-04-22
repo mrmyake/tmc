@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inloggen bij The Movement Club</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#0E0C0B;font-family:'Inter',-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;color:#F4EFE6;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#0E0C0B;">
+      <tr>
+        <td align="center" style="padding:48px 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;">
+            <tr>
+              <td style="padding-bottom:40px;border-bottom:1px solid #3A342B;">
+                <div style="font-family:Georgia,'Playfair Display',serif;font-size:20px;letter-spacing:-0.01em;color:#F4EFE6;">
+                  The Movement <em style="font-style:normal;color:#B9986A;">Club</em>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:48px 0 0;">
+                <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#F4EFE6;">
+                  Hé {{ if .Data.first_name }}{{ .Data.first_name }}{{ else }}daar{{ end }},
+                </p>
+                <p style="margin:0 0 32px;font-size:16px;line-height:1.6;color:#F4EFE6;">
+                  Klik op de knop hieronder om in te loggen bij The Movement Club. De link is 15 minuten geldig.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color:#B9986A;border:1px solid #B9986A;">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;font-size:12px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;text-decoration:none;color:#0E0C0B;">
+                        Inloggen
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:40px 0 0;font-size:13px;line-height:1.6;color:#8B8478;">
+                  Werkt de knop niet? Kopieer deze link in je browser:<br />
+                  <a href="{{ .ConfirmationURL }}" style="color:#B9986A;word-break:break-all;">{{ .ConfirmationURL }}</a>
+                </p>
+                <p style="margin:48px 0 0;padding-top:32px;border-top:1px solid #3A342B;font-size:14px;line-height:1.6;color:#8B8478;">
+                  Heb je dit niet aangevraagd? Dan hoef je niks te doen. Je account blijft gewoon beveiligd.
+                </p>
+                <p style="margin:32px 0 0;font-size:14px;line-height:1.6;color:#F4EFE6;">
+                  Tot in de studio,<br />
+                  Marlon &amp; The Movement Club
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

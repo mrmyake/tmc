@@ -77,6 +77,17 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
       return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
     }
 
+    // Keep auth.users.raw_user_meta_data in sync with the profile, so
+    // email templates can personalise via {{ .Data.first_name }}.
+    try {
+      const admin = createAdminClient();
+      await admin.auth.admin.updateUserById(userId, {
+        user_metadata: { first_name: first, last_name: last },
+      });
+    } catch (metaErr) {
+      console.warn("[updateProfile] user_metadata sync warning:", metaErr);
+    }
+
     revalidatePath("/app/profiel");
     revalidatePath("/app");
     revalidatePath("/app/abonnement/nieuw");
