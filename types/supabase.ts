@@ -74,6 +74,7 @@ export type Database = {
           ten_ride_card_crowdfunding_cents: number
           ten_ride_card_validity_months: number
           updated_at: string
+          vrij_trainen_cancel_window_minutes: number
           waitlist_confirmation_minutes: number
         }
         Insert: {
@@ -97,6 +98,7 @@ export type Database = {
           ten_ride_card_crowdfunding_cents?: number
           ten_ride_card_validity_months?: number
           updated_at?: string
+          vrij_trainen_cancel_window_minutes?: number
           waitlist_confirmation_minutes?: number
         }
         Update: {
@@ -120,6 +122,7 @@ export type Database = {
           ten_ride_card_crowdfunding_cents?: number
           ten_ride_card_validity_months?: number
           updated_at?: string
+          vrij_trainen_cancel_window_minutes?: number
           waitlist_confirmation_minutes?: number
         }
         Relationships: []

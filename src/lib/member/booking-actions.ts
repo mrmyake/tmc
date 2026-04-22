@@ -271,14 +271,16 @@ export async function cancelBooking(
     supabase
       .from("bookings")
       .select(
-        "id, status, credits_used, membership_id, session:class_sessions(start_at)",
+        "id, status, credits_used, membership_id, pillar, session:class_sessions(start_at)",
       )
       .eq("id", bookingId)
       .eq("profile_id", user.id)
       .maybeSingle(),
     supabase
       .from("booking_settings")
-      .select("cancellation_window_hours")
+      .select(
+        "cancellation_window_hours, vrij_trainen_cancel_window_minutes",
+      )
       .limit(1)
       .maybeSingle(),
   ]);
@@ -289,14 +291,19 @@ export async function cancelBooking(
     return { ok: false, message: "Deze boeking staat al open." };
   }
 
-  const windowHours = settingsResult.data?.cancellation_window_hours ?? 6;
+  // Vrij trainen gebruikt een veel soepeler venster dan groepslessen.
+  const isVrijTrainen = booking.pillar === "vrij_trainen";
+  const windowMs = isVrijTrainen
+    ? (settingsResult.data?.vrij_trainen_cancel_window_minutes ?? 5) * 60_000
+    : (settingsResult.data?.cancellation_window_hours ?? 6) * 3_600_000;
+
   const sessionRow = Array.isArray(booking.session)
     ? booking.session[0]
     : booking.session;
   if (!sessionRow) return { ok: false, message: "Sessie niet gevonden." };
   const sessionStart = new Date(sessionRow.start_at);
-  const hoursUntil = (sessionStart.getTime() - Date.now()) / 3_600_000;
-  const withinWindow = hoursUntil >= windowHours;
+  const msUntil = sessionStart.getTime() - Date.now();
+  const withinWindow = msUntil >= windowMs;
 
   const updateResult = await supabase
     .from("bookings")
@@ -341,11 +348,13 @@ export async function cancelBooking(
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
 
+  const lateMessage = isVrijTrainen
+    ? "Je boeking is geannuleerd. Deze sessie telt mee — je was binnen vijf minuten voor de start."
+    : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.";
+
   return {
     ok: true,
     action: "cancelled",
-    message: withinWindow
-      ? "Je boeking is geannuleerd."
-      : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.",
+    message: withinWindow ? "Je boeking is geannuleerd." : lateMessage,
   };
 }
