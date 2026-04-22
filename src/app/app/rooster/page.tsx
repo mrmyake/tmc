@@ -8,6 +8,10 @@ import {
 import { FilterChips } from "./_components/FilterChips";
 import { SessionList } from "./_components/SessionList";
 import { WeekNavigator } from "./_components/WeekNavigator";
+import {
+  OpenStudioStrip,
+  type OpenStudioDay,
+} from "./_components/OpenStudioStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 
 export const metadata = {
@@ -248,11 +252,52 @@ export default async function RoosterPage(props: {
     };
   });
 
+  // Split open-studio day-sessions from regular class sessions — the rooster
+  // renders vrij trainen as a separate strip of day pills, group classes as
+  // the stacked weekly agenda below.
+  const vrijTrainenByDate = new Map<string, (typeof enriched)[number]>();
+  const regularEnriched = [] as typeof enriched;
+  for (const s of enriched) {
+    if (s.pillar === "vrij_trainen") {
+      vrijTrainenByDate.set(isoDate(new Date(s.startAt)), s);
+    } else {
+      regularEnriched.push(s);
+    }
+  }
+
+  const openStudioDays: OpenStudioDay[] = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(weekStart, i);
+    const iso = isoDate(d);
+    const match = vrijTrainenByDate.get(iso);
+    if (!match) {
+      return {
+        isoDate: iso,
+        sessionId: "",
+        startAt: d.toISOString(),
+        state: "past" as const,
+        bookingId: null,
+      };
+    }
+    const state: "open" | "booked" | "past" =
+      match.status === "past"
+        ? "past"
+        : match.status === "booked"
+          ? "booked"
+          : "open";
+    return {
+      isoDate: iso,
+      sessionId: match.id,
+      startAt: match.startAt,
+      state,
+      bookingId: match.bookingId,
+    };
+  }).filter((day) => day.sessionId !== "");
+
   // Build day groups for every day of the visible week, even empty ones, so
   // the editorial rhythm stays consistent and members see the full week at a
   // glance instead of needing to toggle days.
   const sessionsByDay = new Map<string, typeof enriched>();
-  for (const s of enriched) {
+  for (const s of regularEnriched) {
     const key = isoDate(new Date(s.startAt));
     if (!sessionsByDay.has(key)) sessionsByDay.set(key, []);
     sessionsByDay.get(key)!.push(s);
@@ -289,8 +334,12 @@ export default async function RoosterPage(props: {
         todayHref={buildHref({ pijler: pillarFilter ?? undefined })}
       />
 
+      {openStudioDays.length > 0 && <OpenStudioStrip days={openStudioDays} />}
+
       <div className="mb-12">
-        <FilterChips pillars={[...PILLARS]} />
+        <FilterChips
+          pillars={PILLARS.filter((p) => p !== "vrij_trainen")}
+        />
       </div>
 
       <SessionList
