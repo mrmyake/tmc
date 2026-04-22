@@ -22,6 +22,25 @@ type BookingRow = {
   } | null;
 };
 
+function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
+  const target = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const isoWeek = Math.ceil(
+    ((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
+  return { isoWeek, isoYear: target.getUTCFullYear() };
+}
+
+function logIfError(tag: string, error: { message: string } | null) {
+  if (error) {
+    console.error(`[/app dashboard] ${tag} query failed:`, error.message);
+  }
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -33,53 +52,72 @@ export default async function DashboardPage() {
     return null;
   }
 
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const { isoWeek, isoYear } = getIsoWeekYear(now);
 
-  const [profileResult, nextBookingResult, upcomingCountResult, membershipResult] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("first_name, health_intake_completed_at")
-        .eq("id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("bookings")
-        .select(
-          `
+  const [
+    profileResult,
+    nextBookingResult,
+    upcomingCountResult,
+    membershipResult,
+    weeklyBookingsResult,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("first_name, health_intake_completed_at")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("bookings")
+      .select(
+        `
+          id,
+          session:class_sessions!inner(
             id,
-            session:class_sessions!inner(
-              id,
-              start_at,
-              end_at,
-              class_type:class_types(name),
-              trainer:trainers(display_name)
-            )
-          `,
-        )
-        .eq("profile_id", user.id)
-        .eq("status", "booked")
-        .gte("class_sessions.start_at", nowIso)
-        .order("class_sessions(start_at)", { ascending: true })
-        .limit(1)
-        .returns<BookingRow[]>(),
-      supabase
-        .from("bookings")
-        .select("id, class_sessions!inner(start_at)", {
-          count: "exact",
-          head: true,
-        })
-        .eq("profile_id", user.id)
-        .eq("status", "booked")
-        .gte("class_sessions.start_at", nowIso),
-      supabase
-        .from("memberships")
-        .select("plan_type, frequency_cap, credits_remaining, credits_total")
-        .eq("profile_id", user.id)
-        .eq("status", "active")
-        .order("start_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+            start_at,
+            end_at,
+            class_type:class_types(name),
+            trainer:trainers(display_name)
+          )
+        `,
+      )
+      .eq("profile_id", user.id)
+      .eq("status", "booked")
+      .gte("class_sessions.start_at", nowIso)
+      .order("class_sessions(start_at)", { ascending: true })
+      .limit(1)
+      .returns<BookingRow[]>(),
+    supabase
+      .from("bookings")
+      .select("id, class_sessions!inner(start_at)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("profile_id", user.id)
+      .eq("status", "booked")
+      .gte("class_sessions.start_at", nowIso),
+    supabase
+      .from("memberships")
+      .select("plan_type, frequency_cap, credits_remaining, credits_total")
+      .eq("profile_id", user.id)
+      .eq("status", "active")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("v_weekly_bookings")
+      .select("booking_count")
+      .eq("profile_id", user.id)
+      .eq("iso_week", isoWeek)
+      .eq("iso_year", isoYear),
+  ]);
+
+  logIfError("profiles", profileResult.error);
+  logIfError("next booking", nextBookingResult.error);
+  logIfError("upcoming count", upcomingCountResult.error);
+  logIfError("membership", membershipResult.error);
+  logIfError("weekly bookings", weeklyBookingsResult.error);
 
   const firstName =
     profileResult.data?.first_name?.trim() ||
@@ -111,6 +149,16 @@ export default async function DashboardPage() {
     membership &&
     PLANS_WITH_CREDITS.has(membership.plan_type) &&
     membership.credits_total !== null;
+
+  const weeklyBookingsUsed =
+    weeklyBookingsResult.data?.reduce(
+      (sum, row) => sum + (row.booking_count ?? 0),
+      0,
+    ) ?? 0;
+  const showFrequencyTile =
+    !showCreditsTile &&
+    membership !== null &&
+    membership?.frequency_cap != null;
 
   return (
     <Container className="py-16 md:py-24">
@@ -154,6 +202,17 @@ export default async function DashboardPage() {
               }
               value={`${membership!.credits_remaining ?? 0} / ${membership!.credits_total}`}
               hint="Resterend op je kaart."
+            />
+          )}
+          {showFrequencyTile && (
+            <StatTile
+              label="Deze week"
+              value={`${weeklyBookingsUsed} / ${membership!.frequency_cap}`}
+              hint={
+                weeklyBookingsUsed >= (membership!.frequency_cap ?? 0)
+                  ? "Fair-use bereikt. Nieuwe week, nieuwe ruimte."
+                  : "Sessies gebruikt binnen je abonnement."
+              }
             />
           )}
         </div>
