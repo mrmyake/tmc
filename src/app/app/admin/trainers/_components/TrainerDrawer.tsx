@@ -387,6 +387,8 @@ export function TrainerDrawer({ trainerId, onClose }: TrainerDrawerProps) {
                     )}
                   </section>
 
+                  <InvoiceSection trainerId={detail.id} />
+
                   <section className="mb-10">
                     <div className="flex items-center justify-between mb-4">
                       <span className="tmc-eyebrow">
@@ -482,5 +484,47 @@ export function TrainerDrawer({ trainerId, onClose }: TrainerDrawerProps) {
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+function defaultInvoiceMonth(): string {
+  // Laatst afgelopen kalendermaand, in "YYYY-MM".
+  const now = new Date();
+  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const m = now.getMonth() === 0 ? 12 : now.getMonth();
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+function InvoiceSection({ trainerId }: { trainerId: string }) {
+  const [month, setMonth] = useState(defaultInvoiceMonth());
+  const href = `/api/admin/trainers/${trainerId}/invoice?month=${month}`;
+  return (
+    <section className="mb-10 pb-8 border-b border-[color:var(--ink-500)]/60">
+      <span className="tmc-eyebrow block mb-3">Factuur-export</span>
+      <p className="text-text-muted text-sm mb-4 leading-relaxed">
+        PDF met goedgekeurde uren en bedrag per periode. Handig als
+        onderbouwing voor de uitbetaling. Geen officiële factuur vanuit
+        TMC.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="tmc-eyebrow">Maand</span>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="bg-bg border border-[color:var(--ink-500)] px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
+          />
+        </label>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-colors duration-300 hover:border-accent hover:text-accent"
+        >
+          Download PDF
+        </a>
+      </div>
+    </section>
   );
 }
