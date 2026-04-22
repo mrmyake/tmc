@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Upload, Trash2 } from "lucide-react";
 import { uploadAvatar, removeAvatar } from "@/lib/actions/profile";
 
 interface Props {
@@ -35,18 +34,21 @@ export function AvatarUpload({ avatarUrl, initials }: Props) {
     });
   }
 
+  const buttonBase =
+    "inline-flex items-center justify-center px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer";
+
   return (
-    <div className="flex items-center gap-6">
-      <div className="relative w-24 h-24 rounded-full overflow-hidden bg-bg-subtle border border-bg-subtle flex items-center justify-center flex-shrink-0">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-8">
+      <div className="relative w-28 h-28 overflow-hidden bg-bg flex items-center justify-center flex-shrink-0">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatarUrl}
-            alt="Avatar"
+            alt="Profielfoto"
             className="w-full h-full object-cover"
           />
         ) : (
-          <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
+          <span className="font-[family-name:var(--font-playfair)] text-4xl text-accent leading-none">
             {initials}
           </span>
         )}
@@ -61,33 +63,33 @@ export function AvatarUpload({ avatarUrl, initials }: Props) {
           className="hidden"
           id="avatar-input"
         />
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label
             htmlFor="avatar-input"
-            className={`inline-flex items-center gap-2 border border-accent text-accent hover:bg-accent hover:text-bg px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] transition-colors cursor-pointer ${
+            className={`${buttonBase} border-text-muted/30 text-text hover:border-accent hover:text-accent ${
               pending ? "opacity-50 pointer-events-none" : ""
             }`}
           >
-            <Upload size={14} />
-            {pending ? "Bezig..." : avatarUrl ? "Vervangen" : "Uploaden"}
+            {pending ? "Bezig" : avatarUrl ? "Vervangen" : "Uploaden"}
           </label>
           {avatarUrl && (
             <button
               type="button"
               onClick={handleRemove}
               disabled={pending}
-              className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-text-muted hover:text-red-400 transition-colors cursor-pointer px-2"
+              className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-[color:var(--danger)] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
             >
-              <Trash2 size={14} />
               Verwijderen
             </button>
           )}
         </div>
-        <p className="text-xs text-text-muted mt-2">
+        <p className="text-xs text-text-muted mt-3">
           JPG, PNG of WebP. Max 3 MB.
         </p>
         {error && (
-          <p className="text-xs text-red-400 mt-2">{error}</p>
+          <p role="alert" className="text-xs text-[color:var(--danger)] mt-2">
+            {error}
+          </p>
         )}
       </div>
     </div>
