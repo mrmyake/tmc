@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface Day {
   date: Date;
   sessionsCount: number;
@@ -21,9 +23,10 @@ export function DayStrip({ days, selectedIsoDate, buildHref }: DayStripProps) {
       {days.map((day) => {
         const isSelected = day.isoDate === selectedIsoDate;
         return (
-          <a
+          <Link
             key={day.isoDate}
             href={buildHref(day.isoDate)}
+            scroll={false}
             aria-current={isSelected ? "date" : undefined}
             className={`flex-shrink-0 w-16 flex flex-col items-center gap-1 py-4 border transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
               isSelected
@@ -51,7 +54,7 @@ export function DayStrip({ days, selectedIsoDate, buildHref }: DayStripProps) {
                   : "bg-transparent"
               }`}
             />
-          </a>
+          </Link>
         );
       })}
     </nav>
