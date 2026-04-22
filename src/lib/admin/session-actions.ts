@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendNotification } from "@/lib/ntfy";
+import { sendEmail } from "@/lib/email";
+import SessionCancelledByAdmin from "@/emails/session_cancelled_by_admin";
+import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
+}
 
 export type AdminActionResult =
   | { ok: true; message: string; id?: string }
@@ -216,6 +223,15 @@ export async function adminCancelSession(
     "warning",
   );
 
+  // Fire-and-forget member mails. Errors only get logged.
+  if (affected.length > 0) {
+    void notifyAffectedMembers({
+      sessionId: input.id,
+      bookings: affected,
+      reason,
+    });
+  }
+
   revalidateAll();
 
   return {
@@ -313,4 +329,77 @@ export async function adminCreateSession(
   revalidateAll();
 
   return { ok: true, message: "Sessie aangemaakt.", id: data.id };
+}
+
+// ----------------------------------------------------------------------------
+// Notify affected members when a session is cancelled by admin
+// ----------------------------------------------------------------------------
+
+interface AffectedBooking {
+  id: string;
+  profile_id: string;
+  membership_id: string | null;
+  credits_used: number;
+}
+
+async function notifyAffectedMembers(args: {
+  sessionId: string;
+  bookings: AffectedBooking[];
+  reason: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+
+    const { data: sessionRow } = await admin
+      .from("class_sessions")
+      .select(
+        `start_at, end_at,
+         class_type:class_types(name)`,
+      )
+      .eq("id", args.sessionId)
+      .maybeSingle();
+    if (!sessionRow) return;
+
+    const ct = (Array.isArray(sessionRow.class_type)
+      ? sessionRow.class_type[0]
+      : sessionRow.class_type) as { name: string | null } | null;
+
+    const start = new Date(sessionRow.start_at);
+    const end = new Date(sessionRow.end_at);
+    const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+
+    const profileIds = args.bookings.map((b) => b.profile_id);
+    if (profileIds.length === 0) return;
+
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, email, first_name")
+      .in("id", profileIds);
+
+    const profileById = new Map(
+      (profiles ?? []).map((p) => [p.id, p]),
+    );
+
+    for (const b of args.bookings) {
+      const profile = profileById.get(b.profile_id);
+      if (!profile?.email) continue;
+      const creditRestored =
+        Boolean(b.membership_id) && (b.credits_used ?? 0) > 0;
+      await sendEmail({
+        to: profile.email,
+        toName: profile.first_name ?? undefined,
+        subject: `${ct?.name ?? "Sessie"} geannuleerd: ${whenLabel}`,
+        react: SessionCancelledByAdmin({
+          firstName: profile.first_name ?? "",
+          className: ct?.name ?? "Sessie",
+          whenLabel,
+          reason: args.reason,
+          creditRestored,
+          siteUrl: siteUrl(),
+        }),
+      });
+    }
+  } catch (err) {
+    console.error("[notifyAffectedMembers] skipped", err);
+  }
 }

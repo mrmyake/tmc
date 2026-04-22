@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { sendEmail } from "@/lib/email";
+import WaitlistPromoted from "@/emails/waitlist_promoted";
+import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +110,9 @@ export async function GET(req: Request) {
     }
 
     promoted.push(candidate.id);
+
+    // Fire-and-forget email. Don't let a send error drop the cron run.
+    void sendPromotedEmail(candidate.id, confirmMinutes);
   }
 
   return NextResponse.json({
@@ -111,4 +121,59 @@ export async function GET(req: Request) {
     promoted: promoted.length,
     promotedIds: promoted,
   });
+}
+
+/** Resolve the waitlist entry + profile + session, send the email. */
+async function sendPromotedEmail(
+  entryId: string,
+  confirmMinutes: number,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from("waitlist_entries")
+      .select(
+        `id,
+         profile:profiles(first_name, email),
+         session:class_sessions(
+           start_at, end_at,
+           class_type:class_types(name)
+         )`,
+      )
+      .eq("id", entryId)
+      .maybeSingle();
+    if (!row) return;
+
+    type P = { first_name: string | null; email: string | null } | null;
+    type S = {
+      start_at: string;
+      end_at: string;
+      class_type: { name: string | null } | { name: string | null }[] | null;
+    } | null;
+    const profile = (Array.isArray(row.profile) ? row.profile[0] : row.profile) as P;
+    const session = (Array.isArray(row.session) ? row.session[0] : row.session) as S;
+    if (!profile?.email || !session) return;
+
+    const ct = (Array.isArray(session.class_type)
+      ? session.class_type[0]
+      : session.class_type) as { name: string | null } | null;
+    const start = new Date(session.start_at);
+    const end = new Date(session.end_at);
+    const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+
+    await sendEmail({
+      to: profile.email,
+      toName: profile.first_name ?? undefined,
+      subject: `Plek vrij: ${ct?.name ?? "Sessie"} ${whenLabel}`,
+      react: WaitlistPromoted({
+        firstName: profile.first_name ?? "",
+        className: ct?.name ?? "Sessie",
+        whenLabel,
+        deadlineLabel: `binnen ${confirmMinutes} minuten`,
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[cron/waitlist-promote email] skipped", err);
+  }
 }

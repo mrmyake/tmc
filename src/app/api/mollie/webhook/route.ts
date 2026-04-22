@@ -3,6 +3,43 @@ import { SequenceType } from "@mollie/api-client";
 import { getMollieClient } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendNotification } from "@/lib/ntfy";
+import { sendEmail } from "@/lib/email";
+import PaymentFailed from "@/emails/payment_failed";
+import { formatEuro } from "@/lib/crowdfunding-helpers";
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
+}
+
+/** Fire-and-forget payment-failed email. Never throws. */
+async function notifyMemberPaymentFailed(args: {
+  profileId: string;
+  amountCents: number;
+  planLabel: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("first_name, email")
+      .eq("id", args.profileId)
+      .maybeSingle();
+    if (!profile?.email) return;
+    await sendEmail({
+      to: profile.email,
+      toName: profile.first_name ?? undefined,
+      subject: "Incasso niet gelukt",
+      react: PaymentFailed({
+        firstName: profile.first_name ?? "",
+        amountEuro: formatEuro(Math.round(args.amountCents / 100)),
+        planLabel: args.planLabel,
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[notifyMemberPaymentFailed] skipped", err);
+  }
+}
 
 /**
  * Mollie webhook voor het member-system. Ontvangt payment-id's via form
@@ -243,6 +280,12 @@ export async function POST(request: Request) {
             `Membership ${membership.id} (${membership.plan_variant}) — recurring ${payment.status}.`,
             "warning"
           );
+          // Fire-and-forget member email.
+          void notifyMemberPaymentFailed({
+            profileId: membership.profile_id,
+            amountCents: Math.round(Number(payment.amount?.value ?? "0") * 100),
+            planLabel: membership.plan_variant ?? "abonnement",
+          });
         }
       }
     }

@@ -2,12 +2,77 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
+import BookingConfirmation from "@/emails/booking_confirmation";
+import { formatRelativeWhen, formatTimeRange } from "@/lib/format-date";
 import {
   canBook,
   REASON_COPY,
   type CanBookMembership,
   type CanBookResult,
 } from "./can-book";
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
+}
+
+/** Fire-and-forget booking-confirmation email. Never blocks the action. */
+async function sendBookingConfirmationEmail(args: {
+  profileId: string;
+  sessionId: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const [profileRes, sessionRes] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("first_name, email")
+        .eq("id", args.profileId)
+        .maybeSingle(),
+      admin
+        .from("class_sessions")
+        .select(
+          `start_at, end_at,
+           class_type:class_types(name),
+           trainer:trainers(display_name)`,
+        )
+        .eq("id", args.sessionId)
+        .maybeSingle(),
+    ]);
+    const profile = profileRes.data;
+    const sessionRow = sessionRes.data;
+    if (!profile?.email || !sessionRow) return;
+
+    type Ref<T> = T | T[] | null;
+    const ct = (Array.isArray(sessionRow.class_type)
+      ? sessionRow.class_type[0]
+      : sessionRow.class_type) as { name: string | null } | null;
+    const tr = (Array.isArray(sessionRow.trainer)
+      ? sessionRow.trainer[0]
+      : sessionRow.trainer) as { display_name: string | null } | null;
+    void (0 as unknown as Ref<never>);
+
+    const start = new Date(sessionRow.start_at);
+    const end = new Date(sessionRow.end_at);
+    const whenLabel = `${formatRelativeWhen(start).replace(/\s·\s.*/, "")} · ${formatTimeRange(start, end)}`;
+
+    await sendEmail({
+      to: profile.email,
+      toName: profile.first_name ?? undefined,
+      subject: `Bevestigd: ${ct?.name ?? "Sessie"} ${whenLabel}`,
+      react: BookingConfirmation({
+        firstName: profile.first_name ?? "",
+        className: ct?.name ?? "Sessie",
+        trainerName: tr?.display_name ?? "je coach",
+        whenLabel,
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[booking-confirmation email] skipped", err);
+  }
+}
 
 export type BookingActionResult =
   | { ok: true; action: "booked" | "waitlisted" | "cancelled"; message: string }
@@ -211,6 +276,13 @@ export async function createBooking(
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
+
+  // Fire-and-forget confirmation email. Catch inside helper so this can
+  // never crash the action.
+  void sendBookingConfirmationEmail({
+    profileId: user.id,
+    sessionId,
+  });
 
   return {
     ok: true,
