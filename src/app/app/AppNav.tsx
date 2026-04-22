@@ -15,6 +15,7 @@ interface NavItem {
 interface Props {
   firstName: string;
   isAdmin: boolean;
+  isTrainer?: boolean;
 }
 
 const BASE_NAV: NavItem[] = [
@@ -26,12 +27,15 @@ const BASE_NAV: NavItem[] = [
   { href: "/app/profiel", label: "Profiel" },
 ];
 
-export function AppNav({ firstName, isAdmin }: Props) {
+export function AppNav({ firstName, isAdmin, isTrainer }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const nav: NavItem[] = [
     ...BASE_NAV,
+    ...(isTrainer || isAdmin
+      ? [{ href: "/app/trainer", label: "Trainer" }]
+      : []),
     ...(isAdmin ? [{ href: "/app/admin", label: "Admin" }] : []),
   ];
 

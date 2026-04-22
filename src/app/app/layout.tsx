@@ -33,10 +33,11 @@ export default async function AppLayout({
 
   const firstName = profile?.first_name?.trim() || user.email?.split("@")[0] || "Member";
   const isAdmin = profile?.role === "admin";
+  const isTrainer = profile?.role === "trainer";
 
   return (
     <div className="min-h-screen flex flex-col">
-      <AppNav firstName={firstName} isAdmin={isAdmin} />
+      <AppNav firstName={firstName} isAdmin={isAdmin} isTrainer={isTrainer} />
       <main className="flex-1">{children}</main>
     </div>
   );
