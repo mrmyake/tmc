@@ -580,6 +580,70 @@ async function ensureSessionsForWeek(mondayYmd, templateDefs, templateIds, class
 
 // ---------- Main -------------------------------------------------------------
 
+// PT slots — one-shot seed of future 1:1 slots per trainer so B7 is testable.
+// Idempotency: skip if a slot already exists for the same trainer + start_at.
+async function ensurePtSlots(trainers) {
+  console.log("\nPT slots (1:1, next 14 days, Europe/Amsterdam):");
+  const today = new Date();
+  const todayYmd = mondayOfWeekInAmsterdam(today);
+  // Each trainer gets two slot-times per weekday (Mon-Fri) across two weeks.
+  const times = ["09:00", "11:00", "14:00", "16:00"];
+  let touched = 0;
+  let skipped = 0;
+  for (const trainer of trainers) {
+    for (let dayOffset = 0; dayOffset < 14; dayOffset += 1) {
+      const dayYmd = addDaysUtc(todayYmd, dayOffset);
+      const date = new Date(
+        Date.UTC(dayYmd.year, dayYmd.month - 1, dayYmd.day),
+      );
+      // ISO weekday: 1=Mon..7=Sun. Skip weekends for PT slots.
+      const dow = date.getUTCDay();
+      if (dow === 0 || dow === 6) continue;
+
+      // Spread 2 times per day across trainers so they don't all overlap.
+      const startIndex = trainers.indexOf(trainer) % times.length;
+      const dayTimes = [times[startIndex], times[(startIndex + 2) % times.length]];
+      for (const t of dayTimes) {
+        const [h, m] = t.split(":").map(Number);
+        const startUtc = zonedWallClockToUtc(
+          dayYmd.year,
+          dayYmd.month,
+          dayYmd.day,
+          h,
+          m,
+          TIME_ZONE,
+        );
+        const endUtc = new Date(startUtc.getTime() + 60 * 60_000);
+
+        const { data: existing } = await admin
+          .from("pt_sessions")
+          .select("id")
+          .eq("trainer_id", trainer.trainerId)
+          .eq("start_at", startUtc.toISOString())
+          .maybeSingle();
+        if (existing) {
+          skipped += 1;
+          continue;
+        }
+        const { error } = await admin.from("pt_sessions").insert({
+          trainer_id: trainer.trainerId,
+          format: "one_on_one",
+          start_at: startUtc.toISOString(),
+          end_at: endUtc.toISOString(),
+          capacity: 1,
+          status: "scheduled",
+        });
+        if (error) {
+          console.warn(`  ! pt_session ${trainer.slug} ${t}:`, error.message);
+        } else {
+          touched += 1;
+        }
+      }
+    }
+  }
+  console.log(`  · inserted ${touched}, skipped ${skipped} existing`);
+}
+
 async function main() {
   console.log("Seeding test data...\n");
 
@@ -605,6 +669,8 @@ async function main() {
       `  · week of ${String(weekMonday.year).padStart(4, "0")}-${String(weekMonday.month).padStart(2, "0")}-${String(weekMonday.day).padStart(2, "0")} — ${r.touched} sessions${r.errors ? ` (${r.errors} errors)` : ""}`,
     );
   }
+
+  await ensurePtSlots(trainers);
 
   console.log("\nDone.");
 }

@@ -20,6 +20,7 @@ interface Props {
 const BASE_NAV: NavItem[] = [
   { href: "/app", label: "Dashboard" },
   { href: "/app/rooster", label: "Rooster" },
+  { href: "/app/pt", label: "PT" },
   { href: "/app/boekingen", label: "Boekingen" },
   { href: "/app/abonnement", label: "Abonnement" },
   { href: "/app/profiel", label: "Profiel" },
