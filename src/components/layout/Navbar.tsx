@@ -66,9 +66,10 @@ export function Navbar() {
               </QuietLink>
             );
           })}
-          <Button href="/proefles" className="ml-4">
-            Plan je proefles
-          </Button>
+          <QuietLink href="/login" className="text-[15px] py-1 ml-4">
+            Inloggen
+          </QuietLink>
+          <Button href="/proefles">Plan je proefles</Button>
         </div>
 
         <button
@@ -125,7 +126,20 @@ export function Navbar() {
                 transition={{
                   duration: 0.5,
                   ease: [0.2, 0.7, 0.1, 1],
-                  delay: 0.3,
+                  delay: NAV_LINKS.length * 0.05 + 0.08,
+                }}
+              >
+                <QuietLink href="/login" className="text-xl pb-1">
+                  Inloggen
+                </QuietLink>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.2, 0.7, 0.1, 1],
+                  delay: 0.35,
                 }}
               >
                 <Button href="/proefles" className="mt-2 w-full text-center">

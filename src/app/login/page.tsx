@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
+import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -26,6 +28,17 @@ export default async function LoginPage({
   const initialError = errorKey
     ? ERROR_MESSAGES[errorKey] ?? ERROR_MESSAGES.unknown
     : undefined;
+
+  // Already authenticated? Send straight to the member app. Keeps the
+  // "Inloggen" link in the marketing navbar doing the right thing for
+  // both states without requiring an auth-aware navbar.
+  if (!errorKey) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) redirect("/app");
+  }
 
   return (
     <section className="min-h-screen flex items-center py-20">
