@@ -2,11 +2,14 @@
 /**
  * Seed test data for the TMC member-system screens.
  *
- * Creates (idempotent):
- *   - 4 test trainers in the .test TLD (auth user + profile + trainers row)
- *   - 6 class types across all pillars except vrij_trainen
- *   - 12 schedule templates covering a realistic week
- *   - class_sessions for last week + this week + 3 weeks ahead
+ * Pulls the real trainers from Sanity, ensures matching Supabase rows
+ * (linked via sanity_id), then seeds class types, schedule templates, and
+ * class sessions for last week + this week + 3 weeks ahead. Idempotent —
+ * re-running syncs changes and upserts.
+ *
+ * Times are written as Europe/Amsterdam wall-clock, converted to UTC via
+ * Intl. Works across CET/CEST (non-transition moments only — we don't
+ * seed at 02:30 on DST-switch nights).
  *
  * Run:
  *   node --env-file=.env.local scripts/seed-test-data.mjs
@@ -14,9 +17,12 @@
  * Requires env vars:
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
+ *   NEXT_PUBLIC_SANITY_PROJECT_ID (default hn9lkvte)
+ *   NEXT_PUBLIC_SANITY_DATASET (default production)
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSanityClient } from "@sanity/client";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,134 +33,281 @@ if (!url || !serviceKey) {
   process.exit(1);
 }
 
-const admin = createClient(url, serviceKey, {
+const admin = createSupabaseClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-// ---------- Trainers ---------------------------------------------------------
+const sanity = createSanityClient({
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ?? "hn9lkvte",
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET ?? "production",
+  apiVersion: "2024-01-01",
+  useCdn: false,
+});
 
-const TRAINERS = [
-  {
-    email: "marlon@trainers.test",
-    firstName: "Marlon",
-    lastName: "Verhoef",
-    slug: "marlon",
-    displayName: "Marlon Verhoef",
-    bio: "Head trainer en oprichtster. Marlon combineert kettlebell, mobility en persoonlijke coaching. Werkt al jaren één-op-één met leden die serieus willen bouwen.",
-    pillarSpecialties: ["kettlebell", "vrij_trainen"],
-    ptTier: "premium",
-    ptSessionRateCents: 9500,
-    hourlyRateCents: null,
-  },
-  {
-    email: "lieke@trainers.test",
-    firstName: "Lieke",
-    lastName: "van den Berg",
-    slug: "lieke",
-    displayName: "Lieke van den Berg",
-    bio: "Kettlebell en senior-circuit specialist. Rustige, technische stijl met veel aandacht voor houding.",
-    pillarSpecialties: ["kettlebell", "senior"],
-    ptTier: "standard",
-    ptSessionRateCents: 8000,
-    hourlyRateCents: 4000,
-  },
-  {
-    email: "tom@trainers.test",
-    firstName: "Tom",
-    lastName: "Huisman",
-    slug: "tom",
-    displayName: "Tom Huisman",
-    bio: "Yoga & mobility docent. Gefocust op ademhaling, mobiliteit en de basis-bewegingen die de rest van je week dragen.",
-    pillarSpecialties: ["yoga_mobility"],
-    ptTier: "standard",
-    ptSessionRateCents: 8000,
-    hourlyRateCents: 4000,
-  },
-  {
-    email: "sanne@trainers.test",
-    firstName: "Sanne",
-    lastName: "de Wit",
-    slug: "sanne",
-    displayName: "Sanne de Wit",
-    bio: "Yoga en kids. Speels, helder en geduldig — of het nu volwassenen of kinderen zijn.",
-    pillarSpecialties: ["yoga_mobility", "kids"],
-    ptTier: "standard",
-    ptSessionRateCents: 8000,
-    hourlyRateCents: 4000,
-  },
-];
+const TIME_ZONE = "Europe/Amsterdam";
 
-async function findAuthUserByEmail(email) {
-  // admin.listUsers with email filter is the official way
-  const { data, error } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 200,
-  });
-  if (error) throw error;
-  return data.users.find((u) => u.email === email) ?? null;
+// ---------- Time helpers -----------------------------------------------------
+
+/** Convert a wall-clock date/time in a given timezone to a UTC Date. */
+function zonedWallClockToUtc(year, month, day, hour, minute, timeZone) {
+  const firstTry = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(firstTry));
+  const get = (type) => Number(parts.find((p) => p.type === type).value);
+  const diffMinutes =
+    hour * 60 + minute - (get("hour") * 60 + get("minute"));
+  return new Date(firstTry + diffMinutes * 60_000);
 }
 
-async function ensureTrainer(def) {
-  let authUser = await findAuthUserByEmail(def.email);
-  if (!authUser) {
-    const { data, error } = await admin.auth.admin.createUser({
-      email: def.email,
-      email_confirm: true,
-      user_metadata: { first_name: def.firstName, last_name: def.lastName },
+/** Monday 00:00 Europe/Amsterdam for the ISO week of `ref`. */
+function mondayOfWeekInAmsterdam(ref) {
+  // What date is "ref" in Amsterdam?
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(ref);
+  const y = Number(parts.find((p) => p.type === "year").value);
+  const m = Number(parts.find((p) => p.type === "month").value);
+  const d = Number(parts.find((p) => p.type === "day").value);
+  const wdLabel = parts.find((p) => p.type === "weekday").value; // e.g. "Tue"
+  const wdIdx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+    wdLabel,
+  );
+  const isoDow = wdIdx === 0 ? 7 : wdIdx;
+  // Subtract (isoDow - 1) days to land on Monday
+  const mondayDate = new Date(Date.UTC(y, m - 1, d));
+  mondayDate.setUTCDate(mondayDate.getUTCDate() - (isoDow - 1));
+  return {
+    year: mondayDate.getUTCFullYear(),
+    month: mondayDate.getUTCMonth() + 1,
+    day: mondayDate.getUTCDate(),
+  };
+}
+
+function addDaysUtc(ymd, days) {
+  const d = new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day));
+  d.setUTCDate(d.getUTCDate() + days);
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  };
+}
+
+// ---------- Trainer sync -----------------------------------------------------
+
+const TEST_TRAINER_SLUGS = ["marlon", "lieke", "tom", "sanne", "remi", "fenna"];
+
+/**
+ * Map Sanity `role` to pillar_specialties we want on the Supabase row.
+ * The real specialties can be overridden later by admin; this is just a
+ * sensible default so schedule_templates pick the right trainer.
+ */
+const ROLE_TO_PILLARS = {
+  head_trainer: ["kettlebell", "vrij_trainen"],
+  personal_trainer: ["kettlebell", "senior"],
+  yoga_mobility: ["yoga_mobility", "kids"],
+};
+
+const ROLE_TO_PT_TIER = {
+  head_trainer: "premium",
+  personal_trainer: "standard",
+  yoga_mobility: "standard",
+};
+
+function emailForSlug(slug) {
+  return `${slug}@trainers.test`;
+}
+
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .split("-")[0];
+}
+
+async function findAuthUserByEmail(email) {
+  let page = 1;
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 200,
     });
-    if (error) throw new Error(`createUser ${def.email}: ${error.message}`);
-    authUser = data.user;
-    console.log(`  + auth user: ${def.email}`);
-  } else {
-    console.log(`  · auth user exists: ${def.email}`);
+    if (error) throw error;
+    const hit = data.users.find((u) => u.email === email);
+    if (hit) return hit;
+    if (data.users.length < 200) return null;
+    page += 1;
+  }
+}
+
+async function deleteAuthUserByEmail(email) {
+  const user = await findAuthUserByEmail(email);
+  if (!user) return;
+  await admin.auth.admin.deleteUser(user.id);
+}
+
+async function cleanupOldTestTrainers() {
+  console.log("Cleanup:");
+
+  // Find current test trainers by slug
+  const { data: currentTrainers } = await admin
+    .from("trainers")
+    .select("id, slug, profile_id")
+    .in("slug", TEST_TRAINER_SLUGS);
+
+  if (!currentTrainers || currentTrainers.length === 0) {
+    console.log("  · nothing to clean");
+    return;
   }
 
-  // Ensure profile role
-  await admin
-    .from("profiles")
-    .upsert(
-      {
-        id: authUser.id,
-        email: def.email,
-        first_name: def.firstName,
-        last_name: def.lastName,
-        role: "trainer",
-        age_category: "adult",
-      },
-      { onConflict: "id" },
+  const trainerIds = currentTrainers.map((t) => t.id);
+
+  // Delete sessions → templates → trainers → auth users
+  const { error: sErr } = await admin
+    .from("class_sessions")
+    .delete()
+    .in("trainer_id", trainerIds);
+  if (sErr) console.warn("  ! delete sessions:", sErr.message);
+
+  const { error: tplErr } = await admin
+    .from("schedule_templates")
+    .delete()
+    .in("trainer_id", trainerIds);
+  if (tplErr) console.warn("  ! delete templates:", tplErr.message);
+
+  const { error: trErr } = await admin
+    .from("trainers")
+    .delete()
+    .in("id", trainerIds);
+  if (trErr) console.warn("  ! delete trainers:", trErr.message);
+
+  for (const tr of currentTrainers) {
+    const email = emailForSlug(tr.slug);
+    try {
+      await deleteAuthUserByEmail(email);
+    } catch (e) {
+      console.warn(`  ! delete auth user ${email}:`, e.message);
+    }
+  }
+
+  console.log(
+    `  · removed ${trainerIds.length} trainers + linked templates/sessions/auth users`,
+  );
+}
+
+async function syncSanityTrainers() {
+  console.log("\nTrainers (from Sanity):");
+
+  const sanityTrainers = await sanity.fetch(`
+    *[_type == "trainer" && !(_id in path("drafts.**"))]{
+      _id, name, role, bio
+    } | order(order asc)
+  `);
+
+  if (sanityTrainers.length === 0) {
+    throw new Error(
+      "No trainers found in Sanity. Add them via /studio first.",
     );
-
-  // Ensure trainers row
-  const { data: existing } = await admin
-    .from("trainers")
-    .select("id")
-    .eq("slug", def.slug)
-    .maybeSingle();
-
-  if (existing) {
-    console.log(`  · trainer row exists: ${def.slug}`);
-    return { ...def, trainerId: existing.id };
   }
 
-  const { data: inserted, error } = await admin
-    .from("trainers")
-    .insert({
-      profile_id: authUser.id,
-      slug: def.slug,
-      display_name: def.displayName,
-      bio: def.bio,
-      pillar_specialties: def.pillarSpecialties,
-      pt_tier: def.ptTier,
-      pt_session_rate_cents: def.ptSessionRateCents,
-      hourly_rate_in_cents: def.hourlyRateCents,
-      is_active: true,
-      is_pt_available: true,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(`insert trainer ${def.slug}: ${error.message}`);
-  console.log(`  + trainer row: ${def.slug}`);
-  return { ...def, trainerId: inserted.id };
+  const rows = [];
+  for (const doc of sanityTrainers) {
+    const slug = slugifyName(doc.name);
+    const email = emailForSlug(slug);
+    const role = doc.role ?? "personal_trainer";
+    const pillars = ROLE_TO_PILLARS[role] ?? ["vrij_trainen"];
+    const ptTier = ROLE_TO_PT_TIER[role] ?? "standard";
+
+    // Auth user
+    let user = await findAuthUserByEmail(email);
+    if (!user) {
+      const firstName = doc.name.split(" ")[0];
+      const lastName = doc.name.split(" ").slice(1).join(" ") || firstName;
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { first_name: firstName, last_name: lastName },
+      });
+      if (error) throw new Error(`createUser ${email}: ${error.message}`);
+      user = data.user;
+    }
+
+    // Profile: force role=trainer
+    const firstName = doc.name.split(" ")[0];
+    const lastName = doc.name.split(" ").slice(1).join(" ") || firstName;
+    await admin
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          role: "trainer",
+          age_category: "adult",
+        },
+        { onConflict: "id" },
+      );
+
+    // Bio — Sanity bio may be portable-text. Fallback to a plain string.
+    const bioText =
+      typeof doc.bio === "string"
+        ? doc.bio
+        : Array.isArray(doc.bio)
+          ? doc.bio
+              .map((b) => (b.children ?? []).map((c) => c.text).join(""))
+              .join("\n\n")
+          : null;
+
+    // Trainers row (upsert on slug)
+    const { data: inserted, error } = await admin
+      .from("trainers")
+      .upsert(
+        {
+          profile_id: user.id,
+          sanity_id: doc._id,
+          slug,
+          display_name: doc.name,
+          bio: bioText,
+          pillar_specialties: pillars,
+          pt_tier: ptTier,
+          pt_session_rate_cents: ptTier === "premium" ? 9500 : 8000,
+          hourly_rate_in_cents: ptTier === "premium" ? null : 4000,
+          is_active: true,
+          is_pt_available: true,
+        },
+        { onConflict: "slug" },
+      )
+      .select("id, slug")
+      .single();
+    if (error) throw new Error(`upsert trainer ${slug}: ${error.message}`);
+    rows.push({
+      trainerId: inserted.id,
+      slug,
+      name: doc.name,
+      pillars,
+      role,
+    });
+    console.log(
+      `  · ${slug} — ${doc.name} (${role}) → pillars: ${pillars.join(", ")}`,
+    );
+  }
+
+  return rows;
 }
 
 // ---------- Class types ------------------------------------------------------
@@ -206,8 +359,7 @@ const CLASS_TYPES = [
     ageCategory: "kids",
     defaultCapacity: 8,
     defaultDurationMinutes: 45,
-    description:
-      "Speels, technisch en uitdagend. Voor kinderen 7 t/m 12 jaar.",
+    description: "Speels, technisch en uitdagend. Voor kinderen 7 t/m 12 jaar.",
   },
   {
     slug: "senior-circuit",
@@ -221,146 +373,184 @@ const CLASS_TYPES = [
   },
 ];
 
-async function ensureClassType(def) {
-  const { data, error } = await admin
-    .from("class_types")
-    .upsert(
-      {
-        slug: def.slug,
-        name: def.name,
-        pillar: def.pillar,
-        age_category: def.ageCategory,
-        default_capacity: def.defaultCapacity,
-        default_duration_minutes: def.defaultDurationMinutes,
-        description: def.description,
-        is_active: true,
-      },
-      { onConflict: "slug" },
-    )
-    .select("id")
-    .single();
-  if (error) throw new Error(`upsert class_type ${def.slug}: ${error.message}`);
-  console.log(`  · class_type: ${def.slug}`);
-  return { ...def, classTypeId: data.id };
+async function ensureClassTypes() {
+  console.log("\nClass types:");
+  const out = [];
+  for (const def of CLASS_TYPES) {
+    const { data, error } = await admin
+      .from("class_types")
+      .upsert(
+        {
+          slug: def.slug,
+          name: def.name,
+          pillar: def.pillar,
+          age_category: def.ageCategory,
+          default_capacity: def.defaultCapacity,
+          default_duration_minutes: def.defaultDurationMinutes,
+          description: def.description,
+          is_active: true,
+        },
+        { onConflict: "slug" },
+      )
+      .select("id")
+      .single();
+    if (error)
+      throw new Error(`upsert class_type ${def.slug}: ${error.message}`);
+    out.push({ ...def, classTypeId: data.id });
+    console.log(`  · ${def.slug}`);
+  }
+  return out;
 }
 
 // ---------- Schedule templates -----------------------------------------------
 
-// day_of_week: 0=Sunday, 1=Monday, ..., 6=Saturday
-// Times are HH:MM local (Europe/Amsterdam is default in the app for display;
-// we store as plain "time" type so template generates local wall-clock slots).
-const TEMPLATES = [
-  // Morning — Kettlebell
-  { classSlug: "kettlebell-basics", trainerSlug: "marlon", dow: 1, time: "06:30", durationMinutes: 45, capacity: 8 },
-  { classSlug: "kettlebell-basics", trainerSlug: "lieke",  dow: 3, time: "06:30", durationMinutes: 45, capacity: 8 },
-  { classSlug: "kettlebell-power",  trainerSlug: "marlon", dow: 5, time: "06:30", durationMinutes: 60, capacity: 8 },
-
-  // Morning — Yoga / Mobility
-  { classSlug: "vinyasa-yoga",  trainerSlug: "tom",   dow: 1, time: "07:30", durationMinutes: 60, capacity: 10 },
-  { classSlug: "mobility-reset",trainerSlug: "tom",   dow: 2, time: "07:00", durationMinutes: 60, capacity: 10 },
-  { classSlug: "vinyasa-yoga",  trainerSlug: "sanne", dow: 3, time: "07:30", durationMinutes: 60, capacity: 10 },
-  { classSlug: "mobility-reset",trainerSlug: "tom",   dow: 4, time: "07:00", durationMinutes: 60, capacity: 10 },
-  { classSlug: "vinyasa-yoga",  trainerSlug: "tom",   dow: 5, time: "07:30", durationMinutes: 60, capacity: 10 },
-
-  // Mid-morning — Senior
-  { classSlug: "senior-circuit", trainerSlug: "lieke", dow: 2, time: "10:00", durationMinutes: 45, capacity: 6 },
-  { classSlug: "senior-circuit", trainerSlug: "lieke", dow: 4, time: "10:00", durationMinutes: 45, capacity: 6 },
-
-  // Afternoon — Kids
-  { classSlug: "kids-movement", trainerSlug: "sanne", dow: 3, time: "16:00", durationMinutes: 45, capacity: 8 },
-  { classSlug: "kids-movement", trainerSlug: "sanne", dow: 6, time: "10:00", durationMinutes: 45, capacity: 8 },
-
-  // Evening — Kettlebell Power + Mobility
-  { classSlug: "kettlebell-power", trainerSlug: "marlon", dow: 1, time: "17:30", durationMinutes: 60, capacity: 8 },
-  { classSlug: "mobility-reset",   trainerSlug: "tom",    dow: 1, time: "18:30", durationMinutes: 60, capacity: 10 },
-  { classSlug: "kettlebell-power", trainerSlug: "marlon", dow: 3, time: "17:30", durationMinutes: 60, capacity: 8 },
-  { classSlug: "vinyasa-yoga",     trainerSlug: "sanne",  dow: 3, time: "18:30", durationMinutes: 60, capacity: 10 },
-  { classSlug: "kettlebell-basics",trainerSlug: "lieke",  dow: 5, time: "17:30", durationMinutes: 60, capacity: 8 },
-];
-
-async function ensureTemplate(def, classTypeId, trainerId) {
-  // Natural uniqueness: same class + trainer + day + start_time + active.
-  const { data: existing } = await admin
-    .from("schedule_templates")
-    .select("id")
-    .eq("class_type_id", classTypeId)
-    .eq("trainer_id", trainerId)
-    .eq("day_of_week", def.dow)
-    .eq("start_time", def.time)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (existing) return existing.id;
-
-  const today = new Date();
-  const validFrom = today.toISOString().slice(0, 10);
-
-  const { data, error } = await admin
-    .from("schedule_templates")
-    .insert({
-      class_type_id: classTypeId,
-      trainer_id: trainerId,
-      day_of_week: def.dow,
-      start_time: def.time,
-      duration_minutes: def.durationMinutes,
-      capacity: def.capacity,
-      valid_from: validFrom,
-      is_active: true,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(`insert template: ${error.message}`);
-  return data.id;
+/**
+ * Build templates dynamically: pick the first trainer whose pillar_specialties
+ * include the class pillar. If none found we skip with a warning.
+ */
+function pickTrainerForPillar(pillar, trainers, { notSameAs } = {}) {
+  const candidates = trainers.filter((t) =>
+    t.pillars.includes(pillar) && t.slug !== notSameAs,
+  );
+  if (candidates.length === 0) return null;
+  return candidates[0];
 }
 
-// ---------- Sessions ---------------------------------------------------------
+function buildTemplateDefs(trainers) {
+  const marlon = trainers.find((t) => t.slug === "marlon");
+  const kettlebellBackup = trainers.find(
+    (t) => t.pillars.includes("kettlebell") && t.slug !== "marlon",
+  );
+  const yogaTrainer = trainers.find((t) => t.pillars.includes("yoga_mobility"));
+  const kidsTrainer = trainers.find((t) => t.pillars.includes("kids"));
+  const seniorTrainer = trainers.find((t) => t.pillars.includes("senior"));
 
-/** Start of ISO week (Monday 00:00 local) for a given date. */
-function startOfWeekLocal(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const dayNum = d.getDay() || 7;
-  d.setDate(d.getDate() - dayNum + 1);
-  return d;
+  const templates = [];
+
+  // Kettlebell morning + evening
+  if (marlon) {
+    templates.push(
+      { classSlug: "kettlebell-basics", trainerSlug: marlon.slug, dow: 1, time: "06:30", durationMinutes: 45, capacity: 8 },
+      { classSlug: "kettlebell-power",  trainerSlug: marlon.slug, dow: 5, time: "06:30", durationMinutes: 60, capacity: 8 },
+      { classSlug: "kettlebell-power",  trainerSlug: marlon.slug, dow: 1, time: "17:30", durationMinutes: 60, capacity: 8 },
+      { classSlug: "kettlebell-power",  trainerSlug: marlon.slug, dow: 3, time: "17:30", durationMinutes: 60, capacity: 8 },
+    );
+  }
+  if (kettlebellBackup) {
+    templates.push(
+      { classSlug: "kettlebell-basics", trainerSlug: kettlebellBackup.slug, dow: 3, time: "06:30", durationMinutes: 45, capacity: 8 },
+      { classSlug: "kettlebell-basics", trainerSlug: kettlebellBackup.slug, dow: 5, time: "17:30", durationMinutes: 60, capacity: 8 },
+    );
+  }
+
+  // Yoga / Mobility morning + evening
+  if (yogaTrainer) {
+    templates.push(
+      { classSlug: "vinyasa-yoga",   trainerSlug: yogaTrainer.slug, dow: 1, time: "07:30", durationMinutes: 60, capacity: 10 },
+      { classSlug: "mobility-reset", trainerSlug: yogaTrainer.slug, dow: 2, time: "07:00", durationMinutes: 60, capacity: 10 },
+      { classSlug: "vinyasa-yoga",   trainerSlug: yogaTrainer.slug, dow: 3, time: "07:30", durationMinutes: 60, capacity: 10 },
+      { classSlug: "mobility-reset", trainerSlug: yogaTrainer.slug, dow: 4, time: "07:00", durationMinutes: 60, capacity: 10 },
+      { classSlug: "vinyasa-yoga",   trainerSlug: yogaTrainer.slug, dow: 5, time: "07:30", durationMinutes: 60, capacity: 10 },
+      { classSlug: "mobility-reset", trainerSlug: yogaTrainer.slug, dow: 1, time: "18:30", durationMinutes: 60, capacity: 10 },
+      { classSlug: "vinyasa-yoga",   trainerSlug: yogaTrainer.slug, dow: 3, time: "18:30", durationMinutes: 60, capacity: 10 },
+    );
+  }
+
+  // Senior
+  if (seniorTrainer) {
+    templates.push(
+      { classSlug: "senior-circuit", trainerSlug: seniorTrainer.slug, dow: 2, time: "10:00", durationMinutes: 45, capacity: 6 },
+      { classSlug: "senior-circuit", trainerSlug: seniorTrainer.slug, dow: 4, time: "10:00", durationMinutes: 45, capacity: 6 },
+    );
+  }
+
+  // Kids
+  if (kidsTrainer) {
+    templates.push(
+      { classSlug: "kids-movement", trainerSlug: kidsTrainer.slug, dow: 3, time: "16:00", durationMinutes: 45, capacity: 8 },
+      { classSlug: "kids-movement", trainerSlug: kidsTrainer.slug, dow: 6, time: "10:00", durationMinutes: 45, capacity: 8 },
+    );
+  }
+
+  return templates;
 }
 
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function buildSessionStart(weekStart, dayOfWeek, hhmm) {
-  // Map Sun(0)..Sat(6) to offset from Monday start.
-  const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const date = addDays(weekStart, offset);
-  const [h, m] = hhmm.split(":").map(Number);
-  date.setHours(h, m, 0, 0);
-  return date;
-}
-
-async function ensureSessionsForWeek(
-  weekStart,
-  templates,
-  classTypes,
-  trainers,
-) {
-  let inserted = 0;
-  let skipped = 0;
-  for (const def of TEMPLATES) {
+async function ensureTemplates(templateDefs, classTypes, trainers) {
+  console.log("\nSchedule templates:");
+  const map = {};
+  for (const def of templateDefs) {
     const ct = classTypes.find((c) => c.slug === def.classSlug);
     const tr = trainers.find((t) => t.slug === def.trainerSlug);
     if (!ct || !tr) {
       console.warn(
-        `  ! skip template: class=${def.classSlug} trainer=${def.trainerSlug}`,
+        `  ! skip: class=${def.classSlug} trainer=${def.trainerSlug}`,
       );
       continue;
     }
-    const templateId = templates[`${def.classSlug}|${def.trainerSlug}|${def.dow}|${def.time}`];
-    if (!templateId) continue;
 
-    const startAt = buildSessionStart(weekStart, def.dow, def.time);
-    const endAt = new Date(startAt.getTime() + def.durationMinutes * 60000);
+    const { data: existing } = await admin
+      .from("schedule_templates")
+      .select("id")
+      .eq("class_type_id", ct.classTypeId)
+      .eq("trainer_id", tr.trainerId)
+      .eq("day_of_week", def.dow)
+      .eq("start_time", def.time)
+      .maybeSingle();
+
+    let id = existing?.id;
+    if (!id) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await admin
+        .from("schedule_templates")
+        .insert({
+          class_type_id: ct.classTypeId,
+          trainer_id: tr.trainerId,
+          day_of_week: def.dow,
+          start_time: def.time,
+          duration_minutes: def.durationMinutes,
+          capacity: def.capacity,
+          valid_from: today,
+          is_active: true,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(`insert template: ${error.message}`);
+      id = data.id;
+    }
+    map[`${def.classSlug}|${def.trainerSlug}|${def.dow}|${def.time}`] = id;
+    console.log(
+      `  · ${def.classSlug} / ${def.trainerSlug} / dow=${def.dow} / ${def.time} (${def.durationMinutes}min)`,
+    );
+  }
+  return map;
+}
+
+// ---------- Sessions ---------------------------------------------------------
+
+async function ensureSessionsForWeek(mondayYmd, templateDefs, templateIds, classTypes, trainers) {
+  let touched = 0;
+  let errors = 0;
+  for (const def of templateDefs) {
+    const ct = classTypes.find((c) => c.slug === def.classSlug);
+    const tr = trainers.find((t) => t.slug === def.trainerSlug);
+    const templateId =
+      templateIds[`${def.classSlug}|${def.trainerSlug}|${def.dow}|${def.time}`];
+    if (!ct || !tr || !templateId) continue;
+
+    // ISO day-of-week: 1=Mon..7=Sun. Our def.dow uses Sun=0..Sat=6 (JS style).
+    const mondayOffset = def.dow === 0 ? 6 : def.dow - 1;
+    const dayYmd = addDaysUtc(mondayYmd, mondayOffset);
+
+    const [h, m] = def.time.split(":").map(Number);
+    const startUtc = zonedWallClockToUtc(
+      dayYmd.year,
+      dayYmd.month,
+      dayYmd.day,
+      h,
+      m,
+      TIME_ZONE,
+    );
+    const endUtc = new Date(startUtc.getTime() + def.durationMinutes * 60_000);
 
     const { error } = await admin
       .from("class_sessions")
@@ -371,21 +561,21 @@ async function ensureSessionsForWeek(
           template_id: templateId,
           pillar: ct.pillar,
           age_category: ct.ageCategory,
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
+          start_at: startUtc.toISOString(),
+          end_at: endUtc.toISOString(),
           capacity: def.capacity,
           status: "scheduled",
         },
         { onConflict: "template_id,start_at", ignoreDuplicates: true },
       );
     if (error) {
-      console.warn(`  ! session insert: ${error.message}`);
-      skipped += 1;
+      errors += 1;
+      console.warn(`  ! session: ${error.message}`);
     } else {
-      inserted += 1;
+      touched += 1;
     }
   }
-  return { inserted, skipped };
+  return { touched, errors };
 }
 
 // ---------- Main -------------------------------------------------------------
@@ -393,49 +583,26 @@ async function ensureSessionsForWeek(
 async function main() {
   console.log("Seeding test data...\n");
 
-  console.log("Trainers:");
-  const trainers = [];
-  for (const def of TRAINERS) {
-    trainers.push(await ensureTrainer(def));
-  }
+  await cleanupOldTestTrainers();
+  const trainers = await syncSanityTrainers();
+  const classTypes = await ensureClassTypes();
+  const templateDefs = buildTemplateDefs(trainers);
+  const templateIds = await ensureTemplates(templateDefs, classTypes, trainers);
 
-  console.log("\nClass types:");
-  const classTypes = [];
-  for (const def of CLASS_TYPES) {
-    classTypes.push(await ensureClassType(def));
-  }
-
-  console.log("\nSchedule templates:");
-  const templates = {};
-  for (const def of TEMPLATES) {
-    const ct = classTypes.find((c) => c.slug === def.classSlug);
-    const tr = trainers.find((t) => t.slug === def.trainerSlug);
-    if (!ct || !tr) {
-      console.warn(
-        `  ! missing class_type=${def.classSlug} or trainer=${def.trainerSlug}`,
-      );
-      continue;
-    }
-    const id = await ensureTemplate(def, ct.classTypeId, tr.trainerId);
-    templates[`${def.classSlug}|${def.trainerSlug}|${def.dow}|${def.time}`] = id;
-    console.log(`  · ${def.classSlug} / ${def.trainerSlug} / dow=${def.dow} / ${def.time}`);
-  }
-
-  console.log("\nSessions — last week, this week, +3 weeks ahead:");
-  const thisWeek = startOfWeekLocal(new Date());
-  const weeks = [-1, 0, 1, 2, 3];
-  for (const offset of weeks) {
-    const weekStart = addDays(thisWeek, offset * 7);
-    const result = await ensureSessionsForWeek(
-      weekStart,
-      templates,
+  console.log("\nSessions (last week + this week + 3 weeks ahead, Europe/Amsterdam):");
+  const today = new Date();
+  const thisMonday = mondayOfWeekInAmsterdam(today);
+  for (const offset of [-1, 0, 1, 2, 3]) {
+    const weekMonday = addDaysUtc(thisMonday, offset * 7);
+    const r = await ensureSessionsForWeek(
+      weekMonday,
+      templateDefs,
+      templateIds,
       classTypes,
       trainers,
     );
     console.log(
-      `  · week of ${weekStart.toISOString().slice(0, 10)} — attempted ${
-        result.inserted + result.skipped
-      }`,
+      `  · week of ${String(weekMonday.year).padStart(4, "0")}-${String(weekMonday.month).padStart(2, "0")}-${String(weekMonday.day).padStart(2, "0")} — ${r.touched} sessions${r.errors ? ` (${r.errors} errors)` : ""}`,
     );
   }
 
