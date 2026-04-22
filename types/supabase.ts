@@ -1116,70 +1116,47 @@ export type Database = {
       }
       trainer_hours: {
         Row: {
-          created_at: string
-          hourly_rate_cents: number
-          hours_worked: number
+          approved_at: string | null
+          approved_by: string | null
+          hours: number
           id: string
-          invoice_reference: string | null
-          invoiced: boolean
-          month: number
           notes: string | null
-          pt_session_id: string | null
-          session_id: string | null
-          total_cents: number | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string
           trainer_id: string
-          year: number
+          work_date: string
         }
         Insert: {
-          created_at?: string
-          hourly_rate_cents: number
-          hours_worked: number
+          approved_at?: string | null
+          approved_by?: string | null
+          hours: number
           id?: string
-          invoice_reference?: string | null
-          invoiced?: boolean
-          month: number
           notes?: string | null
-          pt_session_id?: string | null
-          session_id?: string | null
-          total_cents?: number | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
           trainer_id: string
-          year: number
+          work_date: string
         }
         Update: {
-          created_at?: string
-          hourly_rate_cents?: number
-          hours_worked?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          hours?: number
           id?: string
-          invoice_reference?: string | null
-          invoiced?: boolean
-          month?: number
           notes?: string | null
-          pt_session_id?: string | null
-          session_id?: string | null
-          total_cents?: number | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
           trainer_id?: string
-          year?: number
+          work_date?: string
         }
         Relationships: [
           {
-            foreignKeyName: "trainer_hours_pt_session_id_fkey"
-            columns: ["pt_session_id"]
+            foreignKeyName: "trainer_hours_approved_by_fkey"
+            columns: ["approved_by"]
             isOneToOne: false
-            referencedRelation: "pt_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trainer_hours_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "class_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trainer_hours_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "v_session_availability"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1197,6 +1174,7 @@ export type Database = {
           created_at: string
           display_name: string
           display_order: number
+          employment_tier: string
           hourly_rate_in_cents: number | null
           id: string
           is_active: boolean
@@ -1215,6 +1193,7 @@ export type Database = {
           created_at?: string
           display_name: string
           display_order?: number
+          employment_tier?: string
           hourly_rate_in_cents?: number | null
           id?: string
           is_active?: boolean
@@ -1233,6 +1212,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           display_order?: number
+          employment_tier?: string
           hourly_rate_in_cents?: number | null
           id?: string
           is_active?: boolean
