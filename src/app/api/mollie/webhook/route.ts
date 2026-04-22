@@ -38,6 +38,10 @@ export async function POST(request: Request) {
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
     const membershipId =
       typeof meta.membershipId === "string" ? meta.membershipId : undefined;
+    const ptBookingId =
+      typeof meta.ptBookingId === "string" ? meta.ptBookingId : undefined;
+    const profileId =
+      typeof meta.profileId === "string" ? meta.profileId : undefined;
     const type = typeof meta.type === "string" ? meta.type : undefined;
 
     // Upsert payment-regel — idempotent, log van wat Mollie heeft.
@@ -45,6 +49,8 @@ export async function POST(request: Request) {
       {
         mollie_payment_id: payment.id,
         membership_id: membershipId ?? null,
+        pt_booking_id: ptBookingId ?? null,
+        profile_id: profileId ?? null,
         amount_cents: Math.round(parseFloat(payment.amount.value) * 100),
         status: payment.status,
         method: payment.method ?? null,
@@ -54,6 +60,46 @@ export async function POST(request: Request) {
       },
       { onConflict: "mollie_payment_id" }
     );
+
+    // PT booking payment — flip pt_booking status + set intake discount flag
+    if (type === "pt_booking" && ptBookingId) {
+      if (payment.status === "paid") {
+        const { data: booking } = await supabase
+          .from("pt_bookings")
+          .select("id, profile_id, is_intake_discount")
+          .eq("id", ptBookingId)
+          .maybeSingle();
+        if (booking) {
+          await supabase
+            .from("pt_bookings")
+            .update({ status: "booked" })
+            .eq("id", ptBookingId);
+          if (booking.is_intake_discount) {
+            await supabase
+              .from("profiles")
+              .update({ has_used_pt_intake_discount: true })
+              .eq("id", booking.profile_id);
+          }
+          await sendNotification(
+            "Nieuwe PT-boeking",
+            `PT sessie betaald. Booking ${ptBookingId}, €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)}.`,
+            "tada",
+          );
+        }
+      } else if (
+        ["failed", "expired", "canceled"].includes(payment.status)
+      ) {
+        // Betaling mislukt — zet de booking op cancelled zodat slot vrijkomt.
+        await supabase
+          .from("pt_bookings")
+          .update({
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+          })
+          .eq("id", ptBookingId);
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     // First payment → activeer membership + maak subscription
     if (
