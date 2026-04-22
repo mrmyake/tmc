@@ -81,7 +81,7 @@ Bouw van fundering naar diepte. Elk scherm hieronder kan als losse PR.
 **Doel:** prospects tonen wanneer welke les is, zonder boek-functionaliteit. CTA naar `/aanbod` of `/login`.
 
 **Stitch-scherm:** "Publiek rooster" (of naam die Stitch geeft — list eerst).
-**Tabellen:** `sessions`, `class_templates`, `trainers` (read-only, via public RLS policy of server-side fetch zonder auth).
+**Tabellen:** `class_sessions`, `schedule_templates`, `trainers` (read-only, via public RLS policy of server-side fetch zonder auth).
 
 ```markdown
 [plak universele preamble]
@@ -103,7 +103,7 @@ Design:
 
 Data:
 - Server component fetch via Supabase anon client (RLS: publieke sessies zichtbaar).
-- Check of `sessions` tabel een `is_public_visible` flag heeft; anders alleen `status = 'scheduled'` tonen.
+- Check of `class_sessions` tabel een `is_public_visible` flag heeft; anders alleen `status = 'scheduled'` tonen.
 
 Acceptatie:
 - /rooster werkt uitgelogd én ingelogd.
@@ -174,7 +174,7 @@ Design:
 Data:
 - Server component. Fetch:
   - `profiles` van huidige user (incl. `health_intake_completed_at`, `first_name`).
-  - Volgende `bookings` join `sessions` waar `sessions.start_at > now()` en `bookings.member_id = user`, order by `start_at` asc limit 1.
+  - Volgende `bookings` join `class_sessions` waar `class_sessions.start_at > now()` en `bookings.profile_id = user`, order by `start_at` asc limit 1.
   - Count komende bookings.
   - `memberships` actief voor credits-afgeleiden.
 
@@ -217,7 +217,7 @@ Design:
 
 Data:
 - Zie tmc-member-system.md §6 (booking-logica) en §3 (rechten-engine).
-- Types uit `types/supabase.ts` voor `sessions`, `bookings`, `memberships`.
+- Types uit `types/supabase.ts` voor `class_sessions`, `bookings`, `memberships`.
 - Server action roept eventueel RPC `rpc_create_booking(session_id)` die alle checks atomair doet — als gespecificeerd, gebruiken.
 
 Acceptatie:
@@ -460,7 +460,7 @@ Design:
 - Sessies met 0 deelnemers visueel subtieler (skill muted token), volle sessies champagne-rand.
 
 Data:
-- `sessions`, `bookings`, `trainers` — mutations via server actions met optimistic revalidate.
+- `class_sessions`, `bookings`, `trainers` — mutations via server actions met optimistic revalidate.
 - Cancel triggert waitlist-promote cron of directe reshuffle — check §6 spec.
 
 Acceptatie:
@@ -619,7 +619,7 @@ Design:
 - Skill: `<SessionList>`, `<StatTile>`, zelfde primitives als B1 maar met trainer-context.
 
 Data:
-- `sessions` waar `trainer_id = current user`.
+- `class_sessions` waar `trainer_id = current user`.
 - RLS zorgt dat trainer alleen eigen data ziet.
 
 Acceptatie:
