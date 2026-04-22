@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/generate-sessions",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/waitlist-promote",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-strikes",
+      "schedule": "15 3 * * *"
+    }
+  ]
+}
