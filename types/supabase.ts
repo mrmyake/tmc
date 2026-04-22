@@ -186,6 +186,7 @@ export type Database = {
           membership_id: string | null
           pillar: string
           profile_id: string
+          reminder_sent_at: string | null
           session_date: string
           session_id: string
           status: string
@@ -204,6 +205,7 @@ export type Database = {
           membership_id?: string | null
           pillar: string
           profile_id: string
+          reminder_sent_at?: string | null
           session_date: string
           session_id: string
           status?: string
@@ -222,6 +224,7 @@ export type Database = {
           membership_id?: string | null
           pillar?: string
           profile_id?: string
+          reminder_sent_at?: string | null
           session_date?: string
           session_id?: string
           status?: string

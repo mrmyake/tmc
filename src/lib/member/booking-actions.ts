@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import BookingConfirmation from "@/emails/booking_confirmation";
-import { formatRelativeWhen, formatTimeRange } from "@/lib/format-date";
+import BookingCancelled from "@/emails/booking_cancelled";
+import {
+  formatRelativeWhen,
+  formatTimeRange,
+  formatWeekdayDate,
+} from "@/lib/format-date";
 import {
   canBook,
   REASON_COPY,
@@ -71,6 +76,58 @@ async function sendBookingConfirmationEmail(args: {
     });
   } catch (err) {
     console.error("[booking-confirmation email] skipped", err);
+  }
+}
+
+/** Fire-and-forget cancellation-by-member email. Never blocks the action. */
+async function sendBookingCancelledEmail(args: {
+  profileId: string;
+  sessionId: string;
+  withinWindow: boolean;
+  lateMessage: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const [profileRes, sessionRes] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("first_name, email")
+        .eq("id", args.profileId)
+        .maybeSingle(),
+      admin
+        .from("class_sessions")
+        .select(
+          `start_at, end_at, class_type:class_types(name)`,
+        )
+        .eq("id", args.sessionId)
+        .maybeSingle(),
+    ]);
+    const profile = profileRes.data;
+    const sessionRow = sessionRes.data;
+    if (!profile?.email || !sessionRow) return;
+
+    const ct = (Array.isArray(sessionRow.class_type)
+      ? sessionRow.class_type[0]
+      : sessionRow.class_type) as { name: string | null } | null;
+    const start = new Date(sessionRow.start_at);
+    const end = new Date(sessionRow.end_at);
+    const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+
+    await sendEmail({
+      to: profile.email,
+      toName: profile.first_name ?? undefined,
+      subject: `Geannuleerd: ${ct?.name ?? "Sessie"}`,
+      react: BookingCancelled({
+        firstName: profile.first_name ?? "",
+        className: ct?.name ?? "Sessie",
+        whenLabel,
+        withinWindow: args.withinWindow,
+        lateMessage: args.lateMessage,
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[booking-cancelled email] skipped", err);
   }
 }
 
@@ -343,7 +400,7 @@ export async function cancelBooking(
     supabase
       .from("bookings")
       .select(
-        "id, status, credits_used, membership_id, pillar, session:class_sessions(start_at)",
+        "id, session_id, status, credits_used, membership_id, pillar, session:class_sessions(start_at)",
       )
       .eq("id", bookingId)
       .eq("profile_id", user.id)
@@ -421,8 +478,16 @@ export async function cancelBooking(
   revalidatePath("/app/boekingen");
 
   const lateMessage = isVrijTrainen
-    ? "Je boeking is geannuleerd. Deze sessie telt mee — je was binnen vijf minuten voor de start."
+    ? "Je boeking is geannuleerd. Deze sessie telt mee. Je was binnen vijf minuten voor de start."
     : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.";
+
+  // Fire-and-forget confirmation mail. Catch inside helper.
+  void sendBookingCancelledEmail({
+    profileId: user.id,
+    sessionId: booking.session_id,
+    withinWindow,
+    lateMessage,
+  });
 
   return {
     ok: true,
