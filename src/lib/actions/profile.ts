@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  addSubscriber,
+  setSubscriberUnsubscribed,
+  GROUPS,
+} from "@/lib/mailerlite";
+import { sendNotification } from "@/lib/ntfy";
 
 export type ActionResult =
   | { ok: true }
@@ -271,6 +278,104 @@ export async function removeAvatar(): Promise<ActionResult> {
     return { ok: true };
   } catch (e) {
     console.error("[removeAvatar]", e);
+    return { ok: false, error: "Er ging iets mis." };
+  }
+}
+
+// ---- Marketing opt-in ---------------------------------------------------
+
+export async function updateMarketingOptIn(
+  optIn: boolean,
+): Promise<ActionResult> {
+  try {
+    const { userId, supabase } = await getUserIdOrThrow();
+
+    const { data: profile, error: readErr } = await supabase
+      .from("profiles")
+      .select("email, first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+    if (readErr || !profile) {
+      return { ok: false, error: "Profiel niet gevonden." };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ marketing_opt_in: optIn })
+      .eq("id", userId);
+    if (error) {
+      console.error("[updateMarketingOptIn]", error);
+      return { ok: false, error: "Opslaan mislukt." };
+    }
+
+    // Bidirectional MailerLite sync. Graceful if env var or group missing —
+    // DB is the source of truth, MailerLite is a best-effort mirror.
+    try {
+      if (optIn) {
+        await addSubscriber({
+          email: profile.email,
+          name: `${profile.first_name} ${profile.last_name}`.trim(),
+          groups: GROUPS.MEMBERS ? [GROUPS.MEMBERS] : [],
+        });
+      } else {
+        await setSubscriberUnsubscribed(profile.email);
+      }
+    } catch (syncErr) {
+      console.warn("[updateMarketingOptIn] MailerLite sync warning:", syncErr);
+    }
+
+    revalidatePath("/app/profiel");
+    return { ok: true };
+  } catch (e) {
+    console.error("[updateMarketingOptIn]", e);
+    return { ok: false, error: "Er ging iets mis." };
+  }
+}
+
+// ---- Account deletion request ------------------------------------------
+
+export async function requestAccountDeletion(
+  reason: string,
+): Promise<ActionResult> {
+  try {
+    const { userId, supabase } = await getUserIdOrThrow();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const admin = createAdminClient();
+    const { error: auditErr } = await admin.from("admin_audit_log").insert({
+      admin_id: userId, // self-initiated, target + actor are the same
+      action: "account_deletion_requested",
+      target_type: "profile",
+      target_id: userId,
+      details: {
+        reason: reason?.trim() || null,
+        email: profile?.email ?? null,
+        requested_via: "member_app",
+      },
+    });
+    if (auditErr) {
+      console.error("[requestAccountDeletion] audit log:", auditErr);
+      return { ok: false, error: "Registreren verzoek mislukt." };
+    }
+
+    // Heads-up naar admin via bestaande ntfy-kanaal. Geen dedicated mail
+    // infra (Resend/MailerSend) geïnstalleerd nog; ntfy matcht het
+    // bestaande lead-notification patroon.
+    await sendNotification(
+      "Account-verwijder verzoek",
+      `${profile?.first_name ?? ""} ${profile?.last_name ?? ""} (${profile?.email ?? "?"}) heeft verwijdering aangevraagd.${reason?.trim() ? ` Reden: ${reason.trim()}` : ""}`,
+      "wastebasket",
+    );
+
+    revalidatePath("/app/profiel");
+    return { ok: true };
+  } catch (e) {
+    console.error("[requestAccountDeletion]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }
