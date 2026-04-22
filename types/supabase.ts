@@ -820,6 +820,8 @@ export type Database = {
         Row: {
           age_category: string
           avatar_url: string | null
+          city: string | null
+          country: string
           created_at: string
           date_of_birth: string | null
           email: string
@@ -834,12 +836,16 @@ export type Database = {
           locale: string
           marketing_opt_in: boolean
           phone: string | null
+          postal_code: string | null
           role: string
+          street_address: string | null
           updated_at: string
         }
         Insert: {
           age_category?: string
           avatar_url?: string | null
+          city?: string | null
+          country?: string
           created_at?: string
           date_of_birth?: string | null
           email: string
@@ -854,12 +860,16 @@ export type Database = {
           locale?: string
           marketing_opt_in?: boolean
           phone?: string | null
+          postal_code?: string | null
           role?: string
+          street_address?: string | null
           updated_at?: string
         }
         Update: {
           age_category?: string
           avatar_url?: string | null
+          city?: string | null
+          country?: string
           created_at?: string
           date_of_birth?: string | null
           email?: string
@@ -874,7 +884,9 @@ export type Database = {
           locale?: string
           marketing_opt_in?: boolean
           phone?: string | null
+          postal_code?: string | null
           role?: string
+          street_address?: string | null
           updated_at?: string
         }
         Relationships: []

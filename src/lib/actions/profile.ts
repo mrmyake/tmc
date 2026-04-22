@@ -36,6 +36,9 @@ interface ProfileUpdate {
   last_name: string;
   phone: string | null;
   date_of_birth: string | null; // YYYY-MM-DD
+  street_address: string | null;
+  postal_code: string | null;
+  city: string | null;
 }
 
 export async function updateProfile(data: FormData): Promise<ActionResult> {
@@ -50,12 +53,18 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
 
     const phoneRaw = String(data.get("phone") ?? "").trim();
     const dobRaw = String(data.get("date_of_birth") ?? "").trim();
+    const streetRaw = String(data.get("street_address") ?? "").trim();
+    const postalRaw = String(data.get("postal_code") ?? "").trim();
+    const cityRaw = String(data.get("city") ?? "").trim();
 
     const payload: ProfileUpdate = {
       first_name: first,
       last_name: last,
       phone: phoneRaw || null,
       date_of_birth: dobRaw || null,
+      street_address: streetRaw || null,
+      postal_code: postalRaw || null,
+      city: cityRaw || null,
     };
 
     const { error } = await supabase
@@ -70,9 +79,54 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
 
     revalidatePath("/app/profiel");
     revalidatePath("/app");
+    revalidatePath("/app/abonnement/nieuw");
     return { ok: true };
   } catch (e) {
     console.error("[updateProfile]", e);
+    return { ok: false, error: "Er ging iets mis." };
+  }
+}
+
+/**
+ * Dedicated action for the sign-up flow — requires all three address fields.
+ * Used by /app/abonnement/nieuw before plan selection unlocks.
+ */
+export async function saveRegistrationAddress(
+  data: FormData,
+): Promise<ActionResult> {
+  try {
+    const { userId, supabase } = await getUserIdOrThrow();
+
+    const street = String(data.get("street_address") ?? "").trim();
+    const postal = String(data.get("postal_code") ?? "").trim();
+    const city = String(data.get("city") ?? "").trim();
+
+    if (!street || !postal || !city) {
+      return {
+        ok: false,
+        error: "Vul straat, postcode en plaats in om door te gaan.",
+      };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        street_address: street,
+        postal_code: postal,
+        city,
+      })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("[saveRegistrationAddress]", error);
+      return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
+    }
+
+    revalidatePath("/app/abonnement/nieuw");
+    revalidatePath("/app/profiel");
+    return { ok: true };
+  } catch (e) {
+    console.error("[saveRegistrationAddress]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }

@@ -12,6 +12,9 @@ interface Profile {
   last_name: string;
   phone: string | null;
   date_of_birth: string | null;
+  street_address: string | null;
+  postal_code: string | null;
+  city: string | null;
 }
 
 export function ProfileForm({ profile }: { profile: Profile }) {
@@ -30,6 +33,13 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     });
   }
 
+  const addressLines = [
+    profile.street_address,
+    [profile.postal_code, profile.city].filter(Boolean).join("  "),
+  ].filter(Boolean) as string[];
+  const addressDisplay =
+    addressLines.length > 0 ? addressLines.join("\n") : "—";
+
   if (!editing) {
     return (
       <div className="flex flex-col gap-6">
@@ -44,6 +54,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
               : "—"
           }
         />
+        <Row label="Adres" value={addressDisplay} multiline />
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -98,6 +109,41 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         />
       </Field>
 
+      <div className="pt-4 border-t border-[color:var(--ink-500)]/60">
+        <span className="tmc-eyebrow block mb-5">Adres</span>
+        <div className="flex flex-col gap-6">
+          <Field label="Straat + nummer">
+            <input
+              type="text"
+              name="street_address"
+              defaultValue={profile.street_address ?? ""}
+              autoComplete="street-address"
+              className={fieldInputClasses}
+            />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6">
+            <Field label="Postcode">
+              <input
+                type="text"
+                name="postal_code"
+                defaultValue={profile.postal_code ?? ""}
+                autoComplete="postal-code"
+                className={fieldInputClasses}
+              />
+            </Field>
+            <Field label="Plaats">
+              <input
+                type="text"
+                name="city"
+                defaultValue={profile.city ?? ""}
+                autoComplete="address-level2"
+                className={fieldInputClasses}
+              />
+            </Field>
+          </div>
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="text-[color:var(--danger)] text-sm">
           {error}
@@ -124,11 +170,23 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+}) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2 sm:gap-6 pb-5 border-b border-[color:var(--ink-500)]/60 last:border-b-0 last:pb-0">
       <span className="tmc-eyebrow">{label}</span>
-      <span className="text-text text-base">{value}</span>
+      <span
+        className={`text-text text-base ${multiline ? "whitespace-pre-line" : ""}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { PlanChooser } from "./PlanChooser";
+import { AddressGate } from "./AddressGate";
 
 export const metadata = {
   title: "Kies abonnement | The Movement Club",
@@ -66,6 +67,18 @@ export default async function AbonnementNieuwPage() {
     .maybeSingle();
   if (existing) redirect("/app/abonnement");
 
+  const { data: profileAddress } = await supabase
+    .from("profiles")
+    .select("street_address, postal_code, city")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const addressComplete = Boolean(
+    profileAddress?.street_address?.trim() &&
+      profileAddress?.postal_code?.trim() &&
+      profileAddress?.city?.trim(),
+  );
+
   const { data: plans } = await supabase
     .from("membership_plan_catalogue")
     .select(
@@ -117,7 +130,20 @@ export default async function AbonnementNieuwPage() {
         je commitment-periode.
       </p>
 
-      <div className="space-y-14">
+      {!addressComplete && (
+        <AddressGate
+          initial={{
+            street_address: profileAddress?.street_address ?? null,
+            postal_code: profileAddress?.postal_code ?? null,
+            city: profileAddress?.city ?? null,
+          }}
+        />
+      )}
+
+      <div
+        className={`space-y-14 ${!addressComplete ? "opacity-40 pointer-events-none" : ""}`}
+        aria-disabled={!addressComplete}
+      >
         {PLAN_TYPE_ORDER.map((type) => {
           const typePlans = plansByType[type];
           if (!typePlans || typePlans.length === 0) return null;

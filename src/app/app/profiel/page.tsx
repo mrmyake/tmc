@@ -32,7 +32,7 @@ export default async function ProfielPage({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "first_name, last_name, email, phone, date_of_birth, emergency_contact_name, emergency_contact_phone, avatar_url, health_intake_completed_at, marketing_opt_in",
+      "first_name, last_name, email, phone, date_of_birth, street_address, postal_code, city, emergency_contact_name, emergency_contact_phone, avatar_url, health_intake_completed_at, marketing_opt_in",
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -94,6 +94,9 @@ export default async function ProfielPage({
             last_name: profile.last_name,
             phone: profile.phone,
             date_of_birth: profile.date_of_birth,
+            street_address: profile.street_address,
+            postal_code: profile.postal_code,
+            city: profile.city,
           }}
         />
         <p className="mt-6 text-text-muted text-xs">
