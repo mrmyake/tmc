@@ -259,6 +259,41 @@ export async function toggleTrainerActive(
 // Update employment tier
 // ----------------------------------------------------------------------------
 
+export async function toggleTrainerHealthAccess(
+  trainerId: string,
+  hasHealthAccess: boolean,
+): Promise<TrainerActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("trainers")
+    .update({ has_health_access: hasHealthAccess })
+    .eq("id", trainerId);
+
+  if (error) {
+    console.error("[toggleTrainerHealthAccess] failed", error);
+    return { ok: false, message: "Bijwerken lukte niet." };
+  }
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "trainer_health_access_toggled",
+    target_type: "trainer",
+    target_id: trainerId,
+    details: { has_health_access: hasHealthAccess },
+  });
+
+  revalidateTrainers();
+  return {
+    ok: true,
+    message: hasHealthAccess
+      ? "Blessure-inzage aangezet."
+      : "Blessure-inzage uitgezet.",
+  };
+}
+
 export async function updateTrainerTier(
   trainerId: string,
   tier: EmploymentTier,

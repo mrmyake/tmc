@@ -206,6 +206,14 @@ export function MobileAttendanceList({
                     />
                     {row.hasInjury && <InjuryFlag />}
                   </div>
+                  {row.injuryText && (
+                    <p
+                      role="note"
+                      className="mt-2 text-[11px] text-[color:var(--warning)] leading-relaxed whitespace-pre-wrap"
+                    >
+                      {row.injuryText}
+                    </p>
+                  )}
                   <SyncLine state={sync} error={error} />
                 </div>
 

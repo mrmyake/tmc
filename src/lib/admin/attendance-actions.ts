@@ -32,15 +32,22 @@ export interface ParticipantRow {
   bookedAt: string;
   attendedAt: string | null;
   hasInjury: boolean;
+  /**
+   * Full injury text from the intake. Alleen ingevuld als caller admin is
+   * of trainer met `has_health_access = true`. Blijft null voor trainers
+   * zonder opt-in, ook als het lid iets heeft ingevuld.
+   */
+  injuryText: string | null;
 }
 
-function parseHasInjury(raw: string | null): boolean {
-  if (!raw) return false;
+function parseInjuryText(raw: string | null): string | null {
+  if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as { injuries?: string };
-    return Boolean(parsed?.injuries && parsed.injuries.trim().length > 0);
+    const text = parsed?.injuries?.trim();
+    return text && text.length > 0 ? text : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -55,6 +62,12 @@ export type AttendanceActionResult =
 interface AuthContext {
   userId: string;
   role: "admin" | "trainer";
+  /**
+   * True voor admins, en voor trainers met `has_health_access = true`.
+   * Gebruikt door loadParticipants om bepalende intake-tekst wel of niet
+   * mee te sturen.
+   */
+  canSeeHealthDetail: boolean;
 }
 
 async function authorizeForSession(
@@ -73,7 +86,10 @@ async function authorizeForSession(
     .maybeSingle();
 
   if (profile?.role === "admin") {
-    return { ok: true, ctx: { userId: user.id, role: "admin" } };
+    return {
+      ok: true,
+      ctx: { userId: user.id, role: "admin", canSeeHealthDetail: true },
+    };
   }
 
   if (profile?.role !== "trainer") {
@@ -84,11 +100,16 @@ async function authorizeForSession(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("class_sessions")
-    .select("id, trainer:trainers!inner(profile_id)")
+    .select(
+      "id, trainer:trainers!inner(profile_id, has_health_access)",
+    )
     .eq("id", sessionId)
     .maybeSingle();
 
-  type TrainerRef = { profile_id: string };
+  type TrainerRef = {
+    profile_id: string;
+    has_health_access: boolean | null;
+  };
   const trainer = (
     Array.isArray(session?.trainer) ? session?.trainer[0] : session?.trainer
   ) as TrainerRef | null | undefined;
@@ -96,7 +117,14 @@ async function authorizeForSession(
     return { ok: false, message: "Geen toegang tot deze sessie." };
   }
 
-  return { ok: true, ctx: { userId: user.id, role: "trainer" } };
+  return {
+    ok: true,
+    ctx: {
+      userId: user.id,
+      role: "trainer",
+      canSeeHealthDetail: Boolean(trainer.has_health_access),
+    },
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -182,6 +210,7 @@ export async function loadParticipants(
     const m = (
       Array.isArray(b.membership) ? b.membership[0] : b.membership
     ) as MembershipRef | null;
+    const injuryText = parseInjuryText(p?.health_notes ?? null);
     return {
       bookingId: b.id,
       profileId: b.profile_id,
@@ -196,7 +225,8 @@ export async function loadParticipants(
       status: b.status as AttendanceStatus,
       bookedAt: b.booked_at,
       attendedAt: b.attended_at,
-      hasInjury: parseHasInjury(p?.health_notes ?? null),
+      hasInjury: injuryText !== null,
+      injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
     };
   });
 

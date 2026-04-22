@@ -1219,6 +1219,7 @@ export type Database = {
           display_name: string
           display_order: number
           employment_tier: string
+          has_health_access: boolean
           hourly_rate_in_cents: number | null
           id: string
           is_active: boolean
@@ -1238,6 +1239,7 @@ export type Database = {
           display_name: string
           display_order?: number
           employment_tier?: string
+          has_health_access?: boolean
           hourly_rate_in_cents?: number | null
           id?: string
           is_active?: boolean
@@ -1257,6 +1259,7 @@ export type Database = {
           display_name?: string
           display_order?: number
           employment_tier?: string
+          has_health_access?: boolean
           hourly_rate_in_cents?: number | null
           id?: string
           is_active?: boolean

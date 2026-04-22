@@ -19,6 +19,7 @@ export interface TrainerListItem {
   isActive: boolean;
   isPtAvailable: boolean;
   ptTier: string;
+  hasHealthAccess: boolean;
   hoursThisWeek: number;
   hoursThisMonth: number;
   pendingHoursCount: number;
@@ -91,6 +92,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
     is_pt_available: boolean;
     pt_tier: string;
     employment_tier: EmploymentTier;
+    has_health_access: boolean;
     display_order: number;
     profile: {
       first_name: string | null;
@@ -107,7 +109,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
       `
         id, profile_id, sanity_id, display_name,
         pillar_specialties, is_active, is_pt_available, pt_tier,
-        employment_tier, display_order,
+        employment_tier, has_health_access, display_order,
         profile:profiles!profile_id(first_name, last_name, email, phone, avatar_url)
       `,
     )
@@ -174,6 +176,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
     isActive: t.is_active,
     isPtAvailable: t.is_pt_available,
     ptTier: t.pt_tier,
+    hasHealthAccess: t.has_health_access,
     hoursThisWeek: weekSum.get(t.id) ?? 0,
     hoursThisMonth: monthSum.get(t.id) ?? 0,
     pendingHoursCount: pendingCount.get(t.id) ?? 0,
@@ -197,6 +200,7 @@ export async function loadTrainerDetail(
     is_pt_available: boolean;
     pt_tier: string;
     employment_tier: EmploymentTier;
+    has_health_access: boolean;
     hourly_rate_in_cents: number | null;
     profile: {
       first_name: string | null;
@@ -214,7 +218,7 @@ export async function loadTrainerDetail(
         `
           id, profile_id, sanity_id, display_name, bio,
           specialties, pillar_specialties, is_active, is_pt_available,
-          pt_tier, employment_tier, hourly_rate_in_cents,
+          pt_tier, employment_tier, has_health_access, hourly_rate_in_cents,
           profile:profiles!profile_id(first_name, last_name, email, phone, avatar_url)
         `,
       )
@@ -313,6 +317,7 @@ export async function loadTrainerDetail(
     isActive: t.is_active,
     isPtAvailable: t.is_pt_available,
     ptTier: t.pt_tier,
+    hasHealthAccess: t.has_health_access,
     bio: t.bio,
     specialties: t.specialties ?? [],
     hourlyRateInCents: t.hourly_rate_in_cents,

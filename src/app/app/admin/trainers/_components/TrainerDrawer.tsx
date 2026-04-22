@@ -18,6 +18,7 @@ import {
   loadTrainerDetailAction,
   logAdminHours,
   toggleTrainerActive,
+  toggleTrainerHealthAccess,
   updateTrainerTier,
   type TrainerActionResult,
 } from "@/lib/admin/trainer-actions";
@@ -107,6 +108,16 @@ export function TrainerDrawer({ trainerId, onClose }: TrainerDrawerProps) {
     if (!detail) return;
     startTransition(async () => {
       const res = await updateTrainerTier(detail.id, tier);
+      setResult(res);
+      if (res.ok) await refreshDetail();
+    });
+  }
+
+  function onToggleHealthAccess() {
+    if (!detail) return;
+    const next = !detail.hasHealthAccess;
+    startTransition(async () => {
+      const res = await toggleTrainerHealthAccess(detail.id, next);
       setResult(res);
       if (res.ok) await refreshDetail();
     });
@@ -286,6 +297,32 @@ export function TrainerDrawer({ trainerId, onClose }: TrainerDrawerProps) {
                         } disabled:opacity-50`}
                       >
                         {detail.isActive ? "Deactiveren" : "Activeren"}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 pt-2">
+                      <div>
+                        <span className="tmc-eyebrow block mb-1">
+                          Blessure-inzage
+                        </span>
+                        <p className="text-text text-sm">
+                          {detail.hasHealthAccess
+                            ? "Ziet de volledige intake-tekst bij deelnemers met blessure"
+                            : "Ziet alleen de flag, niet de tekst"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onToggleHealthAccess}
+                        disabled={pending}
+                        aria-pressed={detail.hasHealthAccess}
+                        className={`inline-flex items-center px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-300 cursor-pointer ${
+                          detail.hasHealthAccess
+                            ? "border-accent/60 text-accent hover:bg-accent/10"
+                            : "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent"
+                        } disabled:opacity-50`}
+                      >
+                        {detail.hasHealthAccess ? "Aan" : "Uit"}
                       </button>
                     </div>
                   </section>
