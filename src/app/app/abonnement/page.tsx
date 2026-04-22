@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
+import { QuietLink } from "@/components/ui/QuietLink";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/app/app/_components/StatTile";
 import { MembershipHeroCard } from "./_components/MembershipHeroCard";
@@ -217,6 +218,10 @@ export default async function AbonnementPage() {
           canPause={canPause}
           canCancel={canCancel}
         />
+      </div>
+
+      <div className="mb-12">
+        <QuietLink href="/app/facturen">Bekijk facturen</QuietLink>
       </div>
 
       <MembershipHistory items={historyItems} />
