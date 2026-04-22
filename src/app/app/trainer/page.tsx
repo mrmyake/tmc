@@ -10,6 +10,7 @@ import {
   MONTH_SHORT_NL,
   formatTimeRange,
 } from "@/lib/format-date";
+import { listVisibleAnnouncements } from "@/lib/announcements-query";
 
 export const metadata = {
   title: "Trainer · Home | The Movement Club",
@@ -41,6 +42,32 @@ function startOfIsoWeekUtc(ref: Date): Date {
   return d;
 }
 
+function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
+  const target = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const isoWeek = Math.ceil(
+    ((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
+  return { isoWeek, isoYear: target.getUTCFullYear() };
+}
+
+function weekParam(y: number, w: number): string {
+  return `${y}-W${String(w).padStart(2, "0")}`;
+}
+
+function toHoursNumber(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export default async function TrainerHomePage() {
   const supabase = await createClient();
   const {
@@ -50,29 +77,33 @@ export default async function TrainerHomePage() {
 
   const admin = createAdminClient();
 
-  // Find the trainer row for this profile. Admin viewing this route sees
-  // the first trainer (fallback) or nothing. We want the trainer-of-self.
   const { data: trainer } = await admin
     .from("trainers")
     .select("id, display_name, pillar_specialties, is_active")
     .eq("profile_id", user.id)
     .maybeSingle();
 
-  const firstName = user.user_metadata?.first_name ?? user.email?.split("@")[0] ?? "";
+  const firstName =
+    user.user_metadata?.first_name ?? user.email?.split("@")[0] ?? "";
 
   const now = new Date();
   const todayIso = isoDateAms(now);
   const weekStart = startOfIsoWeekUtc(now);
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+  const lastWeekStart = new Date(weekStart);
+  lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+  const lastWeekEnd = new Date(weekStart);
   const monthStart = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), 1),
   );
 
-  // If this isn't a trainer profile, render a lean admin view with a
-  // picker hint. Admins reach this page but have no trainer row of their
-  // own unless they're also a coach.
+  const announcements = await listVisibleAnnouncements(5);
+
   if (!trainer) {
+    // Admins zonder eigen trainer-rij komen hier ook — minder volledige
+    // pagina, geen agenda, alleen een pointer naar admin-surfaces en een
+    // eventueel aankondigingen-blok.
     return (
       <div className="px-6 md:px-10 lg:px-12 py-14">
         <header className="mb-10">
@@ -94,11 +125,15 @@ export default async function TrainerHomePage() {
             <ChevronRight size={14} strokeWidth={1.5} />
           </Link>
         </header>
+
+        {announcements.length > 0 && (
+          <AnnouncementsFeed rows={announcements} />
+        )}
       </div>
     );
   }
 
-  const [todaySessionsRes, weekSessionsRes, hoursMonthRes, pendingHoursRes] =
+  const [todaySessionsRes, weekSessionCountRes, hoursRowsRes, pendingHoursRes] =
     await Promise.all([
       admin
         .from("class_sessions")
@@ -124,9 +159,9 @@ export default async function TrainerHomePage() {
         .lt("start_at", weekEnd.toISOString()),
       admin
         .from("trainer_hours")
-        .select("hours, status")
+        .select("hours, status, work_date")
         .eq("trainer_id", trainer.id)
-        .gte("work_date", isoDateAms(monthStart)),
+        .gte("work_date", isoDateAms(lastWeekStart)),
       admin
         .from("trainer_hours")
         .select("id", { count: "exact", head: true })
@@ -135,17 +170,59 @@ export default async function TrainerHomePage() {
     ]);
 
   const todaySessions = todaySessionsRes.data ?? [];
-  const weekSessionCount = weekSessionsRes.count ?? 0;
-  const hoursMonth = (hoursMonthRes.data ?? []).reduce<number>((sum, r) => {
-    if (r.status !== "approved") return sum;
-    const n = typeof r.hours === "number" ? r.hours : Number(r.hours);
-    return sum + (Number.isFinite(n) ? n : 0);
-  }, 0);
+  const weekSessionCount = weekSessionCountRes.count ?? 0;
   const pendingHours = pendingHoursRes.count ?? 0;
+
+  const weekStartIso = isoDateAms(weekStart);
+  const lastWeekStartIso = isoDateAms(lastWeekStart);
+  const lastWeekEndIso = isoDateAms(lastWeekEnd);
+  const monthStartIso = isoDateAms(monthStart);
+
+  let weekHoursApproved = 0;
+  let lastWeekHoursApproved = 0;
+  let lastWeekHoursPending = 0;
+  let hoursMonthApproved = 0;
+  for (const r of hoursRowsRes.data ?? []) {
+    const h = toHoursNumber(r.hours);
+    if (r.status === "approved") {
+      if (r.work_date >= monthStartIso) hoursMonthApproved += h;
+      if (r.work_date >= weekStartIso) weekHoursApproved += h;
+      else if (
+        r.work_date >= lastWeekStartIso &&
+        r.work_date < lastWeekEndIso
+      ) {
+        lastWeekHoursApproved += h;
+      }
+    } else if (r.status === "pending") {
+      if (
+        r.work_date >= lastWeekStartIso &&
+        r.work_date < lastWeekEndIso
+      ) {
+        lastWeekHoursPending += h;
+      }
+    }
+  }
+
+  // Booked counts for today's rows
+  const sessionIds = todaySessions.map((s) => s.id);
+  const bookedBy = new Map<string, number>();
+  if (sessionIds.length > 0) {
+    const { data: avail } = await admin
+      .from("v_session_availability")
+      .select("id, booked_count")
+      .in("id", sessionIds);
+    for (const r of avail ?? []) {
+      if (r.id) bookedBy.set(r.id, r.booked_count ?? 0);
+    }
+  }
+
+  // Week-param voor de "afgelopen week" CTA.
+  const lastWeek = getIsoWeekYear(lastWeekStart);
+  const urenHref = `/app/trainer/uren?week=${weekParam(lastWeek.isoYear, lastWeek.isoWeek)}`;
 
   return (
     <div className="px-6 md:px-10 lg:px-12 py-14">
-      <header className="mb-12">
+      <header className="mb-10">
         <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
           Trainer
         </span>
@@ -154,22 +231,43 @@ export default async function TrainerHomePage() {
         </h1>
         {!trainer.is_active && (
           <p className="tmc-eyebrow text-[color:var(--warning)] mt-4">
-            Je staat op inactief — sessies komen niet meer je kant op.
+            Je staat op inactief. Sessies komen niet meer je kant op.
           </p>
         )}
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-14">
-        <StatTile label="Vandaag" value={String(todaySessions.length)} hint="Geplande sessies" />
-        <StatTile label="Deze week" value={String(weekSessionCount)} hint="Totaal aantal" />
+      {announcements.length > 0 && (
+        <div className="mb-12">
+          <AnnouncementsFeed rows={announcements} />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-8">
+        <StatTile
+          label="Vandaag"
+          value={String(todaySessions.length)}
+          hint={todaySessions.length === 1 ? "Sessie" : "Sessies"}
+        />
+        <StatTile
+          label="Deze week"
+          value={`${weekSessionCount}`}
+          hint={`${weekHoursApproved.toFixed(1)}u goedgekeurd`}
+        />
         <StatTile
           label="Uren deze maand"
-          value={`${hoursMonth.toFixed(1)}u`}
+          value={`${hoursMonthApproved.toFixed(1)}u`}
           hint={pendingHours > 0 ? `${pendingHours} nog te keuren` : "Goedgekeurd"}
         />
       </div>
 
-      <section className="mb-14">
+      <LastWeekHoursCTA
+        href={urenHref}
+        weekNumber={lastWeek.isoWeek}
+        approvedHours={lastWeekHoursApproved}
+        pendingHours={lastWeekHoursPending}
+      />
+
+      <section className="mt-14 mb-14">
         <header className="mb-6">
           <span className="tmc-eyebrow block mb-2">Vandaag</span>
           <h2 className="text-xl md:text-2xl text-text font-medium tracking-[-0.01em]">
@@ -188,6 +286,8 @@ export default async function TrainerHomePage() {
               const start = new Date(s.start_at);
               const end = new Date(s.end_at);
               const p = amsterdamParts(start);
+              const booked = bookedBy.get(s.id) ?? 0;
+              const full = booked >= s.capacity;
               return (
                 <li
                   key={s.id}
@@ -210,7 +310,14 @@ export default async function TrainerHomePage() {
                     </p>
                     <p className="text-text-muted text-sm mt-0.5">
                       {formatTimeRange(start, end)} ·{" "}
-                      {PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar}
+                      {PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar} ·{" "}
+                      <span
+                        className={
+                          full ? "text-[color:var(--warning)]" : undefined
+                        }
+                      >
+                        {booked}/{s.capacity} deelnemers
+                      </span>
                     </p>
                   </div>
                   <Link
@@ -234,8 +341,8 @@ export default async function TrainerHomePage() {
         />
         <QuickLink
           href="/app/trainer/uren"
-          title="Uren indienen"
-          hint="Registratie per werkdag"
+          title="Urenregistratie"
+          hint="Historie en handmatig invoeren"
         />
       </section>
     </div>
@@ -263,6 +370,52 @@ function StatTile({
         </p>
       )}
     </div>
+  );
+}
+
+function LastWeekHoursCTA({
+  href,
+  weekNumber,
+  approvedHours,
+  pendingHours,
+}: {
+  href: string;
+  weekNumber: number;
+  approvedHours: number;
+  pendingHours: number;
+}) {
+  const hasActivity = approvedHours > 0 || pendingHours > 0;
+  const headline = hasActivity
+    ? `Afgelopen week: ${approvedHours.toFixed(1)}u ingediend`
+    : `Uren invoeren voor week ${weekNumber}`;
+  const sub = hasActivity
+    ? pendingHours > 0
+      ? `${pendingHours.toFixed(1)}u wacht op goedkeuring`
+      : "Alles goedgekeurd"
+    : "Nog niks geregistreerd voor afgelopen week";
+
+  return (
+    <Link
+      href={href}
+      className="group flex items-center justify-between gap-4 p-6 bg-bg-elevated border border-accent/40 transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent"
+    >
+      <div>
+        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+          Urenregistratie
+        </span>
+        <p className="text-text text-lg font-medium tracking-[-0.01em] group-hover:text-accent transition-colors">
+          {headline}
+        </p>
+        <p className="text-text-muted text-xs uppercase tracking-[0.14em] mt-1">
+          {sub}
+        </p>
+      </div>
+      <ChevronRight
+        size={18}
+        strokeWidth={1.5}
+        className="text-text-muted group-hover:text-accent transition-colors shrink-0"
+      />
+    </Link>
   );
 }
 
@@ -294,5 +447,41 @@ function QuickLink({
         className="text-text-muted group-hover:text-accent transition-colors"
       />
     </Link>
+  );
+}
+
+function AnnouncementsFeed({
+  rows,
+}: {
+  rows: Awaited<ReturnType<typeof listVisibleAnnouncements>>;
+}) {
+  return (
+    <section>
+      <header className="mb-4">
+        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+          Aankondigingen
+        </span>
+      </header>
+      <ul className="flex flex-col gap-4">
+        {rows.map((a) => (
+          <li
+            key={a.id}
+            className="p-5 bg-bg-elevated border-l-4 border-accent border-y border-r border-y-[color:var(--ink-500)]/60 border-r-[color:var(--ink-500)]/60"
+          >
+            <p className="text-text text-base font-medium tracking-[-0.01em] mb-2">
+              {a.title}
+            </p>
+            {a.body && (
+              <p className="text-text-muted text-sm leading-relaxed whitespace-pre-wrap">
+                {a.body}
+              </p>
+            )}
+            <p className="tmc-eyebrow text-text-muted/80 mt-3">
+              {a.authorName}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -8,10 +8,14 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function UrenForm() {
+interface UrenFormProps {
+  defaultDate?: string;
+}
+
+export function UrenForm({ defaultDate }: UrenFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [workDate, setWorkDate] = useState(todayIso());
+  const [workDate, setWorkDate] = useState(defaultDate ?? todayIso());
   const [hours, setHours] = useState("1");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState<

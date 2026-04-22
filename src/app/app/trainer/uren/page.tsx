@@ -13,6 +13,24 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+function parseWeekParam(
+  param: string | undefined,
+): { year: number; week: number } | null {
+  if (!param) return null;
+  const m = /^(\d{4})-W(\d{1,2})$/.exec(param);
+  if (!m) return null;
+  return { year: Number(m[1]), week: Number(m[2]) };
+}
+
+function isoWeekMondayIso(year: number, week: number): string {
+  // Jan 4 sits in ISO-week 1; find Monday of Jan 4's week then shift.
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const day = jan4.getUTCDay() || 7;
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - day + 1 + (week - 1) * 7);
+  return monday.toISOString().slice(0, 10);
+}
+
 function toNumber(v: unknown): number {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
@@ -37,7 +55,14 @@ function startOfMonthIso(): string {
     .slice(0, 10);
 }
 
-export default async function TrainerUrenPage() {
+export default async function TrainerUrenPage(props: {
+  searchParams: Promise<{ week?: string }>;
+}) {
+  const { week: weekParam } = await props.searchParams;
+  const weekHint = parseWeekParam(weekParam);
+  const defaultDate = weekHint
+    ? isoWeekMondayIso(weekHint.year, weekHint.week)
+    : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -143,10 +168,16 @@ export default async function TrainerUrenPage() {
         <header className="mb-6">
           <span className="tmc-eyebrow block mb-2">Nieuwe invoer</span>
           <h2 className="text-xl md:text-2xl text-text font-medium tracking-[-0.01em]">
-            Voeg uren toe
+            {weekHint ? `Voor week ${weekHint.week}` : "Voeg uren toe"}
           </h2>
+          {weekHint && (
+            <p className="text-text-muted text-sm mt-1">
+              Datum start op maandag van week {weekHint.week}. Pas aan waar
+              nodig.
+            </p>
+          )}
         </header>
-        <UrenForm />
+        <UrenForm defaultDate={defaultDate ?? undefined} />
       </section>
 
       <section>

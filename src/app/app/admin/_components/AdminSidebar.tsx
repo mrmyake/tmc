@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, User, Settings, Menu, X, Pause } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, User, Settings, Menu, X, Pause, Megaphone } from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { href: "/app/admin/rooster", label: "Rooster", icon: Calendar },
   { href: "/app/admin/leden", label: "Leden", icon: Users },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
+  { href: "/app/admin/aankondigingen", label: "Aankondigingen", icon: Megaphone },
   { href: "/app/admin/trainers", label: "Trainers", icon: User },
   { href: "/app/admin/instellingen", label: "Instellingen", icon: Settings },
 ];
