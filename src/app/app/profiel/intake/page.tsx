@@ -7,7 +7,7 @@ import { IntakeForm } from "./IntakeForm";
 import type { HealthIntakePayload } from "@/lib/actions/profile";
 
 export const metadata = {
-  title: "Health Intake | The Movement Club",
+  title: "Health intake | The Movement Club",
   robots: { index: false, follow: false },
 };
 
@@ -37,26 +37,32 @@ export default async function IntakePage() {
   const isUpdate = Boolean(profile?.health_intake_completed_at);
 
   return (
-    <Container className="py-12 max-w-2xl">
+    <Container className="py-16 md:py-20 max-w-3xl">
       <Link
         href="/app/profiel"
-        className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-text-muted hover:text-accent transition-colors mb-8"
+        scroll={false}
+        className="group inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-accent mb-10"
       >
-        <ChevronLeft size={14} />
+        <ChevronLeft
+          size={14}
+          strokeWidth={1.5}
+          className="transition-transform duration-300 group-hover:-translate-x-0.5"
+        />
         Terug naar profiel
       </Link>
 
-      <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-4">
-        Health intake
-      </span>
-      <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-3">
-        {isUpdate ? "Intake bijwerken" : "Vertel ons iets over jezelf"}
-      </h1>
-      <p className="text-text-muted mb-10 leading-relaxed">
-        Een paar vragen zodat Marlon en het trainer-team je veilig en op maat
-        kunnen begeleiden. Invullen duurt 2 minuten. Alles behalve &ldquo;doelen&rdquo; is
-        optioneel.
-      </p>
+      <header className="mb-14">
+        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+          Health intake
+        </span>
+        <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.05] tracking-[-0.02em]">
+          {isUpdate ? "Intake bijwerken." : "Vertel ons iets over jezelf."}
+        </h1>
+        <p className="mt-6 text-text-muted text-lg max-w-xl">
+          Vijf korte stappen. We stellen alleen wat we echt nodig hebben om je
+          veilig en gericht te coachen.
+        </p>
+      </header>
 
       <IntakeForm initial={initial} />
     </Container>
