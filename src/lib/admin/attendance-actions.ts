@@ -31,6 +31,17 @@ export interface ParticipantRow {
   status: AttendanceStatus;
   bookedAt: string;
   attendedAt: string | null;
+  hasInjury: boolean;
+}
+
+function parseHasInjury(raw: string | null): boolean {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as { injuries?: string };
+    return Boolean(parsed?.injuries && parsed.injuries.trim().length > 0);
+  } catch {
+    return false;
+  }
 }
 
 export type AttendanceActionResult =
@@ -120,7 +131,7 @@ export async function loadParticipants(
       .select(
         `
           id, profile_id, status, credits_used, membership_id, booked_at, attended_at,
-          profile:profiles(first_name, last_name, avatar_url),
+          profile:profiles(first_name, last_name, avatar_url, health_notes),
           membership:memberships(plan_type, plan_variant, credits_remaining)
         `,
       )
@@ -156,6 +167,7 @@ export async function loadParticipants(
     first_name: string | null;
     last_name: string | null;
     avatar_url: string | null;
+    health_notes: string | null;
   };
   type MembershipRef = {
     plan_type: string | null;
@@ -184,6 +196,7 @@ export async function loadParticipants(
       status: b.status as AttendanceStatus,
       bookedAt: b.booked_at,
       attendedAt: b.attended_at,
+      hasInjury: parseHasInjury(p?.health_notes ?? null),
     };
   });
 
