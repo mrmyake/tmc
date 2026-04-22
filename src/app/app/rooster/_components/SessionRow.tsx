@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { StatusBadge, type SessionStatus } from "./StatusBadge";
+import { StatusBadge, type SessionStatus } from "@/components/ui/StatusBadge";
 
 export interface SessionRowData {
   id: string;

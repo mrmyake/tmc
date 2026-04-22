@@ -9,7 +9,7 @@ import { FilterChips } from "./_components/FilterChips";
 import { SessionList } from "./_components/SessionList";
 import { WeekNavigator } from "./_components/WeekNavigator";
 import { DayStrip } from "./_components/DayStrip";
-import type { SessionStatus } from "./_components/StatusBadge";
+import type { SessionStatus } from "@/components/ui/StatusBadge";
 
 export const metadata = {
   title: "Rooster | The Movement Club",

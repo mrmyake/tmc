@@ -4,7 +4,9 @@ export type SessionStatus =
   | "open"
   | "full"
   | "past"
-  | "cancelled";
+  | "cancelled"
+  | "attended"
+  | "no_show";
 
 interface StatusBadgeProps {
   status: SessionStatus;
@@ -26,6 +28,34 @@ export function StatusBadge({ status, spotsAvailable }: StatusBadgeProps) {
           className="w-1.5 h-1.5 rounded-full bg-[color:var(--success)]"
         />
         Geboekt
+      </span>
+    );
+  }
+  if (status === "attended") {
+    return (
+      <span
+        className={`${base} text-[color:var(--success)]`}
+        aria-label="Bijgewoond"
+      >
+        <span
+          aria-hidden
+          className="w-1.5 h-1.5 rounded-full bg-[color:var(--success)]"
+        />
+        Bijgewoond
+      </span>
+    );
+  }
+  if (status === "no_show") {
+    return (
+      <span
+        className={`${base} text-[color:var(--danger)]`}
+        aria-label="Niet verschenen"
+      >
+        <span
+          aria-hidden
+          className="w-1.5 h-1.5 rounded-full bg-[color:var(--danger)]"
+        />
+        Niet verschenen
       </span>
     );
   }
