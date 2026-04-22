@@ -10,10 +10,14 @@ import {
 } from "@/lib/admin/session-actions";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { AttendanceList } from "@/app/app/_shared/attendance/AttendanceList";
+import type { SessionSummary } from "@/lib/admin/attendance-actions";
 import {
   type AdminSessionBlockData,
   type AdminTrainerOption,
 } from "./types";
+
+type PanelTab = "edit" | "participants";
 
 interface SessionEditPanelProps {
   session: AdminSessionBlockData | null;
@@ -35,6 +39,7 @@ export function SessionEditPanel({
   const [capacity, setCapacity] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [tab, setTab] = useState<PanelTab>("edit");
   const lastFocusedRef = useRef<HTMLElement | null>(null);
 
   const open = Boolean(session);
@@ -49,6 +54,7 @@ export function SessionEditPanel({
       setResult(null);
       setConfirmCancel(false);
       setCancelReason("");
+      setTab("edit");
     } else {
       lastFocusedRef.current?.focus?.();
     }
@@ -126,7 +132,7 @@ export function SessionEditPanel({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.6, ease: clubEase }}
-            className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[480px] bg-bg border-l border-[color:var(--ink-500)] flex flex-col text-text"
+            className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[560px] bg-bg border-l border-[color:var(--ink-500)] flex flex-col text-text"
           >
             <div className="flex items-start justify-between p-8">
               <span className="tmc-eyebrow tmc-eyebrow--accent">
@@ -152,7 +158,7 @@ export function SessionEditPanel({
               <p className="text-text-muted text-sm mb-2">
                 {formatWeekdayDate(new Date(session.startAt))}
               </p>
-              <p className="text-text-muted text-sm mb-8">
+              <p className="text-text-muted text-sm mb-6">
                 {formatTimeRange(
                   new Date(session.startAt),
                   new Date(session.endAt),
@@ -161,7 +167,36 @@ export function SessionEditPanel({
                 {PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar}
               </p>
 
-              {sessionIsCancelled && (
+              <div
+                role="tablist"
+                aria-label="Paneel tabs"
+                className="flex items-center gap-6 mb-8 border-b border-[color:var(--ink-500)]/60"
+              >
+                <TabButton
+                  active={tab === "edit"}
+                  onClick={() => setTab("edit")}
+                >
+                  Bewerken
+                </TabButton>
+                <TabButton
+                  active={tab === "participants"}
+                  onClick={() => setTab("participants")}
+                >
+                  Deelnemers ({session.bookedCount})
+                </TabButton>
+              </div>
+
+              {tab === "participants" && (
+                <AttendanceList
+                  embedded
+                  selfFetch
+                  canRefund
+                  initialParticipants={[]}
+                  session={toSessionSummary(session)}
+                />
+              )}
+
+              {tab === "edit" && sessionIsCancelled && (
                 <div
                   role="status"
                   className="mb-8 text-sm p-4 border border-[color:var(--danger)]/40 text-[color:var(--danger)]"
@@ -170,6 +205,8 @@ export function SessionEditPanel({
                 </div>
               )}
 
+              {tab === "edit" && (
+              <>
               <div className="flex flex-col gap-6 mb-8">
                 <label className="flex flex-col gap-2">
                   <span className="tmc-eyebrow">Trainer</span>
@@ -270,6 +307,8 @@ export function SessionEditPanel({
                   )}
                 </div>
               )}
+              </>
+              )}
             </div>
 
             <div className="p-8 pt-6 border-t border-[color:var(--ink-500)]/60 flex flex-col gap-4">
@@ -286,7 +325,7 @@ export function SessionEditPanel({
                 </div>
               )}
 
-              {!sessionIsCancelled && (
+              {tab === "edit" && !sessionIsCancelled && (
                 <button
                   type="button"
                   onClick={save}
@@ -309,4 +348,47 @@ export function SessionEditPanel({
       )}
     </AnimatePresence>
   );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`relative pb-3 text-xs font-medium uppercase tracking-[0.18em] transition-colors duration-300 cursor-pointer ${
+        active ? "text-accent" : "text-text-muted hover:text-text"
+      }`}
+    >
+      {children}
+      {active && (
+        <span
+          aria-hidden
+          className="absolute left-0 right-0 -bottom-px h-px bg-accent"
+        />
+      )}
+    </button>
+  );
+}
+
+function toSessionSummary(s: AdminSessionBlockData): SessionSummary {
+  return {
+    id: s.id,
+    classTypeName: s.className,
+    trainerName: s.trainerName,
+    pillar: s.pillar,
+    startAt: s.startAt,
+    endAt: s.endAt,
+    capacity: s.capacity,
+    status: s.status,
+  };
 }
