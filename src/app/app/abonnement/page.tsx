@@ -1,34 +1,38 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
+import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { StatTile } from "@/app/app/_components/StatTile";
+import { MembershipHeroCard } from "./_components/MembershipHeroCard";
+import { PlanBenefitsList } from "./_components/PlanBenefitsList";
+import {
+  MembershipHistory,
+  type HistoryItem,
+} from "./_components/MembershipHistory";
+import { MembershipActions } from "./_components/MembershipActions";
 
 export const metadata = {
   title: "Abonnement | The Movement Club",
   robots: { index: false, follow: false },
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Betaling in behandeling",
-  active: "Actief",
-  paused: "Gepauzeerd",
-  cancellation_requested: "Opgezegd (loopt nog)",
-  cancelled: "Beëindigd",
-  expired: "Verlopen",
-  payment_failed: "Betaling mislukt",
-};
+export const dynamic = "force-dynamic";
 
-function formatDate(d: string | null): string | null {
-  if (!d) return null;
-  try {
-    return new Date(d).toLocaleDateString("nl-NL", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return d;
+const ACTIVE_STATUSES = [
+  "pending",
+  "active",
+  "paused",
+  "cancellation_requested",
+  "payment_failed",
+];
+
+const HISTORY_STATUSES = ["cancelled", "expired"];
+
+const PLANS_WITH_CREDITS = new Set(["ten_ride_card", "pt_package"]);
+
+function logIfError(tag: string, error: { message: string } | null) {
+  if (error) {
+    console.error(`[/app/abonnement] ${tag} query failed:`, error.message);
   }
 }
 
@@ -39,145 +43,199 @@ export default async function AbonnementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = await supabase
-    .from("memberships")
-    .select(
-      "id,plan_type,plan_variant,status,price_per_cycle_cents,billing_cycle_weeks,commit_months,start_date,commit_end_date,frequency_cap,covered_pillars"
-    )
-    .eq("profile_id", user.id)
-    .in("status", [
-      "pending",
-      "active",
-      "paused",
-      "cancellation_requested",
-      "payment_failed",
-    ])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [currentResult, historyResult] = await Promise.all([
+    supabase
+      .from("memberships")
+      .select(
+        `
+          id,
+          plan_type,
+          plan_variant,
+          status,
+          price_per_cycle_cents,
+          billing_cycle_weeks,
+          commit_months,
+          commit_end_date,
+          start_date,
+          end_date,
+          frequency_cap,
+          covered_pillars,
+          credits_remaining,
+          credits_total,
+          cancellation_effective_date,
+          cancellation_requested_at
+        `,
+      )
+      .eq("profile_id", user.id)
+      .in("status", ACTIVE_STATUSES)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("memberships")
+      .select(
+        "id, plan_variant, status, price_per_cycle_cents, billing_cycle_weeks, start_date, end_date",
+      )
+      .eq("profile_id", user.id)
+      .in("status", HISTORY_STATUSES)
+      .order("end_date", { ascending: false })
+      .limit(20),
+  ]);
 
-  let planName: string | null = null;
-  if (membership) {
-    const { data: plan } = await supabase
-      .from("membership_plan_catalogue")
-      .select("display_name")
-      .eq("plan_variant", membership.plan_variant)
-      .maybeSingle();
-    planName = plan?.display_name ?? null;
+  logIfError("current membership", currentResult.error);
+  logIfError("history", historyResult.error);
+
+  const membership = currentResult.data;
+
+  // Build a set of plan_variants we need display names for.
+  const variants = new Set<string>();
+  if (membership?.plan_variant) variants.add(membership.plan_variant);
+  for (const row of historyResult.data ?? []) {
+    if (row.plan_variant) variants.add(row.plan_variant);
   }
 
-  return (
-    <Container className="py-12 max-w-3xl">
-      <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-4">
-        Abonnement
-      </span>
-      <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-8">
-        Jouw abonnement
-      </h1>
+  const planCatalogue =
+    variants.size === 0
+      ? { data: [] as { plan_variant: string; display_name: string; includes: string[] }[] }
+      : await supabase
+          .from("membership_plan_catalogue")
+          .select("plan_variant, display_name, includes")
+          .in("plan_variant", Array.from(variants));
 
-      {!membership && (
-        <div className="bg-bg-elevated border border-bg-subtle p-6 md:p-8">
-          <h2 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-3">
-            Nog geen abonnement
+  const planByVariant = new Map<
+    string,
+    { display_name: string; includes: string[] }
+  >();
+  for (const p of planCatalogue.data ?? []) {
+    planByVariant.set(p.plan_variant, {
+      display_name: p.display_name,
+      includes: p.includes ?? [],
+    });
+  }
+
+  const currentPlan = membership
+    ? planByVariant.get(membership.plan_variant)
+    : null;
+
+  const historyItems: HistoryItem[] = (historyResult.data ?? []).map((row) => ({
+    id: row.id,
+    planName:
+      planByVariant.get(row.plan_variant)?.display_name ?? row.plan_variant,
+    status: row.status,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    pricePerCycleCents: row.price_per_cycle_cents,
+    billingCycleWeeks: row.billing_cycle_weeks,
+  }));
+
+  if (!membership) {
+    return (
+      <Container className="py-16 md:py-20 max-w-3xl">
+        <Header />
+        <section className="bg-bg-elevated p-10 md:p-12 text-center">
+          <span className="tmc-eyebrow block mb-4">Nog geen abonnement</span>
+          <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-[1.05] tracking-[-0.02em] mb-4">
+            Kies een plan en kom binnen.
           </h2>
-          <p className="text-text-muted text-sm leading-relaxed mb-6 max-w-xl">
-            Kies een abonnement en rond je aanmelding af. Je kunt direct na
-            betaling lessen boeken.
+          <p className="text-text-muted text-base leading-relaxed mb-8 max-w-md mx-auto">
+            Zodra je een abonnement hebt lopen, vind je hier je plan, cycle en
+            volgende incasso.
           </p>
-          <Link
-            href="/app/abonnement/nieuw"
-            className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium uppercase tracking-[0.15em] bg-accent text-bg hover:bg-accent-hover transition-colors"
-          >
-            Bekijk abonnementen
-          </Link>
+          <Button href="/app/abonnement/nieuw">Bekijk abonnementen</Button>
+        </section>
+        <div className="mt-14">
+          <MembershipHistory items={historyItems} />
+        </div>
+      </Container>
+    );
+  }
+
+  const planName = currentPlan?.display_name ?? membership.plan_variant;
+  const showCreditsTile =
+    PLANS_WITH_CREDITS.has(membership.plan_type) &&
+    membership.credits_total !== null;
+
+  const canPause =
+    membership.status === "active" || membership.status === "paused";
+  const canCancel =
+    membership.status === "active" ||
+    membership.status === "paused" ||
+    membership.status === "payment_failed";
+
+  return (
+    <Container className="py-16 md:py-20 max-w-4xl">
+      <Header />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12">
+        <div className="md:col-span-2">
+          <MembershipHeroCard
+            planName={planName}
+            planVariant={membership.plan_variant}
+            status={membership.status}
+            pricePerCycleCents={membership.price_per_cycle_cents}
+            billingCycleWeeks={membership.billing_cycle_weeks}
+            startDate={membership.start_date}
+            commitEndDate={membership.commit_end_date}
+            cancellationEffectiveDate={membership.cancellation_effective_date}
+          />
+        </div>
+        <div className="flex flex-col gap-6 md:gap-8">
+          {showCreditsTile ? (
+            <StatTile
+              label={
+                membership.plan_type === "pt_package"
+                  ? "PT-credits"
+                  : "Rittenkaart"
+              }
+              value={`${membership.credits_remaining ?? 0} / ${membership.credits_total}`}
+              hint="Resterend op je kaart."
+            />
+          ) : (
+            <StatTile
+              label="Cyclus"
+              value={`${membership.billing_cycle_weeks}wk`}
+              hint={`Commitment: ${membership.commit_months} maanden.`}
+            />
+          )}
+        </div>
+      </div>
+
+      {currentPlan?.includes && currentPlan.includes.length > 0 && (
+        <div className="mb-14">
+          <PlanBenefitsList
+            includes={currentPlan.includes}
+            coveredPillars={membership.covered_pillars ?? []}
+            frequencyCap={membership.frequency_cap}
+          />
         </div>
       )}
 
-      {membership && (
-        <div className="bg-bg-elevated border border-bg-subtle p-6 md:p-8 space-y-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-2">
-              Plan
-            </div>
-            <div className="font-[family-name:var(--font-playfair)] text-2xl text-text">
-              {planName ?? membership.plan_variant}
-            </div>
-          </div>
+      <div className="mb-16">
+        <MembershipActions
+          membershipId={membership.id}
+          commitEndDate={membership.commit_end_date}
+          canPause={canPause}
+          canCancel={canCancel}
+        />
+      </div>
 
-          <Row
-            label="Status"
-            value={STATUS_LABEL[membership.status] ?? membership.status}
-            accent={membership.status === "active"}
-          />
-          <Row
-            label="Prijs per cyclus"
-            value={`${formatEuro(
-              Math.round(membership.price_per_cycle_cents / 100)
-            )} / ${membership.billing_cycle_weeks}wk`}
-          />
-          {membership.frequency_cap && (
-            <Row
-              label="Frequentie-cap"
-              value={`${membership.frequency_cap}× per week`}
-            />
-          )}
-          {membership.covered_pillars?.length > 0 && (
-            <Row
-              label="Toegang"
-              value={membership.covered_pillars.join(", ")}
-            />
-          )}
-          <Row
-            label="Startdatum"
-            value={formatDate(membership.start_date) ?? "—"}
-          />
-          <Row
-            label="Commitment tot"
-            value={formatDate(membership.commit_end_date) ?? "—"}
-          />
-
-          {membership.status === "pending" && (
-            <div className="text-sm text-text-muted pt-4 border-t border-bg-subtle/70">
-              Je betaling is nog niet bevestigd. Zodra die binnen is, wordt je
-              abonnement automatisch actief.
-            </div>
-          )}
-
-          {membership.status === "payment_failed" && (
-            <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-3">
-              Je laatste incasso is niet gelukt. Neem contact op of probeer
-              opnieuw.
-            </div>
-          )}
-
-          {membership.status === "active" && (
-            <div className="pt-4 border-t border-bg-subtle/70">
-              <p className="text-xs text-text-muted mb-3">
-                Pauzeren of opzeggen komt binnenkort in-app. Voor nu: mail ons.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <MembershipHistory items={historyItems} />
     </Container>
   );
 }
 
-function Row({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
+function Header() {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-4 py-2 border-b border-bg-subtle/70 last:border-0">
-      <span className="text-xs uppercase tracking-[0.2em] text-text-muted pt-1">
-        {label}
+    <header className="mb-12">
+      <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+        Lidmaatschap
       </span>
-      <span className={accent ? "text-accent" : "text-text"}>{value}</span>
-    </div>
+      <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em]">
+        Jouw abonnement.
+      </h1>
+      <p className="mt-6 text-text-muted text-lg max-w-xl">
+        Jouw plan, je cycle en wat je nog over hebt. Veranderen kan hier.
+      </p>
+    </header>
   );
 }
