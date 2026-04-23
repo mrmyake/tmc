@@ -23,7 +23,10 @@ interface SessionRowProps {
 }
 
 export function SessionRow({ session, onOpen }: SessionRowProps) {
-  const disabled = session.status === "past" || session.status === "cancelled";
+  const disabled =
+    session.status === "past" ||
+    session.status === "cancelled" ||
+    session.status === "ongoing";
   const muted = disabled;
 
   return (

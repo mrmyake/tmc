@@ -19,27 +19,25 @@ interface SerializedSession {
 }
 
 interface SessionListProps {
-  dayGroups: Array<{
-    isoDate: string;
-    label: string;
-    sessions: SerializedSession[];
-  }>;
+  /**
+   * Lessen voor de geselecteerde dag. Pagina stuurt enkel één dag door,
+   * niet meer een dayGroups-array. De flat-lijst houdt de DOM licht.
+   */
+  sessions: SerializedSession[];
   cancellationWindowHours: number;
 }
 
 export function SessionList({
-  dayGroups,
+  sessions,
   cancellationWindowHours,
 }: SessionListProps) {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
 
   const rowsById = useMemo(() => {
     const map = new Map<string, SerializedSession>();
-    for (const day of dayGroups) {
-      for (const s of day.sessions) map.set(s.id, s);
-    }
+    for (const s of sessions) map.set(s.id, s);
     return map;
-  }, [dayGroups]);
+  }, [sessions]);
 
   const openSerialized = openSessionId ? rowsById.get(openSessionId) : null;
   const openRow: SessionRowData | null = openSerialized
@@ -57,17 +55,12 @@ export function SessionList({
       }
     : null;
 
-  const totalSessions = dayGroups.reduce(
-    (sum, d) => sum + d.sessions.length,
-    0,
-  );
-
-  if (totalSessions === 0) {
+  if (sessions.length === 0) {
     return (
-      <div className="py-20 text-center">
-        <span className="tmc-eyebrow block mb-3">Geen sessies</span>
+      <div className="py-16 text-center">
+        <span className="tmc-eyebrow block mb-3">Geen lessen</span>
         <p className="text-text-muted text-base max-w-md mx-auto">
-          Geen sessies gevonden voor deze week. Probeer een andere week of
+          Geen lessen gepubliceerd voor deze dag. Probeer een andere dag of
           kies een andere discipline.
         </p>
       </div>
@@ -76,41 +69,24 @@ export function SessionList({
 
   return (
     <>
-      <div className="flex flex-col gap-12">
-        {dayGroups.map((day) => (
-          <section key={day.isoDate}>
-            <div className="flex items-baseline gap-4 mb-1">
-              <span className="tmc-eyebrow">{day.label}</span>
-              <span
-                aria-hidden
-                className="flex-1 h-px bg-[color:var(--ink-500)]/50"
-              />
-            </div>
-            {day.sessions.length === 0 ? (
-              <p className="py-6 text-text-muted text-sm border-t border-[color:var(--ink-500)]/60">
-                Geen sessies.
-              </p>
-            ) : (
-              day.sessions.map((s) => (
-                <SessionRow
-                  key={s.id}
-                  session={{
-                    id: s.id,
-                    startAt: new Date(s.startAt),
-                    endAt: new Date(s.endAt),
-                    className: s.className,
-                    trainerName: s.trainerName,
-                    pillar: s.pillar,
-                    capacity: s.capacity,
-                    bookedCount: s.bookedCount,
-                    status: s.status,
-                    bookingId: s.bookingId,
-                  }}
-                  onOpen={(session) => setOpenSessionId(session.id)}
-                />
-              ))
-            )}
-          </section>
+      <div className="flex flex-col">
+        {sessions.map((s) => (
+          <SessionRow
+            key={s.id}
+            session={{
+              id: s.id,
+              startAt: new Date(s.startAt),
+              endAt: new Date(s.endAt),
+              className: s.className,
+              trainerName: s.trainerName,
+              pillar: s.pillar,
+              capacity: s.capacity,
+              bookedCount: s.bookedCount,
+              status: s.status,
+              bookingId: s.bookingId,
+            }}
+            onOpen={(session) => setOpenSessionId(session.id)}
+          />
         ))}
       </div>
 
