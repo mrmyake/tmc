@@ -13,7 +13,10 @@ interface TrainerSpotlightProps {
 }
 
 export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
-  const hasImage = trainer.photo?.asset;
+  // Keep the photo itself in a local so TS narrows the branch below
+  // without forcing a non-null assertion. `hasImage` is only the
+  // JSX guard; the photo variable carries the type narrowing.
+  const photo = trainer.photo?.asset ? trainer.photo : null;
 
   return (
     <Section>
@@ -66,10 +69,10 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
 
           {/* Portrait */}
           <ScrollReveal delay={0.15} className="order-1 lg:order-2">
-            {hasImage ? (
+            {photo ? (
               <div className="relative w-full aspect-[3/4]">
                 <Image
-                  src={urlFor(trainer.photo!).width(600).height(800).url()}
+                  src={urlFor(photo).width(600).height(800).url()}
                   alt={`Portret ${trainer.name}`}
                   fill
                   sizes="(max-width: 1024px) 100vw, 600px"

@@ -4,8 +4,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 
+// text-base (16px) is intentional — anything smaller triggers Safari
+// mobile's auto-zoom on focus, which shifts the login card outside the
+// viewport. 16px is the minimum threshold that keeps zoom disabled.
 const inputStyles =
-  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
+  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-base placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 interface Props {
   initialError?: string;

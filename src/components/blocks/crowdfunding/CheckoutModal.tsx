@@ -13,8 +13,11 @@ interface Props {
   onClose: () => void;
 }
 
+// text-base (16px) prevents Safari mobile's auto-zoom on focus. A
+// 14px font triggers the zoom which pushes the modal edges off-
+// screen on small viewports.
 const inputStyles =
-  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
+  "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-base placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 export function CheckoutModal({ tier, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);

@@ -10,8 +10,12 @@ import * as React from "react";
  * visually. Focus ring + disabled state live here, not in callers.
  */
 
+// `text-base` on mobile (16px) prevents Safari's auto-zoom-on-focus
+// that would push dialog edges off-screen. Desktop reverts to
+// `text-sm` (14px) for the admin-density visual. Trainers using the
+// attendance UI on their phone get the zoom-free variant.
 const baseInputClass =
-  "bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50";
+  "bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-base sm:text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50";
 
 export interface AdminFieldProps {
   label?: string;

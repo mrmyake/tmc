@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -51,6 +51,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://themovementclub.nl",
   },
+};
+
+// Explicit viewport config. These values match Next's defaults but
+// documenting them makes future iteration obvious. `initial-scale=1`
+// keeps the browser from zooming on orientation change. We
+// deliberately do NOT set `maximum-scale=1` because that blocks user
+// pinch-zoom which is an accessibility regression. The inputs are
+// sized to 16px so Safari doesn't auto-zoom on focus anyway.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
