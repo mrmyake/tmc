@@ -33,9 +33,9 @@ export function Footer({ settings }: FooterProps) {
 
           <div className="space-y-10">
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
                 Navigatie
-              </h4>
+              </h3>
               <ul className="space-y-3">
                 {NAV_LINKS.map((link) => (
                   <li key={link.href}>
@@ -49,9 +49,9 @@ export function Footer({ settings }: FooterProps) {
             </div>
 
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
                 Gratis starten
-              </h4>
+              </h3>
               <ul className="space-y-3">
                 <li>
                   <QuietLink href="/beweeg-beter">Beweeg Beter guide</QuietLink>
@@ -70,9 +70,9 @@ export function Footer({ settings }: FooterProps) {
             </div>
 
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
                 Ook van Marlon
-              </h4>
+              </h3>
               <QuietLink href="https://hormoonprofiel.com" external>
                 Hormoonprofiel.com
               </QuietLink>
@@ -80,9 +80,9 @@ export function Footer({ settings }: FooterProps) {
           </div>
 
           <div>
-            <h4 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
+            <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
               Contact
-            </h4>
+            </h3>
             <address className="not-italic text-sm text-text-muted space-y-2">
               <p>{settings.address.street}</p>
               <p>
