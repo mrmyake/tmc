@@ -1,10 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
-import { AppNav } from "./AppNav";
+import { AppChrome } from "./AppChrome";
+import type { Role } from "@/components/nav/AvatarDropdown";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Outer `/app` layout: één plek voor auth-guard + profile-fetch. De
+ * daadwerkelijke chrome (MemberNav / TrainerNav / geen) wordt gekozen
+ * door de client-side AppChrome op basis van pathname. Admin-pagina's
+ * hebben een eigen shell in hun eigen layout.
+ */
 export default async function AppLayout({
   children,
 }: {
@@ -15,30 +22,24 @@ export default async function AppLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    // Proxy doet dit ook, maar defence-in-depth voor als er iets met de
-    // matcher misgaat.
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
-  // Self-heal: als de auth-trigger ooit heeft gefaald of een user via
-  // admin-API is aangemaakt zonder profile-rij, repareren we dat hier.
+  // Self-heal ontbrekende profile-rij
   await ensureProfile(user);
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, last_name, role")
+    .select("first_name, role")
     .eq("id", user.id)
     .maybeSingle();
 
-  const firstName = profile?.first_name?.trim() || user.email?.split("@")[0] || "Member";
-  const isAdmin = profile?.role === "admin";
-  const isTrainer = profile?.role === "trainer";
+  const firstName =
+    profile?.first_name?.trim() || user.email?.split("@")[0] || "Member";
+  const role: Role = (profile?.role as Role) ?? "member";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppNav firstName={firstName} isAdmin={isAdmin} isTrainer={isTrainer} />
-      <main className="flex-1">{children}</main>
-    </div>
+    <AppChrome firstName={firstName} role={role}>
+      {children}
+    </AppChrome>
   );
 }

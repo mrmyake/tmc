@@ -1,9 +1,14 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "./_components/AdminShell";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Autorisatie-guard voor `/app/admin/*`. Non-admins worden naar
+ * `/app/rooster` geredirect (spec §8) ipv 404 — consistent met de
+ * rest van de role-based routing.
+ */
 export default async function AdminLayout({
   children,
 }: {
@@ -13,10 +18,7 @@ export default async function AdminLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // Outer /app layout already redirects anonymous users; if we're here
-  // without a user something went wrong. Fall through to 404 for privacy.
-  if (!user) notFound();
+  if (!user) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -24,9 +26,8 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .maybeSingle();
 
-  // Spec: non-admins see 404, not 403. No signal that an admin area exists.
   if (!profile || profile.role !== "admin") {
-    notFound();
+    redirect("/app/rooster");
   }
 
   const firstName =
