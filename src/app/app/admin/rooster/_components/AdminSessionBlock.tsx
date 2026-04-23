@@ -2,14 +2,7 @@
 
 import { type AdminSessionBlockData } from "./types";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
-
-const PILLAR_TONE: Record<string, string> = {
-  vrij_trainen: "border-l-[color:var(--stone-500)]",
-  yoga_mobility: "border-l-accent",
-  kettlebell: "border-l-[color:var(--warning)]",
-  kids: "border-l-[color:var(--success)]",
-  senior: "border-l-[color:var(--stone-600)]",
-};
+import { pillarBorderLeft } from "@/lib/tone";
 
 interface AdminSessionBlockProps {
   session: AdminSessionBlockData;
@@ -19,7 +12,7 @@ interface AdminSessionBlockProps {
 export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps) {
   const isCancelled = session.status === "cancelled";
   const full = session.bookedCount >= session.capacity;
-  const tone = PILLAR_TONE[session.pillar] ?? "border-l-text-muted";
+  const tone = pillarBorderLeft(session.pillar);
 
   return (
     <button

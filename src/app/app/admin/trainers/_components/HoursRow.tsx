@@ -7,6 +7,7 @@ import {
   rejectTrainerHours,
 } from "@/lib/admin/trainer-actions";
 import { formatShortDate } from "@/lib/format-date";
+import { Chip } from "@/components/ui/Chip";
 import type { TrainerHoursRow as TrainerHoursData } from "@/lib/admin/trainer-query";
 
 interface HoursRowProps {
@@ -136,34 +137,7 @@ export function HoursRow({ row }: HoursRowProps) {
 }
 
 function StatusChip({ status }: { status: "pending" | "approved" | "rejected" }) {
-  const base =
-    "inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.16em]";
-  if (status === "approved") {
-    return (
-      <span className={`${base} text-[color:var(--success)]`}>
-        <span
-          aria-hidden
-          className="w-1.5 h-1.5 rounded-full bg-[color:var(--success)]"
-        />
-        Goedgekeurd
-      </span>
-    );
-  }
-  if (status === "rejected") {
-    return (
-      <span className={`${base} text-[color:var(--danger)]`}>
-        <span
-          aria-hidden
-          className="w-1.5 h-1.5 rounded-full bg-[color:var(--danger)]"
-        />
-        Afgewezen
-      </span>
-    );
-  }
-  return (
-    <span className={`${base} text-accent`}>
-      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent" />
-      In behandeling
-    </span>
-  );
+  if (status === "approved") return <Chip tone="success">Goedgekeurd</Chip>;
+  if (status === "rejected") return <Chip tone="danger">Afgewezen</Chip>;
+  return <Chip tone="accent">In behandeling</Chip>;
 }

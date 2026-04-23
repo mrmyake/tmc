@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatShortDate } from "@/lib/format-date";
 import { UrenForm } from "./_components/UrenForm";
 import { StatTile } from "@/app/app/_components/StatTile";
+import { Chip } from "@/components/ui/Chip";
 
 export const metadata = {
   title: "Trainer · Uren | The Movement Club",
@@ -246,34 +247,7 @@ function StatusPill({
 }: {
   status: "pending" | "approved" | "rejected";
 }) {
-  const base =
-    "inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.16em]";
-  if (status === "approved") {
-    return (
-      <span className={`${base} text-[color:var(--success)]`}>
-        <span
-          aria-hidden
-          className="w-1.5 h-1.5 rounded-full bg-[color:var(--success)]"
-        />
-        Goedgekeurd
-      </span>
-    );
-  }
-  if (status === "rejected") {
-    return (
-      <span className={`${base} text-[color:var(--danger)]`}>
-        <span
-          aria-hidden
-          className="w-1.5 h-1.5 rounded-full bg-[color:var(--danger)]"
-        />
-        Afgewezen
-      </span>
-    );
-  }
-  return (
-    <span className={`${base} text-accent`}>
-      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent" />
-      In behandeling
-    </span>
-  );
+  if (status === "approved") return <Chip tone="success">Goedgekeurd</Chip>;
+  if (status === "rejected") return <Chip tone="danger">Afgewezen</Chip>;
+  return <Chip tone="accent">In behandeling</Chip>;
 }
