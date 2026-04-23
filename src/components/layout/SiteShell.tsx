@@ -1,15 +1,29 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
 import { FooterCTA } from "@/components/blocks/FooterCTA";
-import { LeadMagnetBanner } from "@/components/blocks/LeadMagnetBanner";
 import { Analytics } from "./Analytics";
-import { CookieConsent } from "./CookieConsent";
 import { UtmTracker } from "./UtmTracker";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
+
+// Below-the-fold + interaction-triggered. Both ship framer-motion.
+// Dynamic import with ssr:false keeps that weight out of the critical
+// bundle — they stream in after the page is interactive.
+const LeadMagnetBanner = dynamic(
+  () =>
+    import("@/components/blocks/LeadMagnetBanner").then(
+      (m) => m.LeadMagnetBanner,
+    ),
+  { ssr: false },
+);
+const CookieConsent = dynamic(
+  () => import("./CookieConsent").then((m) => m.CookieConsent),
+  { ssr: false },
+);
 
 interface SiteShellProps {
   children: React.ReactNode;

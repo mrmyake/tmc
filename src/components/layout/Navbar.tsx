@@ -3,12 +3,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 
+/**
+ * Marketing navbar. No framer-motion — the mobile menu uses a CSS
+ * grid-rows transition (0fr → 1fr) which smoothly animates the
+ * collapsed container's natural height without JS. Menu items fade +
+ * slide via `.tmc-fade-up` with staggered inline delays.
+ */
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -86,70 +91,63 @@ export function Navbar() {
         </button>
       </nav>
 
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.5, ease: [0.2, 0.7, 0.1, 1] }}
-            className="md:hidden overflow-hidden bg-bg/70 backdrop-blur-md border-t border-bg-subtle"
-          >
-            <div className="px-6 py-10 flex flex-col gap-7">
-              {NAV_LINKS.map((link, i) => {
-                const isActive = pathname === link.href;
-                return (
-                  <motion.div
-                    key={link.href}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.5,
-                      ease: [0.2, 0.7, 0.1, 1],
-                      delay: i * 0.05 + 0.08,
-                    }}
+      {/* Mobile menu — CSS grid-rows trick. Going 0fr → 1fr smoothly
+          animates the child's natural height without JS. Inner div
+          needs min-h-0 so the grid track can collapse to zero. */}
+      <div
+        className={`md:hidden grid overflow-hidden transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
+          mobileOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+        inert={!mobileOpen ? true : undefined}
+      >
+        <div className="min-h-0 bg-bg/70 backdrop-blur-md border-t border-bg-subtle">
+          <div className="px-6 py-10 flex flex-col gap-7">
+            {NAV_LINKS.map((link, i) => {
+              const isActive = pathname === link.href;
+              return (
+                <div
+                  key={link.href}
+                  style={{
+                    animationDelay: mobileOpen
+                      ? `${i * 0.05 + 0.08}s`
+                      : "0s",
+                  }}
+                  className={mobileOpen ? "tmc-fade-up" : "opacity-0"}
+                >
+                  <QuietLink
+                    href={link.href}
+                    active={isActive}
+                    ariaCurrent={isActive ? "page" : undefined}
+                    className="text-xl pb-1"
                   >
-                    <QuietLink
-                      href={link.href}
-                      active={isActive}
-                      ariaCurrent={isActive ? "page" : undefined}
-                      className="text-xl pb-1"
-                    >
-                      {link.label}
-                    </QuietLink>
-                  </motion.div>
-                );
-              })}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.5,
-                  ease: [0.2, 0.7, 0.1, 1],
-                  delay: NAV_LINKS.length * 0.05 + 0.08,
-                }}
-              >
-                <QuietLink href="/login" className="text-xl pb-1">
-                  Inloggen
-                </QuietLink>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.5,
-                  ease: [0.2, 0.7, 0.1, 1],
-                  delay: 0.35,
-                }}
-              >
-                <Button href="/proefles" className="mt-2 w-full text-center">
-                  Plan je proefles
-                </Button>
-              </motion.div>
+                    {link.label}
+                  </QuietLink>
+                </div>
+              );
+            })}
+            <div
+              style={{
+                animationDelay: mobileOpen
+                  ? `${NAV_LINKS.length * 0.05 + 0.08}s`
+                  : "0s",
+              }}
+              className={mobileOpen ? "tmc-fade-up" : "opacity-0"}
+            >
+              <QuietLink href="/login" className="text-xl pb-1">
+                Inloggen
+              </QuietLink>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div
+              style={{ animationDelay: mobileOpen ? "0.35s" : "0s" }}
+              className={mobileOpen ? "tmc-fade-up" : "opacity-0"}
+            >
+              <Button href="/proefles" className="mt-2 w-full text-center">
+                Plan je proefles
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </header>
   );
 }

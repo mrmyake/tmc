@@ -87,6 +87,17 @@ html { scroll-behavior: smooth; }
 .tmc-fade-up {
   animation: tmc-fade-up 0.8s cubic-bezier(0.2, 0.7, 0.1, 1) both;
 }
+
+/* Route-change fade used by the PageTransition wrapper. Re-fires on
+   every pathname change because the wrapper's React key changes,
+   remounting the DOM node and restarting the CSS animation. */
+@keyframes tmc-page-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.tmc-page-fade {
+  animation: tmc-page-fade 0.4s ease-out both;
+}
 /* Reveal on scroll via IntersectionObserver (see components/ui/ScrollReveal).
    Hidden until JS flips data-revealed; unobservable viewers (JS off) still
    see the content because the fallback state above flips to visible. */
