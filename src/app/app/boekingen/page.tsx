@@ -190,7 +190,11 @@ export default async function BoekingenPage(props: {
       </div>
 
       {view === "komend" && (
-        <>
+        <div
+          role="tabpanel"
+          aria-label="Komende boekingen"
+          className="animate-tab-in"
+        >
           {upcomingRows.length === 0 ? (
             <EmptyUpcoming />
           ) : (
@@ -204,11 +208,15 @@ export default async function BoekingenPage(props: {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {view === "historie" && (
-        <>
+        <div
+          role="tabpanel"
+          aria-label="Historie"
+          className="animate-tab-in"
+        >
           {historyRows.length === 0 ? (
             <EmptyHistory />
           ) : (
@@ -251,7 +259,7 @@ export default async function BoekingenPage(props: {
               )}
             </>
           )}
-        </>
+        </div>
       )}
     </Container>
   );

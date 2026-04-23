@@ -7,6 +7,7 @@ import {
   amsterdamParts,
   DAY_SHORT_NL,
   MONTH_SHORT_NL,
+  formatRelativeWhen,
   formatTimeRange,
 } from "@/lib/format-date";
 
@@ -67,6 +68,9 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
         </h3>
         <p className="text-text-muted text-sm">Met {row.trainerName}</p>
         <p className="text-text-muted text-sm">{formatTimeRange(start, end)}</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent">
+          {formatRelativeWhen(start)}
+        </p>
         {error && (
           <p role="alert" className="text-[color:var(--danger)] text-xs mt-2">
             {error}
