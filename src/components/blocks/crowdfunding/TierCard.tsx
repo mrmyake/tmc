@@ -35,10 +35,10 @@ export function TierCard({
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.5, delay: index * 0.06, ease: "easeOut" }}
       whileHover={soldOut ? undefined : { y: -4 }}
-      className={`relative flex flex-col h-full border transition-all ${
+      className={`relative flex flex-col h-full border transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
         tier.highlighted
-          ? "border-accent bg-bg-elevated shadow-[0_0_40px_-12px_var(--color-accent)]"
-          : "border-bg-subtle bg-bg-elevated"
+          ? "border-accent bg-bg-elevated"
+          : "border-[color:var(--ink-500)]/60 bg-bg-elevated hover:border-accent/40"
       } ${soldOut ? "opacity-50" : ""}`}
     >
       {tier.badge && (
@@ -58,7 +58,7 @@ export function TierCard({
           {tier.name}
         </h3>
         {tier.tagline && (
-          <p className="text-accent text-sm mt-1 mb-5 italic">{tier.tagline}</p>
+          <p className="text-text-muted text-sm mt-2 mb-5">{tier.tagline}</p>
         )}
 
         <div className="mb-6">
@@ -120,14 +120,14 @@ export function TierCard({
             onSelect(tier);
           }}
           disabled={soldOut || disabled}
-          className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+          className={`w-full inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
             soldOut
               ? "bg-bg-subtle text-text-muted cursor-not-allowed"
               : disabled
-              ? "border border-bg-subtle text-text-muted cursor-not-allowed"
-              : tier.highlighted
-              ? "bg-accent text-bg hover:bg-accent-hover cursor-pointer"
-              : "border border-accent text-accent hover:bg-accent hover:text-bg cursor-pointer"
+                ? "border border-[color:var(--ink-500)]/60 text-text-muted cursor-not-allowed"
+                : tier.highlighted
+                  ? "bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] cursor-pointer"
+                  : "border border-text-muted/30 text-text hover:border-accent hover:text-accent active:scale-[0.99] cursor-pointer"
           }`}
         >
           {soldOut

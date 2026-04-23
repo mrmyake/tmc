@@ -46,8 +46,10 @@ export function CrowdfundingFooterCta({
           </div>
 
           <div className="flex flex-col items-center gap-6">
-            <Button href="#tiers">Doe mee</Button>
             <ShareButtons shareUrl={shareUrl} shareText={shareText} />
+            <Button href="#tiers" variant="secondary">
+              Terug naar tiers
+            </Button>
           </div>
         </div>
       </Container>

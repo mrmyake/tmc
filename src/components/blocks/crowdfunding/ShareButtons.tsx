@@ -63,14 +63,20 @@ export function ShareButtons({ shareUrl, shareText, size = "lg" }: Props) {
     }
   }
 
-  const iconSize = size === "lg" ? 20 : 16;
-  const padding = size === "lg" ? "px-5 py-3" : "px-4 py-2";
+  const iconSize = size === "lg" ? 18 : 14;
+  const padding = size === "lg" ? "px-7 py-3.5" : "px-5 py-2.5";
 
   const waUrl = `https://wa.me/?text=${encodeURIComponent(fullText)}`;
   const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
     shareUrl
   )}`;
   const igUrl = `https://www.instagram.com/`;
+
+  // Brand-regel: één champagne-accent per view. WhatsApp is de primary
+  // (warmste kanaal voor een lokale gym), rest zijn ghost-outlined die
+  // pas op hover naar accent kleuren.
+  const primary = `inline-flex items-center gap-2 bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] ${padding} text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]`;
+  const ghost = `inline-flex items-center gap-2 border border-text-muted/30 text-text-muted hover:border-accent hover:text-accent active:scale-[0.99] ${padding} text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer`;
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -79,7 +85,7 @@ export function ShareButtons({ shareUrl, shareText, size = "lg" }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => trackShare("whatsapp")}
-        className={`inline-flex items-center gap-2 bg-accent text-bg hover:bg-accent-hover ${padding} text-sm font-medium uppercase tracking-[0.15em] transition-colors`}
+        className={primary}
       >
         <MessageCircle size={iconSize} />
         WhatsApp
@@ -89,7 +95,7 @@ export function ShareButtons({ shareUrl, shareText, size = "lg" }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => trackShare("facebook")}
-        className={`inline-flex items-center gap-2 border border-accent text-accent hover:bg-accent hover:text-bg ${padding} text-sm font-medium uppercase tracking-[0.15em] transition-colors`}
+        className={ghost}
       >
         <FacebookIcon size={iconSize} />
         Facebook
@@ -100,16 +106,12 @@ export function ShareButtons({ shareUrl, shareText, size = "lg" }: Props) {
         rel="noopener noreferrer"
         onClick={() => trackShare("instagram")}
         aria-label="Deel via Instagram"
-        className={`inline-flex items-center gap-2 border border-accent text-accent hover:bg-accent hover:text-bg ${padding} text-sm font-medium uppercase tracking-[0.15em] transition-colors`}
+        className={ghost}
       >
         <InstagramIcon size={iconSize} />
         Instagram
       </a>
-      <button
-        type="button"
-        onClick={copyLink}
-        className={`inline-flex items-center gap-2 border border-bg-subtle text-text hover:border-accent hover:text-accent ${padding} text-sm font-medium uppercase tracking-[0.15em] transition-colors cursor-pointer`}
-      >
+      <button type="button" onClick={copyLink} className={ghost}>
         {copied ? <Check size={iconSize} /> : <Copy size={iconSize} />}
         {copied ? "Gekopieerd" : "Kopieer link"}
       </button>
