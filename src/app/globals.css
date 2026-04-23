@@ -18,6 +18,31 @@
 
   --color-white: #FFFFFF;
 
+  /* Ink scale — expose the warm-dark neutrals so Tailwind reads them as
+     bg-ink-500, border-ink-500/60, text-ink-700, etc. The bracket
+     syntax `border-[color:var(--ink-500)]` still works; this just
+     gives the cleaner short form. */
+  --color-ink-500: var(--ink-500);
+  --color-ink-600: var(--ink-600);
+  --color-ink-700: var(--ink-700);
+  --color-ink-800: var(--ink-800);
+  --color-ink-900: var(--ink-900);
+
+  /* Stone scale — same short-form exposure. */
+  --color-stone-100: var(--stone-100);
+  --color-stone-200: var(--stone-200);
+  --color-stone-300: var(--stone-300);
+  --color-stone-400: var(--stone-400);
+  --color-stone-500: var(--stone-500);
+  --color-stone-600: var(--stone-600);
+
+  /* Semantic — success / warning / danger / info as text-success,
+     bg-danger etc. */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger:  var(--danger);
+  --color-info:    var(--info);
+
   /* Fonts — we map de oude CSS-vars (playfair/dm-sans) in stap 1.3 */
   --font-display: var(--font-serif-display);
   --font-body:    var(--font-sans);
