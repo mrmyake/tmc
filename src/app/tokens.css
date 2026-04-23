@@ -57,6 +57,10 @@
   /* ---------- Color: semantic --------------------------------------------- */
   --danger:  #C47A6E; /* dusty terracotta — not red */
   --success: #8A9577; /* sage — not green */
+  --warning: #CC9146; /* ochre amber, distinct from champagne, warmer than a
+                        yellow. Used for 0u-week flags, blessure-alerts,
+                        opzegverzoek-status, etc. */
+  /* COPY: confirm with Marlon — warning vs champagne contrast on dark bg */
   --info:    #C6BDA9; /* warm neutral — we avoid blue entirely */
 
   /* ---------- Surfaces & text (semantic aliases) -------------------------- */
