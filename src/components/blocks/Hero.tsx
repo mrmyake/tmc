@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
@@ -36,13 +35,27 @@ export function Hero({ settings, heroImage }: HeroProps) {
   return (
     <section className="tmc-grain relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        <Image
-          src={urlFor(heroImage).width(2560).quality(80).url()}
+        // LCP image. We skip next/image here on purpose: the Next
+        // optimizer on Vercel has to re-fetch the 2560px source from
+        // Sanity and transcode every srcset variant, which measured at
+        // ~35s LCP on cold cache. Sanity's CDN (Fastly) already serves
+        // WebP directly and scales by query param, so this is faster
+        // and cheaper. fetchPriority + eager + decoding=async push the
+        // browser to prioritise the download.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={urlFor(heroImage)
+            .width(1920)
+            .quality(75)
+            .format("webp")
+            .url()}
           alt="The Movement Club studio"
-          fill
-          sizes="100vw"
-          priority
-          className="object-cover"
+          width={1920}
+          height={1080}
+          fetchPriority="high"
+          decoding="async"
+          loading="eager"
+          className="absolute inset-0 w-full h-full object-cover"
         />
       ) : (
         <div className="absolute inset-0 bg-bg" />

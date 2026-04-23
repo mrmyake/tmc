@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
@@ -33,13 +32,23 @@ export function CrowdfundingHero({
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        <Image
-          src={urlFor(heroImage).width(2560).quality(80).url()}
+        // LCP image — served direct from Sanity's Fastly CDN. See the
+        // note in components/blocks/Hero.tsx for why we skip next/image
+        // for this specific case.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={urlFor(heroImage)
+            .width(1920)
+            .quality(75)
+            .format("webp")
+            .url()}
           alt="The Movement Club crowdfunding"
-          fill
-          sizes="100vw"
-          priority
-          className="object-cover"
+          width={1920}
+          height={1080}
+          fetchPriority="high"
+          decoding="async"
+          loading="eager"
+          className="absolute inset-0 w-full h-full object-cover"
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-bg via-bg-elevated to-bg" />
