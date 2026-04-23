@@ -4,6 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
+import {
   adminCreateSession,
   type AdminActionResult,
 } from "@/lib/admin/session-actions";
@@ -144,12 +150,10 @@ export function NewSessionDialog({
               </p>
 
               <div className="flex flex-col gap-5">
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Lestype</span>
-                  <select
+                <AdminField label="Lestype">
+                  <AdminSelect
                     value={classTypeId}
                     onChange={(e) => setClassTypeId(e.target.value)}
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                   >
                     {classTypes.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -157,15 +161,13 @@ export function NewSessionDialog({
                         {PILLAR_LABELS[t.pillar as Pillar] ?? t.pillar}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </AdminSelect>
+                </AdminField>
 
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Trainer</span>
-                  <select
+                <AdminField label="Trainer">
+                  <AdminSelect
                     value={trainerId}
                     onChange={(e) => setTrainerId(e.target.value)}
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                   >
                     {trainers
                       .filter((t) => t.isActive)
@@ -174,34 +176,29 @@ export function NewSessionDialog({
                           {t.displayName}
                         </option>
                       ))}
-                  </select>
-                </label>
+                  </AdminSelect>
+                </AdminField>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-2">
-                    <span className="tmc-eyebrow">Datum</span>
-                    <input
+                  <AdminField label="Datum">
+                    <AdminInput
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                     />
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span className="tmc-eyebrow">Starttijd</span>
-                    <input
+                  </AdminField>
+                  <AdminField label="Starttijd">
+                    <AdminInput
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                     />
-                  </label>
+                  </AdminField>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-2">
-                    <span className="tmc-eyebrow">Duur (min)</span>
-                    <input
+                  <AdminField label="Duur (min)">
+                    <AdminInput
                       type="number"
                       min={15}
                       max={240}
@@ -210,12 +207,10 @@ export function NewSessionDialog({
                       onChange={(e) =>
                         setDurationMinutes(Number(e.target.value) || 60)
                       }
-                      className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                     />
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span className="tmc-eyebrow">Capaciteit</span>
-                    <input
+                  </AdminField>
+                  <AdminField label="Capaciteit">
+                    <AdminInput
                       type="number"
                       min={1}
                       max={50}
@@ -223,21 +218,18 @@ export function NewSessionDialog({
                       onChange={(e) =>
                         setCapacity(Number(e.target.value) || 1)
                       }
-                      className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                     />
-                  </label>
+                  </AdminField>
                 </div>
 
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Notities</span>
-                  <textarea
+                <AdminField label="Notities">
+                  <AdminTextarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    placeholder="Optioneel — intern zichtbaar."
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent resize-none"
+                    placeholder="Optioneel, intern zichtbaar."
                   />
-                </label>
+                </AdminField>
               </div>
             </div>
 

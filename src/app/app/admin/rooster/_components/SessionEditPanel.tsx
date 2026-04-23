@@ -4,6 +4,12 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
+import {
   adminUpdateSession,
   adminCancelSession,
   type AdminActionResult,
@@ -208,13 +214,11 @@ export function SessionEditPanel({
               {tab === "edit" && (
               <>
               <div className="flex flex-col gap-6 mb-8">
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Trainer</span>
-                  <select
+                <AdminField label="Trainer">
+                  <AdminSelect
                     value={trainerId}
                     onChange={(e) => setTrainerId(e.target.value)}
                     disabled={sessionIsCancelled || pending}
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50"
                   >
                     {trainers.map((t) => (
                       <option
@@ -226,37 +230,32 @@ export function SessionEditPanel({
                         {!t.isActive ? " (inactief)" : ""}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </AdminSelect>
+                </AdminField>
 
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Capaciteit</span>
-                  <input
+                <AdminField
+                  label="Capaciteit"
+                  hint={`${session.bookedCount} boeking(en) nu. Nieuwe waarde moet ≥ ${session.bookedCount} zijn.`}
+                >
+                  <AdminInput
                     type="number"
                     min={1}
                     max={50}
                     value={capacity}
                     onChange={(e) => setCapacity(Number(e.target.value) || 0)}
                     disabled={sessionIsCancelled || pending}
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50"
                   />
-                  <span className="text-xs text-text-muted">
-                    {session.bookedCount} boeking(en) nu. Nieuwe waarde moet ≥{" "}
-                    {session.bookedCount} zijn.
-                  </span>
-                </label>
+                </AdminField>
 
-                <label className="flex flex-col gap-2">
-                  <span className="tmc-eyebrow">Notities</span>
-                  <textarea
+                <AdminField label="Notities">
+                  <AdminTextarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     disabled={sessionIsCancelled || pending}
                     rows={3}
                     placeholder="Intern zichtbaar voor trainers en admin."
-                    className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50 resize-none"
                   />
-                </label>
+                </AdminField>
               </div>
 
               {!sessionIsCancelled && (
@@ -276,16 +275,14 @@ export function SessionEditPanel({
                           ? "Geen boekingen voor deze sessie."
                           : `${session.bookedCount} boeking(en) worden geannuleerd en credits teruggezet.`}
                       </p>
-                      <label className="flex flex-col gap-2">
-                        <span className="tmc-eyebrow">Reden</span>
-                        <input
+                      <AdminField label="Reden">
+                        <AdminInput
                           type="text"
                           value={cancelReason}
                           onChange={(e) => setCancelReason(e.target.value)}
                           placeholder="Bv. trainer ziek"
-                          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
                         />
-                      </label>
+                      </AdminField>
                       <div className="flex gap-3">
                         <button
                           type="button"

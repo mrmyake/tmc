@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AdminField,
+  AdminInput,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
 import { submitOwnHours } from "@/lib/member/trainer-hours-actions";
 
 function todayIso(): string {
@@ -53,20 +58,17 @@ export function UrenForm({ defaultDate }: UrenFormProps) {
       className="bg-bg-elevated p-6 border border-[color:var(--ink-500)] flex flex-col gap-5"
     >
       <div className="grid grid-cols-2 gap-4">
-        <label className="flex flex-col gap-2">
-          <span className="tmc-eyebrow">Datum</span>
-          <input
+        <AdminField label="Datum">
+          <AdminInput
             type="date"
             value={workDate}
             max={todayIso()}
             onChange={(e) => setWorkDate(e.target.value)}
             required
-            className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
           />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="tmc-eyebrow">Uren</span>
-          <input
+        </AdminField>
+        <AdminField label="Uren">
+          <AdminInput
             type="number"
             step="0.25"
             min="0.25"
@@ -74,21 +76,19 @@ export function UrenForm({ defaultDate }: UrenFormProps) {
             value={hours}
             onChange={(e) => setHours(e.target.value)}
             required
-            className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text tabular-nums focus:outline-none focus:border-accent"
+            className="tabular-nums"
           />
-        </label>
+        </AdminField>
       </div>
 
-      <label className="flex flex-col gap-2">
-        <span className="tmc-eyebrow">Notitie (optioneel)</span>
-        <textarea
+      <AdminField label="Notitie (optioneel)">
+        <AdminTextarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
           placeholder="Bv. PT-blok 10-12, extra schoonmaak, admin-werk."
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent resize-none"
         />
-      </label>
+      </AdminField>
 
       {message && (
         <p

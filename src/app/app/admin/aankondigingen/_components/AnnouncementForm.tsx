@@ -3,6 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
+import {
   saveAnnouncement,
   type AnnouncementActionResult,
 } from "@/lib/admin/announcements-actions";
@@ -87,44 +93,38 @@ export function AnnouncementForm({ existing, onDone }: Props) {
         </button>
       </header>
 
-      <label className="flex flex-col gap-2">
-        <span className="tmc-eyebrow">Titel</span>
-        <input
+      <AdminField label="Titel">
+        <AdminInput
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={120}
           required
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
         />
-      </label>
+      </AdminField>
 
-      <label className="flex flex-col gap-2">
-        <span className="tmc-eyebrow">Body</span>
-        <textarea
+      <AdminField label="Body">
+        <AdminTextarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={6}
           maxLength={4000}
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent resize-none"
         />
         <span className="text-xs text-text-muted tabular-nums self-end">
           {body.length} / 4000
         </span>
-      </label>
+      </AdminField>
 
-      <label className="flex flex-col gap-2">
-        <span className="tmc-eyebrow">Doelgroep</span>
-        <select
+      <AdminField label="Doelgroep">
+        <AdminSelect
           value={audience}
           onChange={(e) => setAudience(e.target.value as AnnouncementAudience)}
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent cursor-pointer"
         >
           <option value="trainers">Alleen trainers</option>
           <option value="members">Alleen leden</option>
           <option value="all">Iedereen</option>
-        </select>
-      </label>
+        </AdminSelect>
+      </AdminField>
 
       <fieldset className="flex flex-col gap-3">
         <legend className="tmc-eyebrow mb-1">Publicatie</legend>
@@ -145,12 +145,12 @@ export function AnnouncementForm({ existing, onDone }: Props) {
             onChange={() => setPublishMode("schedule")}
           />
           <span className="text-sm text-text">Inplannen op</span>
-          <input
+          <AdminInput
             type="datetime-local"
             value={publishAt}
             onChange={(e) => setPublishAt(e.target.value)}
             disabled={publishMode !== "schedule"}
-            className="bg-bg border border-[color:var(--ink-500)] px-3 py-2 text-sm text-text focus:outline-none focus:border-accent disabled:opacity-50"
+            className="px-3 py-2"
           />
         </label>
         <label className="flex items-center gap-3 cursor-pointer">
@@ -164,15 +164,14 @@ export function AnnouncementForm({ existing, onDone }: Props) {
         </label>
       </fieldset>
 
-      <label className="flex flex-col gap-2">
-        <span className="tmc-eyebrow">Verloopt op (optioneel)</span>
-        <input
+      <AdminField label="Verloopt op (optioneel)">
+        <AdminInput
           type="datetime-local"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
-          className="bg-bg border border-[color:var(--ink-500)] px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
+          className="px-3 py-2"
         />
-      </label>
+      </AdminField>
 
       {result && (
         <div

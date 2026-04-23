@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AdminField,
+  AdminInput,
+} from "@/components/ui/AdminField";
+import {
   saveBookingSettings,
   type BookingSettingsInput,
   type SettingsActionResult,
@@ -253,18 +257,16 @@ function IntField({
   max: number;
 }) {
   return (
-    <label className="flex flex-col gap-2">
-      <span className="tmc-eyebrow">{label}</span>
-      <input
+    <AdminField label={label} hint={hint}>
+      <AdminInput
         type="number"
         value={value}
         min={min}
         max={max}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text tabular-nums focus:outline-none focus:border-accent"
+        className="tabular-nums"
       />
-      {hint && <span className="text-xs text-text-muted">{hint}</span>}
-    </label>
+    </AdminField>
   );
 }
 
@@ -286,16 +288,15 @@ function EuroField({
   }
 
   return (
-    <label className="flex flex-col gap-2">
-      <span className="tmc-eyebrow">{label}</span>
+    <AdminField label={label}>
       <div className="relative">
         <span
           aria-hidden
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm z-10"
         >
           &euro;
         </span>
-        <input
+        <AdminInput
           type="text"
           inputMode="decimal"
           value={local}
@@ -303,9 +304,9 @@ function EuroField({
             setLocal(e.target.value);
             onChange(euroToCents(e.target.value));
           }}
-          className="w-full bg-bg border border-[color:var(--ink-500)] pl-8 pr-4 py-3 text-sm text-text tabular-nums focus:outline-none focus:border-accent"
+          className="w-full pl-8 tabular-nums"
         />
       </div>
-    </label>
+    </AdminField>
   );
 }

@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import {
+  AdminField,
+  AdminInput,
+  AdminSelect,
+} from "@/components/ui/AdminField";
+import {
   inviteTrainer,
   type TrainerActionResult,
 } from "@/lib/admin/trainer-actions";
@@ -114,50 +119,42 @@ export function InviteTrainerDialog({
       </p>
 
       <div className="grid grid-cols-2 gap-4 mb-5">
-        <label className="flex flex-col gap-2">
-          <span className="tmc-eyebrow">Voornaam</span>
-          <input
+        <AdminField label="Voornaam">
+          <AdminInput
             type="text"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
           />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="tmc-eyebrow">Achternaam</span>
-          <input
+        </AdminField>
+        <AdminField label="Achternaam">
+          <AdminInput
             type="text"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
           />
-        </label>
+        </AdminField>
       </div>
 
-      <label className="flex flex-col gap-2 mb-5">
-        <span className="tmc-eyebrow">E-mail</span>
-        <input
+      <AdminField label="E-mail" className="mb-5">
+        <AdminInput
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
         />
-      </label>
+      </AdminField>
 
-      <label className="flex flex-col gap-2 mb-5">
-        <span className="tmc-eyebrow">Rol</span>
-        <select
+      <AdminField label="Rol" className="mb-5">
+        <AdminSelect
           value={tier}
           onChange={(e) => setTier(e.target.value as EmploymentTier)}
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent cursor-pointer"
         >
           {TIERS.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>
           ))}
-        </select>
-      </label>
+        </AdminSelect>
+      </AdminField>
 
       <fieldset className="flex flex-col gap-2 mb-5">
         <legend className="tmc-eyebrow mb-2">Specialisaties</legend>
