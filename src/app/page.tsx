@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { Hero } from "@/components/blocks/Hero";
 import { PhilosophyGrid } from "@/components/blocks/PhilosophyGrid";
 import { ScheduleTeaser } from "@/components/blocks/ScheduleTeaser";
@@ -5,8 +6,17 @@ import { StudioSection } from "@/components/blocks/StudioSection";
 import { TrainerSpotlight } from "@/components/blocks/TrainerSpotlight";
 import { OfferingCards } from "@/components/blocks/OfferingCards";
 import { PricingTable } from "@/components/blocks/PricingTable";
-import { TestimonialCarousel } from "@/components/blocks/TestimonialCarousel";
 import { ContactSection } from "@/components/blocks/ContactSection";
+
+// TestimonialCarousel pulls in react-google-reviews (third-party
+// widget) and sits below the fold. Dynamic import keeps its bundle
+// out of the critical JS; SSR stays on so the section still renders
+// as HTML on the server.
+const TestimonialCarousel = dynamic(() =>
+  import("@/components/blocks/TestimonialCarousel").then(
+    (m) => m.TestimonialCarousel,
+  ),
+);
 import {
   getSiteSettings,
   getTrainers,
