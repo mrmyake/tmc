@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MobilityResetContent } from "./MobilityResetContent";
+import { getSiteImages } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "7 Dagen Mobility Reset | Gratis Video Serie",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/mobility-reset" },
 };
 
-export default function MobilityResetPage() {
-  return <MobilityResetContent />;
+export default async function MobilityResetPage() {
+  const images = await getSiteImages();
+  return <MobilityResetContent thumb={images.mobilityResetThumb} />;
 }

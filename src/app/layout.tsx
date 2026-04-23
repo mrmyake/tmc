@@ -7,7 +7,8 @@ import {
   getLocalBusinessSchema,
   getWebsiteSchema,
 } from "@/lib/structuredData";
-import { getSiteSettings } from "../../sanity/lib/fetch";
+import { getSiteSettings, getSiteImages } from "../../sanity/lib/fetch";
+import { urlFor } from "../../sanity/lib/client";
 
 export const revalidate = 60;
 
@@ -24,34 +25,45 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "The Movement Club | Boutique Training Studio Loosdrecht",
-    template: "%s | The Movement Club",
-  },
-  description:
-    "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je gratis proefles.",
-  metadataBase: new URL("https://themovementclub.nl"),
-  openGraph: {
-    type: "website",
-    locale: "nl_NL",
-    siteName: "The Movement Club",
-    images: [
-      {
-        url: "/images/og-default.jpg",
-        width: 1200,
-        height: 630,
-        alt: "The Movement Club | Boutique Training Studio Loosdrecht",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
-  alternates: {
-    canonical: "https://themovementclub.nl",
-  },
-};
+// Async generateMetadata zodat de OG-image uit Sanity (`siteImages.ogImage`)
+// direct in de social preview terechtkomt. Valt terug op de statische
+// /images/og-default.jpg als er nog geen Sanity-image geüpload is.
+export async function generateMetadata(): Promise<Metadata> {
+  const images = await getSiteImages();
+  const ogUrl = images.ogImage?.asset
+    ? urlFor(images.ogImage).width(1200).height(630).url()
+    : "/images/og-default.jpg";
+
+  return {
+    title: {
+      default: "The Movement Club | Boutique Training Studio Loosdrecht",
+      template: "%s | The Movement Club",
+    },
+    description:
+      "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je gratis proefles.",
+    metadataBase: new URL("https://themovementclub.nl"),
+    openGraph: {
+      type: "website",
+      locale: "nl_NL",
+      siteName: "The Movement Club",
+      images: [
+        {
+          url: ogUrl,
+          width: 1200,
+          height: 630,
+          alt: "The Movement Club | Boutique Training Studio Loosdrecht",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: [ogUrl],
+    },
+    alternates: {
+      canonical: "https://themovementclub.nl",
+    },
+  };
+}
 
 // Explicit viewport config. These values match Next's defaults but
 // documenting them makes future iteration obvious. `initial-scale=1`

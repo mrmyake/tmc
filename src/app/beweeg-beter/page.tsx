@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BeweegBeterContent } from "./BeweegBeterContent";
+import { getSiteImages } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "Beweeg Beter | Gratis Guide: 5 Oefeningen voor Meer Mobiliteit",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/beweeg-beter" },
 };
 
-export default function BeweegBeterPage() {
-  return <BeweegBeterContent />;
+export default async function BeweegBeterPage() {
+  const images = await getSiteImages();
+  return <BeweegBeterContent coverImage={images.beweegBeterCover} />;
 }

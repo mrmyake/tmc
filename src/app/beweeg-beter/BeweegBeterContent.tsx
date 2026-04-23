@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Container } from "@/components/layout/Container";
@@ -10,6 +11,12 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage } from "../../../sanity/lib/fetch";
+
+interface BeweegBeterContentProps {
+  coverImage?: SanityImage;
+}
 
 const bullets = [
   "5 oefeningen die je in 10 minuten doet",
@@ -17,7 +24,7 @@ const bullets = [
   "Met veelgemaakte fouten en tips",
 ];
 
-export function BeweegBeterContent() {
+export function BeweegBeterContent({ coverImage }: BeweegBeterContentProps) {
   const [loading, setLoading] = useState(false);
   const tracked = useRef(false);
   const router = useRouter();
@@ -58,30 +65,42 @@ export function BeweegBeterContent() {
       <Section className="pt-24 md:pt-32">
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-center max-w-5xl mx-auto">
-            {/* Left: PDF mockup — editorial cover */}
+            {/* Left: cover uit Sanity, met editorial fallback */}
             <ScrollReveal>
-              <div className="aspect-[3/4] bg-bg-elevated flex flex-col items-center justify-center p-10 text-center relative">
-                <div
-                  aria-hidden
-                  className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
-                />
-                <span className="tmc-eyebrow tmc-eyebrow--accent mb-8">
-                  PDF guide
-                </span>
-                <p className="font-[family-name:var(--font-playfair)] text-4xl text-text leading-[1.05] tracking-[-0.02em] mb-4">
-                  Beweeg beter.
-                </p>
-                <p className="text-text-muted text-sm max-w-[22ch]">
-                  Vijf oefeningen voor meer mobiliteit en kracht.
-                </p>
-                <div
-                  aria-hidden
-                  className="my-8 w-16 h-px bg-text-muted/30"
-                />
-                <span className="tmc-eyebrow text-text-muted/70">
-                  Door Marlon · The Movement Club
-                </span>
-              </div>
+              {coverImage?.asset ? (
+                <div className="relative aspect-[3/4] bg-bg-elevated overflow-hidden">
+                  <Image
+                    src={urlFor(coverImage).width(900).height(1200).url()}
+                    alt="Beweeg Beter guide — The Movement Club"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-[3/4] bg-bg-elevated flex flex-col items-center justify-center p-10 text-center relative">
+                  <div
+                    aria-hidden
+                    className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                  />
+                  <span className="tmc-eyebrow tmc-eyebrow--accent mb-8">
+                    PDF guide
+                  </span>
+                  <p className="font-[family-name:var(--font-playfair)] text-4xl text-text leading-[1.05] tracking-[-0.02em] mb-4">
+                    Beweeg beter.
+                  </p>
+                  <p className="text-text-muted text-sm max-w-[22ch]">
+                    Vijf oefeningen voor meer mobiliteit en kracht.
+                  </p>
+                  <div
+                    aria-hidden
+                    className="my-8 w-16 h-px bg-text-muted/30"
+                  />
+                  <span className="tmc-eyebrow text-text-muted/70">
+                    Door Marlon · The Movement Club
+                  </span>
+                </div>
+              )}
             </ScrollReveal>
 
             {/* Right: form */}

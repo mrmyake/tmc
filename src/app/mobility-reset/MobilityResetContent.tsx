@@ -11,6 +11,13 @@ import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { Play } from "lucide-react";
+import Image from "next/image";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage } from "../../../sanity/lib/fetch";
+
+interface MobilityResetContentProps {
+  thumb?: SanityImage;
+}
 
 const days = [
   "Heupen & Onderrug",
@@ -22,7 +29,7 @@ const days = [
   "Jouw Volgende Stap",
 ];
 
-export function MobilityResetContent() {
+export function MobilityResetContent({ thumb }: MobilityResetContentProps) {
   const [loading, setLoading] = useState(false);
   const tracked = useRef(false);
   const router = useRouter();
@@ -75,23 +82,47 @@ export function MobilityResetContent() {
                 Elke dag een korte video van Marlon. Beweeg vrijer in een week.
               </p>
 
-              {/* Video preview */}
-              <div className="aspect-video bg-bg-elevated flex items-center justify-center mb-12 relative">
-                <div
-                  aria-hidden
-                  className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
-                />
-                <div className="text-center">
-                  <Play
-                    size={40}
-                    strokeWidth={1.5}
-                    className="text-accent mx-auto mb-3"
+              {/* Video preview — Sanity thumb met Play-overlay, fallback placeholder */}
+              {thumb?.asset ? (
+                <div className="relative aspect-video bg-bg-elevated mb-12 overflow-hidden">
+                  <Image
+                    src={urlFor(thumb).width(1280).height(720).url()}
+                    alt="Mobility Reset video preview"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
                   />
-                  <span className="tmc-eyebrow text-text-muted">
-                    Preview · Dag 01 · Heupen & onderrug
-                  </span>
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-bg/40"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Play
+                      size={44}
+                      strokeWidth={1.5}
+                      className="text-accent"
+                      aria-hidden
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="aspect-video bg-bg-elevated flex items-center justify-center mb-12 relative">
+                  <div
+                    aria-hidden
+                    className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+                  />
+                  <div className="text-center">
+                    <Play
+                      size={40}
+                      strokeWidth={1.5}
+                      className="text-accent mx-auto mb-3"
+                    />
+                    <span className="tmc-eyebrow text-text-muted">
+                      Preview · Dag 01 · Heupen & onderrug
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <span className="tmc-eyebrow block mb-5">Wat je krijgt</span>
               <ul className="space-y-0 mb-12 border-y border-bg-subtle divide-y divide-bg-subtle">
