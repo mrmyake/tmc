@@ -11,6 +11,8 @@ import {
   type HistoryItem,
 } from "./_components/MembershipHistory";
 import { MembershipActions } from "./_components/MembershipActions";
+import { GuestPassesSection } from "./_components/GuestPassesSection";
+import { getGuestPassStatus } from "@/lib/member/guest-pass-actions";
 
 export const metadata = {
   title: "Abonnement | The Movement Club",
@@ -44,7 +46,7 @@ export default async function AbonnementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [currentResult, historyResult] = await Promise.all([
+  const [currentResult, historyResult, guestPassStatus] = await Promise.all([
     supabase
       .from("memberships")
       .select(
@@ -81,6 +83,7 @@ export default async function AbonnementPage() {
       .in("status", HISTORY_STATUSES)
       .order("end_date", { ascending: false })
       .limit(20),
+    getGuestPassStatus(),
   ]);
 
   logIfError("current membership", currentResult.error);
@@ -209,6 +212,10 @@ export default async function AbonnementPage() {
             frequencyCap={membership.frequency_cap}
           />
         </div>
+      )}
+
+      {guestPassStatus.eligible && (
+        <GuestPassesSection status={guestPassStatus} />
       )}
 
       <div className="mb-16">
