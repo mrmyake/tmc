@@ -21,11 +21,17 @@ export function StudioSection({ image }: StudioSectionProps) {
             <div className="relative -mx-6 lg:mx-0 lg:ml-[-8vw]">
               {image?.asset ? (
                 <div className="relative w-full aspect-[4/3]">
+                  {/* Mobile renders at ~412px × DPR, so serving
+                      anything past 800w is waste. Desktop tops out
+                      at ~50vw on 1440px = ~720px × 2 DPR = 1440 is
+                      enough. Bound the upstream URL at 960 and let
+                      Next's optimizer serve the right srcset variant
+                      from there. */}
                   <Image
-                    src={urlFor(image).width(1200).height(900).quality(80).url()}
+                    src={urlFor(image).width(960).height(720).quality(75).format("webp").url()}
                     alt="The Movement Club studio interieur"
                     fill
-                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>

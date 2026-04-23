@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
-import { Hero } from "@/components/blocks/Hero";
+import ReactDOM from "react-dom";
+import { Hero, buildHeroImageSources } from "@/components/blocks/Hero";
 import { PhilosophyGrid } from "@/components/blocks/PhilosophyGrid";
 import { ScheduleTeaser } from "@/components/blocks/ScheduleTeaser";
 import { StudioSection } from "@/components/blocks/StudioSection";
@@ -28,14 +29,6 @@ const TestimonialCarousel = dynamic(() =>
 
 export const revalidate = 60;
 
-// Intentionally no ReactDOM.preload for the hero image. On 4G the
-// fetchPriority=high preload inserted by ReactDOM.preload lands above
-// the 105 KiB CSS stylesheet in the <head> and starves the CSS
-// download, pushing FCP by ~1.5s (Lighthouse measured 2.6s vs. 1.1s
-// baseline). The <img fetchpriority="high"> attribute on the Hero tag
-// itself already signals importance to the browser without competing
-// with the render-blocking CSS.
-
 export default async function HomePage() {
   const [settings, trainers, offerings, pricing, hours, images] =
     await Promise.all([
@@ -48,6 +41,21 @@ export default async function HomePage() {
     ]);
 
   const trainer = trainers[0];
+
+  // LCP preload. We feed imageSrcSet/imageSizes so the browser picks
+  // the viewport-appropriate variant — mobile phones preload the 640w
+  // WebP (~40-60 KiB), not the 900 KiB desktop one. At that size it
+  // no longer competes meaningfully with the CSS on 4G, and LCP flips
+  // from the wordmark text back to the actual hero image.
+  if (images.hero?.asset) {
+    const sources = buildHeroImageSources(images.hero);
+    ReactDOM.preload(sources.src, {
+      as: "image",
+      fetchPriority: "high",
+      imageSrcSet: sources.srcSet,
+      imageSizes: sources.sizes,
+    });
+  }
 
   return (
     <>

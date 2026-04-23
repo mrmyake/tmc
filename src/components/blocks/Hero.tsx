@@ -27,36 +27,53 @@ function renderTaglineWithAccent(tagline: string, accent?: string) {
 }
 
 /**
+ * Responsive URL set for the hero. Browser picks the smallest variant
+ * that fits the viewport × DPR, so mobile phones pull ~50 KiB WebP
+ * instead of the 900 KiB desktop asset. Exported so page.tsx can feed
+ * the same strings into <link rel="preload" imagesrcset>.
+ */
+export function buildHeroImageSources(image: SanityImage) {
+  const mk = (w: number) =>
+    urlFor(image).width(w).quality(75).format("webp").url();
+  return {
+    src: mk(1280),
+    srcSet: `${mk(640)} 640w, ${mk(1024)} 1024w, ${mk(1600)} 1600w, ${mk(1920)} 1920w`,
+    sizes: "100vw",
+  };
+}
+
+/**
  * Server component. Paints the LCP image + H1 synchronously. Entrance
  * fades for secondary copy use the `.tmc-fade-up` CSS animation (see
  * globals.css) so framer-motion doesn't land in the critical bundle.
  */
 export function Hero({ settings, heroImage }: HeroProps) {
+  const heroSources = heroImage?.asset
+    ? buildHeroImageSources(heroImage)
+    : null;
+
   return (
     <section className="tmc-grain relative min-h-screen flex items-center justify-center overflow-hidden">
-      {heroImage?.asset ? (
-        // LCP image. We skip next/image here on purpose: the Vercel
-        // optimizer has to re-fetch the 2560px Sanity source and
-        // transcode every srcset variant on cold cache (~35s LCP
-        // measured). Sanity's CDN (Fastly) already serves WebP
-        // directly and scales by query param.
+      {heroSources ? (
+        // LCP image. We skip next/image for this specific one: the
+        // Vercel optimizer has to re-fetch the Sanity source and
+        // transcode every srcset variant on cold cache, which measured
+        // at ~35s LCP. Sanity's CDN (Fastly) already serves WebP and
+        // scales by width param, so going direct is faster.
         //
-        // NOTE: intentionally NO fetchpriority="high". React 19
-        // auto-emits a <link rel=preload fetchpriority=high> for
-        // high-priority imgs, which — above the stylesheet in <head>
-        // — starves the 105 KiB CSS on 4G and delays FCP by ~1.5s.
-        // loading="eager" is enough to keep the image out of the
-        // lazy-load pool.
+        // `fetchpriority="high"` is on — combined with the matching
+        // <link rel=preload imagesrcset> in page.tsx, the browser
+        // preloads the viewport-appropriate variant (~40-60 KiB on
+        // mobile) which is small enough to not starve CSS.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={urlFor(heroImage)
-            .width(1920)
-            .quality(75)
-            .format("webp")
-            .url()}
+          src={heroSources.src}
+          srcSet={heroSources.srcSet}
+          sizes={heroSources.sizes}
           alt="The Movement Club studio"
           width={1920}
           height={1080}
+          fetchPriority="high"
           decoding="async"
           loading="eager"
           className="absolute inset-0 w-full h-full object-cover"
@@ -79,7 +96,7 @@ export function Hero({ settings, heroImage }: HeroProps) {
           <span aria-hidden className="w-12 h-px bg-accent" />
         </span>
 
-        {/* LCP element — intentionally renders synchronously with no
+        {/* LCP candidate — intentionally renders synchronously with no
             animation so it paints immediately. */}
         <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl lg:text-8xl xl:text-[9rem] text-text mb-8 leading-[1.02] tracking-[-0.02em]">
           {renderTaglineWithAccent(settings.tagline, settings.taglineAccent)}
