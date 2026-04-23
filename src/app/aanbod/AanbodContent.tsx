@@ -1,15 +1,38 @@
 "use client";
 
+import Image from "next/image";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage } from "../../../sanity/lib/fetch";
+
+interface AanbodImages {
+  personalTraining?: SanityImage;
+  smallGroup?: SanityImage;
+  mobility?: SanityImage;
+  strength?: SanityImage;
+}
+
+type TrainingId =
+  | "personal-training"
+  | "small-group"
+  | "mobility"
+  | "strength";
+
+const IMAGE_KEY_BY_ID: Record<TrainingId, keyof AanbodImages> = {
+  "personal-training": "personalTraining",
+  "small-group": "smallGroup",
+  mobility: "mobility",
+  strength: "strength",
+};
 
 const trainings = [
   {
-    id: "personal-training",
+    id: "personal-training" as TrainingId,
     title: "Personal Training",
     subtitle: "Eén-op-één, volledig op maat",
     description:
@@ -24,7 +47,7 @@ const trainings = [
     frequency: "1-4x per week, flexibel in te plannen",
   },
   {
-    id: "small-group",
+    id: "small-group" as TrainingId,
     title: "Small Group Training",
     subtitle: "Maximaal 6 personen",
     description:
@@ -39,7 +62,7 @@ const trainings = [
     frequency: "Vaste momenten door de week, ochtend en avond",
   },
   {
-    id: "mobility",
+    id: "mobility" as TrainingId,
     title: "Mobility Sessions",
     subtitle: "Het fundament van goed bewegen",
     description:
@@ -54,7 +77,7 @@ const trainings = [
     frequency: "1-2x per week, los of als aanvulling",
   },
   {
-    id: "strength",
+    id: "strength" as TrainingId,
     title: "Strength Programs",
     subtitle: "Gestructureerd sterker worden",
     description:
@@ -93,7 +116,11 @@ const faqs = [
   },
 ];
 
-export function AanbodContent() {
+interface AanbodContentProps {
+  images: AanbodImages;
+}
+
+export function AanbodContent({ images }: AanbodContentProps) {
   return (
     <>
       {/* Header */}
@@ -110,15 +137,29 @@ export function AanbodContent() {
       </Section>
 
       {/* Training types */}
-      {trainings.map((training, i) => (
+      {trainings.map((training, i) => {
+        const image = images[IMAGE_KEY_BY_ID[training.id]];
+        return (
         <Section key={training.id} id={training.id} bg={i % 2 === 0 ? "elevated" : "default"}>
           <Container>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
               <ScrollReveal>
-                <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center sticky top-28">
-                  <span className="tmc-eyebrow text-text-muted">
-                    Foto {training.title}
-                  </span>
+                <div className="relative aspect-[4/3] bg-bg-subtle sticky top-28 overflow-hidden">
+                  {image?.asset ? (
+                    <Image
+                      src={urlFor(image).width(1200).height(900).url()}
+                      alt={`${training.title} — The Movement Club`}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="tmc-eyebrow text-text-muted">
+                        Foto {training.title}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </ScrollReveal>
 
@@ -175,7 +216,8 @@ export function AanbodContent() {
             </div>
           </Container>
         </Section>
-      ))}
+        );
+      })}
 
       {/* Mobility Reset CTA */}
       <Section bg="elevated">

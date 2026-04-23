@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AanbodContent } from "./AanbodContent";
+import { getSiteImages } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "Trainingsaanbod | Personal Training & Small Group",
@@ -13,6 +14,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AanbodPage() {
-  return <AanbodContent />;
+export default async function AanbodPage() {
+  const images = await getSiteImages();
+  return (
+    <AanbodContent
+      images={{
+        personalTraining: images.offeringPersonalTraining,
+        smallGroup: images.offeringSmallGroup,
+        mobility: images.offeringMobility,
+        strength: images.offeringStrength,
+      }}
+    />
+  );
 }
