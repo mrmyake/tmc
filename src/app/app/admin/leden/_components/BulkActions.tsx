@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Download, Mail } from "lucide-react";
+import { Dialog, DialogFooter } from "@/components/ui/Dialog";
+import { AdminField, AdminInput } from "@/components/ui/AdminField";
 import {
   pushSelectionToMailerLite,
   type MembersActionResult,
@@ -19,14 +21,7 @@ export function BulkActions({ rows, selection, onClear }: BulkActionsProps) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<MembersActionResult | null>(null);
   const [label, setLabel] = useState("");
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  useEffect(() => {
-    if (dialogOpen && dialogRef.current) {
-      dialogRef.current.showModal();
-    }
-  }, [dialogOpen]);
 
   function exportCsv() {
     const headers = [
@@ -72,7 +67,6 @@ export function BulkActions({ rows, selection, onClear }: BulkActionsProps) {
   }
 
   function closeDialog() {
-    dialogRef.current?.close();
     setDialogOpen(false);
   }
 
@@ -131,61 +125,33 @@ export function BulkActions({ rows, selection, onClear }: BulkActionsProps) {
         </div>
       </div>
 
-      {dialogOpen && (
-        <dialog
-          ref={dialogRef}
+      <Dialog
+        open={dialogOpen}
+        onClose={closeDialog}
+        title="Mass-email voorbereiden"
+        size="narrow"
+      >
+        <p className="text-text-muted text-sm mb-6">
+          We maken een MailerLite-groep aan met deze leden. Alleen leden met
+          marketing-opt-in aan worden gesynced. Daarna stuur je de campagne
+          in MailerLite zelf.
+        </p>
+        <AdminField label="Groepnaam" className="mb-6">
+          <AdminInput
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Bv. leden-update-april-2026"
+          />
+        </AdminField>
+        <DialogFooter
+          result={result}
           onClose={closeDialog}
-          className="bg-bg border border-[color:var(--ink-500)] text-text p-8 w-[min(92vw,520px)] backdrop:bg-bg/55 backdrop:backdrop-blur-sm"
-        >
-          <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl tracking-[-0.01em] mb-2">
-            Mass-email voorbereiden
-          </h3>
-          <p className="text-text-muted text-sm mb-6">
-            We maken een MailerLite-groep aan met deze leden. Alleen leden met
-            marketing-opt-in aan worden gesynced. Daarna stuur je de campagne
-            in MailerLite zelf.
-          </p>
-          <label className="flex flex-col gap-2 mb-6">
-            <span className="tmc-eyebrow">Groepnaam</span>
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Bv. leden-update-april-2026"
-              className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
-            />
-          </label>
-          {result && (
-            <div
-              role={result.ok ? "status" : "alert"}
-              className={`text-sm p-4 border mb-6 ${
-                result.ok
-                  ? "border-[color:var(--success)]/40 text-[color:var(--success)]"
-                  : "border-[color:var(--danger)]/40 text-[color:var(--danger)]"
-              }`}
-            >
-              {result.message}
-            </div>
-          )}
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={closeDialog}
-              className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors px-5 py-3 cursor-pointer"
-            >
-              Annuleren
-            </button>
-            <button
-              type="button"
-              onClick={confirmPush}
-              disabled={pending || !label.trim()}
-              className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-            >
-              {pending ? "Bezig" : "Push naar MailerLite"}
-            </button>
-          </div>
-        </dialog>
-      )}
+          onConfirm={confirmPush}
+          confirmLabel={pending ? "Bezig" : "Push naar MailerLite"}
+          confirmDisabled={pending || !label.trim()}
+        />
+      </Dialog>
     </>
   );
 }

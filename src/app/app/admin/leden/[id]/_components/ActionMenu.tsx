@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Pause, PlusCircle, Repeat, Trash2 } from "lucide-react";
+import { Dialog, DialogFooter } from "@/components/ui/Dialog";
 import {
-  Pause,
-  PlusCircle,
-  Repeat,
-  Trash2,
-} from "lucide-react";
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
 import {
   grantPause,
   addCredits,
@@ -31,6 +33,7 @@ export function ActionMenu({
 }: ActionMenuProps) {
   const [active, setActive] = useState<ActiveDialog>(null);
   const hasActiveMembership = Boolean(primaryMembership);
+  const close = () => setActive(null);
 
   return (
     <>
@@ -67,27 +70,28 @@ export function ActionMenu({
         />
       </div>
 
-      {active === "pause" && primaryMembership && (
+      {primaryMembership && (
         <GrantPauseDialog
+          open={active === "pause"}
           profileId={profileId}
           membership={primaryMembership}
-          onClose={() => setActive(null)}
+          onClose={close}
         />
       )}
-      {active === "credits" && primaryMembership && (
+      {primaryMembership && (
         <AddCreditsDialog
+          open={active === "credits"}
           profileId={profileId}
           membership={primaryMembership}
-          onClose={() => setActive(null)}
+          onClose={close}
         />
       )}
-      {active === "delete" && (
-        <DeleteMemberDialog
-          profileId={profileId}
-          firstName={firstName}
-          onClose={() => setActive(null)}
-        />
-      )}
+      <DeleteMemberDialog
+        open={active === "delete"}
+        profileId={profileId}
+        firstName={firstName}
+        onClose={close}
+      />
     </>
   );
 }
@@ -128,16 +132,8 @@ function ActionButton({
 }
 
 // ----------------------------------------------------------------------------
-// Dialogs
+// Dialogs — each a thin wrapper around <Dialog> + <DialogFooter>.
 // ----------------------------------------------------------------------------
-
-function useDialog<T extends HTMLDialogElement>(open: boolean) {
-  const ref = useRef<T | null>(null);
-  useEffect(() => {
-    if (open && ref.current) ref.current.showModal();
-  }, [open]);
-  return ref;
-}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -149,16 +145,17 @@ function todayPlusIso(days: number): string {
 }
 
 function GrantPauseDialog({
+  open,
   profileId,
   membership,
   onClose,
 }: {
+  open: boolean;
   profileId: string;
   membership: MemberDetailMembership;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const ref = useDialog<HTMLDialogElement>(true);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<MemberActionResult | null>(null);
   const [startDate, setStartDate] = useState(todayIso());
@@ -177,66 +174,62 @@ function GrantPauseDialog({
       setResult(res);
       if (res.ok) {
         router.refresh();
-        window.setTimeout(close, 900);
+        window.setTimeout(onClose, 900);
       }
     });
   }
 
-  function close() {
-    ref.current?.close();
-    onClose();
-  }
-
   return (
-    <DialogShell ref={ref} onClose={close} title="Pauze toekennen">
+    <Dialog open={open} onClose={onClose} title="Pauze toekennen">
       <div className="grid grid-cols-2 gap-4 mb-5">
-        <LabeledInput
-          label="Start"
-          type="date"
-          value={startDate}
-          onChange={setStartDate}
-        />
-        <LabeledInput
-          label="Einde"
-          type="date"
-          value={endDate}
-          onChange={setEndDate}
-        />
+        <AdminField label="Start">
+          <AdminInput
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </AdminField>
+        <AdminField label="Einde">
+          <AdminInput
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </AdminField>
       </div>
-      <label className="flex flex-col gap-2 mb-6">
-        <span className="tmc-eyebrow">Reden</span>
-        <select
+      <AdminField label="Reden" className="mb-6">
+        <AdminSelect
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent cursor-pointer"
         >
           <option value="medical">Medisch</option>
           <option value="pregnancy">Zwangerschap</option>
           <option value="other_approved">Anders (goedgekeurd)</option>
-        </select>
-      </label>
+        </AdminSelect>
+      </AdminField>
       <DialogFooter
         result={result}
-        onClose={close}
+        onClose={onClose}
         onConfirm={submit}
         confirmLabel={pending ? "Bezig" : "Pauze toekennen"}
         confirmDisabled={pending}
       />
-    </DialogShell>
+    </Dialog>
   );
 }
 
 function AddCreditsDialog({
+  open,
   profileId,
   membership,
   onClose,
 }: {
+  open: boolean;
   profileId: string;
   membership: MemberDetailMembership;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const ref = useDialog<HTMLDialogElement>(true);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<MemberActionResult | null>(null);
   const [delta, setDelta] = useState(1);
@@ -253,67 +246,62 @@ function AddCreditsDialog({
       setResult(res);
       if (res.ok) {
         router.refresh();
-        window.setTimeout(close, 900);
+        window.setTimeout(onClose, 900);
       }
     });
   }
 
-  function close() {
-    ref.current?.close();
-    onClose();
-  }
-
   return (
-    <DialogShell ref={ref} onClose={close} title="Credits aanpassen">
+    <Dialog open={open} onClose={onClose} title="Credits aanpassen">
       <p className="text-text-muted text-sm mb-5">
         Huidig saldo: {membership.creditsRemaining ?? 0} credits. Gebruik een
         negatief getal om af te trekken.
       </p>
       <div className="grid grid-cols-[1fr_auto] gap-3 mb-5 items-end">
-        <LabeledInput
-          label="Aanpassing (delta)"
-          type="number"
-          value={String(delta)}
-          min={-20}
-          max={20}
-          onChange={(v) => setDelta(Number(v) || 0)}
-        />
+        <AdminField label="Aanpassing (delta)">
+          <AdminInput
+            type="number"
+            value={delta}
+            min={-20}
+            max={20}
+            onChange={(e) => setDelta(Number(e.target.value) || 0)}
+          />
+        </AdminField>
         <div className="pb-[10px] text-xs text-text-muted tabular-nums">
           Nieuw: {Math.max(0, (membership.creditsRemaining ?? 0) + delta)}
         </div>
       </div>
-      <label className="flex flex-col gap-2 mb-6">
-        <span className="tmc-eyebrow">Reden</span>
-        <textarea
+      <AdminField label="Reden" className="mb-6">
+        <AdminTextarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           placeholder="Bv. compensatie sessie-annulering, kadobon, correctie"
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent resize-none"
         />
-      </label>
+      </AdminField>
       <DialogFooter
         result={result}
-        onClose={close}
+        onClose={onClose}
         onConfirm={submit}
         confirmLabel={pending ? "Bezig" : "Opslaan"}
         confirmDisabled={pending || !reason.trim() || delta === 0}
       />
-    </DialogShell>
+    </Dialog>
   );
 }
 
 function DeleteMemberDialog({
+  open,
   profileId,
   firstName,
   onClose,
 }: {
+  open: boolean;
   profileId: string;
   firstName: string;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const ref = useDialog<HTMLDialogElement>(true);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<MemberActionResult | null>(null);
   const [typed, setTyped] = useState("");
@@ -333,163 +321,43 @@ function DeleteMemberDialog({
     });
   }
 
-  function close() {
-    ref.current?.close();
-    onClose();
-  }
-
   return (
-    <DialogShell ref={ref} onClose={close} title="Lid verwijderen" tone="danger">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Lid verwijderen"
+      tone="danger"
+    >
       <p className="text-text text-sm mb-3">
         Weet je het zeker? Dit kan niet teruggedraaid worden.
       </p>
       <p className="text-text-muted text-sm mb-5">
-        Alle bookings, betalingen en notes van dit lid worden verwijderd. Actieve
-        abonnementen worden eerst gecancelled. Vergeet niet handmatig de Mollie-
-        subscription te stoppen.
+        Alle bookings, betalingen en notes van dit lid worden verwijderd.
+        Actieve abonnementen worden eerst gecancelled. Vergeet niet handmatig
+        de Mollie-subscription te stoppen.
       </p>
-      <label className="flex flex-col gap-2 mb-6">
-        <span className="tmc-eyebrow">
-          Typ de voornaam ({firstName}) om te bevestigen
-        </span>
-        <input
+      <AdminField
+        label={`Typ de voornaam (${firstName}) om te bevestigen`}
+        className="mb-6"
+      >
+        <AdminInput
           type="text"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           autoComplete="off"
-          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
         />
-      </label>
+      </AdminField>
       <DialogFooter
         result={result}
-        onClose={close}
+        onClose={onClose}
         onConfirm={submit}
-        confirmLabel={pending ? "Verwijderen…" : "Definitief verwijderen"}
+        confirmLabel={pending ? "Verwijderen..." : "Definitief verwijderen"}
         confirmTone="danger"
         confirmDisabled={
           pending ||
           typed.trim().toLowerCase() !== firstName.trim().toLowerCase()
         }
       />
-    </DialogShell>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Dialog primitives
-// ----------------------------------------------------------------------------
-
-function DialogShell({
-  ref,
-  onClose,
-  title,
-  tone,
-  children,
-}: {
-  ref: React.RefObject<HTMLDialogElement | null>;
-  onClose: () => void;
-  title: string;
-  tone?: "danger";
-  children: React.ReactNode;
-}) {
-  return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      className="bg-bg border border-[color:var(--ink-500)] text-text p-8 w-[min(92vw,520px)] backdrop:bg-bg/55 backdrop:backdrop-blur-sm"
-    >
-      <h3
-        className={`font-[family-name:var(--font-playfair)] text-2xl md:text-3xl tracking-[-0.01em] mb-5 ${
-          tone === "danger" ? "text-[color:var(--danger)]" : "text-text"
-        }`}
-      >
-        {title}
-      </h3>
-      {children}
-    </dialog>
-  );
-}
-
-function DialogFooter({
-  result,
-  onClose,
-  onConfirm,
-  confirmLabel,
-  confirmDisabled,
-  confirmTone,
-}: {
-  result: MemberActionResult | null;
-  onClose: () => void;
-  onConfirm: () => void;
-  confirmLabel: string;
-  confirmDisabled?: boolean;
-  confirmTone?: "danger";
-}) {
-  return (
-    <>
-      {result && (
-        <div
-          role={result.ok ? "status" : "alert"}
-          className={`text-sm p-4 border mb-5 ${
-            result.ok
-              ? "border-[color:var(--success)]/40 text-[color:var(--success)]"
-              : "border-[color:var(--danger)]/40 text-[color:var(--danger)]"
-          }`}
-        >
-          {result.message}
-        </div>
-      )}
-      <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors px-5 py-3 cursor-pointer"
-        >
-          Annuleren
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={confirmDisabled}
-          className={`inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer ${
-            confirmTone === "danger"
-              ? "border-[color:var(--danger)]/60 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10"
-              : "bg-accent text-bg border-accent hover:bg-accent-hover hover:border-accent-hover"
-          }`}
-        >
-          {confirmLabel}
-        </button>
-      </div>
-    </>
-  );
-}
-
-function LabeledInput({
-  label,
-  type,
-  value,
-  onChange,
-  min,
-  max,
-}: {
-  label: string;
-  type: "date" | "number" | "text";
-  value: string;
-  onChange: (v: string) => void;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <label className="flex flex-col gap-2">
-      <span className="tmc-eyebrow">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        min={min}
-        max={max}
-        className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent"
-      />
-    </label>
+    </Dialog>
   );
 }
