@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
 import {
@@ -90,6 +91,10 @@ export default async function RootLayout({
           }}
         />
         <SiteShell settings={settings}>{children}</SiteShell>
+        {/* Vercel Speed Insights — only ships the collector script in
+            production (no-op on localhost + preview deployments without
+            the project linked in the Vercel dashboard). */}
+        <SpeedInsights />
       </body>
     </html>
   );
