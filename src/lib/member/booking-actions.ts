@@ -148,8 +148,14 @@ function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
   return { isoWeek, isoYear: target.getUTCFullYear() };
 }
 
+export interface CreateBookingOptions {
+  /** Optional yoga/mobility-only rentals. Ignored on other pillars. */
+  rentals?: { mat?: boolean; towel?: boolean };
+}
+
 export async function createBooking(
   sessionId: string,
+  options: CreateBookingOptions = {},
 ): Promise<BookingActionResult> {
   const supabase = await createClient();
   const {
@@ -295,6 +301,12 @@ export async function createBooking(
     return { ok: false, message: REASON_COPY[decision.reason] };
   }
 
+  // Rentals only make sense on yoga_mobility. Other pillars: silently
+  // ignore, per spec.
+  const isYogaMobility = session.pillar === "yoga_mobility";
+  const rentalMat = isYogaMobility && Boolean(options.rentals?.mat);
+  const rentalTowel = isYogaMobility && Boolean(options.rentals?.towel);
+
   const insertResult = await supabase
     .from("bookings")
     .insert({
@@ -308,6 +320,8 @@ export async function createBooking(
       credits_used:
         decision.coveringMembership?.plan_type === "ten_ride_card" ? 1 : 0,
       status: "booked",
+      rental_mat: rentalMat,
+      rental_towel: rentalTowel,
     })
     .select("id")
     .single();

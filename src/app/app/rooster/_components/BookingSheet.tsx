@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { X, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   createBooking,
   cancelBooking,
   type BookingActionResult,
 } from "@/lib/member/booking-actions";
+import {
+  bookGuest,
+  getGuestPassStatus,
+  type GuestPassStatus,
+} from "@/lib/member/guest-pass-actions";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import {
+  formatShortDate,
+  formatTimeRange,
+  formatWeekdayDate,
+} from "@/lib/format-date";
 import type { SessionRowData } from "./SessionRow";
 
 interface BookingSheetProps {
@@ -33,9 +42,19 @@ export function BookingSheet({
 }: BookingSheetProps) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<BookingActionResult | null>(null);
+  const [rentMat, setRentMat] = useState(false);
+  const [rentTowel, setRentTowel] = useState(false);
+  const [guestOpen, setGuestOpen] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestMsg, setGuestMsg] = useState<
+    { tone: "success" | "error"; text: string } | null
+  >(null);
+  const [passStatus, setPassStatus] = useState<GuestPassStatus | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
 
   const open = Boolean(session);
+  const isYogaMobility = session?.pillar === "yoga_mobility";
 
   useEffect(() => {
     if (open) {
@@ -43,6 +62,13 @@ export function BookingSheet({
     } else {
       lastFocusedRef.current?.focus?.();
       setResult(null);
+      setRentMat(false);
+      setRentTowel(false);
+      setGuestOpen(false);
+      setGuestName("");
+      setGuestEmail("");
+      setGuestMsg(null);
+      setPassStatus(null);
     }
   }, [open]);
 
@@ -55,10 +81,27 @@ export function BookingSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Fetch guest-pass status on open so the "Neem een gast mee" button
+  // can be disabled with a helpful message when 0 remaining.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getGuestPassStatus().then((s) => {
+      if (!cancelled) setPassStatus(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   function doBook() {
     if (!session) return;
     startTransition(async () => {
-      const res = await createBooking(session.id);
+      const res = await createBooking(session.id, {
+        rentals: isYogaMobility
+          ? { mat: rentMat, towel: rentTowel }
+          : undefined,
+      });
       setResult(res);
       if (res.ok) {
         window.setTimeout(onClose, 1200);
@@ -77,11 +120,38 @@ export function BookingSheet({
     });
   }
 
+  function doBookGuest() {
+    if (!session) return;
+    setGuestMsg(null);
+    startTransition(async () => {
+      const res = await bookGuest({
+        sessionId: session.id,
+        guestName,
+        guestEmail,
+      });
+      if (res.ok) {
+        setGuestMsg({ tone: "success", text: res.message });
+        setGuestName("");
+        setGuestEmail("");
+        // Refresh status inline so the remaining count decrements.
+        const fresh = await getGuestPassStatus();
+        setPassStatus(fresh);
+      } else {
+        setGuestMsg({ tone: "error", text: res.message });
+      }
+    });
+  }
+
   const isBooked = session?.status === "booked";
   const isWaitlisted = session?.status === "waitlisted";
   const isFull = session?.status === "full";
   const lateCancel =
     isBooked && session && hoursUntil(session.startAt) < cancellationWindowHours;
+  const canInviteGuest =
+    isBooked &&
+    passStatus?.eligible &&
+    (passStatus?.remaining ?? 0) > 0 &&
+    !isFull;
 
   return (
     <AnimatePresence>
@@ -154,12 +224,150 @@ export function BookingSheet({
                 />
               </dl>
 
+              {/* Rentals — only for yoga/mobility, only before booking. */}
+              {isYogaMobility && !isBooked && !isWaitlisted && !isFull && (
+                <div className="mb-10 pt-8 border-t border-[color:var(--ink-500)]/60">
+                  <span className="tmc-eyebrow block mb-3">
+                    Wil je iets huren?
+                  </span>
+                  <div className="flex flex-col gap-3">
+                    <RentalCheckbox
+                      label="Yogamat (€2,50)"
+                      checked={rentMat}
+                      onChange={setRentMat}
+                    />
+                    <RentalCheckbox
+                      label="Handdoek (€1,50)"
+                      checked={rentTowel}
+                      onChange={setRentTowel}
+                    />
+                    {rentMat && rentTowel && (
+                      <p className="text-xs text-text-muted">
+                        Combinatie: €3,50
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted/80 mt-3 italic">
+                    Verhuur wordt ter plekke afgerekend.
+                  </p>
+                </div>
+              )}
+
               {trainerBio && (
                 <div className="mb-10 pt-8 border-t border-[color:var(--ink-500)]/60">
                   <span className="tmc-eyebrow block mb-3">Over de coach</span>
                   <p className="text-text-muted text-sm leading-relaxed">
                     {trainerBio}
                   </p>
+                </div>
+              )}
+
+              {/* Guest-pass invite — only when already booked */}
+              {isBooked && (
+                <div className="mb-6 pt-8 border-t border-[color:var(--ink-500)]/60">
+                  <span className="tmc-eyebrow block mb-3">Gast meenemen</span>
+                  {!passStatus ? (
+                    <p className="text-text-muted text-xs">Bezig...</p>
+                  ) : !passStatus.eligible ? (
+                    <p className="text-text-muted text-xs leading-relaxed">
+                      Je huidige abonnement geeft geen guest passes. Check je
+                      abonnement voor een upgrade.
+                    </p>
+                  ) : passStatus.remaining === 0 ? (
+                    <p className="text-text-muted text-xs leading-relaxed">
+                      Je guest passes voor deze periode zijn op. Nieuwe
+                      passes op{" "}
+                      {passStatus.periodEnd
+                        ? formatShortDate(
+                            new Date(`${passStatus.periodEnd}T00:00:00Z`),
+                          )
+                        : "volgende periode"}
+                      .
+                    </p>
+                  ) : guestOpen ? (
+                    <div className="flex flex-col gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className="tmc-eyebrow">Naam gast</span>
+                        <input
+                          type="text"
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-base text-text focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="tmc-eyebrow">E-mail gast</span>
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-base text-text focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <p className="text-[11px] text-text-muted">
+                        Nog {passStatus.remaining} pass
+                        {passStatus.remaining === 1 ? "" : "es"} deze periode
+                        (tot{" "}
+                        {passStatus.periodEnd
+                          ? formatShortDate(
+                              new Date(`${passStatus.periodEnd}T00:00:00Z`),
+                            )
+                          : "?"}
+                        ).
+                      </p>
+                      {guestMsg && (
+                        <p
+                          role={
+                            guestMsg.tone === "success" ? "status" : "alert"
+                          }
+                          className={`text-xs ${
+                            guestMsg.tone === "success"
+                              ? "text-[color:var(--success)]"
+                              : "text-[color:var(--danger)]"
+                          }`}
+                        >
+                          {guestMsg.text}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={doBookGuest}
+                          disabled={
+                            pending ||
+                            !guestName.trim() ||
+                            !guestEmail.trim()
+                          }
+                          className="inline-flex items-center justify-center px-5 py-3 text-[11px] font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {pending ? "Bezig" : "Gast toevoegen"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGuestOpen(false);
+                            setGuestMsg(null);
+                          }}
+                          className="text-[11px] uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors px-2 cursor-pointer"
+                        >
+                          Annuleren
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuestOpen(true);
+                        setGuestMsg(null);
+                      }}
+                      disabled={!canInviteGuest || pending}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text transition-colors duration-300 hover:border-accent hover:text-accent cursor-pointer"
+                    >
+                      <UserPlus size={14} strokeWidth={1.5} />
+                      Neem een gast mee ({passStatus.remaining} over)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -252,5 +460,39 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="tmc-eyebrow">{label}</dt>
       <dd className="text-sm">{value}</dd>
     </div>
+  );
+}
+
+function RentalCheckbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-3 cursor-pointer text-sm text-text">
+      <span
+        className={`w-4 h-4 border flex items-center justify-center transition-colors ${
+          checked
+            ? "border-accent bg-accent"
+            : "border-text-muted/40 bg-transparent"
+        }`}
+        aria-hidden
+      >
+        {checked && (
+          <span className="block w-2 h-2 bg-bg" />
+        )}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="sr-only"
+      />
+      {label}
+    </label>
   );
 }
