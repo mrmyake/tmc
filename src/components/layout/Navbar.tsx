@@ -46,7 +46,7 @@ export function Navbar() {
           >
             TMC
           </span>
-          <span className="font-medium text-[13px] uppercase tracking-[0.22em] hidden sm:inline">
+          <span className="font-medium text-[11px] sm:text-[13px] uppercase tracking-[0.18em] sm:tracking-[0.22em]">
             The Movement Club
           </span>
         </Link>

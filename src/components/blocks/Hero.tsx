@@ -64,14 +64,12 @@ export function Hero({ settings, heroImage }: HeroProps) {
           <span aria-hidden className="w-12 h-px bg-accent" />
         </motion.span>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4, ease: clubEase }}
-          className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl lg:text-8xl xl:text-[9rem] text-text mb-8 leading-[1.02] tracking-[-0.02em]"
-        >
+        {/* LCP element — intentionally not wrapped in motion so it paints
+            immediately. Framer Motion's opacity-0 initial state was adding
+            ~1.2s of render delay before paint. */}
+        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl lg:text-8xl xl:text-[9rem] text-text mb-8 leading-[1.02] tracking-[-0.02em]">
           {renderTaglineWithAccent(settings.tagline, settings.taglineAccent)}
-        </motion.h1>
+        </h1>
 
         <motion.p
           initial={{ opacity: 0, y: 12 }}

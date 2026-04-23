@@ -64,6 +64,18 @@ export default async function RootLayout({
       lang="nl"
       className={`${fraunces.variable} ${inter.variable} antialiased`}
     >
+      <head>
+        {/* Connect early to the CDN that serves the LCP image (Sanity)
+            and the Google Font file host. Cuts ~100-300ms off first
+            paint on slow 4G. next/font already preloads the font CSS,
+            but the underlying .woff2 is on fonts.gstatic.com. */}
+        <link rel="preconnect" href="https://cdn.sanity.io" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-screen flex flex-col">
         <script
           type="application/ld+json"
