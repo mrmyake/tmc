@@ -1,5 +1,4 @@
 import dynamic from "next/dynamic";
-import ReactDOM from "react-dom";
 import { Hero } from "@/components/blocks/Hero";
 import { PhilosophyGrid } from "@/components/blocks/PhilosophyGrid";
 import { ScheduleTeaser } from "@/components/blocks/ScheduleTeaser";
@@ -16,7 +15,6 @@ import {
   getOpeningHours,
   getSiteImages,
 } from "../../sanity/lib/fetch";
-import { urlFor } from "../../sanity/lib/client";
 
 // TestimonialCarousel pulls in react-google-reviews (third-party
 // widget) and sits below the fold. Dynamic import keeps its bundle
@@ -30,6 +28,14 @@ const TestimonialCarousel = dynamic(() =>
 
 export const revalidate = 60;
 
+// Intentionally no ReactDOM.preload for the hero image. On 4G the
+// fetchPriority=high preload inserted by ReactDOM.preload lands above
+// the 105 KiB CSS stylesheet in the <head> and starves the CSS
+// download, pushing FCP by ~1.5s (Lighthouse measured 2.6s vs. 1.1s
+// baseline). The <img fetchpriority="high"> attribute on the Hero tag
+// itself already signals importance to the browser without competing
+// with the render-blocking CSS.
+
 export default async function HomePage() {
   const [settings, trainers, offerings, pricing, hours, images] =
     await Promise.all([
@@ -42,19 +48,6 @@ export default async function HomePage() {
     ]);
 
   const trainer = trainers[0];
-
-  // Preload the LCP image. ReactDOM.preload hoists into <head> as
-  // <link rel="preload" as="image" fetchpriority="high"> before the
-  // body even parses — the browser fires the request in parallel with
-  // the HTML stream, knocking ~300–600ms off the LCP on 4G.
-  if (images.hero?.asset) {
-    const heroUrl = urlFor(images.hero)
-      .width(1920)
-      .quality(75)
-      .format("webp")
-      .url();
-    ReactDOM.preload(heroUrl, { as: "image", fetchPriority: "high" });
-  }
 
   return (
     <>
