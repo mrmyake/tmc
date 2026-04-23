@@ -109,6 +109,12 @@ html { scroll-behavior: smooth; }
 .animate-tab-in {
   animation: tmc-tab-in 0.35s cubic-bezier(0.2, 0.7, 0.1, 1) both;
 }
+
+/* iOS home-indicator compensation voor mobile bottom tab bars.
+   Negeerbaar op Android/desktop (env() valt terug op 0). */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
 /* Reveal on scroll via IntersectionObserver (see components/ui/ScrollReveal).
    Hidden until JS flips data-revealed; unobservable viewers (JS off) still
    see the content because the fallback state above flips to visible. */
