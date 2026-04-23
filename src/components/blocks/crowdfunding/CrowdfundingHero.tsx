@@ -32,9 +32,9 @@ export function CrowdfundingHero({
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        // LCP image — served direct from Sanity's Fastly CDN. See the
-        // note in components/blocks/Hero.tsx for why we skip next/image
-        // for this specific case.
+        // LCP image — served direct from Sanity's Fastly CDN. See
+        // Hero.tsx for the full rationale on skipping next/image and
+        // deliberately omitting fetchpriority="high" here.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={urlFor(heroImage)
@@ -45,7 +45,6 @@ export function CrowdfundingHero({
           alt="The Movement Club crowdfunding"
           width={1920}
           height={1080}
-          fetchPriority="high"
           decoding="async"
           loading="eager"
           className="absolute inset-0 w-full h-full object-cover"

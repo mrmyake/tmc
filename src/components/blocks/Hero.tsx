@@ -35,13 +35,18 @@ export function Hero({ settings, heroImage }: HeroProps) {
   return (
     <section className="tmc-grain relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        // LCP image. We skip next/image here on purpose: the Next
-        // optimizer on Vercel has to re-fetch the 2560px source from
-        // Sanity and transcode every srcset variant, which measured at
-        // ~35s LCP on cold cache. Sanity's CDN (Fastly) already serves
-        // WebP directly and scales by query param, so this is faster
-        // and cheaper. fetchPriority + eager + decoding=async push the
-        // browser to prioritise the download.
+        // LCP image. We skip next/image here on purpose: the Vercel
+        // optimizer has to re-fetch the 2560px Sanity source and
+        // transcode every srcset variant on cold cache (~35s LCP
+        // measured). Sanity's CDN (Fastly) already serves WebP
+        // directly and scales by query param.
+        //
+        // NOTE: intentionally NO fetchpriority="high". React 19
+        // auto-emits a <link rel=preload fetchpriority=high> for
+        // high-priority imgs, which — above the stylesheet in <head>
+        // — starves the 105 KiB CSS on 4G and delays FCP by ~1.5s.
+        // loading="eager" is enough to keep the image out of the
+        // lazy-load pool.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={urlFor(heroImage)
@@ -52,7 +57,6 @@ export function Hero({ settings, heroImage }: HeroProps) {
           alt="The Movement Club studio"
           width={1920}
           height={1080}
-          fetchPriority="high"
           decoding="async"
           loading="eager"
           className="absolute inset-0 w-full h-full object-cover"
