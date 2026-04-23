@@ -187,6 +187,8 @@ export type Database = {
           pillar: string
           profile_id: string
           reminder_sent_at: string | null
+          rental_mat: boolean
+          rental_towel: boolean
           session_date: string
           session_id: string
           status: string
@@ -206,6 +208,8 @@ export type Database = {
           pillar: string
           profile_id: string
           reminder_sent_at?: string | null
+          rental_mat?: boolean
+          rental_towel?: boolean
           session_date: string
           session_id: string
           status?: string
@@ -225,6 +229,8 @@ export type Database = {
           pillar?: string
           profile_id?: string
           reminder_sent_at?: string | null
+          rental_mat?: boolean
+          rental_towel?: boolean
           session_date?: string
           session_id?: string
           status?: string
@@ -498,6 +504,129 @@ export type Database = {
           slots_claimed?: number | null
         }
         Relationships: []
+      }
+      guest_bookings: {
+        Row: {
+          booked_at: string
+          booked_by: string
+          cancelled_at: string | null
+          guest_email: string
+          guest_name: string
+          guest_pass_id: string
+          id: string
+          reminder_sent: boolean
+          session_id: string
+          status: string
+        }
+        Insert: {
+          booked_at?: string
+          booked_by: string
+          cancelled_at?: string | null
+          guest_email: string
+          guest_name: string
+          guest_pass_id: string
+          id?: string
+          reminder_sent?: boolean
+          session_id: string
+          status?: string
+        }
+        Update: {
+          booked_at?: string
+          booked_by?: string
+          cancelled_at?: string | null
+          guest_email?: string
+          guest_name?: string
+          guest_pass_id?: string
+          id?: string
+          reminder_sent?: boolean
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_bookings_booked_by_fkey"
+            columns: ["booked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_bookings_guest_pass_id_fkey"
+            columns: ["guest_pass_id"]
+            isOneToOne: false
+            referencedRelation: "guest_passes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_session_availability"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_passes: {
+        Row: {
+          created_at: string
+          id: string
+          membership_id: string | null
+          passes_allocated: number
+          passes_used: number
+          period_end: string
+          period_start: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          membership_id?: string | null
+          passes_allocated: number
+          passes_used?: number
+          period_end: string
+          period_start: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          membership_id?: string | null
+          passes_allocated?: number
+          passes_used?: number
+          period_end?: string
+          period_start?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_passes_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_passes_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_passes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       member_notes: {
         Row: {
@@ -1534,6 +1663,10 @@ export type Database = {
     Functions: {
       cleanup_expired_strikes: { Args: never; Returns: number }
       current_user_role: { Args: never; Returns: string }
+      get_remaining_guest_passes: {
+        Args: { p_profile_id: string }
+        Returns: number
+      }
       increment_cf_stats: { Args: { p_amount: number }; Returns: undefined }
       increment_cf_tier_slot: {
         Args: { p_tier_id: string }
