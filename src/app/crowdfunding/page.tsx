@@ -90,7 +90,7 @@ export default async function CrowdfundingPage() {
   const shareUrl = "https://themovementclub.nl/crowdfunding";
   const shareText =
     settings.whatsappShareText ??
-    "Ik heb mijn move gemaakt. Jij ook? 💪 Word founding member van The Movement Club in Loosdrecht:";
+    "Ik heb mijn move gemaakt. Jij ook? Word founding member van The Movement Club in Loosdrecht:";
 
   return (
     <CrowdfundingContent

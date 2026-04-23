@@ -25,7 +25,7 @@ export function CrowdfundingFooterCta({
     <Section bg="elevated">
       <Container>
         <div className="max-w-3xl mx-auto text-center">
-          <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-5">
+          <span className="tmc-eyebrow tmc-eyebrow--accent inline-block mb-5">
             Make a move
           </span>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-5xl text-text mb-6 leading-tight">

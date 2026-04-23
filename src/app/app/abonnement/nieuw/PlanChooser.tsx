@@ -44,7 +44,10 @@ export function PlanChooser({
         {pending ? "Doorsturen..." : label}
       </button>
       {error && (
-        <p className="mt-3 text-xs text-red-400 border border-red-500/30 bg-red-500/10 px-3 py-2">
+        <p
+          role="alert"
+          className="mt-3 text-xs text-[color:var(--danger)] border border-[color:var(--danger)]/30 bg-[color:var(--danger)]/10 px-3 py-2"
+        >
           {error}
         </p>
       )}

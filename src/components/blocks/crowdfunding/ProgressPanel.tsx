@@ -50,9 +50,7 @@ export function ProgressPanel({
     >
       <div className="flex items-end justify-between mb-4 gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-1">
-            Opgehaald
-          </div>
+          <div className="tmc-eyebrow mb-1">Opgehaald</div>
           <div className="font-[family-name:var(--font-playfair)] text-3xl md:text-5xl text-text leading-none">
             <AnimatedNumber value={totalRaised} formatter={formatEuro} />
           </div>

@@ -62,7 +62,7 @@ export function CrowdfundingHero({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-6"
+              className="tmc-eyebrow tmc-eyebrow--accent inline-block mb-6"
             >
               {active
                 ? "Crowdfunding · Loosdrecht"

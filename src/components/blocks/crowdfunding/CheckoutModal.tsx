@@ -103,7 +103,7 @@ export function CheckoutModal({ tier, onClose }: Props) {
           >
             <div className="flex items-start justify-between mb-6">
               <div>
-                <div className="text-accent text-xs uppercase tracking-[0.2em] mb-2">
+                <div className="tmc-eyebrow tmc-eyebrow--accent mb-2">
                   Je kiest
                 </div>
                 <h3
@@ -167,7 +167,10 @@ export function CheckoutModal({ tier, onClose }: Props) {
               </label>
 
               {error && (
-                <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-3">
+                <div
+                  role="alert"
+                  className="text-sm text-[color:var(--danger)] border border-[color:var(--danger)]/30 bg-[color:var(--danger)]/10 px-4 py-3"
+                >
                   {error}
                 </div>
               )}

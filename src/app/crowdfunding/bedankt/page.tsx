@@ -47,7 +47,7 @@ export default async function BedanktPage({
   const shareUrl = "https://themovementclub.nl/crowdfunding";
   const shareText =
     settings?.whatsappShareText ??
-    "Ik heb mijn move gemaakt. Jij ook? 💪 Word founding member van The Movement Club in Loosdrecht:";
+    "Ik heb mijn move gemaakt. Jij ook? Word founding member van The Movement Club in Loosdrecht:";
 
   const paid = backer?.payment_status === "paid";
 
@@ -65,12 +65,8 @@ export default async function BedanktPage({
       <Section className="min-h-screen flex items-center">
         <Container>
           <div className="max-w-2xl mx-auto text-center">
-            <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-6">
-              {paid
-                ? "Make a move ✓"
-                : backer
-                ? "Bedankt"
-                : "Welkom"}
+            <span className="tmc-eyebrow tmc-eyebrow--accent inline-block mb-6">
+              {paid ? "Jouw move staat" : backer ? "Bedankt" : "Welkom"}
             </span>
 
             <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text mb-6 leading-tight">
