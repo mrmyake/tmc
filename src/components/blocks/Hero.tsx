@@ -33,8 +33,10 @@ function renderTaglineWithAccent(tagline: string, accent?: string) {
  * the same strings into <link rel="preload" imagesrcset>.
  */
 export function buildHeroImageSources(image: SanityImage) {
-  const mk = (w: number) =>
-    urlFor(image).width(w).quality(75).format("webp").url();
+  // Geen .format() of .quality() — die komen uit de central urlFor
+  // default (auto=format + q=75), zodat AVIF serveerbaar blijft op
+  // browsers die het ondersteunen.
+  const mk = (w: number) => urlFor(image).width(w).url();
   return {
     src: mk(1280),
     srcSet: `${mk(640)} 640w, ${mk(1024)} 1024w, ${mk(1600)} 1600w, ${mk(1920)} 1920w`,

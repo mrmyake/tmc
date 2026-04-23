@@ -17,11 +17,12 @@ export const client = createClient({
 const builder = imageUrlBuilder(client);
 
 /**
- * Build a Sanity image URL. Chains `.auto("format")` so the CDN serves
- * AVIF/WebP to clients that accept it. Next's `<Image>` already does its
- * own negotiation via the optimizer, but keeping this on the raw URL
- * means direct `.url()` output (used in PDF generation, og-image meta,
- * any remaining `<img>` fallback) is already efficient.
+ * Build a Sanity image URL. Chains `.auto("format")` zodat de CDN AVIF/
+ * WebP teruggeeft aan browsers die het ondersteunen, en `.quality(75)`
+ * voor een balans tussen bestandsgrootte en kwaliteit. Next's `<Image>`
+ * doet zijn eigen negotiatie via de optimizer, maar deze ketting geldt
+ * ook voor directe `.url()` output (PDF-rendering, OG-meta, raw `<img>`
+ * fallbacks) zodat die óók klein en modern zijn.
  */
 export const urlFor = (source: SanityImageSource) =>
-  builder.image(source).auto("format");
+  builder.image(source).auto("format").quality(75);

@@ -37,11 +37,7 @@ export function CrowdfundingHero({
         // deliberately omitting fetchpriority="high" here.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={urlFor(heroImage)
-            .width(1920)
-            .quality(75)
-            .format("webp")
-            .url()}
+          src={urlFor(heroImage).width(1920).url()}
           alt="The Movement Club crowdfunding"
           width={1920}
           height={1080}

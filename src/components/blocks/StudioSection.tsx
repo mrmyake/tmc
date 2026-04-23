@@ -28,7 +28,7 @@ export function StudioSection({ image }: StudioSectionProps) {
                       Next's optimizer serve the right srcset variant
                       from there. */}
                   <Image
-                    src={urlFor(image).width(960).height(720).quality(75).format("webp").url()}
+                    src={urlFor(image).width(960).height(720).url()}
                     alt="The Movement Club studio interieur"
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 50vw"

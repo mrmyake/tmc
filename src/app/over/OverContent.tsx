@@ -41,7 +41,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
               {marlonImage?.asset ? (
                 <div className="relative w-full aspect-[4/3]">
                   <Image
-                    src={urlFor(marlonImage).width(1200).height(900).quality(80).url()}
+                    src={urlFor(marlonImage).width(1200).height(900).url()}
                     alt={`${SITE.trainer.name} in de studio`}
                     fill
                     sizes="(max-width: 1024px) 100vw, 50vw"
@@ -159,7 +159,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                   <ScrollReveal key={i} delay={i * 0.08}>
                     <div className="relative w-full aspect-square">
                       <Image
-                        src={urlFor(img).width(800).height(800).quality(80).url()}
+                        src={urlFor(img).width(800).height(800).url()}
                         alt={img.caption || `Studio foto ${i + 1}`}
                         fill
                         sizes="(max-width: 768px) 50vw, 33vw"
@@ -231,7 +231,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
               {hormoonprofielImage?.asset ? (
                 <div className="relative w-full aspect-[4/3]">
                   <Image
-                    src={urlFor(hormoonprofielImage).width(1200).height(900).quality(80).url()}
+                    src={urlFor(hormoonprofielImage).width(1200).height(900).url()}
                     alt="Hormoonprofiel, holistisch trainen"
                     fill
                     sizes="(max-width: 1024px) 100vw, 50vw"
