@@ -741,10 +741,63 @@ vercel env pull .env.local
 
 ---
 
+## Navigation architecture
+
+Role-scoped layouts onder `/app/*`. Zie `navigation-refactor-spec.md` voor de oorspronkelijke spec.
+
+**Rollen (`profiles.role` — single string):**
+- `member` — betalend lid
+- `trainer` — trainer zonder admin-rechten
+- `admin` — superset; heeft toegang tot admin-cockpit, trainer-views en rooster
+
+Het schema ondersteunt geen role-arrays. "Trainer+member" combos zijn niet mogelijk; admins zijn per definitie superset.
+
+**Default landing per rol (post-login redirect in `/auth/callback`):**
+- `member` → `/app/rooster`
+- `trainer` → `/app/trainer/sessies`
+- `admin` → `/app/admin`
+
+Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check.
+
+**Drie layouts, één auth-guard:**
+- `src/app/app/layout.tsx` — outer: auth-guard + `ensureProfile`, geeft `firstName` + `role` door aan `AppChrome`.
+- `src/app/app/AppChrome.tsx` — client-switcher: op basis van `usePathname()` rendert 'ie `MemberNav`, `TrainerNav`, of niets (voor admin — die heeft zijn eigen shell).
+- `src/app/app/trainer/layout.tsx` — autorisatie-guard; redirect naar `/app/rooster` bij wrong role.
+- `src/app/app/admin/layout.tsx` — autorisatie-guard; `AdminShell` met eigen sidebar + header.
+
+**Route → chrome mapping:**
+- `/app/rooster`, `/app/boekingen`, `/app/abonnement`, `/app/facturen`, `/app/profiel`, `/app/pt` → `MemberNav`
+- `/app/trainer/**` → `TrainerNav`
+- `/app/admin/**` → `AdminSidebar` + `AdminHeader`; `AdminMobileBlock` op <lg
+
+**Avatar-dropdown (`src/components/nav/AvatarDropdown.tsx`):**
+- Altijd: "Mijn profiel" + "Uitloggen"
+- Admin in admin-cockpit: "Schakel naar" → Trainer view / Member view
+- Admin in trainer/member-view: "Schakel naar" → Admin cockpit (+ andere context)
+- Trainer-only / member-only: geen switcher-sectie
+
+**Component-locations (`src/components/nav/`):**
+- `MemberNav.tsx`, `TrainerNav.tsx` — top-nav desktop + bottom-tab bar mobile
+- `AdminHeader.tsx`, `AdminMobileBlock.tsx`
+- `AvatarDropdown.tsx` — role-aware context-switcher
+- `PauzeRequestBell.tsx` — server-component met count van open pauze-verzoeken
+- `MobileAccountActions.tsx` — mobiel op `/app/profiel` (bottom-tab bar heeft geen avatar-dropdown)
+
+**Wat bewust NIET is gebouwd (spec §11 + reconciliatie):**
+- `+ Nieuw` quick-actions dropdown in admin header — nieuwe server-actions vereist
+- `Rapportage` sidebar item — nog geen pagina; spec zegt "don't add empty shell now"
+- PT filter-chip op `/app/rooster` + merge met `pt_sessions` — data-model wijziging buiten nav-scope
+- Middleware; alles via layout-redirects
+
+**Admin sidebar items:** Dashboard · Rooster · Leden · Trainers (daily) — horizontale scheider — Pauzes · Aankondigingen · Instellingen (secondary) — Content↗ (opent `/studio` in nieuw tabblad).
+
+---
+
 ## Gerelateerde documenten
 
 - `tmc-crowdfunding-module.md` — volledige spec voor `/crowdfunding` module (tiers, Mollie, Supabase schema, Sanity tier CMS). De analytics events voor die pagina's staan in dít document, in de Analytics sectie.
 - `the-movement-club-sanity-cms.md` — volledige CMS migratie plan en onboarding voor Marlon.
+- `navigation-refactor-spec.md` — refactor-spec voor member/trainer/admin role-scoped layouts.
 
 ---
 

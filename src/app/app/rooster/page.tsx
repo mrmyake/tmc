@@ -20,6 +20,8 @@ import {
   type OpenStudioDay,
 } from "./_components/OpenStudioStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
+import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
+import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
 
 export const metadata = {
   title: "Rooster | The Movement Club",
@@ -125,6 +127,8 @@ export default async function RoosterPage(props: {
     waitlistResult,
     settingsResult,
     maxFutureResult,
+    profileResult,
+    nextBookingResult,
   ] = await Promise.all([
     (() => {
       let q = supabase
@@ -173,6 +177,42 @@ export default async function RoosterPage(props: {
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Profiel voor intake-banner check
+    supabase
+      .from("profiles")
+      .select("health_intake_completed_at")
+      .eq("id", user.id)
+      .maybeSingle(),
+    // Eerstvolgende geboekte sessie (voor NextSessionCard bovenaan)
+    supabase
+      .from("bookings")
+      .select(
+        `
+          id,
+          session:class_sessions!inner(
+            id, start_at, end_at,
+            class_type:class_types(name),
+            trainer:trainers(display_name)
+          )
+        `,
+      )
+      .eq("profile_id", user.id)
+      .eq("status", "booked")
+      .gte("class_sessions.start_at", now.toISOString())
+      .order("class_sessions(start_at)", { ascending: true })
+      .limit(1)
+      .returns<
+        Array<{
+          id: string;
+          session: {
+            id: string;
+            start_at: string;
+            end_at: string;
+            class_type: { name: string } | null;
+            trainer: { display_name: string } | null;
+          } | null;
+        }>
+      >(),
   ]);
 
   if (sessionsResult.error) {
@@ -325,6 +365,28 @@ export default async function RoosterPage(props: {
       })
     : null;
 
+  // NextSessionCard-input: komt van nextBookingResult
+  const intakeDone = Boolean(
+    profileResult.data?.health_intake_completed_at,
+  );
+  const nextBookingRow = nextBookingResult.data?.[0];
+  const nextSession = nextBookingRow?.session
+    ? {
+        startAt: new Date(nextBookingRow.session.start_at),
+        className: nextBookingRow.session.class_type?.name ?? "Sessie",
+        trainerName:
+          nextBookingRow.session.trainer?.display_name ?? "een coach",
+        durationMinutes: Math.max(
+          1,
+          Math.round(
+            (new Date(nextBookingRow.session.end_at).getTime() -
+              new Date(nextBookingRow.session.start_at).getTime()) /
+              60000,
+          ),
+        ),
+      }
+    : null;
+
   return (
     <Container className="py-16 md:py-20">
       <header className="mb-10">
@@ -335,6 +397,18 @@ export default async function RoosterPage(props: {
           Kies je moment.
         </h1>
       </header>
+
+      {!intakeDone && (
+        <div className="mb-10">
+          <IntakeBanner />
+        </div>
+      )}
+
+      {nextSession && (
+        <div className="mb-12 md:mb-14">
+          <NextSessionCard session={nextSession} />
+        </div>
+      )}
 
       <DayStrip
         days={dayStripDays}

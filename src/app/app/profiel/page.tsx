@@ -9,6 +9,11 @@ import { EmergencyContactForm } from "./EmergencyContactForm";
 import { AvatarUpload } from "./AvatarUpload";
 import { MarketingOptInToggle } from "./_components/MarketingOptInToggle";
 import { AccountDeletionSection } from "./_components/AccountDeletionSection";
+import { MobileAccountActions } from "@/components/nav/MobileAccountActions";
+import type {
+  ActiveContext,
+  Role,
+} from "@/components/nav/AvatarDropdown";
 
 export const metadata = {
   title: "Profiel | The Movement Club",
@@ -32,10 +37,15 @@ export default async function ProfielPage({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "first_name, last_name, email, phone, date_of_birth, street_address, postal_code, city, emergency_contact_name, emergency_contact_phone, avatar_url, health_intake_completed_at, marketing_opt_in",
+      "first_name, last_name, email, phone, date_of_birth, street_address, postal_code, city, emergency_contact_name, emergency_contact_phone, avatar_url, health_intake_completed_at, marketing_opt_in, role",
     )
     .eq("id", user.id)
     .maybeSingle();
+
+  const role: Role = (profile?.role as Role) ?? "member";
+  // Profiel is context-agnostisch — standaard member-context (trainer/
+  // admin-switcher rendered als de user die rol heeft).
+  const activeContext: ActiveContext = "member";
 
   if (!profile) {
     return (
@@ -81,6 +91,8 @@ export default async function ProfielPage({
           </p>
         </aside>
       )}
+
+      <MobileAccountActions role={role} activeContext={activeContext} />
 
       <AvatarUpload avatarUrl={profile.avatar_url} initials={initials} />
 
