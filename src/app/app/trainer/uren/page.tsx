@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatShortDate } from "@/lib/format-date";
 import { UrenForm } from "./_components/UrenForm";
+import { StatTile } from "@/app/app/_components/StatTile";
 
 export const metadata = {
   title: "Trainer · Uren | The Movement Club",
@@ -148,16 +149,19 @@ export default async function TrainerUrenPage(props: {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-14">
         <StatTile
+          size="md"
           label="Deze week"
           value={`${weekApproved.toFixed(1)}u`}
           hint="Goedgekeurd"
         />
         <StatTile
+          size="md"
           label="Deze maand"
           value={`${monthApproved.toFixed(1)}u`}
           hint="Goedgekeurd"
         />
         <StatTile
+          size="md"
           label="In behandeling"
           value={`${monthPending.toFixed(1)}u`}
           hint="Wacht op admin"
@@ -236,29 +240,6 @@ export default async function TrainerUrenPage(props: {
   );
 }
 
-function StatTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="bg-bg-elevated p-5 border border-[color:var(--ink-500)]">
-      <span className="tmc-eyebrow block mb-2">{label}</span>
-      <p className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-none tracking-[-0.02em] mb-1">
-        {value}
-      </p>
-      {hint && (
-        <p className="text-[11px] text-text-muted uppercase tracking-[0.14em]">
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function StatusPill({
   status,

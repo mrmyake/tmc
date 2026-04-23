@@ -2,6 +2,7 @@ import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { formatShortDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";
+import { StatTile } from "@/app/app/_components/StatTile";
 
 interface OverviewTabProps {
   detail: MemberDetail;
@@ -21,13 +22,15 @@ export function OverviewTab({ detail }: OverviewTabProps) {
     <section className="flex flex-col gap-12">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
         <StatTile
+          size="md"
           label="Sessies"
           value={String(stats.totalSessions)}
           hint={`${stats.attendedSessions} bijgewoond`}
         />
-        <StatTile label="Favoriete pilaar" value={favoriteLabel} />
-        <StatTile label="Laatste sessie" value={lastSessionLabel} />
+        <StatTile size="md" label="Favoriete pilaar" value={favoriteLabel} />
+        <StatTile size="md" label="Laatste sessie" value={lastSessionLabel} />
         <StatTile
+          size="md"
           label="MRR"
           value={
             stats.mrrCents > 0
@@ -137,29 +140,6 @@ export function OverviewTab({ detail }: OverviewTabProps) {
   );
 }
 
-function StatTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="bg-bg-elevated p-5 border border-[color:var(--ink-500)]">
-      <span className="tmc-eyebrow block mb-2">{label}</span>
-      <p className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-none tracking-[-0.02em] mb-1">
-        {value}
-      </p>
-      {hint && (
-        <p className="text-[11px] text-text-muted uppercase tracking-[0.14em]">
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (

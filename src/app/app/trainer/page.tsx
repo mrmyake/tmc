@@ -11,6 +11,7 @@ import {
   formatTimeRange,
 } from "@/lib/format-date";
 import { listVisibleAnnouncements } from "@/lib/announcements-query";
+import { StatTile } from "@/app/app/_components/StatTile";
 
 export const metadata = {
   title: "Trainer · Home | The Movement Club",
@@ -244,16 +245,19 @@ export default async function TrainerHomePage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-8">
         <StatTile
+          size="md"
           label="Vandaag"
           value={String(todaySessions.length)}
           hint={todaySessions.length === 1 ? "Sessie" : "Sessies"}
         />
         <StatTile
+          size="md"
           label="Deze week"
           value={`${weekSessionCount}`}
           hint={`${weekHoursApproved.toFixed(1)}u goedgekeurd`}
         />
         <StatTile
+          size="md"
           label="Uren deze maand"
           value={`${hoursMonthApproved.toFixed(1)}u`}
           hint={pendingHours > 0 ? `${pendingHours} nog te keuren` : "Goedgekeurd"}
@@ -349,29 +353,6 @@ export default async function TrainerHomePage() {
   );
 }
 
-function StatTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="bg-bg-elevated p-5 border border-[color:var(--ink-500)]">
-      <span className="tmc-eyebrow block mb-2">{label}</span>
-      <p className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-none tracking-[-0.02em] mb-1">
-        {value}
-      </p>
-      {hint && (
-        <p className="text-[11px] text-text-muted uppercase tracking-[0.14em]">
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function LastWeekHoursCTA({
   href,
