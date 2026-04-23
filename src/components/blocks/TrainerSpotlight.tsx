@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { PortableText } from "@portabletext/react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
@@ -66,11 +67,15 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
           {/* Portrait */}
           <ScrollReveal delay={0.15} className="order-1 lg:order-2">
             {hasImage ? (
-              <img
-                src={urlFor(trainer.photo!).width(600).height(800).url()}
-                alt={`Portret ${trainer.name}`}
-                className="w-full aspect-[3/4] object-cover"
-              />
+              <div className="relative w-full aspect-[3/4]">
+                <Image
+                  src={urlFor(trainer.photo!).width(600).height(800).url()}
+                  alt={`Portret ${trainer.name}`}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 600px"
+                  className="object-cover"
+                />
+              </div>
             ) : (
               <div className="aspect-[3/4] bg-bg-elevated flex items-center justify-center">
                 <span className="text-text-muted text-sm uppercase tracking-widest">

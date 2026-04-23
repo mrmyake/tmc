@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
@@ -35,10 +36,13 @@ export function Hero({ settings, heroImage }: HeroProps) {
   return (
     <section className="tmc-grain relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        <img
+        <Image
           src={urlFor(heroImage).width(2560).quality(80).url()}
           alt="The Movement Club studio"
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          sizes="100vw"
+          priority
+          className="object-cover"
         />
       ) : (
         <div className="absolute inset-0 bg-bg" />

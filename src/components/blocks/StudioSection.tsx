@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -19,11 +20,15 @@ export function StudioSection({ image }: StudioSectionProps) {
           <ScrollReveal>
             <div className="relative -mx-6 lg:mx-0 lg:ml-[-8vw]">
               {image?.asset ? (
-                <img
-                  src={urlFor(image).width(1200).height(900).quality(80).url()}
-                  alt="The Movement Club studio interieur"
-                  className="w-full aspect-[4/3] object-cover"
-                />
+                <div className="relative w-full aspect-[4/3]">
+                  <Image
+                    src={urlFor(image).width(1200).height(900).quality(80).url()}
+                    alt="The Movement Club studio interieur"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
                   <span className="tmc-eyebrow text-text-muted">

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
@@ -32,11 +33,13 @@ export function CrowdfundingHero({
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {heroImage?.asset ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={urlFor(heroImage).width(2560).quality(80).url()}
           alt="The Movement Club crowdfunding"
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          sizes="100vw"
+          priority
+          className="object-cover"
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-bg via-bg-elevated to-bg" />

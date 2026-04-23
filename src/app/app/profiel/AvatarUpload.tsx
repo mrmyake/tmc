@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState, useTransition } from "react";
 import { uploadAvatar, removeAvatar } from "@/lib/actions/profile";
 
@@ -41,11 +42,12 @@ export function AvatarUpload({ avatarUrl, initials }: Props) {
     <div className="flex flex-col sm:flex-row sm:items-center gap-8">
       <div className="relative w-28 h-28 overflow-hidden bg-bg flex items-center justify-center flex-shrink-0">
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={avatarUrl}
             alt="Profielfoto"
-            className="w-full h-full object-cover"
+            fill
+            sizes="112px"
+            className="object-cover"
           />
         ) : (
           <span className="font-[family-name:var(--font-playfair)] text-4xl text-accent leading-none">

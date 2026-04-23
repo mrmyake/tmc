@@ -36,7 +36,6 @@ export function AvatarBubble({
           fill
           sizes={`${size}px`}
           className="object-cover"
-          unoptimized
         />
       </span>
     );

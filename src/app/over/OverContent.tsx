@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -38,11 +39,15 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <ScrollReveal>
               {marlonImage?.asset ? (
-                <img
-                  src={urlFor(marlonImage).width(1200).height(900).quality(80).url()}
-                  alt={`${SITE.trainer.name} in de studio`}
-                  className="w-full aspect-[4/3] object-cover"
-                />
+                <div className="relative w-full aspect-[4/3]">
+                  <Image
+                    src={urlFor(marlonImage).width(1200).height(900).quality(80).url()}
+                    alt={`${SITE.trainer.name} in de studio`}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div className="aspect-[4/3] bg-bg-subtle flex items-center justify-center">
                   <span className="text-text-muted text-sm uppercase tracking-widest">
@@ -152,11 +157,15 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
             {gallery && gallery.length > 0
               ? gallery.map((img, i) => (
                   <ScrollReveal key={i} delay={i * 0.08}>
-                    <img
-                      src={urlFor(img).width(800).height(800).quality(80).url()}
-                      alt={img.caption || `Studio foto ${i + 1}`}
-                      className="w-full aspect-square object-cover"
-                    />
+                    <div className="relative w-full aspect-square">
+                      <Image
+                        src={urlFor(img).width(800).height(800).quality(80).url()}
+                        alt={img.caption || `Studio foto ${i + 1}`}
+                        fill
+                        sizes="(max-width: 768px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    </div>
                   </ScrollReveal>
                 ))
               : [
@@ -220,11 +229,15 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
             </ScrollReveal>
             <ScrollReveal delay={0.15}>
               {hormoonprofielImage?.asset ? (
-                <img
-                  src={urlFor(hormoonprofielImage).width(1200).height(900).quality(80).url()}
-                  alt="Hormoonprofiel - holistisch trainen"
-                  className="w-full aspect-[4/3] object-cover"
-                />
+                <div className="relative w-full aspect-[4/3]">
+                  <Image
+                    src={urlFor(hormoonprofielImage).width(1200).height(900).quality(80).url()}
+                    alt="Hormoonprofiel, holistisch trainen"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div className="aspect-[4/3] bg-bg-elevated flex items-center justify-center">
                   <span className="text-text-muted text-sm uppercase tracking-widest">
