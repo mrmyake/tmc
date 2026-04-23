@@ -38,6 +38,8 @@ export interface ParticipantRow {
    * zonder opt-in, ook als het lid iets heeft ingevuld.
    */
   injuryText: string | null;
+  rentalMat: boolean;
+  rentalTowel: boolean;
 }
 
 function parseInjuryText(raw: string | null): string | null {
@@ -159,6 +161,7 @@ export async function loadParticipants(
       .select(
         `
           id, profile_id, status, credits_used, membership_id, booked_at, attended_at,
+          rental_mat, rental_towel,
           profile:profiles(first_name, last_name, avatar_url, health_notes),
           membership:memberships(plan_type, plan_variant, credits_remaining)
         `,
@@ -227,6 +230,8 @@ export async function loadParticipants(
       attendedAt: b.attended_at,
       hasInjury: injuryText !== null,
       injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
+      rentalMat: Boolean(b.rental_mat),
+      rentalTowel: Boolean(b.rental_towel),
     };
   });
 
