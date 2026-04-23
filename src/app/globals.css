@@ -98,6 +98,17 @@ html { scroll-behavior: smooth; }
 .tmc-page-fade {
   animation: tmc-page-fade 0.4s ease-out both;
 }
+
+/* Subtiele tab-content transitie: fade + 4px slide. Vuurt opnieuw bij
+   elke remount van de tabpanel-node (Next router swapt de server-
+   component bij ?view-wijziging). */
+@keyframes tmc-tab-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-tab-in {
+  animation: tmc-tab-in 0.35s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
 /* Reveal on scroll via IntersectionObserver (see components/ui/ScrollReveal).
    Hidden until JS flips data-revealed; unobservable viewers (JS off) still
    see the content because the fallback state above flips to visible. */

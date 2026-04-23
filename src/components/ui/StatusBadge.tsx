@@ -3,6 +3,7 @@ export type SessionStatus =
   | "waitlisted"
   | "open"
   | "full"
+  | "ongoing"
   | "past"
   | "cancelled"
   | "attended"
@@ -74,6 +75,20 @@ export function StatusBadge({ status, spotsAvailable }: StatusBadgeProps) {
     return (
       <span className={`${base} text-[color:var(--stone-600)]`} aria-label="Vol">
         Vol
+      </span>
+    );
+  }
+  if (status === "ongoing") {
+    return (
+      <span
+        className={`${base} text-[color:var(--stone-600)]`}
+        aria-label="Loopt nu"
+      >
+        <span
+          aria-hidden
+          className="w-1.5 h-1.5 rounded-full bg-[color:var(--stone-600)] animate-pulse"
+        />
+        Loopt nu
       </span>
     );
   }

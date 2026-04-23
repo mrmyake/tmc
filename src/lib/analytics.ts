@@ -110,3 +110,27 @@ export const trackShare = (
     method,
   });
 };
+
+// ---- Member app ----
+
+export const trackScheduleDayView = (daysAhead: number) => {
+  trackEvent("schedule_day_view", {
+    event_category: "member_app",
+    days_ahead: daysAhead,
+  });
+};
+
+export const trackSchedulePaginateForward = (windowStart: string) => {
+  trackEvent("schedule_paginate_forward", {
+    event_category: "member_app",
+    event_label: windowStart,
+  });
+};
+
+export const trackMyBookingsTabSwitch = (tab: "upcoming" | "history") => {
+  trackEvent("my_bookings_tab_switch", {
+    event_category: "member_app",
+    event_label: tab,
+    tab,
+  });
+};

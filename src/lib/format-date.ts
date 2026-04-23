@@ -162,3 +162,85 @@ export function formatRelativeWhen(date: Date, now: Date = new Date()): string {
 export function durationMinutes(start: Date, end: Date): number {
   return Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
 }
+
+/** "2026-04-23" — yyyy-mm-dd volgens Amsterdam wall-clock. */
+export function isoDateAmsterdam(date: Date): string {
+  const p = amsterdamParts(date);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+/**
+ * Geeft yyyy-mm-dd voor "vandaag" in Amsterdam-tijdzone. Server wijst
+ * anders een andere datum toe wanneer er lokaal al wel middernacht is
+ * maar op Vercel (UTC) nog niet, of andersom rond DST-overgang.
+ */
+export function todayIsoAmsterdam(now: Date = new Date()): string {
+  return isoDateAmsterdam(now);
+}
+
+/**
+ * Parse een yyyy-mm-dd string (zoals van query-params) als
+ * Amsterdam-wall-clock midnight, teruggegeven als UTC-Date. Invalide
+ * input → null, zodat callers fall-back op "vandaag".
+ */
+export function parseIsoDateToAmsterdamMidnight(iso: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const mo = Number(match[2]);
+  const d = Number(match[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+    return null;
+  }
+  // Start met een UTC-midnight en verschuif naar Amsterdam-wall-clock
+  // midnight door het tijdzone-offset verschil te corrigeren. Dezelfde
+  // truc als in scripts/seed-test-data zodat DST niet fout gaat.
+  const utcGuess = Date.UTC(y, mo - 1, d, 0, 0);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcGuess));
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  const diffMinutes = 0 * 60 + 0 - (h * 60 + m);
+  return new Date(utcGuess + diffMinutes * 60_000);
+}
+
+/** Voegt N dagen toe aan een yyyy-mm-dd string, Amsterdam-veilig. */
+export function addDaysIsoAmsterdam(iso: string, days: number): string {
+  const base = parseIsoDateToAmsterdamMidnight(iso);
+  if (!base) return iso;
+  const shifted = new Date(base.getTime() + days * 86_400_000);
+  return isoDateAmsterdam(shifted);
+}
+
+/** True als de sessie al voorbij is (einde < nu). */
+export function isPast(endAt: Date, now: Date = new Date()): boolean {
+  return endAt.getTime() < now.getTime();
+}
+
+/** True als de sessie nu loopt (start <= nu < einde). */
+export function isOngoing(
+  startAt: Date,
+  endAt: Date,
+  now: Date = new Date(),
+): boolean {
+  const t = now.getTime();
+  return startAt.getTime() <= t && t < endAt.getTime();
+}
+
+/**
+ * True als annuleren binnen het venster kan. Window uit booking_settings
+ * (uren) — vrij trainen heeft een eigen, veel kortere minuten-regel die
+ * elders in booking-actions wordt afgehandeld.
+ */
+export function isCancellable(
+  startAt: Date,
+  windowHours: number,
+  now: Date = new Date(),
+): boolean {
+  const msUntil = startAt.getTime() - now.getTime();
+  return msUntil >= windowHours * 3_600_000;
+}
