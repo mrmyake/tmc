@@ -6,18 +6,25 @@ interface KeypadProps {
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
+  /** Maximaal aantal tekens. Default 10 (10-cijferige NL-phone). */
+  maxLength?: number;
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"] as const;
 
-export function Keypad({ value, onChange, disabled }: KeypadProps) {
+export function Keypad({
+  value,
+  onChange,
+  disabled,
+  maxLength = 10,
+}: KeypadProps) {
   function press(key: string) {
     if (disabled) return;
     if (key === "del") {
       onChange(value.slice(0, -1));
       return;
     }
-    if (value.length >= 12) return;
+    if (value.length >= maxLength) return;
     onChange(value + key);
   }
 

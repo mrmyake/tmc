@@ -61,15 +61,12 @@ export function CheckInTablet({ adminUnlocked }: Props) {
     const digits = input.replace(/[^0-9+]/g, "");
     if (selfState.kind !== "idle") return;
     // Disambiguate op eerste teken:
-    //   begint met 0 of + → phone (wacht op 10 of 12 tekens)
-    //   anders → member_code (6 cijfers)
-    // Hierdoor vuurt lookup niet vroegtijdig bij het typen van een
-    // telefoonnummer dat toevallig 6 cijfers lang is.
-    const startsWithPhonePrefix =
-      digits.startsWith("0") || digits.startsWith("+");
-    const shouldLookup = startsWithPhonePrefix
-      ? digits.length === 10 ||
-        (digits.startsWith("+31") && digits.length === 12)
+    //   begint met 0 → phone (wacht op 10 cijfers)
+    //   anders       → member_code (6 cijfers)
+    // Keypad zelf limiteert op 10 cijfers, geen +-prefix mogelijk.
+    const isPhoneInput = digits.startsWith("0");
+    const shouldLookup = isPhoneInput
+      ? digits.length === 10
       : digits.length === 6;
     if (!shouldLookup) return;
     setSelfState({ kind: "looking_up" });
@@ -91,7 +88,13 @@ export function CheckInTablet({ adminUnlocked }: Props) {
 
   function commitSelf(lookup: Extract<LookupResult, { ok: true }>) {
     const suggestion = lookup.suggestion;
-    if (suggestion.kind === "none") return;
+    // Geen commit voor states zonder check-in knop
+    if (
+      suggestion.kind === "none" ||
+      suggestion.kind === "already_checked_in"
+    ) {
+      return;
+    }
     setSelfState({ kind: "committing" });
     startTransition(async () => {
       const res: CheckInResult = await checkInByIdentifier({
@@ -172,6 +175,25 @@ export function CheckInTablet({ adminUnlocked }: Props) {
   );
 }
 
+/**
+ * Display-formatting voor invoer. Telefoon (begint met 0) toont als
+ * "06 12 34 56 78" zodat de user 'm makkelijker kan controleren.
+ * Member-code (6 cijfers) blijft 1 blok. State zelf is altijd de
+ * ongeformatteerde digit-string.
+ */
+function formatDisplay(raw: string): string {
+  if (!raw) return "";
+  if (raw.startsWith("0")) {
+    // 2-2-2-2-2 groups: "06", "12", "34", "56", "78"
+    const groups: string[] = [raw.slice(0, 2)];
+    for (let i = 2; i < raw.length; i += 2) {
+      groups.push(raw.slice(i, i + 2));
+    }
+    return groups.join(" ");
+  }
+  return raw;
+}
+
 function IdleView({
   input,
   onChange,
@@ -190,16 +212,17 @@ function IdleView({
         Welkom terug.
       </h1>
       <p className="text-text-muted text-sm md:text-base mb-6 text-center">
-        Tik je nummer of je 6-cijferige member-code.
+        Tik je telefoonnummer of je 6-cijferige member-code.
       </p>
       <div
         role="status"
         aria-live="polite"
+        aria-label={input ? `Ingevoerd: ${input}` : "Nog geen invoer"}
         className="h-20 md:h-24 flex items-center justify-center mb-8 font-[family-name:var(--font-playfair)] text-4xl md:text-6xl tabular-nums tracking-[0.04em] text-text min-w-[12ch]"
       >
-        {input || <span className="text-text-muted/30">—</span>}
+        {input ? formatDisplay(input) : <span className="text-text-muted/30">—</span>}
       </div>
-      <Keypad value={input} onChange={onChange} disabled={looking} />
+      <Keypad value={input} onChange={onChange} disabled={looking} maxLength={10} />
     </>
   );
 }
@@ -217,14 +240,24 @@ function PreviewView({
 }) {
   const { profile, suggestion } = lookup;
   const name = `${profile.firstName} ${profile.lastInitial}.`;
+  const isAlreadyCheckedIn = suggestion.kind === "already_checked_in";
+  const canCheckIn =
+    suggestion.kind === "session_today" || suggestion.kind === "vrij_trainen";
+
   return (
     <div className="w-full text-center">
       <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-        Gevonden
+        {isAlreadyCheckedIn ? "Al ingecheckt" : "Gevonden"}
       </span>
       <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em] mb-8">
         Hoi, {name}
       </h1>
+      {suggestion.kind === "already_checked_in" && (
+        <p className="text-text-muted text-lg md:text-xl mb-10">
+          Je bent vandaag al ingecheckt om{" "}
+          <span className="text-text">{suggestion.timeLabel}</span>.
+        </p>
+      )}
       {suggestion.kind === "session_today" && (
         <p className="text-text-muted text-lg md:text-xl mb-10">
           Check je in voor{" "}
@@ -244,7 +277,7 @@ function PreviewView({
         </p>
       )}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-        {suggestion.kind !== "none" && (
+        {canCheckIn && (
           <button
             type="button"
             onClick={onCheckIn}
@@ -259,7 +292,7 @@ function PreviewView({
           onClick={onCancel}
           className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors duration-300 px-4 py-3 cursor-pointer"
         >
-          Annuleren
+          {isAlreadyCheckedIn ? "Klaar" : "Annuleren"}
         </button>
       </div>
     </div>

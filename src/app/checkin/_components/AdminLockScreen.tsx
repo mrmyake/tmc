@@ -53,7 +53,12 @@ export function AdminLockScreen({ onUnlocked, onCancel }: Props) {
         >
           {pin ? "•".repeat(pin.length) : <span className="text-text-muted/30">—</span>}
         </div>
-        <Keypad value={pin} onChange={setPin} disabled={pending} />
+        <Keypad
+          value={pin}
+          onChange={setPin}
+          disabled={pending}
+          maxLength={6}
+        />
         <button
           type="button"
           onClick={attempt}

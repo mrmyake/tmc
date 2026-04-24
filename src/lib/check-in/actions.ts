@@ -102,6 +102,11 @@ export type LookupResult =
       };
       suggestion:
         | {
+            kind: "already_checked_in";
+            /** "07:42" — lokale Amsterdam-tijd van eerdere check-in vandaag. */
+            timeLabel: string;
+          }
+        | {
             kind: "session_today";
             sessionId: string;
             pillar: string;
@@ -143,11 +148,43 @@ export async function lookupByIdentifier(
   const settings = await readCheckInSettings();
   const pillarsEnabled = settings.check_in_pillars ?? [];
 
-  // Zoek booking voor vandaag, status booked
+  // Al ingecheckt vandaag? Toon preview-state A zodat user geen
+  // onnodige tap doet en zien dat 't al gebeurd is. Utc-day is OK
+  // omdat onze studio alleen overdag draait; grensgeval rond
+  // middernacht is zeldzaam en acceptable.
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart);
   todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
+  const { data: existingCheckIn } = await admin
+    .from("check_ins")
+    .select("checked_in_at")
+    .eq("profile_id", profile.id)
+    .gte("checked_in_at", todayStart.toISOString())
+    .order("checked_in_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingCheckIn) {
+    const timeLabel = new Intl.DateTimeFormat("nl-NL", {
+      timeZone: "Europe/Amsterdam",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(existingCheckIn.checked_in_at));
+    return {
+      ok: true,
+      profile: profileInfo,
+      suggestion: { kind: "already_checked_in", timeLabel },
+    };
+  }
+
+  // Booking voor vandaag — maar negeer sessies die meer dan 30 min
+  // geleden zijn begonnen (lid is te laat → fallback naar vrij-trainen
+  // of none, zodat de UX niet "check in voor yoga om 07:30" toont als
+  // 't al 08:05 is).
+  const cutoff = new Date(Date.now() - 30 * 60_000);
 
   type SessionJoin = {
     id: string;
@@ -162,7 +199,7 @@ export async function lookupByIdentifier(
     )
     .eq("profile_id", profile.id)
     .eq("status", "booked")
-    .gte("session.start_at", todayStart.toISOString())
+    .gte("session.start_at", cutoff.toISOString())
     .lt("session.start_at", todayEnd.toISOString())
     .order("session(start_at)", { ascending: true })
     .limit(1)
