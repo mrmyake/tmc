@@ -125,6 +125,7 @@ export default async function RoosterPage(props: {
     maxFutureResult,
     profileResult,
     nextBookingResult,
+    todayCheckInsResult,
   ] = await Promise.all([
     (() => {
       let q = supabase
@@ -212,6 +213,18 @@ export default async function RoosterPage(props: {
           } | null;
         }>
       >(),
+    // Eigen check-ins voor vandaag (Amsterdam-dag; ruim met UTC). Wordt
+    // per session-id gekoppeld voor "Ingecheckt HH:MM"-hints.
+    (() => {
+      const todayUtcStart = new Date();
+      todayUtcStart.setUTCHours(0, 0, 0, 0);
+      return supabase
+        .from("check_ins")
+        .select("session_id, checked_in_at")
+        .eq("profile_id", user.id)
+        .not("session_id", "is", null)
+        .gte("checked_in_at", todayUtcStart.toISOString());
+    })(),
   ]);
 
   if (sessionsResult.error) {
@@ -246,6 +259,21 @@ export default async function RoosterPage(props: {
   const cancellationWindowHours =
     settingsResult.data?.cancellation_window_hours ?? 6;
 
+  // Map van session_id → checked_in_at voor hint-rendering op vandaag.
+  const checkInBySession = new Map<string, string>();
+  for (const ci of todayCheckInsResult.data ?? []) {
+    if (ci.session_id && ci.checked_in_at) {
+      checkInBySession.set(ci.session_id, ci.checked_in_at);
+    }
+  }
+  const todayIsoForHint = isoDateAmsterdam(now);
+  const amsterdamTime = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: "Europe/Amsterdam",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+
   const enriched = sessions.map((s) => {
     const booking = bookingsBySession.get(s.id);
     const waitlisted = waitlistedSessions.has(s.id);
@@ -261,6 +289,21 @@ export default async function RoosterPage(props: {
     else if (s.status !== "scheduled") status = "cancelled";
     else status = "open";
 
+    // Check-in hint: alleen tonen op sessies van vandaag waarvoor de
+    // user geboekt heeft (of al ingecheckt is). Andere dagen niet
+    // relevant — tablet-hint zou verwarren.
+    const sessionIso = isoDateAmsterdam(start);
+    const isToday = sessionIso === todayIsoForHint;
+    const checkedInAt = checkInBySession.get(s.id);
+    let checkInHint: string | null = null;
+    let checkedIn = false;
+    if (checkedInAt) {
+      checkInHint = `Ingecheckt ${amsterdamTime.format(new Date(checkedInAt))}`;
+      checkedIn = true;
+    } else if (isToday && booking && status === "booked") {
+      checkInHint = "Check in bij de tablet";
+    }
+
     return {
       id: s.id,
       startAt: s.start_at,
@@ -273,7 +316,9 @@ export default async function RoosterPage(props: {
       bookedCount,
       status,
       bookingId: booking?.id ?? null,
-      isoDate: isoDateAmsterdam(start),
+      isoDate: sessionIso,
+      checkInHint,
+      checkedIn,
     };
   });
 
@@ -398,6 +443,8 @@ export default async function RoosterPage(props: {
           bookedCount: s.bookedCount,
           status: s.status,
           bookingId: s.bookingId,
+          checkInHint: s.checkInHint,
+          checkedIn: s.checkedIn,
         }))}
         cancellationWindowHours={cancellationWindowHours}
       />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { isoDateAmsterdam } from "@/lib/format-date";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import {
   BoekingenTabs,
@@ -72,8 +73,13 @@ export default async function BoekingenPage(props: {
 
   const nowIso = new Date().toISOString();
 
-  const [settingsResult, upcomingResult, historyResult, historyCountResult] =
-    await Promise.all([
+  const [
+    settingsResult,
+    upcomingResult,
+    historyResult,
+    historyCountResult,
+    todayCheckInsResult,
+  ] = await Promise.all([
       supabase
         .from("booking_settings")
         .select("cancellation_window_hours")
@@ -129,27 +135,74 @@ export default async function BoekingenPage(props: {
             .eq("profile_id", user.id)
             .lt("class_sessions.start_at", nowIso)
         : Promise.resolve({ data: null, error: null, count: 0 }),
+      // Vandaag's check-ins (per session) voor hint-rendering op
+      // UpcomingRow. Alleen relevant voor de komend-tab.
+      view === "komend"
+        ? (() => {
+            const startUtc = new Date();
+            startUtc.setUTCHours(0, 0, 0, 0);
+            return supabase
+              .from("check_ins")
+              .select("session_id, checked_in_at")
+              .eq("profile_id", user.id)
+              .not("session_id", "is", null)
+              .gte("checked_in_at", startUtc.toISOString());
+          })()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   logIfError("settings", settingsResult.error);
   logIfError("upcoming", upcomingResult.error);
   logIfError("history", historyResult.error);
   logIfError("history count", historyCountResult.error);
+  logIfError("today check-ins", todayCheckInsResult.error);
 
   const cancellationWindowHours =
     settingsResult.data?.cancellation_window_hours ?? 6;
 
+  const checkInBySession = new Map<string, string>();
+  for (const ci of todayCheckInsResult.data ?? []) {
+    if (ci.session_id && ci.checked_in_at) {
+      checkInBySession.set(ci.session_id, ci.checked_in_at);
+    }
+  }
+  const todayIsoForHint = isoDateAmsterdam(new Date());
+  const amsterdamTime = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: "Europe/Amsterdam",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+
   const upcomingRows =
     (upcomingResult.data ?? [])
       .filter((b) => b.session)
-      .map((b) => ({
-        bookingId: b.id,
-        startAt: b.session!.start_at,
-        endAt: b.session!.end_at,
-        className: b.session!.class_type?.name ?? "Sessie",
-        trainerName: b.session!.trainer?.display_name ?? "coach",
-        status: b.status === "waitlisted" ? ("waitlisted" as const) : ("booked" as const),
-      }));
+      .map((b) => {
+        const start = new Date(b.session!.start_at);
+        const sessionIso = isoDateAmsterdam(start);
+        const isToday = sessionIso === todayIsoForHint;
+        const status =
+          b.status === "waitlisted" ? ("waitlisted" as const) : ("booked" as const);
+        const checkedInAt = checkInBySession.get(b.session!.id);
+        let checkInHint: string | null = null;
+        let checkedIn = false;
+        if (checkedInAt) {
+          checkInHint = `Ingecheckt ${amsterdamTime.format(new Date(checkedInAt))}`;
+          checkedIn = true;
+        } else if (isToday && status === "booked") {
+          checkInHint = "Check in bij de tablet";
+        }
+        return {
+          bookingId: b.id,
+          startAt: b.session!.start_at,
+          endAt: b.session!.end_at,
+          className: b.session!.class_type?.name ?? "Sessie",
+          trainerName: b.session!.trainer?.display_name ?? "coach",
+          status,
+          checkInHint,
+          checkedIn,
+        };
+      });
 
   const historyRows =
     (historyResult.data ?? [])

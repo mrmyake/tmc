@@ -15,6 +15,9 @@ export interface SessionRowData {
   bookedCount: number;
   status: SessionStatus;
   bookingId: string | null;
+  /** "Ingecheckt 09:14" (post-check-in) of "Check in bij de tablet" (pre). */
+  checkInHint?: string | null;
+  checkedIn?: boolean;
 }
 
 interface SessionRowProps {
@@ -63,6 +66,17 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
           met {session.trainerName} ·{" "}
           {durationMinutes(session.startAt, session.endAt)} min
         </span>
+        {session.checkInHint && (
+          <span
+            className={`text-[11px] font-medium uppercase tracking-[0.14em] ${
+              session.checkedIn
+                ? "text-[color:var(--success)]"
+                : "text-accent"
+            }`}
+          >
+            {session.checkInHint}
+          </span>
+        )}
       </span>
       <StatusBadge
         status={session.status}

@@ -9,6 +9,7 @@ import {
   todayIsoAmsterdam,
 } from "@/lib/format-date";
 import { DayPassStrip, type DayPassDay } from "./_components/DayPassStrip";
+import { CheckInHistory } from "./_components/CheckInHistory";
 
 export const metadata = {
   title: "Vrij trainen | The Movement Club",
@@ -33,6 +34,15 @@ function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
   return { isoWeek, isoYear: target.getUTCFullYear() };
 }
 
+/** Monday 00:00 UTC van de ISO-week waarin `ref` valt. */
+function weekStartUtc(ref: Date): Date {
+  const d = new Date(ref);
+  d.setUTCHours(0, 0, 0, 0);
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() - (day - 1));
+  return d;
+}
+
 type SessionRow = {
   id: string;
   start_at: string;
@@ -47,6 +57,11 @@ type MembershipRow = {
   covered_pillars: string[];
 };
 
+type CheckInRow = {
+  id: string;
+  checked_in_at: string;
+};
+
 export default async function VrijTrainenPage() {
   const supabase = await createClient();
   const {
@@ -54,6 +69,158 @@ export default async function VrijTrainenPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Bepaal of check-in-modus aan staat voor vrij trainen. Zo ja → pure
+  // check-in UI (geen boeking). Zo nee → fase-1 boeking-based strip.
+  const { data: checkInSettings } = await supabase
+    .from("booking_settings")
+    .select("check_in_enabled, check_in_pillars")
+    .eq("id", "singleton")
+    .maybeSingle();
+
+  const checkInMode =
+    (checkInSettings?.check_in_enabled ?? true) &&
+    (checkInSettings?.check_in_pillars ?? []).includes(VRIJ_TRAINEN);
+
+  // Membership bepaalt eligibility in beide modi.
+  const { data: membership } = await supabase
+    .from("memberships")
+    .select("plan_variant, status, frequency_cap, covered_pillars")
+    .eq("profile_id", user.id)
+    .in("status", ["active", "paused"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<MembershipRow>();
+
+  const covers = membership?.covered_pillars?.includes(VRIJ_TRAINEN) ?? false;
+  if (!covers) {
+    return <NotEligibleView hasMembership={Boolean(membership)} />;
+  }
+
+  const isPaused = membership?.status === "paused";
+  const cap = membership?.frequency_cap ?? null;
+
+  if (checkInMode) {
+    return (
+      <CheckInView
+        userId={user.id}
+        cap={cap}
+        isPaused={isPaused}
+      />
+    );
+  }
+
+  return (
+    <BookingView
+      userId={user.id}
+      cap={cap}
+      isPaused={isPaused}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Check-in modus: pure aanwezigheids-flow, geen boeken vooraf
+// ---------------------------------------------------------------------------
+
+async function CheckInView({
+  userId,
+  cap,
+  isPaused,
+}: {
+  userId: string;
+  cap: number | null;
+  isPaused: boolean;
+}) {
+  const supabase = await createClient();
+  const now = new Date();
+  const weekStart = weekStartUtc(now);
+
+  const [weekCountResult, recentResult] = await Promise.all([
+    supabase
+      .from("check_ins")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", userId)
+      .eq("pillar", VRIJ_TRAINEN)
+      .gte("checked_in_at", weekStart.toISOString()),
+    supabase
+      .from("check_ins")
+      .select("id, checked_in_at")
+      .eq("profile_id", userId)
+      .eq("pillar", VRIJ_TRAINEN)
+      .order("checked_in_at", { ascending: false })
+      .limit(5)
+      .returns<CheckInRow[]>(),
+  ]);
+
+  const weekUsed = weekCountResult.count ?? 0;
+  const capReached = cap !== null && weekUsed >= cap;
+  const recent = recentResult.data ?? [];
+
+  return (
+    <Container className="py-16 md:py-20 max-w-3xl">
+      <header className="mb-12">
+        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+          Open studio
+        </span>
+        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em] mb-6">
+          Vrij trainen.
+        </h1>
+        <p className="text-text-muted text-lg leading-relaxed max-w-xl">
+          Kom wanneer je wil tussen 06:00 en 22:00. Tik bij binnenkomst je
+          nummer op de tablet, dan staat de check-in direct geregistreerd.
+        </p>
+      </header>
+
+      {cap !== null && !isPaused && (
+        <div className="mb-10 pb-6 border-b border-[color:var(--ink-500)]/60">
+          <span className="tmc-eyebrow block mb-2">Deze week</span>
+          <p className="font-[family-name:var(--font-playfair)] text-3xl text-text leading-none tracking-[-0.02em]">
+            {weekUsed}{" "}
+            <span className="text-text-muted">
+              van {cap} ingecheckt
+            </span>
+          </p>
+          {capReached && (
+            <p className="mt-3 text-[color:var(--warning)] text-sm">
+              Je weekcap is bereikt. Volgende week weer.
+            </p>
+          )}
+        </div>
+      )}
+
+      {isPaused && (
+        <div
+          role="status"
+          className="mb-10 p-5 border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/5"
+        >
+          <span className="tmc-eyebrow block mb-2">Abonnement gepauzeerd</span>
+          <p className="text-text-muted text-sm leading-relaxed">
+            Zolang je pauze loopt tellen check-ins niet mee. Als je het abbo
+            hervat staat je plek weer open.
+          </p>
+        </div>
+      )}
+
+      <CheckInHistory items={recent} />
+    </Container>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Booking modus (fase-1 gedrag, wanneer check_in_pillars 'vrij_trainen' niet
+// bevat). Laten staan voor graceful fallback of toggle-off.
+// ---------------------------------------------------------------------------
+
+async function BookingView({
+  userId,
+  cap,
+  isPaused,
+}: {
+  userId: string;
+  cap: number | null;
+  isPaused: boolean;
+}) {
+  const supabase = await createClient();
   const now = new Date();
   const todayIso = todayIsoAmsterdam(now);
   const windowStart = parseIsoDateToAmsterdamMidnight(todayIso)!;
@@ -65,7 +232,6 @@ export default async function VrijTrainenPage() {
   const [
     sessionsResult,
     bookingsResult,
-    membershipResult,
     weekCountResult,
     settingsResult,
   ] = await Promise.all([
@@ -80,23 +246,15 @@ export default async function VrijTrainenPage() {
     supabase
       .from("bookings")
       .select("id, session_id, status")
-      .eq("profile_id", user.id)
+      .eq("profile_id", userId)
       .eq("pillar", VRIJ_TRAINEN)
       .eq("status", "booked")
       .gte("session_date", todayIso)
       .lt("session_date", addDaysIsoAmsterdam(todayIso, WINDOW_DAYS)),
     supabase
-      .from("memberships")
-      .select("plan_variant, status, frequency_cap, covered_pillars")
-      .eq("profile_id", user.id)
-      .in("status", ["active", "paused"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<MembershipRow>(),
-    supabase
       .from("bookings")
       .select("id", { count: "exact", head: true })
-      .eq("profile_id", user.id)
+      .eq("profile_id", userId)
       .eq("status", "booked")
       .eq("pillar", VRIJ_TRAINEN)
       .eq("iso_week", isoWeek)
@@ -108,24 +266,11 @@ export default async function VrijTrainenPage() {
       .maybeSingle(),
   ]);
 
-  const membership = membershipResult.data;
-  const covers =
-    membership?.covered_pillars?.includes(VRIJ_TRAINEN) ?? false;
-  const isEligible = covers;
-  const isPaused = isEligible && membership?.status === "paused";
-  const cap = membership?.frequency_cap ?? null;
   const weekUsed = weekCountResult.count ?? 0;
   const capReached = cap !== null && weekUsed >= cap;
-
-  // Niet-eligible → standalone no-access render
-  if (!isEligible) {
-    return <NotEligibleView hasMembership={Boolean(membership)} />;
-  }
-
   const cancelWindowMinutes =
     settingsResult.data?.vrij_trainen_cancel_window_minutes ?? 5;
 
-  // Bookings keyen op session_id zodat we per tile weten of 'ie geboekt is
   const bookingsBySession = new Map<string, string>();
   for (const b of bookingsResult.data ?? []) {
     bookingsBySession.set(b.session_id, b.id);
@@ -136,13 +281,10 @@ export default async function VrijTrainenPage() {
     sessionsByDate.set(iso, s);
   }
 
-  // Build 7 days, ongeacht of er een sessie bestaat — cron genereert ze
-  // automatisch, maar defensive anyway.
   const days: DayPassDay[] = Array.from({ length: WINDOW_DAYS }, (_, i) => {
     const iso = addDaysIsoAmsterdam(todayIso, i);
     const session = sessionsByDate.get(iso);
     if (!session) {
-      // Geen sessie — skip zou netter zijn, maar tile placeholder houdt layout stabiel
       const d = parseIsoDateToAmsterdamMidnight(iso)!;
       return {
         isoDate: iso,

@@ -16,6 +16,8 @@ interface SerializedSession {
   bookedCount: number;
   status: SessionRowData["status"];
   bookingId: string | null;
+  checkInHint: string | null;
+  checkedIn: boolean;
 }
 
 interface SessionListProps {
@@ -84,6 +86,8 @@ export function SessionList({
               bookedCount: s.bookedCount,
               status: s.status,
               bookingId: s.bookingId,
+              checkInHint: s.checkInHint,
+              checkedIn: s.checkedIn,
             }}
             onOpen={(session) => setOpenSessionId(session.id)}
           />

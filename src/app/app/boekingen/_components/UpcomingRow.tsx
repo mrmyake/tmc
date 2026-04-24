@@ -18,6 +18,9 @@ export interface UpcomingRowData {
   className: string;
   trainerName: string;
   status: "booked" | "waitlisted";
+  /** "Ingecheckt 09:14" (past) of "Check in bij de tablet" (future today). */
+  checkInHint?: string | null;
+  checkedIn?: boolean;
 }
 
 interface UpcomingRowProps {
@@ -71,6 +74,17 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent">
           {formatRelativeWhen(start)}
         </p>
+        {row.checkInHint && (
+          <p
+            className={`text-[11px] font-medium uppercase tracking-[0.18em] ${
+              row.checkedIn
+                ? "text-[color:var(--success)]"
+                : "text-accent"
+            }`}
+          >
+            {row.checkInHint}
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-[color:var(--danger)] text-xs mt-2">
             {error}
