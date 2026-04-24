@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
 import {
@@ -9,6 +10,30 @@ import {
 } from "@/lib/structuredData";
 import { getSiteSettings, getSiteImages } from "../../sanity/lib/fetch";
 import { urlFor } from "../../sanity/lib/client";
+
+const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
+
+/**
+ * Consent Mode v2 defaults — MOET geïnjecteerd worden vóór gtag.js
+ * loadt. Inline in <head> zodat dataLayer bestaat voordat
+ * GoogleAnalytics component gtag.js fetched. Bij eerste page-load:
+ * alle storage = denied, gtag stuurt cookieless pings. Bij accept
+ * flipt CookieConsent dit via `gtag("consent", "update", granted)`.
+ */
+const CONSENT_DEFAULTS_SCRIPT = `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+var stored = null;
+try { stored = localStorage.getItem("tmc_cookie_consent"); } catch(e) {}
+var state = stored === "granted" ? "granted" : "denied";
+gtag("consent", "default", {
+  analytics_storage: state,
+  ad_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+  wait_for_update: 500
+});
+`.trim();
 
 export const revalidate = 60;
 
@@ -97,6 +122,14 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${inter.variable} antialiased`}
     >
       <head>
+        {/* Consent Mode v2 defaults. MUST be inline in <head> before
+            gtag.js, zodat default-consent is gezet voordat er events
+            worden gequeued. Leest optioneel localStorage zodat
+            returning visitors met eerdere "granted" meteen granted
+            beginnen. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: CONSENT_DEFAULTS_SCRIPT }}
+        />
         {/* Connect early to de Sanity-CDN voor de LCP image. next/font
             self-host de .woff2, die komen dus vanaf onze eigen origin
             (geen preconnect nodig). */}
@@ -120,6 +153,10 @@ export default async function RootLayout({
           }}
         />
         <SiteShell settings={settings}>{children}</SiteShell>
+        {/* gtag.js altijd geladen, respecteert consent-default state
+            die hierboven is ingesteld. Cookieless pings werken bij
+            denied; pageviews + events vuren na update-granted. */}
+        <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
         {/* Vercel Speed Insights — only ships the collector script in
             production (no-op on localhost + preview deployments without
             the project linked in the Vercel dashboard). */}

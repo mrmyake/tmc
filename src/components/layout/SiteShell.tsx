@@ -6,7 +6,6 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
 import { FooterCTA } from "@/components/blocks/FooterCTA";
-import { Analytics } from "./Analytics";
 import { UtmTracker } from "./UtmTracker";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
@@ -51,7 +50,6 @@ export function SiteShell({ children, settings }: SiteShellProps) {
       <FooterCTA />
       <Footer settings={settings} />
       <LeadMagnetBanner />
-      <Analytics />
       <CookieConsent />
       <UtmTracker />
     </>
