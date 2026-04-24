@@ -6,6 +6,7 @@ import {
   Calendar,
   ClipboardList,
   CreditCard,
+  DoorOpen,
   UserCircle,
 } from "lucide-react";
 import { AvatarDropdown, type Role } from "./AvatarDropdown";
@@ -13,12 +14,14 @@ import { AvatarDropdown, type Role } from "./AvatarDropdown";
 interface NavItem {
   href: string;
   label: string;
+  /** Kortere label voor mobiele bottom-tab bar — 5 items in 4 grid-cols krap. */
+  labelMobile?: string;
   icon: typeof Calendar;
   /** Pathname-prefixes die deze item als actief markeren. */
   matchPrefixes: string[];
 }
 
-const ITEMS: NavItem[] = [
+const BASE_ITEMS: NavItem[] = [
   {
     href: "/app/rooster",
     label: "Rooster",
@@ -28,12 +31,14 @@ const ITEMS: NavItem[] = [
   {
     href: "/app/boekingen",
     label: "Mijn lessen",
+    labelMobile: "Lessen",
     icon: ClipboardList,
     matchPrefixes: ["/app/boekingen"],
   },
   {
     href: "/app/abonnement",
     label: "Lidmaatschap",
+    labelMobile: "Abbo",
     icon: CreditCard,
     matchPrefixes: ["/app/abonnement", "/app/facturen"],
   },
@@ -45,9 +50,18 @@ const ITEMS: NavItem[] = [
   },
 ];
 
+const VRIJ_TRAINEN_ITEM: NavItem = {
+  href: "/app/vrij-trainen",
+  label: "Vrij trainen",
+  labelMobile: "Vrij",
+  icon: DoorOpen,
+  matchPrefixes: ["/app/vrij-trainen"],
+};
+
 interface MemberNavProps {
   firstName: string;
   role: Role;
+  eligibleForVrijTrainen: boolean;
 }
 
 function isItemActive(pathname: string, item: NavItem): boolean {
@@ -62,8 +76,19 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   );
 }
 
-export function MemberNav({ firstName, role }: MemberNavProps) {
+export function MemberNav({
+  firstName,
+  role,
+  eligibleForVrijTrainen,
+}: MemberNavProps) {
   const pathname = usePathname();
+  // Vrij trainen tussen Rooster en Mijn lessen — logisch volgorde qua
+  // "booking surface". Alleen tonen als de user's plan 'vrij_trainen'
+  // covert zodat we niet-eligible members niet verleiden tot klikken.
+  const items: NavItem[] = eligibleForVrijTrainen
+    ? [BASE_ITEMS[0], VRIJ_TRAINEN_ITEM, ...BASE_ITEMS.slice(1)]
+    : BASE_ITEMS;
+  const mobileGridCols = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
 
   return (
     <>
@@ -82,7 +107,7 @@ export function MemberNav({ firstName, role }: MemberNavProps) {
               aria-label="Hoofdnavigatie"
               className="flex items-center gap-1"
             >
-              {ITEMS.map((item) => {
+              {items.map((item) => {
                 const active = isItemActive(pathname, item);
                 return (
                   <Link
@@ -115,8 +140,8 @@ export function MemberNav({ firstName, role }: MemberNavProps) {
         aria-label="Hoofdnavigatie"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg/95 backdrop-blur-sm border-t border-[color:var(--ink-500)]/60 safe-bottom"
       >
-        <ul className="grid grid-cols-4">
-          {ITEMS.map((item) => {
+        <ul className={`grid ${mobileGridCols}`}>
+          {items.map((item) => {
             const Icon = item.icon;
             const active = isItemActive(pathname, item);
             return (
@@ -128,12 +153,8 @@ export function MemberNav({ firstName, role }: MemberNavProps) {
                     active ? "text-accent" : "text-text-muted"
                   }`}
                 >
-                  <Icon
-                    size={18}
-                    strokeWidth={1.5}
-                    aria-hidden
-                  />
-                  {item.label}
+                  <Icon size={18} strokeWidth={1.5} aria-hidden />
+                  {item.labelMobile ?? item.label}
                 </Link>
               </li>
             );

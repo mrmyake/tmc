@@ -15,10 +15,6 @@ import {
 import { FilterChips } from "./_components/FilterChips";
 import { SessionList } from "./_components/SessionList";
 import { DayStrip, type DayStripDay } from "./_components/DayStrip";
-import {
-  OpenStudioStrip,
-  type OpenStudioDay,
-} from "./_components/OpenStudioStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
 import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
@@ -145,6 +141,9 @@ export default async function RoosterPage(props: {
             trainer:trainers(display_name, bio)
           `,
         )
+        // Vrij trainen heeft een eigen pagina (/app/vrij-trainen). Hier
+        // alleen tijdslot-sessies.
+        .neq("pillar", "vrij_trainen")
         .gte("start_at", windowStart.toISOString())
         .lt("start_at", windowEnd.toISOString())
         .order("start_at", { ascending: true });
@@ -278,49 +277,10 @@ export default async function RoosterPage(props: {
     };
   });
 
-  // Splits vrij-trainen dag-sessies van reguliere groepslessen — de
-  // eerste renderen als horizontale strip, de tweede als geselecteerde
-  // dag-agenda onder de DayStrip.
-  const vrijTrainenByDate = new Map<string, (typeof enriched)[number]>();
-  const regularEnriched = [] as typeof enriched;
-  for (const s of enriched) {
-    if (s.pillar === "vrij_trainen") {
-      vrijTrainenByDate.set(s.isoDate, s);
-    } else {
-      regularEnriched.push(s);
-    }
-  }
-
-  const openStudioDays: OpenStudioDay[] = Array.from(
-    { length: WINDOW_DAYS },
-    (_, i) => {
-      const iso = addDaysIsoAmsterdam(fromIso, i);
-      const match = vrijTrainenByDate.get(iso);
-      if (!match) {
-        const d = parseIsoDateToAmsterdamMidnight(iso)!;
-        return {
-          isoDate: iso,
-          sessionId: "",
-          startAt: d.toISOString(),
-          state: "past" as const,
-          bookingId: null,
-        };
-      }
-      const state: "open" | "booked" | "past" =
-        match.status === "past" || match.status === "ongoing"
-          ? "past"
-          : match.status === "booked"
-            ? "booked"
-            : "open";
-      return {
-        isoDate: iso,
-        sessionId: match.id,
-        startAt: match.startAt,
-        state,
-        bookingId: match.bookingId,
-      };
-    },
-  ).filter((day) => day.sessionId !== "");
+  // Vrij trainen wordt hier niet meer getoond — eigen pagina op
+  // /app/vrij-trainen. De query boven filtert al op pillar ≠
+  // vrij_trainen, dus enriched bevat alleen groepslessen.
+  const regularEnriched = enriched;
 
   // DayStrip tellers per dag.
   const dayCounts = new Map<
@@ -418,8 +378,6 @@ export default async function RoosterPage(props: {
         pillarFilter={pillarFilter}
         nextHref={nextHref}
       />
-
-      {openStudioDays.length > 0 && <OpenStudioStrip days={openStudioDays} />}
 
       <div className="mb-12">
         <FilterChips

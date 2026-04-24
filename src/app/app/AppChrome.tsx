@@ -18,10 +18,16 @@ import type { Role } from "@/components/nav/AvatarDropdown";
 interface AppChromeProps {
   firstName: string;
   role: Role;
+  eligibleForVrijTrainen: boolean;
   children: React.ReactNode;
 }
 
-export function AppChrome({ firstName, role, children }: AppChromeProps) {
+export function AppChrome({
+  firstName,
+  role,
+  eligibleForVrijTrainen,
+  children,
+}: AppChromeProps) {
   const pathname = usePathname();
 
   if (pathname.startsWith("/app/admin")) {
@@ -35,7 +41,11 @@ export function AppChrome({ firstName, role, children }: AppChromeProps) {
       {isTrainer ? (
         <TrainerNav firstName={firstName} role={role} />
       ) : (
-        <MemberNav firstName={firstName} role={role} />
+        <MemberNav
+          firstName={firstName}
+          role={role}
+          eligibleForVrijTrainen={eligibleForVrijTrainen}
+        />
       )}
       <main className="flex-1 pb-20 md:pb-0">{children}</main>
     </div>

@@ -45,7 +45,7 @@ const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const REDIRECT = `${siteUrl}/auth/callback?next=/app`;
+const REDIRECT = `${siteUrl}/auth/callback/implicit?next=/app`;
 
 // ---------- Dummy definitie -------------------------------------------------
 

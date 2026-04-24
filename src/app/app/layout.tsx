@@ -27,18 +27,36 @@ export default async function AppLayout({
   // Self-heal ontbrekende profile-rij
   await ensureProfile(user);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [profileRes, membershipRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("first_name, role")
+      .eq("id", user.id)
+      .maybeSingle(),
+    // Membership in active/paused met covered_pillars — bepaalt of de
+    // "Vrij trainen" nav-entry voor deze user zichtbaar moet zijn.
+    supabase
+      .from("memberships")
+      .select("covered_pillars")
+      .eq("profile_id", user.id)
+      .in("status", ["active", "paused"])
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
+  const profile = profileRes.data;
   const firstName =
     profile?.first_name?.trim() || user.email?.split("@")[0] || "Member";
   const role: Role = (profile?.role as Role) ?? "member";
+  const eligibleForVrijTrainen =
+    membershipRes.data?.covered_pillars?.includes("vrij_trainen") ?? false;
 
   return (
-    <AppChrome firstName={firstName} role={role}>
+    <AppChrome
+      firstName={firstName}
+      role={role}
+      eligibleForVrijTrainen={eligibleForVrijTrainen}
+    >
       {children}
     </AppChrome>
   );
