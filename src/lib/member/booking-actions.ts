@@ -133,7 +133,21 @@ async function sendBookingCancelledEmail(args: {
 
 export type BookingActionResult =
   | { ok: true; action: "booked" | "waitlisted" | "cancelled"; message: string }
-  | { ok: false; message: string };
+  | {
+      ok: false;
+      message: string;
+      /**
+       * Gezet wanneer de user over de weekly cap zou gaan op een pillar met
+       * check-in aan. Client kan dit als "soft warning" gebruiken: dialoog
+       * tonen met combined/cap + knop "Toch boeken" die createBooking
+       * opnieuw aanroept met `acknowledgeOverCap: true`.
+       */
+      needsConfirmation?: {
+        kind: "weekly_cap_combined";
+        combined: number;
+        cap: number;
+      };
+    };
 
 function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
   const target = new Date(
@@ -151,6 +165,12 @@ function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
 export interface CreateBookingOptions {
   /** Optional yoga/mobility-only rentals. Ignored on other pillars. */
   rentals?: { mat?: boolean; towel?: boolean };
+  /**
+   * Lid heeft de "je zit over je weekcap" dialoog bevestigd. Vallen we in
+   * de soft-warning pad terug, dan slaan we die deze keer over en committen
+   * we direct.
+   */
+  acknowledgeOverCap?: boolean;
 }
 
 export async function createBooking(
@@ -193,7 +213,7 @@ export async function createBooking(
     supabase
       .from("booking_settings")
       .select(
-        "booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, cancellation_window_hours",
+        "booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, cancellation_window_hours, check_in_enabled, check_in_pillars",
       )
       .limit(1)
       .maybeSingle(),
@@ -226,7 +246,14 @@ export async function createBooking(
     no_show_strike_threshold: 3,
     no_show_block_days: 7,
     cancellation_window_hours: 6,
+    check_in_enabled: true,
+    check_in_pillars: ["yoga_mobility", "kettlebell", "vrij_trainen"],
   };
+
+  const checkInEnabledForPillar =
+    Boolean(settings.check_in_enabled) &&
+    Array.isArray(settings.check_in_pillars) &&
+    settings.check_in_pillars.includes(session.pillar);
 
   const sessionStart = new Date(session.start_at);
   const dayStart = new Date(sessionStart);
@@ -235,28 +262,51 @@ export async function createBooking(
   dayEnd.setDate(dayEnd.getDate() + 1);
   const sessionIso = getIsoWeekYear(sessionStart);
 
-  const [bookedCountResult, sameDayCountResult, pillarWeekCountResult] =
-    await Promise.all([
-      supabase
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("session_id", sessionId)
-        .eq("status", "booked"),
-      supabase
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", user.id)
-        .eq("status", "booked")
-        .eq("session_date", dayStart.toISOString().slice(0, 10)),
-      supabase
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", user.id)
-        .eq("status", "booked")
-        .eq("pillar", session.pillar)
-        .eq("iso_week", sessionIso.isoWeek)
-        .eq("iso_year", sessionIso.isoYear),
-    ]);
+  // Voor de check-ins count hebben we een datum-range nodig (ISO-week
+  // bestaat niet als kolom op check_ins). Maandag 00:00 UTC → volgende
+  // maandag 00:00 UTC van de week waarin de sessie valt.
+  const weekStart = new Date(sessionStart);
+  weekStart.setUTCHours(0, 0, 0, 0);
+  const weekDow = weekStart.getUTCDay() || 7;
+  weekStart.setUTCDate(weekStart.getUTCDate() - (weekDow - 1));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
+  const [
+    bookedCountResult,
+    sameDayCountResult,
+    pillarWeekCountResult,
+    checkInWeekCountResult,
+  ] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .eq("status", "booked"),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", user.id)
+      .eq("status", "booked")
+      .eq("session_date", dayStart.toISOString().slice(0, 10)),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", user.id)
+      .eq("status", "booked")
+      .eq("pillar", session.pillar)
+      .eq("iso_week", sessionIso.isoWeek)
+      .eq("iso_year", sessionIso.isoYear),
+    checkInEnabledForPillar
+      ? supabase
+          .from("check_ins")
+          .select("id", { count: "exact", head: true })
+          .eq("profile_id", user.id)
+          .eq("pillar", session.pillar)
+          .gte("checked_in_at", weekStart.toISOString())
+          .lt("checked_in_at", weekEnd.toISOString())
+      : Promise.resolve({ count: 0, error: null, data: null }),
+  ]);
 
   const strikeCount = strikesResult.data?.strike_count ?? 0;
   const strikeBlockUntil =
@@ -289,9 +339,11 @@ export async function createBooking(
       bookedCountThisSession: bookedCountResult.count ?? 0,
       bookingsSameDay: sameDayCountResult.count ?? 0,
       bookingsSamePillarThisWeek: pillarWeekCountResult.count ?? 0,
+      checkInsSamePillarThisWeek: checkInWeekCountResult.count ?? 0,
     },
-    settings,
+    settings: { ...settings, checkInEnabledForPillar },
     now,
+    acknowledgeOverCap: options.acknowledgeOverCap ?? false,
   });
 
   if (!decision.allowed) {
@@ -299,6 +351,15 @@ export async function createBooking(
       return await joinWaitlist(sessionId, user.id);
     }
     return { ok: false, message: REASON_COPY[decision.reason] };
+  }
+
+  if (decision.confirmation) {
+    const { combined, cap, kind } = decision.confirmation;
+    return {
+      ok: false,
+      message: `Je hebt deze week al ${combined} van ${cap} trainingen voor deze discipline. Toch doorgaan?`,
+      needsConfirmation: { kind, combined, cap },
+    };
   }
 
   // Rentals only make sense on yoga_mobility. Other pillars: silently

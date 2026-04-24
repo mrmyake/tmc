@@ -26,6 +26,12 @@ export interface CanBookUsage {
   bookedCountThisSession: number;
   bookingsSameDay: number;
   bookingsSamePillarThisWeek: number;
+  /**
+   * Aantal `check_ins` van deze user in de ISO-week van de sessie voor
+   * dezelfde pillar. Alleen relevant als `settings.checkInEnabledForPillar`
+   * aanstaat; anders blijft 0 en telt 'ie dus niet mee.
+   */
+  checkInsSamePillarThisWeek: number;
 }
 
 export interface CanBookSettings {
@@ -33,6 +39,12 @@ export interface CanBookSettings {
   fair_use_daily_max: number;
   no_show_strike_threshold: number;
   no_show_block_days: number;
+  /**
+   * True wanneer `booking_settings.check_in_enabled` én de pillar van deze
+   * sessie in `booking_settings.check_in_pillars` zit. Pas dan schakelen we
+   * over naar het combined-count cap-model met soft-warning.
+   */
+  checkInEnabledForPillar: boolean;
 }
 
 export type CanBookResult =
@@ -41,6 +53,17 @@ export type CanBookResult =
       coveringMembership: CanBookMembership | null;
       /** True when paying via drop-in is required (no covering membership). */
       requiresPayment: boolean;
+      /**
+       * Gezet wanneer de user op-of-over de weekly cap zit voor een pillar
+       * met check-in aan. Caller moet een bevestig-dialoog tonen en
+       * vervolgens opnieuw canBook aanroepen met `acknowledgeOverCap: true`
+       * om de boeking te committen.
+       */
+      confirmation?: {
+        kind: "weekly_cap_combined";
+        combined: number;
+        cap: number;
+      };
     }
   | {
       allowed: false;
@@ -64,8 +87,22 @@ export function canBook(params: {
   usage: CanBookUsage;
   settings: CanBookSettings;
   now: Date;
+  /**
+   * Wanneer true: soft-warning voor combined-count cap wordt overgeslagen.
+   * De hard cap-check (bij pillars zonder check-in) blijft in alle gevallen
+   * actief.
+   */
+  acknowledgeOverCap?: boolean;
 }): CanBookResult {
-  const { session, profile, memberships, usage, settings, now } = params;
+  const {
+    session,
+    profile,
+    memberships,
+    usage,
+    settings,
+    now,
+    acknowledgeOverCap = false,
+  } = params;
 
   if (profile.age_category !== session.age_category) {
     return { allowed: false, reason: "age_mismatch" };
@@ -107,11 +144,32 @@ export function canBook(params: {
   );
 
   if (covering) {
-    if (
-      covering.frequency_cap !== null &&
-      usage.bookingsSamePillarThisWeek >= covering.frequency_cap
-    ) {
-      return { allowed: false, reason: "weekly_cap_reached" };
+    if (covering.frequency_cap !== null) {
+      if (settings.checkInEnabledForPillar) {
+        // Soft check: bookings + check-ins dit week. Over-cap = bevestigen, niet
+        // weigeren. Zo kan het lid expliciet kiezen om een extra sessie te
+        // boeken (bv. trial-week, inhalen) zonder dat de cap in de weg zit.
+        const combined =
+          usage.bookingsSamePillarThisWeek +
+          usage.checkInsSamePillarThisWeek;
+        if (combined >= covering.frequency_cap && !acknowledgeOverCap) {
+          return {
+            allowed: true,
+            coveringMembership: covering,
+            requiresPayment: false,
+            confirmation: {
+              kind: "weekly_cap_combined",
+              combined,
+              cap: covering.frequency_cap,
+            },
+          };
+        }
+      } else if (
+        usage.bookingsSamePillarThisWeek >= covering.frequency_cap
+      ) {
+        // Hard check blijft voor pillars zonder check-in (huidige gedrag).
+        return { allowed: false, reason: "weekly_cap_reached" };
+      }
     }
     return {
       allowed: true,
