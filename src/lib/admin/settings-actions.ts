@@ -54,6 +54,7 @@ export interface BookingSettingsInput {
   memberPtDiscountPercent: number;
   checkInEnabled: boolean;
   checkInPillars: CheckInPillar[];
+  noShowReleaseMinutes: number;
 }
 
 function isPositiveInt(n: number, min = 0, max = 10_000_000): boolean {
@@ -88,6 +89,7 @@ export async function saveBookingSettings(
     ["tenRideCardValidityMonths", 1, 24],
     ["ptIntakeDiscountCents", 0, 100_000],
     ["memberPtDiscountPercent", 0, 100],
+    ["noShowReleaseMinutes", 0, 120],
   ];
   for (const [key, min, max] of checks) {
     if (!isPositiveInt(input[key] as number, min, max)) {
@@ -136,6 +138,7 @@ export async function saveBookingSettings(
     member_pt_discount_percent: input.memberPtDiscountPercent,
     check_in_enabled: input.checkInEnabled,
     check_in_pillars: dedupedPillars,
+    no_show_release_minutes: input.noShowReleaseMinutes,
   };
 
   const { error } = await admin

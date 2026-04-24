@@ -127,6 +127,14 @@ export function SettingsForm({ initial }: SettingsFormProps) {
           min={0}
           max={90}
         />
+        <IntField
+          label="Release-venster (min voor start)"
+          hint="Zonder check-in wordt de plek dan vrijgegeven voor wachtlijst."
+          value={values.noShowReleaseMinutes}
+          onChange={(v) => setField("noShowReleaseMinutes", v)}
+          min={0}
+          max={120}
+        />
       </Section>
 
       <Section title="Prijzen (alleen nieuwe klanten)">

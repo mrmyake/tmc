@@ -37,6 +37,7 @@ export type CheckInFailReason =
   | "session_not_found"
   | "session_not_today"
   | "pillar_check_in_disabled"
+  | "weekly_cap_reached"
   | "unauthorized"
   | "db_error";
 
@@ -50,6 +51,8 @@ const FAIL_COPY: Record<CheckInFailReason, string> = {
   session_not_today: "Deze sessie staat niet voor vandaag.",
   pillar_check_in_disabled:
     "Check-in staat uit voor dit type training. Spreek Marlon even aan.",
+  weekly_cap_reached:
+    "Je weekcap voor deze discipline is bereikt. Spreek Marlon even aan.",
   unauthorized: "Geen toegang tot deze actie.",
   db_error: "Er ging iets mis. Probeer opnieuw.",
 };
@@ -521,10 +524,13 @@ async function checkInForProfile(input: {
   // "drop_in". Guest-pass / credit / trial / comp flows komen in PR2
   // waar admin ze expliciet selecteert.
   let accessType: AccessType = input.accessType ?? "membership";
+  let coveringFrequencyCap: number | null = null;
   if (!input.accessType) {
     const { data: memberships } = await admin
       .from("memberships")
-      .select("covered_pillars, status, plan_type, credits_remaining")
+      .select(
+        "covered_pillars, status, plan_type, credits_remaining, frequency_cap",
+      )
       .eq("profile_id", input.profileId)
       .in("status", ["active", "paused"]);
     const covers = (memberships ?? []).find((m) =>
@@ -532,6 +538,7 @@ async function checkInForProfile(input: {
     );
     if (covers) {
       accessType = "membership";
+      coveringFrequencyCap = covers.frequency_cap ?? null;
     } else {
       const credit = (memberships ?? []).find(
         (m) =>
@@ -545,6 +552,21 @@ async function checkInForProfile(input: {
       if (input.method === "self_tablet") {
         return fail("no_eligible_access");
       }
+    }
+  }
+
+  // Hard cap bij self-tablet: als het lid de weekly cap al heeft bereikt
+  // op check-ins voor deze pillar, weigeren we de check-in. Admin-modus
+  // (admin_tablet / admin_web) bypasst dit — Marlon beslist zelf of ze
+  // iemand over-cap laat trainen.
+  if (
+    input.method === "self_tablet" &&
+    accessType === "membership" &&
+    coveringFrequencyCap !== null
+  ) {
+    const weekCount = await getCheckInsThisWeek(input.profileId, input.pillar);
+    if (weekCount >= coveringFrequencyCap) {
+      return fail("weekly_cap_reached");
     }
   }
 

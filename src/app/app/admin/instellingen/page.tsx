@@ -26,7 +26,7 @@ export default async function AdminSettingsPage() {
        senior_ten_ride_card_cents, ten_ride_card_validity_months,
        pt_intake_discount_cents, member_pt_discount_percent,
        admin_checkin_pin_hash,
-       check_in_enabled, check_in_pillars`,
+       check_in_enabled, check_in_pillars, no_show_release_minutes`,
     )
     .eq("id", "singleton")
     .maybeSingle();
@@ -87,6 +87,7 @@ export default async function AdminSettingsPage() {
             (p: string): p is (typeof CHECK_IN_PILLAR_OPTIONS)[number] =>
               (CHECK_IN_PILLAR_OPTIONS as readonly string[]).includes(p),
           ),
+          noShowReleaseMinutes: row.no_show_release_minutes ?? 10,
         }}
       />
 
