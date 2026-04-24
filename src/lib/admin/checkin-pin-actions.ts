@@ -22,9 +22,10 @@ export async function setAdminCheckinPin(
     console.error("[setAdminCheckinPin]", error);
     return {
       ok: false,
-      message: error.message.includes("Unauthorized")
-        ? "Geen toegang."
-        : "Opslaan mislukt.",
+      message:
+        error.message.includes("Unauthorized")
+          ? "Geen toegang."
+          : `Opslaan mislukt: ${error.message} (${error.code ?? "?"})`,
     };
   }
   revalidatePath("/app/admin/instellingen");
