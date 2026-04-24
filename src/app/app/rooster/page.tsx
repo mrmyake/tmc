@@ -414,14 +414,9 @@ export default async function RoosterPage(props: {
         days={dayStripDays}
         selectedIso={selectedDayIso}
         todayIso={todayIso}
+        fromIso={fromIso}
+        pillarFilter={pillarFilter}
         nextHref={nextHref}
-        buildDayHref={(iso) =>
-          buildHref({
-            from: fromIso === todayIso ? undefined : fromIso,
-            dag: iso,
-            pijler: pillarFilter ?? undefined,
-          })
-        }
       />
 
       {openStudioDays.length > 0 && <OpenStudioStrip days={openStudioDays} />}

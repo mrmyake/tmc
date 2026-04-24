@@ -30,23 +30,43 @@ interface DayStripProps {
   selectedIso: string;
   /** yyyy-mm-dd van vandaag (server-gegeven, Amsterdam). */
   todayIso: string;
+  /** Window-start iso, voor URL-building. Pas opnemen als != vandaag. */
+  fromIso: string;
+  /** Actief pillar-filter (of null). */
+  pillarFilter: string | null;
   /**
    * Link naar volgende 7-daagse window, of null als we al aan het eind
    * van de gepubliceerde sessies zitten.
    */
   nextHref: string | null;
-  /**
-   * Bouwt de link naar een dag (zodat de page query-params consistent blijft).
-   */
-  buildDayHref: (iso: string) => string;
+}
+
+/**
+ * Bouw de URL voor dag-klik. Client-side duplicate van `buildHref`
+ * in page.tsx. We kunnen de server-versie niet als prop doorgeven
+ * (functies mogen niet over de RSC-boundary) — vandaar hier opnieuw.
+ */
+function buildDayHref(
+  fromIso: string,
+  todayIso: string,
+  iso: string,
+  pillarFilter: string | null,
+): string {
+  const qs = new URLSearchParams();
+  if (fromIso !== todayIso) qs.set("from", fromIso);
+  qs.set("dag", iso);
+  if (pillarFilter) qs.set("pijler", pillarFilter);
+  const query = qs.toString();
+  return query ? `/app/rooster?${query}` : "/app/rooster";
 }
 
 export function DayStrip({
   days,
   selectedIso,
   todayIso,
+  fromIso,
+  pillarFilter,
   nextHref,
-  buildDayHref,
 }: DayStripProps) {
   const stripRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,7 +124,7 @@ export function DayStrip({
           return (
             <Link
               key={d.iso}
-              href={buildDayHref(d.iso)}
+              href={buildDayHref(fromIso, todayIso, d.iso, pillarFilter)}
               scroll={false}
               role="tab"
               aria-selected={selected}
