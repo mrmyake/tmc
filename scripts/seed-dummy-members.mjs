@@ -56,6 +56,7 @@ const REDIRECT = `${siteUrl}/auth/callback/implicit?next=/app`;
 const DUMMIES = [
   {
     email: "yoga-1x@tmc.test",
+    phone: "+31600000001",
     firstName: "Yoga",
     lastName: "Eenmaal",
     ageCategory: "adult",
@@ -70,6 +71,7 @@ const DUMMIES = [
   },
   {
     email: "yoga-unl@tmc.test",
+    phone: "+31600000002",
     firstName: "Yoga",
     lastName: "Onbeperkt",
     ageCategory: "adult",
@@ -84,6 +86,7 @@ const DUMMIES = [
   },
   {
     email: "kettle-2x@tmc.test",
+    phone: "+31600000003",
     firstName: "Kettle",
     lastName: "Twee",
     ageCategory: "adult",
@@ -98,6 +101,7 @@ const DUMMIES = [
   },
   {
     email: "allin-3x@tmc.test",
+    phone: "+31600000004",
     firstName: "Allin",
     lastName: "Drie",
     ageCategory: "adult",
@@ -112,6 +116,7 @@ const DUMMIES = [
   },
   {
     email: "allin-unl@tmc.test",
+    phone: "+31600000005",
     firstName: "Allin",
     lastName: "Onbeperkt",
     ageCategory: "adult",
@@ -126,6 +131,7 @@ const DUMMIES = [
   },
   {
     email: "vrij-2x@tmc.test",
+    phone: "+31600000006",
     firstName: "Vrij",
     lastName: "Trainer",
     ageCategory: "adult",
@@ -140,6 +146,7 @@ const DUMMIES = [
   },
   {
     email: "tenride@tmc.test",
+    phone: "+31600000007",
     firstName: "Tien",
     lastName: "Rittenkaart",
     ageCategory: "adult",
@@ -156,6 +163,7 @@ const DUMMIES = [
   },
   {
     email: "paused@tmc.test",
+    phone: "+31600000008",
     firstName: "Paused",
     lastName: "Lid",
     ageCategory: "adult",
@@ -212,19 +220,26 @@ async function seedDummy(d) {
     const { data, error } = await admin.auth.admin.createUser({
       email: d.email,
       email_confirm: true,
-      user_metadata: { first_name: d.firstName, last_name: d.lastName },
+      user_metadata: {
+        first_name: d.firstName,
+        last_name: d.lastName,
+        phone: d.phone,
+      },
     });
     if (error) throw new Error(`createUser ${d.email}: ${error.message}`);
     user = data.user;
   }
 
-  // Profile
+  // Profile — deterministic phone per dummy zodat re-runs geen
+  // collision met andere records veroorzaken. member_code komt uit
+  // de trigger bij initial insert, blijft staan bij upsert.
   await admin.from("profiles").upsert(
     {
       id: user.id,
       email: d.email,
       first_name: d.firstName,
       last_name: d.lastName,
+      phone: d.phone,
       role: "member",
       age_category: d.ageCategory,
     },

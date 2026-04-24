@@ -98,8 +98,12 @@ export type Database = {
       }
       booking_settings: {
         Row: {
+          admin_checkin_pin_hash: string | null
           booking_window_days: number
           cancellation_window_hours: number
+          check_in_enabled: boolean
+          check_in_pillars: string[]
+          check_in_required_for_cap: boolean
           drop_in_kettlebell_cents: number
           drop_in_kids_cents: number
           drop_in_senior_cents: number
@@ -109,6 +113,7 @@ export type Database = {
           kids_ten_ride_card_cents: number
           member_pt_discount_percent: number
           no_show_block_days: number
+          no_show_release_minutes: number
           no_show_strike_threshold: number
           no_show_strike_window_days: number
           pt_intake_discount_cents: number
@@ -122,8 +127,12 @@ export type Database = {
           waitlist_confirmation_minutes: number
         }
         Insert: {
+          admin_checkin_pin_hash?: string | null
           booking_window_days?: number
           cancellation_window_hours?: number
+          check_in_enabled?: boolean
+          check_in_pillars?: string[]
+          check_in_required_for_cap?: boolean
           drop_in_kettlebell_cents?: number
           drop_in_kids_cents?: number
           drop_in_senior_cents?: number
@@ -133,6 +142,7 @@ export type Database = {
           kids_ten_ride_card_cents?: number
           member_pt_discount_percent?: number
           no_show_block_days?: number
+          no_show_release_minutes?: number
           no_show_strike_threshold?: number
           no_show_strike_window_days?: number
           pt_intake_discount_cents?: number
@@ -146,8 +156,12 @@ export type Database = {
           waitlist_confirmation_minutes?: number
         }
         Update: {
+          admin_checkin_pin_hash?: string | null
           booking_window_days?: number
           cancellation_window_hours?: number
+          check_in_enabled?: boolean
+          check_in_pillars?: string[]
+          check_in_required_for_cap?: boolean
           drop_in_kettlebell_cents?: number
           drop_in_kids_cents?: number
           drop_in_senior_cents?: number
@@ -157,6 +171,7 @@ export type Database = {
           kids_ten_ride_card_cents?: number
           member_pt_discount_percent?: number
           no_show_block_days?: number
+          no_show_release_minutes?: number
           no_show_strike_threshold?: number
           no_show_strike_window_days?: number
           pt_intake_discount_cents?: number
@@ -266,6 +281,87 @@ export type Database = {
           },
           {
             foreignKeyName: "bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_session_availability"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      check_ins: {
+        Row: {
+          access_type: string
+          booking_id: string | null
+          check_in_method: string
+          checked_in_at: string
+          checked_in_by: string | null
+          checked_in_date: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          pillar: string
+          profile_id: string
+          session_id: string | null
+        }
+        Insert: {
+          access_type: string
+          booking_id?: string | null
+          check_in_method: string
+          checked_in_at?: string
+          checked_in_by?: string | null
+          checked_in_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pillar: string
+          profile_id: string
+          session_id?: string | null
+        }
+        Update: {
+          access_type?: string
+          booking_id?: string | null
+          check_in_method?: string
+          checked_in_at?: string
+          checked_in_by?: string | null
+          checked_in_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pillar?: string
+          profile_id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_checked_in_by_fkey"
+            columns: ["checked_in_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "v_session_availability"
@@ -1058,7 +1154,8 @@ export type Database = {
           last_name: string
           locale: string
           marketing_opt_in: boolean
-          phone: string | null
+          member_code: string
+          phone: string
           postal_code: string | null
           role: string
           signup_path: string | null
@@ -1088,7 +1185,8 @@ export type Database = {
           last_name: string
           locale?: string
           marketing_opt_in?: boolean
-          phone?: string | null
+          member_code: string
+          phone: string
           postal_code?: string | null
           role?: string
           signup_path?: string | null
@@ -1118,7 +1216,8 @@ export type Database = {
           last_name?: string
           locale?: string
           marketing_opt_in?: boolean
-          phone?: string | null
+          member_code?: string
+          phone?: string
           postal_code?: string | null
           role?: string
           signup_path?: string | null
@@ -1743,6 +1842,8 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_trainer: { Args: never; Returns: boolean }
       refresh_admin_kpis: { Args: never; Returns: undefined }
+      set_admin_checkin_pin: { Args: { p_pin: string }; Returns: undefined }
+      verify_admin_checkin_pin: { Args: { p_pin: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
