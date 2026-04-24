@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
+import { AuthListener } from "@/components/layout/AuthListener";
 import {
   getLocalBusinessSchema,
   getWebsiteSchema,
@@ -157,6 +158,10 @@ export default async function RootLayout({
             die hierboven is ingesteld. Cookieless pings werken bij
             denied; pageviews + events vuren na update-granted. */}
         <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
+        {/* AuthListener: zet GA4 user_id + vuurt portal_login bij
+            SIGNED_IN / clear bij SIGNED_OUT. Alleen actief als
+            consent-state granted is. */}
+        <AuthListener />
         {/* Vercel Speed Insights — only ships the collector script in
             production (no-op on localhost + preview deployments without
             the project linked in the Vercel dashboard). */}
