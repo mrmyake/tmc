@@ -60,10 +60,17 @@ export function CheckInTablet({ adminUnlocked }: Props) {
   useEffect(() => {
     const digits = input.replace(/[^0-9+]/g, "");
     if (selfState.kind !== "idle") return;
-    const shouldLookup =
-      digits.length === 6 ||
-      digits.length === 10 ||
-      (digits.startsWith("+31") && digits.length === 12);
+    // Disambiguate op eerste teken:
+    //   begint met 0 of + → phone (wacht op 10 of 12 tekens)
+    //   anders → member_code (6 cijfers)
+    // Hierdoor vuurt lookup niet vroegtijdig bij het typen van een
+    // telefoonnummer dat toevallig 6 cijfers lang is.
+    const startsWithPhonePrefix =
+      digits.startsWith("0") || digits.startsWith("+");
+    const shouldLookup = startsWithPhonePrefix
+      ? digits.length === 10 ||
+        (digits.startsWith("+31") && digits.length === 12)
+      : digits.length === 6;
     if (!shouldLookup) return;
     setSelfState({ kind: "looking_up" });
     startTransition(async () => {
