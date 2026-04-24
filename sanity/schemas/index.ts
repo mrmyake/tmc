@@ -3,33 +3,29 @@ import openingHours from "./openingHours";
 import trainer from "./trainer";
 import offering from "./offering";
 import pricingTier from "./pricingTier";
-import testimonial from "./testimonial";
 import faq from "./faq";
-import blogPost from "./blogPost";
 import siteImages from "./siteImages";
 import crowdfundingSettings from "./crowdfundingSettings";
 import crowdfundingTier from "./crowdfundingTier";
-import classPillar from "./classPillar";
-import classType from "./classType";
-import scheduleTemplate from "./scheduleTemplate";
-import membershipPlan from "./membershipPlan";
-import bookingSettings from "./bookingSettings";
+
+// Schemas die bewust NIET meer geregistreerd zijn — ooit bedoeld, geen
+// consumer in de website. Als we ze later opnieuw willen gebruiken
+// (bv. een echte /blog pagina), revert via git en voeg hier weer toe:
+//
+// - testimonial  — homepage toont Google Reviews via react-google-reviews
+// - blogPost     — geen /blog pagina gebouwd
+// - classPillar  — member-system gebruikt Supabase enums, geen Sanity docs
+// - classType    — idem
+// - scheduleTemplate, membershipPlan, bookingSettings — live in Supabase
 
 export const schemaTypes = [
   siteSettings,
   siteImages,
   openingHours,
   crowdfundingSettings,
-  bookingSettings,
   trainer,
   offering,
   pricingTier,
   crowdfundingTier,
-  membershipPlan,
-  classPillar,
-  classType,
-  scheduleTemplate,
-  testimonial,
   faq,
-  blogPost,
 ];
