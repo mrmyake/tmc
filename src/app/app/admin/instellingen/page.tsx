@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./_components/SettingsForm";
+import { CheckinPinForm } from "./_components/CheckinPinForm";
 
 export const metadata = {
   title: "Admin · Instellingen | The Movement Club",
@@ -22,7 +23,8 @@ export default async function AdminSettingsPage() {
        drop_in_kids_cents, drop_in_senior_cents,
        ten_ride_card_cents, kids_ten_ride_card_cents,
        senior_ten_ride_card_cents, ten_ride_card_validity_months,
-       pt_intake_discount_cents, member_pt_discount_percent`,
+       pt_intake_discount_cents, member_pt_discount_percent,
+       admin_checkin_pin_hash`,
     )
     .eq("id", "singleton")
     .maybeSingle();
@@ -77,6 +79,10 @@ export default async function AdminSettingsPage() {
           memberPtDiscountPercent: row.member_pt_discount_percent,
         }}
       />
+
+      <div className="mt-16">
+        <CheckinPinForm isSet={Boolean(row.admin_checkin_pin_hash)} />
+      </div>
     </div>
   );
 }

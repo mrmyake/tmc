@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyIdentifier, normalizePhone, InvalidPhoneError } from "./normalize-phone";
+import { isAdminUnlocked } from "./admin-lock";
 
 export type CheckInMethod = "self_tablet" | "admin_tablet" | "admin_web";
 export type AccessType =
@@ -85,12 +86,156 @@ async function readCheckInSettings(): Promise<SettingsRow> {
  * auth.uid() is daar NULL. We schrijven via admin-client; legitimatie
  * is de fysieke aanwezigheid bij de tablet.
  */
+/**
+ * Preview: vindt profile voor identifier en bepaalt of er een booking
+ * vandaag is / welke pillar er aanbevolen wordt voor check-in. Commit
+ * nergens iets. UI toont dit als tussen-scherm zodat de user eerst
+ * "Hoi X" ziet en daarna op "Check in" tapt.
+ */
+export type LookupResult =
+  | {
+      ok: true;
+      profile: {
+        id: string;
+        firstName: string;
+        lastInitial: string;
+      };
+      suggestion:
+        | {
+            kind: "session_today";
+            sessionId: string;
+            pillar: string;
+            className: string;
+            startLabel: string; // "07:30"
+          }
+        | {
+            kind: "vrij_trainen";
+            pillar: "vrij_trainen";
+          }
+        | {
+            kind: "none";
+            reason: "no_booking_no_coverage" | "pillar_check_in_disabled";
+          };
+    }
+  | { ok: false; reason: "invalid_identifier" | "identifier_not_found" };
+
+export async function lookupByIdentifier(
+  identifier: string,
+): Promise<LookupResult> {
+  const cls = classifyIdentifier(identifier);
+  if (!cls) return { ok: false, reason: "invalid_identifier" };
+
+  const admin = createAdminClient();
+  const lookupCol = cls.kind === "phone" ? "phone" : "member_code";
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, first_name, last_name")
+    .eq(lookupCol, cls.value)
+    .maybeSingle();
+  if (!profile) return { ok: false, reason: "identifier_not_found" };
+
+  const profileInfo = {
+    id: profile.id,
+    firstName: profile.first_name ?? "",
+    lastInitial: (profile.last_name ?? "").charAt(0).toUpperCase(),
+  };
+
+  const settings = await readCheckInSettings();
+  const pillarsEnabled = settings.check_in_pillars ?? [];
+
+  // Zoek booking voor vandaag, status booked
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
+  type SessionJoin = {
+    id: string;
+    start_at: string;
+    pillar: string;
+    class_type: { name: string | null } | { name: string | null }[] | null;
+  };
+  const { data: todayBookings } = await admin
+    .from("bookings")
+    .select(
+      `id, session:class_sessions!inner(id, start_at, pillar, class_type:class_types(name))`,
+    )
+    .eq("profile_id", profile.id)
+    .eq("status", "booked")
+    .gte("session.start_at", todayStart.toISOString())
+    .lt("session.start_at", todayEnd.toISOString())
+    .order("session(start_at)", { ascending: true })
+    .limit(1)
+    .returns<Array<{ id: string; session: SessionJoin | null }>>();
+
+  const bookingRow = todayBookings?.[0];
+  const sessionData = bookingRow?.session
+    ? (Array.isArray(bookingRow.session)
+        ? bookingRow.session[0]
+        : bookingRow.session)
+    : null;
+  if (sessionData && pillarsEnabled.includes(sessionData.pillar)) {
+    const ct = Array.isArray(sessionData.class_type)
+      ? sessionData.class_type[0]
+      : sessionData.class_type;
+    const startLabel = new Intl.DateTimeFormat("nl-NL", {
+      timeZone: "Europe/Amsterdam",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(sessionData.start_at));
+    return {
+      ok: true,
+      profile: profileInfo,
+      suggestion: {
+        kind: "session_today",
+        sessionId: sessionData.id,
+        pillar: sessionData.pillar,
+        className: ct?.name ?? "Sessie",
+        startLabel,
+      },
+    };
+  }
+
+  // Geen booking — check of vrij_trainen eligible is voor deze user
+  if (pillarsEnabled.includes("vrij_trainen")) {
+    const { data: memberships } = await admin
+      .from("memberships")
+      .select("covered_pillars, status")
+      .eq("profile_id", profile.id)
+      .in("status", ["active", "paused"]);
+    const coversVrij = (memberships ?? []).some(
+      (m) =>
+        m.status === "active" &&
+        (m.covered_pillars ?? []).includes("vrij_trainen"),
+    );
+    if (coversVrij) {
+      return {
+        ok: true,
+        profile: profileInfo,
+        suggestion: { kind: "vrij_trainen", pillar: "vrij_trainen" },
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    profile: profileInfo,
+    suggestion: {
+      kind: "none",
+      reason: pillarsEnabled.length === 0
+        ? "pillar_check_in_disabled"
+        : "no_booking_no_coverage",
+    },
+  };
+}
+
 export async function checkInByIdentifier(input: {
   identifier: string;
   pillar: string;
   sessionId?: string;
   method?: CheckInMethod;
-  checkedInByProfileId?: string;
+  checkedInByProfileId?: string | null;
 }): Promise<CheckInResult> {
   const method: CheckInMethod = input.method ?? "self_tablet";
 
@@ -309,7 +454,7 @@ async function checkInForProfile(input: {
   pillar: string;
   sessionId?: string;
   method: CheckInMethod;
-  checkedInByProfileId?: string;
+  checkedInByProfileId?: string | null;
   accessType?: AccessType;
   notes?: string;
   profileName: ProfileNameHint;
@@ -428,23 +573,37 @@ async function decrementCredit(profileId: string): Promise<void> {
     .eq("id", data.id);
 }
 
+/**
+ * Staff-only check: accepteert
+ *   - ingelogde admin/trainer (web-admin flow)
+ *   - tablet-admin-unlock cookie (kiosk PIN-verified)
+ *
+ * In de tablet-flow is userId null (er is geen auth.uid()); callers
+ * die een userId nodig hebben voor bv. checked_in_by gebruiken dan
+ * null (= anoniem admin_tablet) ipv de PIN-team-lid te herleiden.
+ */
 async function requireStaff(): Promise<
-  { ok: true; userId: string } | { ok: false }
+  { ok: true; userId: string | null } | { ok: false }
 > {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false };
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin" && profile?.role !== "trainer") {
-    return { ok: false };
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.role === "admin" || profile?.role === "trainer") {
+      return { ok: true, userId: user.id };
+    }
   }
-  return { ok: true, userId: user.id };
+  // Fallback: tablet-admin-unlock via gedeelde PIN.
+  if (await isAdminUnlocked()) {
+    return { ok: true, userId: null };
+  }
+  return { ok: false };
 }
 
 function fail(reason: CheckInFailReason): CheckInResult {

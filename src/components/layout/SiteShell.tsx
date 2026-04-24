@@ -34,8 +34,9 @@ export function SiteShell({ children, settings }: SiteShellProps) {
   const isStudio = pathname.startsWith("/studio");
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
   const isLogin = pathname === "/login";
+  const isCheckin = pathname === "/checkin" || pathname.startsWith("/checkin/");
 
-  if (isStudio || isApp || isLogin) {
+  if (isStudio || isApp || isLogin || isCheckin) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
     return <>{children}</>;
