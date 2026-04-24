@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./_components/SettingsForm";
 import { CheckinPinForm } from "./_components/CheckinPinForm";
+import { CHECK_IN_PILLAR_OPTIONS } from "@/lib/admin/settings-constants";
 
 export const metadata = {
   title: "Admin · Instellingen | The Movement Club",
@@ -24,7 +25,8 @@ export default async function AdminSettingsPage() {
        ten_ride_card_cents, kids_ten_ride_card_cents,
        senior_ten_ride_card_cents, ten_ride_card_validity_months,
        pt_intake_discount_cents, member_pt_discount_percent,
-       admin_checkin_pin_hash`,
+       admin_checkin_pin_hash,
+       check_in_enabled, check_in_pillars`,
     )
     .eq("id", "singleton")
     .maybeSingle();
@@ -77,6 +79,14 @@ export default async function AdminSettingsPage() {
           tenRideCardValidityMonths: row.ten_ride_card_validity_months,
           ptIntakeDiscountCents: row.pt_intake_discount_cents,
           memberPtDiscountPercent: row.member_pt_discount_percent,
+          checkInEnabled: row.check_in_enabled ?? true,
+          checkInPillars: (Array.isArray(row.check_in_pillars)
+            ? row.check_in_pillars
+            : []
+          ).filter(
+            (p: string): p is (typeof CHECK_IN_PILLAR_OPTIONS)[number] =>
+              (CHECK_IN_PILLAR_OPTIONS as readonly string[]).includes(p),
+          ),
         }}
       />
 

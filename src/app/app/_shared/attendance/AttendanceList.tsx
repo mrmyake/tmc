@@ -12,6 +12,13 @@ import {
   type SessionSummary,
 } from "@/lib/admin/attendance-actions";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+
+const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
+  timeZone: "Europe/Amsterdam",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import { StatusBadge, type SessionStatus } from "@/components/ui/StatusBadge";
 import { AvatarBubble } from "./AvatarBubble";
@@ -348,6 +355,12 @@ export function AttendanceList({
                     <StatusBadge
                       status={currentStatus(p) as SessionStatus}
                     />
+                  )}
+                  {p.checkedInAt && (
+                    <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--success)]">
+                      Ingecheckt{" "}
+                      {CHECK_IN_TIME_FMT.format(new Date(p.checkedInAt))}
+                    </span>
                   )}
                   {p.creditsUsed > 0 && (
                     <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">

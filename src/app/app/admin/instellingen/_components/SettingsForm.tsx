@@ -11,6 +11,11 @@ import {
   type BookingSettingsInput,
   type SettingsActionResult,
 } from "@/lib/admin/settings-actions";
+import {
+  CHECK_IN_PILLAR_OPTIONS,
+  type CheckInPillar,
+} from "@/lib/admin/settings-constants";
+import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 
 interface SettingsFormProps {
   initial: BookingSettingsInput;
@@ -193,6 +198,87 @@ export function SettingsForm({ initial }: SettingsFormProps) {
           max={100}
         />
       </Section>
+
+      <section>
+        <header className="mb-5">
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+            Check-in
+          </span>
+          <p className="text-text-muted text-sm max-w-xl leading-relaxed">
+            Studio-tablet op `/checkin`. Leden checken zelf in met telefoon of
+            member-code. Uit = tablet weigert alle check-ins, counters vallen
+            terug op boeking-status.
+          </p>
+        </header>
+        <div className="flex flex-col gap-5">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={values.checkInEnabled}
+              onChange={(e) =>
+                setField("checkInEnabled", e.target.checked)
+              }
+              className="mt-1 w-4 h-4 accent-accent cursor-pointer"
+            />
+            <span className="flex flex-col">
+              <span className="text-text text-sm font-medium">
+                Tablet actief
+              </span>
+              <span className="text-text-muted text-xs mt-0.5">
+                Wanneer uit: /checkin toont geen zelf-modus, alleen admin-login
+                met PIN.
+              </span>
+            </span>
+          </label>
+
+          <div
+            className={
+              values.checkInEnabled ? "" : "opacity-40 pointer-events-none"
+            }
+          >
+            <span className="tmc-eyebrow block mb-3">
+              Pillars met check-in
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {CHECK_IN_PILLAR_OPTIONS.map((pillar) => {
+                const checked = values.checkInPillars.includes(pillar);
+                const label =
+                  PILLAR_LABELS[pillar as Pillar] ?? pillar;
+                return (
+                  <label
+                    key={pillar}
+                    className="flex items-center gap-3 cursor-pointer py-1.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? Array.from(
+                              new Set<CheckInPillar>([
+                                ...values.checkInPillars,
+                                pillar,
+                              ]),
+                            )
+                          : values.checkInPillars.filter(
+                              (p) => p !== pillar,
+                            );
+                        setField("checkInPillars", next);
+                      }}
+                      className="w-4 h-4 accent-accent cursor-pointer"
+                    />
+                    <span className="text-text text-sm">{label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-text-muted text-xs mt-3 max-w-lg leading-relaxed">
+              Aangevinkte pillars laten leden via de tablet inchecken. Niet-
+              aangevinkte pillars blijven puur booking-based.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {message && (
         <div

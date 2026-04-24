@@ -10,6 +10,13 @@ import {
 } from "@/lib/admin/attendance-actions";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+
+const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
+  timeZone: "Europe/Amsterdam",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 import { AvatarBubble } from "./AvatarBubble";
 import { PlanBadge } from "./PlanBadge";
 import { InjuryFlag } from "./InjuryFlag";
@@ -204,6 +211,12 @@ export function MobileAttendanceList({
                       planType={row.planType}
                       planVariant={row.planVariant}
                     />
+                    {row.checkedInAt && (
+                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--success)]">
+                        Ingecheckt{" "}
+                        {CHECK_IN_TIME_FMT.format(new Date(row.checkedInAt))}
+                      </span>
+                    )}
                     {row.hasInjury && <InjuryFlag />}
                   </div>
                   {row.injuryText && (

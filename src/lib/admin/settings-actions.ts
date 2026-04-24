@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  CHECK_IN_PILLAR_OPTIONS,
+  type CheckInPillar,
+} from "./settings-constants";
 
 export type SettingsActionResult =
   | { ok: true; message: string }
@@ -48,6 +52,8 @@ export interface BookingSettingsInput {
   tenRideCardValidityMonths: number;
   ptIntakeDiscountCents: number;
   memberPtDiscountPercent: number;
+  checkInEnabled: boolean;
+  checkInPillars: CheckInPillar[];
 }
 
 function isPositiveInt(n: number, min = 0, max = 10_000_000): boolean {
@@ -84,13 +90,27 @@ export async function saveBookingSettings(
     ["memberPtDiscountPercent", 0, 100],
   ];
   for (const [key, min, max] of checks) {
-    if (!isPositiveInt(input[key], min, max)) {
+    if (!isPositiveInt(input[key] as number, min, max)) {
       return {
         ok: false,
         message: `Waarde voor "${key}" moet een geheel getal tussen ${min} en ${max} zijn.`,
       };
     }
   }
+
+  if (typeof input.checkInEnabled !== "boolean") {
+    return { ok: false, message: "Check-in toggle ontbreekt." };
+  }
+  if (!Array.isArray(input.checkInPillars)) {
+    return { ok: false, message: "Check-in pillars ontbreken." };
+  }
+  const allowed = new Set<string>(CHECK_IN_PILLAR_OPTIONS);
+  for (const p of input.checkInPillars) {
+    if (!allowed.has(p)) {
+      return { ok: false, message: `Onbekende pillar: ${p}` };
+    }
+  }
+  const dedupedPillars = Array.from(new Set(input.checkInPillars));
 
   const admin = createAdminClient();
 
@@ -114,6 +134,8 @@ export async function saveBookingSettings(
     ten_ride_card_validity_months: input.tenRideCardValidityMonths,
     pt_intake_discount_cents: input.ptIntakeDiscountCents,
     member_pt_discount_percent: input.memberPtDiscountPercent,
+    check_in_enabled: input.checkInEnabled,
+    check_in_pillars: dedupedPillars,
   };
 
   const { error } = await admin

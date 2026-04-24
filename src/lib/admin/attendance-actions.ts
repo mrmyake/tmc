@@ -31,6 +31,8 @@ export interface ParticipantRow {
   status: AttendanceStatus;
   bookedAt: string;
   attendedAt: string | null;
+  /** ISO-timestamp van fysieke check-in bij de tablet, null als nooit ingecheckt. */
+  checkedInAt: string | null;
   hasInjury: boolean;
   /**
    * Full injury text from the intake. Alleen ingevuld als caller admin is
@@ -144,7 +146,7 @@ export async function loadParticipants(
 
   const admin = createAdminClient();
 
-  const [sessionRes, bookingsRes] = await Promise.all([
+  const [sessionRes, bookingsRes, checkInsRes] = await Promise.all([
     admin
       .from("class_sessions")
       .select(
@@ -169,7 +171,18 @@ export async function loadParticipants(
       .eq("session_id", sessionId)
       .in("status", ["booked", "attended", "no_show", "cancelled"])
       .order("booked_at", { ascending: true }),
+    admin
+      .from("check_ins")
+      .select("profile_id, checked_in_at")
+      .eq("session_id", sessionId),
   ]);
+
+  const checkInByProfile = new Map<string, string>();
+  for (const ci of checkInsRes.data ?? []) {
+    if (ci.profile_id && ci.checked_in_at) {
+      checkInByProfile.set(ci.profile_id, ci.checked_in_at);
+    }
+  }
 
   const row = sessionRes.data;
   if (!row) return { ok: false, message: "Sessie niet gevonden." };
@@ -228,6 +241,7 @@ export async function loadParticipants(
       status: b.status as AttendanceStatus,
       bookedAt: b.booked_at,
       attendedAt: b.attended_at,
+      checkedInAt: checkInByProfile.get(b.profile_id) ?? null,
       hasInjury: injuryText !== null,
       injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
       rentalMat: Boolean(b.rental_mat),
