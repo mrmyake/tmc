@@ -95,8 +95,8 @@ export default async function BoekingenPage(props: {
             )
             .eq("profile_id", user.id)
             .eq("status", "booked")
-            .gte("class_sessions.start_at", nowIso)
-            .order("class_sessions(start_at)", { ascending: true })
+            .gte("session.start_at", nowIso)
+            .order("session(start_at)", { ascending: true })
             .returns<BookingRow[]>()
         : Promise.resolve({ data: null, error: null }),
       view === "historie"
@@ -114,8 +114,8 @@ export default async function BoekingenPage(props: {
               `,
             )
             .eq("profile_id", user.id)
-            .lt("class_sessions.start_at", nowIso)
-            .order("class_sessions(start_at)", { ascending: false })
+            .lt("session.start_at", nowIso)
+            .order("session(start_at)", { ascending: false })
             .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
             .returns<BookingRow[]>()
         : Promise.resolve({ data: null, error: null }),

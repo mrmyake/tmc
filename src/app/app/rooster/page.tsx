@@ -198,8 +198,8 @@ export default async function RoosterPage(props: {
       )
       .eq("profile_id", user.id)
       .eq("status", "booked")
-      .gte("class_sessions.start_at", now.toISOString())
-      .order("class_sessions(start_at)", { ascending: true })
+      .gte("session.start_at", now.toISOString())
+      .order("session(start_at)", { ascending: true })
       .limit(1)
       .returns<
         Array<{
