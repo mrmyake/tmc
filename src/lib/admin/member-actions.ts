@@ -230,7 +230,7 @@ export async function overrideNoShow(
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, profile_id, status")
+    .select("id, profile_id, session_id, status")
     .eq("id", input.bookingId)
     .maybeSingle();
 
@@ -244,20 +244,83 @@ export async function overrideNoShow(
       message: "Geannuleerde boeking kan niet worden gemarkeerd.",
     };
   }
+  if (!booking.session_id) {
+    return { ok: false, message: "Boeking zonder sessie." };
+  }
+
+  const { data: session } = await admin
+    .from("class_sessions")
+    .select("pillar")
+    .eq("id", booking.session_id)
+    .maybeSingle();
+  if (!session) return { ok: false, message: "Sessie niet gevonden." };
 
   const nowIso = new Date().toISOString();
-  const patch: Record<string, unknown> = { status: input.newStatus };
-  if (input.newStatus === "attended") patch.attended_at = nowIso;
-  if (input.newStatus === "booked") patch.attended_at = null;
 
-  const { error } = await admin
-    .from("bookings")
-    .update(patch)
-    .eq("id", input.bookingId);
-
-  if (error) {
-    console.error("[overrideNoShow] update failed", error);
-    return { ok: false, message: "Bijwerken lukte niet." };
+  if (input.newStatus === "attended") {
+    // Check-in upserten; no_show_at wissen; strike verwijderen.
+    const { error: ciErr } = await admin.from("check_ins").insert({
+      profile_id: booking.profile_id,
+      session_id: booking.session_id,
+      booking_id: booking.id,
+      check_in_method: "admin_web",
+      access_type: "membership",
+      pillar: session.pillar,
+      checked_in_at: nowIso,
+      checked_in_by: auth.userId,
+    });
+    if (ciErr && ciErr.code !== "23505") {
+      console.error("[overrideNoShow] check_in insert failed", ciErr);
+      return { ok: false, message: "Bijwerken lukte niet." };
+    }
+    await admin
+      .from("bookings")
+      .update({ no_show_at: null, attended_at: nowIso })
+      .eq("id", booking.id);
+    await admin
+      .from("no_show_strikes")
+      .delete()
+      .eq("booking_id", booking.id);
+  } else if (input.newStatus === "no_show") {
+    await admin
+      .from("bookings")
+      .update({ no_show_at: nowIso, attended_at: null })
+      .eq("id", booking.id);
+    await admin
+      .from("check_ins")
+      .delete()
+      .eq("booking_id", booking.id);
+    // Strike idempotent toevoegen.
+    const { data: existingStrike } = await admin
+      .from("no_show_strikes")
+      .select("id")
+      .eq("booking_id", booking.id)
+      .maybeSingle();
+    if (!existingStrike) {
+      const expires = new Date(
+        Date.now() + 30 * 86_400_000,
+      ).toISOString();
+      await admin.from("no_show_strikes").insert({
+        profile_id: booking.profile_id,
+        booking_id: booking.id,
+        occurred_at: nowIso,
+        expires_at: expires,
+      });
+    }
+  } else {
+    // Reset naar neutraal: check_in + strike + no_show_at weg.
+    await admin
+      .from("bookings")
+      .update({ no_show_at: null, attended_at: null })
+      .eq("id", booking.id);
+    await admin
+      .from("check_ins")
+      .delete()
+      .eq("booking_id", booking.id);
+    await admin
+      .from("no_show_strikes")
+      .delete()
+      .eq("booking_id", booking.id);
   }
 
   await admin.from("admin_audit_log").insert({
