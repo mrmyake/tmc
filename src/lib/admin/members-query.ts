@@ -228,7 +228,7 @@ export async function listMembers(
       .from("bookings")
       .select("profile_id, session_date, status")
       .in("profile_id", profileIds)
-      .in("status", ["attended", "no_show", "booked", "cancelled"])
+      .in("status", ["booked", "cancelled"])
       .order("session_date", { ascending: false });
     lastBySession = new Map();
     for (const row of sessions ?? []) {

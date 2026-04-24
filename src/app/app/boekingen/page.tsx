@@ -23,6 +23,7 @@ const PAGE_SIZE = 50;
 type BookingRow = {
   id: string;
   status: string;
+  no_show_at: string | null;
   session:
     | {
         id: string;
@@ -50,6 +51,22 @@ function mapStatus(raw: string): SessionStatus {
   if (raw === "cancelled") return "cancelled";
   if (raw === "waitlisted") return "waitlisted";
   return "booked";
+}
+
+/**
+ * Leidt display-status af uit de slim'd {booked, cancelled, waitlisted}
+ * + check_ins presence + no_show_at. check_in wint van no_show_at omdat
+ * een latere admin-override (attended) een eerder geregistreerde no_show
+ * corrigeert.
+ */
+function deriveDisplayStatus(
+  rawStatus: string,
+  hasCheckIn: boolean,
+  noShowAt: string | null,
+): string {
+  if (hasCheckIn) return "attended";
+  if (noShowAt) return "no_show";
+  return rawStatus;
 }
 
 function logIfError(tag: string, error: { message: string } | null) {
@@ -92,6 +109,7 @@ export default async function BoekingenPage(props: {
               `
                 id,
                 status,
+                no_show_at,
                 session:class_sessions!inner(
                   id, start_at, end_at,
                   class_type:class_types(name),
@@ -112,6 +130,7 @@ export default async function BoekingenPage(props: {
               `
                 id,
                 status,
+                no_show_at,
                 session:class_sessions!inner(
                   id, start_at, end_at,
                   class_type:class_types(name),
@@ -204,16 +223,46 @@ export default async function BoekingenPage(props: {
         };
       });
 
+  // History: attended/no_show afleiden uit check_ins presence + no_show_at
+  // omdat bookings.status alleen nog {booked, cancelled, waitlisted} bevat
+  // na de slim.
+  const historySessionIds = (historyResult.data ?? [])
+    .map((b) => b.session?.id)
+    .filter((id): id is string => Boolean(id));
+
+  const historyCheckIns = historySessionIds.length
+    ? await supabase
+        .from("check_ins")
+        .select("session_id")
+        .eq("profile_id", user.id)
+        .in("session_id", historySessionIds)
+    : { data: null, error: null };
+  logIfError("history check-ins", historyCheckIns.error);
+
+  const historyCheckInSessionIds = new Set(
+    (historyCheckIns.data ?? [])
+      .map((c) => c.session_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
   const historyRows =
     (historyResult.data ?? [])
       .filter((b) => b.session)
-      .map((b) => ({
-        bookingId: b.id,
-        startAt: b.session!.start_at,
-        className: b.session!.class_type?.name ?? "Sessie",
-        trainerName: b.session!.trainer?.display_name ?? "coach",
-        status: mapStatus(b.status),
-      }));
+      .map((b) => {
+        const hasCheckIn = historyCheckInSessionIds.has(b.session!.id);
+        const displayStatus = deriveDisplayStatus(
+          b.status,
+          hasCheckIn,
+          b.no_show_at,
+        );
+        return {
+          bookingId: b.id,
+          startAt: b.session!.start_at,
+          className: b.session!.class_type?.name ?? "Sessie",
+          trainerName: b.session!.trainer?.display_name ?? "coach",
+          status: mapStatus(displayStatus),
+        };
+      });
 
   const historyTotal = historyCountResult.count ?? 0;
   const historyLastPage = Math.max(1, Math.ceil(historyTotal / PAGE_SIZE));

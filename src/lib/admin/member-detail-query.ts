@@ -180,8 +180,15 @@ export async function loadMemberDetail(
     health_notes: string | null;
   };
 
-  const [profileRes, membershipsRes, bookingsRes, paymentsRes, notesRes, strikesRes] =
-    await Promise.all([
+  const [
+    profileRes,
+    membershipsRes,
+    bookingsRes,
+    paymentsRes,
+    notesRes,
+    strikesRes,
+    checkInsRes,
+  ] = await Promise.all([
       admin
         .from("profiles")
         .select(
@@ -212,7 +219,7 @@ export async function loadMemberDetail(
         .from("bookings")
         .select(
           `
-            id, session_id, status, credits_used, attended_at,
+            id, session_id, status, credits_used, attended_at, no_show_at,
             session:class_sessions(
               start_at, end_at, pillar,
               class_type:class_types(name),
@@ -244,6 +251,12 @@ export async function loadMemberDetail(
         .select("strike_count")
         .eq("profile_id", profileId)
         .maybeSingle(),
+      admin
+        .from("check_ins")
+        .select("session_id, pillar, checked_in_at, booking_id")
+        .eq("profile_id", profileId)
+        .order("checked_in_at", { ascending: false })
+        .limit(200),
     ]);
 
   const profile = profileRes.data;
@@ -302,6 +315,13 @@ export async function loadMemberDetail(
       | null;
   };
 
+  const checkInBySession = new Map<string, string>();
+  const checkInByBooking = new Map<string, string>();
+  for (const ci of checkInsRes.data ?? []) {
+    if (ci.session_id) checkInBySession.set(ci.session_id, ci.checked_in_at);
+    if (ci.booking_id) checkInByBooking.set(ci.booking_id, ci.checked_in_at);
+  }
+
   const bookings: MemberBookingRow[] = (bookingsRes.data ?? []).map((b) => {
     const s = (Array.isArray(b.session) ? b.session[0] : b.session) as
       | SessionJoin
@@ -316,16 +336,24 @@ export async function loadMemberDetail(
           display_name: string | null;
         } | null)
       : null;
+    const checkedInAt =
+      checkInByBooking.get(b.id) ??
+      (b.session_id ? checkInBySession.get(b.session_id) : undefined) ??
+      null;
+    // Display-status: check_in > no_show_at > raw status.
+    let displayStatus = b.status as string;
+    if (checkedInAt) displayStatus = "attended";
+    else if (b.no_show_at) displayStatus = "no_show";
     return {
       id: b.id,
       sessionId: b.session_id,
-      status: b.status,
+      status: displayStatus,
       startAt: s?.start_at ?? "",
       endAt: s?.end_at ?? "",
       className: ct?.name ?? "Sessie",
       trainerName: tr?.display_name ?? "—",
       pillar: s?.pillar ?? "",
-      attendedAt: b.attended_at,
+      attendedAt: b.attended_at ?? checkedInAt,
       creditsUsed: b.credits_used ?? 0,
     };
   });
