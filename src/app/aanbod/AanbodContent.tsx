@@ -151,6 +151,8 @@ export function AanbodContent({ images }: AanbodContentProps) {
                       alt={`${training.title} — The Movement Club`}
                       fill
                       sizes="(max-width: 1024px) 100vw, 50vw"
+                      // Eerste card is LCP-kandidaat op /aanbod
+                      priority={i === 0}
                       className="object-cover"
                     />
                   ) : (
