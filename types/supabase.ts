@@ -1677,10 +1677,48 @@ export type Database = {
           },
         ]
       }
+      vw_admin_kpis: {
+        Row: {
+          active_members: number | null
+          active_pauses: number | null
+          churn_30d: number | null
+          crowdfunding_converted_members: number | null
+          crowdfunding_total_backers: number | null
+          fill_rate_week_pct: number | null
+          mrr_cents: number | null
+          new_signups_month: number | null
+          new_signups_week: number | null
+          no_show_rate_30d_pct: number | null
+          refreshed_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cleanup_expired_strikes: { Args: never; Returns: number }
       current_user_role: { Args: never; Returns: string }
+      get_admin_kpis: {
+        Args: never
+        Returns: {
+          active_members: number | null
+          active_pauses: number | null
+          churn_30d: number | null
+          crowdfunding_converted_members: number | null
+          crowdfunding_total_backers: number | null
+          fill_rate_week_pct: number | null
+          mrr_cents: number | null
+          new_signups_month: number | null
+          new_signups_week: number | null
+          no_show_rate_30d_pct: number | null
+          refreshed_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vw_admin_kpis"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_remaining_guest_passes: {
         Args: { p_profile_id: string }
         Returns: number
@@ -1704,6 +1742,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_trainer: { Args: never; Returns: boolean }
+      refresh_admin_kpis: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

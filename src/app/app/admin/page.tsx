@@ -42,18 +42,14 @@ function isoDate(d: Date): string {
 export default async function AdminDashboardPage() {
   const admin = createAdminClient();
   const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
   const weekStart = mondayOfThisWeekInAmsterdam();
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
 
   const [
-    activeMembersRes,
-    mrrRes,
+    kpisRes,
     weekSessionsRes,
     weekBookingsCountRes,
-    noShow30Res,
-    attendedOrNoShow30Res,
     lastMembershipsRes,
     lastCancellationsRes,
     failedPaymentsRes,
@@ -61,14 +57,16 @@ export default async function AdminDashboardPage() {
     openInvoicesRes,
     todaySessionsCountRes,
   ] = await Promise.all([
+    // Materialized view — refreshed dagelijks via cron/refresh-kpis. Bevat
+    // active_members, mrr_cents, fill_rate_week_pct, no_show_rate_30d_pct
+    // en nog 6 andere metrics voor toekomstige uitbreidingen.
     admin
-      .from("memberships")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active"),
-    admin
-      .from("memberships")
-      .select("price_per_cycle_cents")
-      .eq("status", "active"),
+      .from("vw_admin_kpis")
+      .select(
+        "active_members, mrr_cents, fill_rate_week_pct, no_show_rate_30d_pct, refreshed_at",
+      )
+      .limit(1)
+      .maybeSingle(),
     admin
       .from("class_sessions")
       .select("id, capacity")
@@ -83,16 +81,6 @@ export default async function AdminDashboardPage() {
       .neq("pillar", "vrij_trainen")
       .gte("session_date", isoDate(weekStart))
       .lt("session_date", isoDate(weekEnd)),
-    admin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "no_show")
-      .gte("booked_at", thirtyDaysAgo.toISOString()),
-    admin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["attended", "no_show"])
-      .gte("booked_at", thirtyDaysAgo.toISOString()),
     admin
       .from("memberships")
       .select(
@@ -136,32 +124,21 @@ export default async function AdminDashboardPage() {
       ),
   ]);
 
-  // KPI: actieve leden
-  const activeMembers = activeMembersRes.count ?? 0;
+  // KPI's uit de materialized view — één rij, dagelijks refreshed.
+  const kpis = kpisRes.data;
+  const activeMembers = kpis?.active_members ?? 0;
+  const mrrMonthlyCents = Number(kpis?.mrr_cents ?? 0);
+  const fillRateWeekPct = Number(kpis?.fill_rate_week_pct ?? 0);
+  const noShowRatePct = Number(kpis?.no_show_rate_30d_pct ?? 0);
 
-  // KPI: MRR (4-week cycli → maandelijks × 13/12 ≈ 1.083)
-  const mrrCents = (mrrRes.data ?? []).reduce(
-    (sum, m) => sum + (m.price_per_cycle_cents ?? 0),
-    0,
-  );
-  const mrrMonthlyCents = Math.round(mrrCents * (13 / 12));
-
-  // KPI: bezetting deze week
+  // Live bezetting voor de bar-chart (chart toont current-week cadence,
+  // niet rolling). Week-totals blijven ook live zodat de chart-subtekst
+  // consistent is met de chart zelf.
   const weekCapacity = (weekSessionsRes.data ?? []).reduce(
     (sum, s) => sum + (s.capacity ?? 0),
     0,
   );
   const weekBooked = weekBookingsCountRes.count ?? 0;
-  const occupancyPct =
-    weekCapacity > 0 ? Math.round((weekBooked / weekCapacity) * 100) : 0;
-
-  // KPI: no-show rate 30 dagen
-  const noShowCount = noShow30Res.count ?? 0;
-  const attendedOrNoShow = attendedOrNoShow30Res.count ?? 0;
-  const noShowRatePct =
-    attendedOrNoShow > 0
-      ? Math.round((noShowCount / attendedOrNoShow) * 1000) / 10
-      : 0;
 
   // Bar chart: bezetting per dag
   const bookingsByDate = new Map<string, number>();
@@ -274,9 +251,9 @@ export default async function AdminDashboardPage() {
           hint="Geprorateerd vanuit 4-weekse cyclus"
         />
         <KpiCard
-          label="Bezetting deze week"
-          value={`${occupancyPct}%`}
-          hint={`${weekBooked} van ${weekCapacity} plekken`}
+          label="Bezetting (7d rolling)"
+          value={`${fillRateWeekPct}%`}
+          hint={`Deze week: ${weekBooked} van ${weekCapacity} plekken`}
         />
         <KpiCard
           label="No-show rate"

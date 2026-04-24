@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/waitlist-promote",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-kpis",
+      "schedule": "50 3 * * *"
     }
   ]
 }
