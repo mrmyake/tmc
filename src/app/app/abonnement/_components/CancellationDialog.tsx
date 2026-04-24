@@ -4,10 +4,12 @@ import { forwardRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { requestMembershipCancellation } from "@/lib/member/membership-actions";
 import { formatDateLong } from "@/lib/format-date";
+import { trackMembershipCancelComplete } from "@/lib/analytics";
 
 interface CancellationDialogProps {
   membershipId: string;
   commitEndDate: string;
+  currentPlan: string;
   onDone?: () => void;
 }
 
@@ -30,7 +32,10 @@ function expectedEffectiveDate(commitEndDate: string): string {
 export const CancellationDialog = forwardRef<
   HTMLDialogElement,
   CancellationDialogProps
->(function CancellationDialog({ membershipId, commitEndDate, onDone }, ref) {
+>(function CancellationDialog(
+  { membershipId, commitEndDate, currentPlan, onDone },
+  ref,
+) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -46,6 +51,18 @@ export const CancellationDialog = forwardRef<
         setError(res.message);
       } else {
         setSuccess(res.message);
+        const effectiveDate = estEffective;
+        const daysUntil = Math.max(
+          0,
+          Math.round(
+            (new Date(effectiveDate).getTime() - Date.now()) / 86_400_000,
+          ),
+        );
+        trackMembershipCancelComplete({
+          currentPlan,
+          effectiveDate,
+          daysUntilEffective: daysUntil,
+        });
         window.setTimeout(() => {
           onDone?.();
         }, 1600);

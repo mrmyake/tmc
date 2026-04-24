@@ -5,6 +5,10 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import {
+  trackHealthIntakeStart,
+  trackHealthIntakeComplete,
+} from "@/lib/analytics";
+import {
   submitHealthIntake,
   type HealthIntakePayload,
 } from "@/lib/actions/profile";
@@ -53,6 +57,7 @@ export function IntakeForm({ initial }: IntakeFormProps) {
 
   // Hydrate from sessionStorage — client-only.
   useEffect(() => {
+    trackHealthIntakeStart();
     try {
       const stored = sessionStorage.getItem(DRAFT_KEY);
       if (!stored) return;
@@ -114,6 +119,7 @@ export function IntakeForm({ initial }: IntakeFormProps) {
       if (res && !res.ok) {
         setError(res.error);
       } else {
+        trackHealthIntakeComplete();
         // Success path: server action redirects. Clear draft.
         try {
           sessionStorage.removeItem(DRAFT_KEY);

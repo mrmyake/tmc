@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { updateProfile, type ActionResult } from "@/lib/actions/profile";
 import { formatDateLong } from "@/lib/format-date";
+import { trackProfileUpdate } from "@/lib/analytics";
 
 interface Profile {
   first_name: string;
@@ -26,10 +27,28 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
+    // Bepaal welke velden daadwerkelijk wijzigen tov de doorgegeven profile
+    const candidates: Array<keyof Profile> = [
+      "first_name",
+      "last_name",
+      "phone",
+      "date_of_birth",
+      "street_address",
+      "postal_code",
+      "city",
+    ];
+    const changed = candidates.filter((k) => {
+      const v = formData.get(k);
+      const incoming = typeof v === "string" ? v : "";
+      const existing = (profile[k] ?? "") as string;
+      return incoming !== existing;
+    });
     startTransition(async () => {
       const res: ActionResult = await updateProfile(formData);
-      if (res.ok) setEditing(false);
-      else setError(res.error);
+      if (res.ok) {
+        if (changed.length > 0) trackProfileUpdate(changed);
+        setEditing(false);
+      } else setError(res.error);
     });
   }
 

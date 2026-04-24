@@ -3,12 +3,14 @@
 import { useRef } from "react";
 import { PauseDialog } from "./PauseDialog";
 import { CancellationDialog } from "./CancellationDialog";
+import { trackMembershipCancelAttempt } from "@/lib/analytics";
 
 interface MembershipActionsProps {
   membershipId: string;
   commitEndDate: string;
   canPause: boolean;
   canCancel: boolean;
+  currentPlan: string;
 }
 
 function todayIso(): string {
@@ -20,11 +22,19 @@ export function MembershipActions({
   commitEndDate,
   canPause,
   canCancel,
+  currentPlan,
 }: MembershipActionsProps) {
   const pauseRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLDialogElement>(null);
 
   if (!canPause && !canCancel) return null;
+
+  const withinLockIn = new Date(commitEndDate) > new Date();
+
+  function openCancel() {
+    trackMembershipCancelAttempt({ withinLockIn, currentPlan });
+    cancelRef.current?.showModal();
+  }
 
   return (
     <>
@@ -41,7 +51,7 @@ export function MembershipActions({
         {canCancel && (
           <button
             type="button"
-            onClick={() => cancelRef.current?.showModal()}
+            onClick={openCancel}
             className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors duration-300 self-start sm:self-auto py-3.5 cursor-pointer"
           >
             Abbo opzeggen
@@ -62,6 +72,7 @@ export function MembershipActions({
           ref={cancelRef}
           membershipId={membershipId}
           commitEndDate={commitEndDate}
+          currentPlan={currentPlan}
           onDone={() => cancelRef.current?.close()}
         />
       )}

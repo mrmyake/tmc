@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 
 export type StartSignupResult =
-  | { ok: true; checkoutUrl: string }
+  | { ok: true; checkoutUrl: string; amountCents: number }
   | { ok: false; error: string };
 
 /**
@@ -181,7 +181,7 @@ export async function startSignup(
     if (!checkoutUrl) {
       return { ok: false, error: "Kon betaallink niet genereren." };
     }
-    return { ok: true, checkoutUrl };
+    return { ok: true, checkoutUrl, amountCents: totalCents };
   } catch (e) {
     console.error("[startSignup]", e);
     return { ok: false, error: "Er ging iets mis. Probeer opnieuw." };

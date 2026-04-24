@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { startSignup } from "@/lib/actions/membership";
+import { trackPaymentStart } from "@/lib/analytics";
 
 interface Props {
   planVariant: string;
@@ -25,6 +26,11 @@ export function PlanChooser({
         setError(res.error);
         return;
       }
+      trackPaymentStart({
+        amount: res.amountCents / 100,
+        context: "first_membership",
+        planVariant,
+      });
       window.location.href = res.checkoutUrl;
     });
   }

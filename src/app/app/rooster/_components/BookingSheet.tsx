@@ -19,6 +19,12 @@ import {
   formatTimeRange,
   formatWeekdayDate,
 } from "@/lib/format-date";
+import {
+  trackBookingStart,
+  trackBookingComplete,
+  trackBookingCancel,
+  trackWaitlistJoin,
+} from "@/lib/analytics";
 import type { SessionRowData } from "./SessionRow";
 
 interface BookingSheetProps {
@@ -57,9 +63,15 @@ export function BookingSheet({
   const isYogaMobility = session?.pillar === "yoga_mobility";
 
   useEffect(() => {
-    if (open) {
+    if (open && session) {
       lastFocusedRef.current = document.activeElement as HTMLElement;
-    } else {
+      // Panel opent → booking_start event (user toont intent).
+      trackBookingStart({
+        sessionId: session.id,
+        classType: session.className,
+        pillar: session.pillar,
+      });
+    } else if (!open) {
       lastFocusedRef.current?.focus?.();
       setResult(null);
       setRentMat(false);
@@ -70,7 +82,7 @@ export function BookingSheet({
       setGuestMsg(null);
       setPassStatus(null);
     }
-  }, [open]);
+  }, [open, session]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +116,25 @@ export function BookingSheet({
       });
       setResult(res);
       if (res.ok) {
+        const hoursBefore = hoursUntil(session.startAt);
+        if (res.action === "booked") {
+          trackBookingComplete({
+            sessionId: session.id,
+            classType: session.className,
+            pillar: session.pillar,
+            planType: "unknown", // plan info zit niet in session-row; GA4 custom dim afleidt uit user_id
+            creditCharged: false,
+            hoursBeforeStart: hoursBefore,
+          });
+        } else if (res.action === "waitlisted") {
+          // res.message bevat "plek N" — parse 'm, fallback 0.
+          const posMatch = /(\d+)/.exec(res.message);
+          trackWaitlistJoin({
+            sessionId: session.id,
+            classType: session.className,
+            position: posMatch ? Number(posMatch[1]) : 0,
+          });
+        }
         window.setTimeout(onClose, 1200);
       }
     });
@@ -111,10 +142,18 @@ export function BookingSheet({
 
   function doCancel() {
     if (!session?.bookingId) return;
+    const target = session;
     startTransition(async () => {
-      const res = await cancelBooking(session.bookingId!);
+      const res = await cancelBooking(target.bookingId!);
       setResult(res);
-      if (res.ok) {
+      if (res.ok && res.action === "cancelled") {
+        const hoursBefore = hoursUntil(target.startAt);
+        trackBookingCancel({
+          sessionId: target.id,
+          pillar: target.pillar,
+          hoursBeforeStart: hoursBefore,
+          withinWindow: hoursBefore >= cancellationWindowHours,
+        });
         window.setTimeout(onClose, 1200);
       }
     });
