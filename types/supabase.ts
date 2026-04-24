@@ -1036,6 +1036,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          acquisition_campaign: string | null
+          acquisition_content: string | null
+          acquisition_medium: string | null
+          acquisition_source: string | null
           age_category: string
           avatar_url: string | null
           city: string | null
@@ -1046,6 +1050,7 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           first_name: string
+          first_touch_at: string | null
           has_used_pt_intake_discount: boolean
           health_intake_completed_at: string | null
           health_notes: string | null
@@ -1056,10 +1061,15 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           role: string
+          signup_path: string | null
           street_address: string | null
           updated_at: string
         }
         Insert: {
+          acquisition_campaign?: string | null
+          acquisition_content?: string | null
+          acquisition_medium?: string | null
+          acquisition_source?: string | null
           age_category?: string
           avatar_url?: string | null
           city?: string | null
@@ -1070,6 +1080,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           first_name: string
+          first_touch_at?: string | null
           has_used_pt_intake_discount?: boolean
           health_intake_completed_at?: string | null
           health_notes?: string | null
@@ -1080,10 +1091,15 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           role?: string
+          signup_path?: string | null
           street_address?: string | null
           updated_at?: string
         }
         Update: {
+          acquisition_campaign?: string | null
+          acquisition_content?: string | null
+          acquisition_medium?: string | null
+          acquisition_source?: string | null
           age_category?: string
           avatar_url?: string | null
           city?: string | null
@@ -1094,6 +1110,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           first_name?: string
+          first_touch_at?: string | null
           has_used_pt_intake_discount?: boolean
           health_intake_completed_at?: string | null
           health_notes?: string | null
@@ -1104,6 +1121,7 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           role?: string
+          signup_path?: string | null
           street_address?: string | null
           updated_at?: string
         }
@@ -1667,7 +1685,19 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: number
       }
-      increment_cf_stats: { Args: { p_amount: number }; Returns: undefined }
+      increment_cf_stats:
+        | {
+            Args: { p_amount: number }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.increment_cf_stats(p_amount => int4), public.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_amount: number }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.increment_cf_stats(p_amount => int4), public.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       increment_cf_tier_slot: {
         Args: { p_tier_id: string }
         Returns: undefined

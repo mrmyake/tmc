@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { utmToMailerliteFields, type UtmParams } from "@/lib/utm";
+
+interface LeadPayload {
+  name?: string;
+  email?: string;
+  utm?: UtmParams;
+  signupPath?: string;
+}
 
 export async function POST(request: Request) {
   try {
-    const { name, email } = await request.json();
+    const body = (await request.json()) as LeadPayload;
+    const { name, email, utm = {}, signupPath } = body;
 
     if (!name || !email) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -14,6 +23,7 @@ export async function POST(request: Request) {
       addSubscriber({
         email,
         name,
+        fields: utmToMailerliteFields(utm, signupPath),
         groups: GROUPS.MOBILITY_RESET ? [GROUPS.MOBILITY_RESET] : [],
       }),
       sendNotification(

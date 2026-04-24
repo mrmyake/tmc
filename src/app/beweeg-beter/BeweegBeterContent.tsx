@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { getStoredUtm } from "@/lib/utm";
 import { urlFor } from "../../../sanity/lib/client";
 import type { SanityImage } from "../../../sanity/lib/fetch";
 
@@ -44,6 +45,8 @@ export function BeweegBeterContent({ coverImage }: BeweegBeterContentProps) {
     const data = {
       name: (form.elements.namedItem("name") as HTMLInputElement).value,
       email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      utm: getStoredUtm(),
+      signupPath: window.location.pathname,
     };
 
     try {

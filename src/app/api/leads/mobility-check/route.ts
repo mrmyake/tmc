@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { utmToMailerliteFields, type UtmParams } from "@/lib/utm";
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
+    const data = (await request.json()) as {
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      day?: string;
+      time?: string;
+      experience?: string;
+      goals?: string;
+      utm?: UtmParams;
+      signupPath?: string;
+    };
 
     if (!data.email || !data.firstName) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -22,6 +34,7 @@ export async function POST(request: Request) {
           preferred_time: data.time || "",
           experience: data.experience || "",
           goals: data.goals || "",
+          ...utmToMailerliteFields(data.utm ?? {}, data.signupPath),
         },
         groups: GROUPS.MOBILITY_CHECK ? [GROUPS.MOBILITY_CHECK] : [],
       }),

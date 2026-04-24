@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
+import { getStoredUtm } from "@/lib/utm";
 
 // text-base (16px) is intentional — anything smaller triggers Safari
 // mobile's auto-zoom on focus, which shifts the login card outside the
@@ -29,10 +30,23 @@ export function LoginForm({ initialError }: Props) {
     setErrorMsg("");
 
     const supabase = createClient();
+    // Attribution meegeven bij eerste signup — de trigger
+    // handle_new_auth_user leest raw_user_meta_data en kopieert naar
+    // profiles. Bestaande users behouden hun originele attribution
+    // (trigger doet ON CONFLICT DO NOTHING).
+    const utm = getStoredUtm();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          acquisition_source: utm.utm_source,
+          acquisition_medium: utm.utm_medium,
+          acquisition_campaign: utm.utm_campaign,
+          acquisition_content: utm.utm_content,
+          signup_path: window.location.pathname,
+          first_touch_at: new Date().toISOString(),
+        },
       },
     });
 

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { getStoredUtm } from "@/lib/utm";
 import { ChevronDown } from "lucide-react";
 
 function SelectChevron() {
@@ -83,7 +84,11 @@ export function MobilityCheckContent() {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+    const data = {
+      ...Object.fromEntries(formData.entries()),
+      utm: getStoredUtm(),
+      signupPath: window.location.pathname,
+    };
 
     try {
       await fetch("/api/leads/mobility-check", {

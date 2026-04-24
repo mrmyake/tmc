@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { getStoredUtm } from "@/lib/utm";
 import { Play } from "lucide-react";
 import Image from "next/image";
 import { urlFor } from "../../../sanity/lib/client";
@@ -49,6 +50,8 @@ export function MobilityResetContent({ thumb }: MobilityResetContentProps) {
     const data = {
       name: (form.elements.namedItem("name") as HTMLInputElement).value,
       email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      utm: getStoredUtm(),
+      signupPath: window.location.pathname,
     };
 
     try {
