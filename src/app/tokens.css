@@ -14,24 +14,11 @@
 /* Fraunces is a substitute for Canela / a modern Didone. Swap file + src when
    a licensed family is available. Inter is a substitute for Söhne. */
 
-@font-face {
-  font-family: "Fraunces";
-  font-style: normal;
-  font-weight: 200 900;
-  font-display: swap;
-  src: url("https://fonts.gstatic.com/s/fraunces/v32/6NUh8FyLNQOQZAnv9bYgvLFieqTfMpNXpa9-KzgPBQ.woff2") format("woff2");
-  /* SOFT 0 = sharp terminals; opsz tracks size so glyphs don't look blurry at
-     intermediate sizes. Default weight for display is 400 — 300 goes soft. */
-  font-variation-settings: "opsz" 144, "SOFT" 0;
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvnUwQT9nbsoKaP.woff2") format("woff2");
-}
+/* Fraunces en Inter worden self-hosted door `next/font/google` in
+   src/app/layout.tsx. De CSS-variabelen --font-playfair en
+   --font-dm-sans worden op <html> gezet; de tokens hieronder
+   (--font-serif-display / --font-sans) resolven daar naartoe
+   zodat we niet dubbel laden vanuit fonts.gstatic.com. */
 
 :root {
   /* ---------- Color: ink (dark, warm) -------------------------------------- */
@@ -86,11 +73,15 @@
   --accent:         var(--champagne);
   --accent-pressed: var(--champagne-deep);
 
-  /* ---------- Typography: families ---------------------------------------- */
-  --font-serif-display: "Fraunces", "Canela", "GT Super", "Didot", "Bodoni 72",
-                        "Noto Serif", Georgia, serif;
-  --font-sans:          "Inter", "Söhne", "Söhne Buch", "Helvetica Neue",
-                        Helvetica, Arial, system-ui, sans-serif;
+  /* ---------- Typography: families ----------------------------------------
+     Resolve via de next/font CSS-variabelen zodat alle serif-koppen en
+     body-tekst de self-gehoste .woff2 files pakken (geen gstatic leak).
+     Fallbacks blijven editorial-alignment voor de flash-of-fallback. */
+  --font-serif-display: var(--font-playfair), "Canela", "GT Super", "Didot",
+                        "Bodoni 72", "Noto Serif", Georgia, serif;
+  --font-sans:          var(--font-dm-sans), "Söhne", "Söhne Buch",
+                        "Helvetica Neue", Helvetica, Arial, system-ui,
+                        sans-serif;
   --font-mono:          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
                         Consolas, monospace;
 

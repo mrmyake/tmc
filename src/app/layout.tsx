@@ -12,17 +12,24 @@ import { urlFor } from "../../sanity/lib/client";
 
 export const revalidate = 60;
 
+// Fraunces wordt alleen in 400 + 500 gebruikt (zie CLAUDE.md §
+// Typografie — display weight 400+, geen 300). Geen axes —
+// grep confirmed dat geen enkele component `font-variation-settings`
+// aanroept. Pinnen houdt payload rond ~25 KiB ipv ~120 KiB
+// multi-axis variable.
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-playfair",
   display: "swap",
-  axes: ["opsz", "SOFT"],
+  weight: ["400", "500"],
 });
 
+// Inter in 400/500/600 — body, eyebrows, CTA-labels.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-dm-sans",
   display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 // Async generateMetadata zodat de OG-image uit Sanity (`siteImages.ogImage`)
@@ -90,19 +97,13 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${inter.variable} antialiased`}
     >
       <head>
-        {/* Connect early to the CDN that serves the LCP image (Sanity)
-            and the Google Font file host. Cuts ~100-300ms off first
-            paint on slow 4G. next/font already preloads the font CSS,
-            but the underlying .woff2 is on fonts.gstatic.com. */}
+        {/* Connect early to de Sanity-CDN voor de LCP image. next/font
+            self-host de .woff2, die komen dus vanaf onze eigen origin
+            (geen preconnect nodig). */}
         <link rel="preconnect" href="https://cdn.sanity.io" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
         {/* Google Reviews widget origin (TestimonialCarousel, below
-            the fold). Preconnect during idle saves ~330ms on the
-            carousel fetch when the user scrolls that far. */}
+            the fold). Preconnect during idle saves ~330ms op de
+            carousel fetch zodra de user scrollt. */}
         <link rel="preconnect" href="https://featurable.com" />
       </head>
       <body className="min-h-screen flex flex-col">
