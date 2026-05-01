@@ -5,7 +5,10 @@ async function mailerliteRequest(
   body: Record<string, unknown> | null,
   method: "POST" | "PUT" | "DELETE" = "POST",
 ) {
-  const apiKey = process.env.MAILERLITE_API_KEY;
+  // Strip alle whitespace: Vercel UI kan een gewrapte JWT met linebreaks
+  // opslaan, en die breken de Bearer header (HTTP 401 zonder zichtbare fout
+  // in de UI omdat lead-routes altijd succes returnen).
+  const apiKey = process.env.MAILERLITE_API_KEY?.replace(/\s/g, "");
   if (!apiKey) {
     console.warn("[Mailerlite] No API key configured");
     return null;
