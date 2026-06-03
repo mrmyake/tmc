@@ -7,6 +7,8 @@ import faq from "./faq";
 import siteImages from "./siteImages";
 import crowdfundingSettings from "./crowdfundingSettings";
 import crowdfundingTier from "./crowdfundingTier";
+import yogaStyle from "./yogaStyle";
+import yogaTeacher from "./yogaTeacher";
 
 // Schemas die bewust NIET meer geregistreerd zijn — ooit bedoeld, geen
 // consumer in de website. Als we ze later opnieuw willen gebruiken
@@ -28,4 +30,6 @@ export const schemaTypes = [
   pricingTier,
   crowdfundingTier,
   faq,
+  yogaStyle,
+  yogaTeacher,
 ];

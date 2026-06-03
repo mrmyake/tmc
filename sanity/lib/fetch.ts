@@ -9,6 +9,12 @@ import {
   siteImagesQuery,
   crowdfundingSettingsQuery,
   crowdfundingTiersQuery,
+  yogaStylesQuery,
+  yogaStyleBySlugQuery,
+  yogaStyleSlugsQuery,
+  yogaTeachersQuery,
+  yogaTeacherBySlugQuery,
+  yogaTeacherSlugsQuery,
 } from "./queries";
 import {
   SITE,
@@ -262,6 +268,94 @@ export async function getCrowdfundingTierById(
     `*[_type == "crowdfundingTier" && tierId == $tierId][0]`,
     { tierId }
   );
+}
+
+// Yoga
+export interface SanityYogaTeacherRef {
+  _id: string;
+  name: string;
+  slug: string;
+  specialty?: string;
+  heroQuote?: string;
+  bio?: unknown[];
+  photo?: SanityImage;
+  isActive: boolean;
+  order?: number;
+}
+
+export interface SanityYogaStyleFaq {
+  _key?: string;
+  question: string;
+  answer: string;
+}
+
+export interface SanityYogaStyle {
+  _id: string;
+  title: string;
+  slug: string;
+  intensity: number;
+  definition: string;
+  shortDescription?: string;
+  forWho?: string;
+  benefits?: string[];
+  body?: unknown[];
+  image?: SanityImage;
+  faqs?: SanityYogaStyleFaq[];
+  seoTitle?: string;
+  seoDescription?: string;
+  order?: number;
+  teachers?: SanityYogaTeacherRef[];
+}
+
+export interface SanityYogaTeacherStyleRef {
+  title: string;
+  slug: string;
+}
+
+export interface SanityYogaTeacher {
+  _id: string;
+  name: string;
+  slug: string;
+  specialty?: string;
+  heroQuote?: string;
+  bio?: unknown[];
+  photo?: SanityImage;
+  isActive: boolean;
+  internalNote?: string;
+  order?: number;
+  styles?: SanityYogaTeacherStyleRef[];
+}
+
+export async function getYogaStyles(): Promise<SanityYogaStyle[]> {
+  const data = await safeFetch<SanityYogaStyle[]>(yogaStylesQuery);
+  return data ?? [];
+}
+
+export async function getYogaStyleBySlug(
+  slug: string
+): Promise<SanityYogaStyle | null> {
+  return await safeFetch<SanityYogaStyle>(yogaStyleBySlugQuery, { slug });
+}
+
+export async function getYogaStyleSlugs(): Promise<string[]> {
+  const data = await safeFetch<string[]>(yogaStyleSlugsQuery);
+  return data ?? [];
+}
+
+export async function getYogaTeachers(): Promise<SanityYogaTeacher[]> {
+  const data = await safeFetch<SanityYogaTeacher[]>(yogaTeachersQuery);
+  return data ?? [];
+}
+
+export async function getYogaTeacherBySlug(
+  slug: string
+): Promise<SanityYogaTeacher | null> {
+  return await safeFetch<SanityYogaTeacher>(yogaTeacherBySlugQuery, { slug });
+}
+
+export async function getYogaTeacherSlugs(): Promise<string[]> {
+  const data = await safeFetch<string[]>(yogaTeacherSlugsQuery);
+  return data ?? [];
 }
 
 // Re-export PILLARS (not in CMS, static)
