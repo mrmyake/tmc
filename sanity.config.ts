@@ -41,6 +41,9 @@ export default defineConfig({
             S.documentTypeListItem("pricingTier").title("Lidmaatschap"),
             S.documentTypeListItem("faq").title("FAQ"),
             S.divider(),
+            S.documentTypeListItem("yogaStyle").title("Yoga vormen"),
+            S.documentTypeListItem("yogaTeacher").title("Yoga docenten"),
+            S.divider(),
             S.listItem()
               .title("Crowdfunding Instellingen")
               .child(

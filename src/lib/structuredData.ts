@@ -51,3 +51,99 @@ export function getWebsiteSchema() {
     url: SITE.url,
   };
 }
+
+// --- Yoga (PR-Y4) ---
+
+/** Korte verwijzing naar de studio als provider/werkgever in yoga-schemas. */
+const localBusinessRef = {
+  "@type": "GymOrHealthClub",
+  name: SITE.name,
+  url: SITE.url,
+};
+
+export interface BreadcrumbItem {
+  name: string;
+  url: string;
+}
+
+export function getBreadcrumbSchema(items: BreadcrumbItem[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+}
+
+export function getYogaServiceSchema(style: {
+  title: string;
+  slug: string;
+  definition: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: style.title,
+    serviceType: "Yogales",
+    description: style.definition,
+    url: `${SITE.url}/yoga/${style.slug}`,
+    provider: localBusinessRef,
+    areaServed: { "@type": "Place", name: "Loosdrecht" },
+  };
+}
+
+export function getYogaFaqSchema(
+  faqs: Array<{ question: string; answer: string }>,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
+}
+
+export function getYogaItemListSchema(
+  styles: Array<{ title: string; slug: string }>,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Yogavormen bij The Movement Club",
+    itemListElement: styles.map((style, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: style.title,
+      url: `${SITE.url}/yoga/${style.slug}`,
+    })),
+  };
+}
+
+export function getYogaTeacherSchema(teacher: {
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  knowsAbout?: string[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: teacher.name,
+    jobTitle: "Yogadocent",
+    url: `${SITE.url}/yoga/docenten/${teacher.slug}`,
+    ...(teacher.description ? { description: teacher.description } : {}),
+    ...(teacher.image ? { image: teacher.image } : {}),
+    ...(teacher.knowsAbout && teacher.knowsAbout.length > 0
+      ? { knowsAbout: teacher.knowsAbout }
+      : {}),
+    worksFor: localBusinessRef,
+  };
+}

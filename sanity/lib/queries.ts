@@ -15,3 +15,79 @@ export const siteImagesQuery = `*[_type == "siteImages"][0]`;
 export const crowdfundingSettingsQuery = `*[_type == "crowdfundingSettings"][0]`;
 
 export const crowdfundingTiersQuery = `*[_type == "crowdfundingTier" && active == true] | order(order asc)`;
+
+// --- Yoga ---
+
+const yogaTeacherProjection = `{
+  _id,
+  name,
+  "slug": slug.current,
+  specialty,
+  heroQuote,
+  bio,
+  photo,
+  isActive,
+  order
+}`;
+
+const yogaStyleProjection = `{
+  _id,
+  title,
+  "slug": slug.current,
+  intensity,
+  definition,
+  shortDescription,
+  forWho,
+  benefits,
+  body,
+  image,
+  faqs,
+  seoTitle,
+  seoDescription,
+  order,
+  "teachers": teachers[]->${yogaTeacherProjection}
+}`;
+
+// Vormen, gesorteerd op de rust → actief as.
+export const yogaStylesQuery = `*[_type == "yogaStyle"] | order(intensity asc) ${yogaStyleProjection}`;
+
+export const yogaStyleBySlugQuery = `*[_type == "yogaStyle" && slug.current == $slug][0] ${yogaStyleProjection}`;
+
+export const yogaStyleSlugsQuery = `*[_type == "yogaStyle" && defined(slug.current)].slug.current`;
+
+// Docenten. Hun vormen worden afgeleid via een reverse reference op yogaStyle.
+export const yogaTeachersQuery = `*[_type == "yogaTeacher"] | order(order asc) {
+  _id,
+  name,
+  "slug": slug.current,
+  specialty,
+  heroQuote,
+  bio,
+  photo,
+  isActive,
+  internalNote,
+  order,
+  "styles": *[_type == "yogaStyle" && references(^._id)] | order(intensity asc) {
+    title,
+    "slug": slug.current
+  }
+}`;
+
+export const yogaTeacherBySlugQuery = `*[_type == "yogaTeacher" && slug.current == $slug][0] {
+  _id,
+  name,
+  "slug": slug.current,
+  specialty,
+  heroQuote,
+  bio,
+  photo,
+  isActive,
+  internalNote,
+  order,
+  "styles": *[_type == "yogaStyle" && references(^._id)] | order(intensity asc) {
+    title,
+    "slug": slug.current
+  }
+}`;
+
+export const yogaTeacherSlugsQuery = `*[_type == "yogaTeacher" && isActive == true && defined(slug.current)].slug.current`;
