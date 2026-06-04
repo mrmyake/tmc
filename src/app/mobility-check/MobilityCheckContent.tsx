@@ -163,14 +163,14 @@ export function MobilityCheckContent() {
           </ScrollReveal>
           <ul className="divide-y divide-bg-subtle border-y border-bg-subtle">
             {forWhom.map((item, i) => (
-              <ScrollReveal key={item} delay={i * 0.06}>
-                <li className="py-5 flex items-baseline gap-6">
+              <li key={item} className="py-5 flex items-baseline gap-6">
+                <ScrollReveal delay={i * 0.06} className="flex items-baseline gap-6 w-full">
                   <span className="tmc-eyebrow text-text-muted/70 shrink-0">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="text-text text-base">{item}</span>
-                </li>
-              </ScrollReveal>
+                </ScrollReveal>
+              </li>
             ))}
           </ul>
         </Container>
@@ -325,9 +325,9 @@ export function MobilityCheckContent() {
                       key={faq.q}
                       className="py-5 border-b border-bg-subtle"
                     >
-                      <h4 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
+                      <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
                         {faq.q}
-                      </h4>
+                      </h3>
                       <p className="text-text-muted text-sm leading-relaxed">
                         {faq.a}
                       </p>
