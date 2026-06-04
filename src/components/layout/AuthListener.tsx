@@ -1,51 +1,86 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { setUserId, trackPortalLogin } from "@/lib/analytics";
-import { getConsent } from "@/lib/consent";
 
 /**
- * Wired in de root layout. Op elke paint: lees de huidige sessie, en
- * als die er is + consent = granted, zet GA4 user_id. Luistert daarna
- * op auth state changes om bij SIGNED_IN / SIGNED_OUT de user_id te
- * flippen en portal_login te vuren.
+ * Wired in de root layout. Leest de huidige sessie en, als die er is +
+ * consent = granted, zet GA4 user_id. Luistert daarna op auth state
+ * changes om bij SIGNED_IN / SIGNED_OUT de user_id te flippen en
+ * portal_login te vuren.
  *
- * Consent-gate: we roepen setUserId altijd aan, maar alleen als
- * consent granted is gaat gtag daadwerkelijk identificeren — Consent
- * Mode v2 verwerpt user_id-writes bij analytics_storage=denied.
+ * Performance: de Supabase-browserclient (+ @supabase/ssr) is een fors
+ * bundle die alleen voor ingelogde flows nodig is. We importeren 'm
+ * daarom dynamisch (code-split, uit de eerste bundle van elke publieke
+ * pagina) en starten pas bij idle, zodat het niet concurreert met de
+ * initiële render.
+ *
+ * Consent-gate: setUserId wordt altijd aangeroepen, maar alleen bij
+ * consent granted identificeert gtag daadwerkelijk (Consent Mode v2).
  */
 export function AuthListener() {
   useEffect(() => {
-    const supabase = createClient();
     let mounted = true;
+    let unsubscribe: (() => void) | null = null;
 
-    // Initial sync — als er al een sessie is bij eerste mount
-    supabase.auth.getUser().then(({ data }) => {
+    const start = async () => {
+      const [{ createClient }, { setUserId, trackPortalLogin }, { getConsent }] =
+        await Promise.all([
+          import("@/lib/supabase/client"),
+          import("@/lib/analytics"),
+          import("@/lib/consent"),
+        ]);
       if (!mounted) return;
-      if (data.user && getConsent() === "granted") {
-        setUserId(data.user.id);
-      }
-    });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      const supabase = createClient();
+
+      // Initial sync — als er al een sessie is bij eerste mount.
+      supabase.auth.getUser().then(({ data }) => {
         if (!mounted) return;
-        if (event === "SIGNED_IN" && session?.user) {
-          if (getConsent() === "granted") {
-            setUserId(session.user.id);
+        if (data.user && getConsent() === "granted") {
+          setUserId(data.user.id);
+        }
+      });
+
+      const { data: sub } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (!mounted) return;
+          if (event === "SIGNED_IN" && session?.user) {
+            if (getConsent() === "granted") {
+              setUserId(session.user.id);
+            }
+            trackPortalLogin("magic_link");
           }
-          trackPortalLogin("magic_link");
-        }
-        if (event === "SIGNED_OUT") {
-          setUserId(null);
-        }
-      },
-    );
+          if (event === "SIGNED_OUT") {
+            setUserId(null);
+          }
+        },
+      );
+      unsubscribe = () => sub.subscription.unsubscribe();
+    };
+
+    type IdleWindow = Window & {
+      requestIdleCallback?: (
+        cb: () => void,
+        opts?: { timeout: number },
+      ) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const w = window as IdleWindow;
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(() => start(), { timeout: 4000 });
+    } else {
+      timeoutId = window.setTimeout(() => start(), 1);
+    }
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      if (idleId !== undefined && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

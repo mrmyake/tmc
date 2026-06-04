@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
+import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
 import {
@@ -154,10 +154,11 @@ export default async function RootLayout({
           }}
         />
         <SiteShell settings={settings}>{children}</SiteShell>
-        {/* gtag.js altijd geladen, respecteert consent-default state
-            die hierboven is ingesteld. Cookieless pings werken bij
-            denied; pageviews + events vuren na update-granted. */}
-        <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
+        {/* gtag.js wordt uitgesteld tot eerste interactie of idle
+            (DeferredAnalytics) zodat het niet op de kritieke render-path
+            zit. Respecteert de consent-default state die inline in <head>
+            is gezet; events queuen in dataLayer tot gtag.js binnen is. */}
+        <DeferredAnalytics gaId={GA_MEASUREMENT_ID} />
         {/* AuthListener: zet GA4 user_id + vuurt portal_login bij
             SIGNED_IN / clear bij SIGNED_OUT. Alleen actief als
             consent-state granted is. */}
