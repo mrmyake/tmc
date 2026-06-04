@@ -49,7 +49,7 @@ export default async function YogaHubPage() {
               persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
-              <Button href="/contact">Zet me op de wachtlijst</Button>
+              <Button href="#wachtlijst">Zet me op de wachtlijst</Button>
               <QuietLink href="/yoga/rooster">Bekijk het rooster</QuietLink>
             </div>
           </ScrollReveal>

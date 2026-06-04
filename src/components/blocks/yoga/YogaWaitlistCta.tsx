@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
+import { YogaWaitlistForm } from "./YogaWaitlistForm";
 
 interface Props {
   heading?: string;
@@ -10,12 +10,8 @@ interface Props {
 
 /**
  * Wachtlijst-CTA voor de pré-opening. De primaire conversie op alle
- * yoga-pagina's.
- *
- * NB: het echte wachtlijst-formulier en het endpoint
- * `/api/leads/yoga-waitlist` (MailerLite-groep "Yoga Wachtlijst") landen in
- * PR-Y4. Tot die tijd wijst de knop naar het contactformulier zodat de
- * pagina nu al een werkende conversie heeft.
+ * yoga-pagina's. Bevat het echte inschrijfformulier dat naar
+ * /api/leads/yoga-waitlist post (MailerLite-groep "Yoga Wachtlijst").
  */
 export function YogaWaitlistCta({
   heading = "Wees erbij vanaf de eerste les",
@@ -23,7 +19,7 @@ export function YogaWaitlistCta({
   bg = "elevated",
 }: Props) {
   return (
-    <Section bg={bg}>
+    <Section bg={bg} id="wachtlijst">
       <Container className="max-w-3xl text-center">
         <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
           Wachtlijst
@@ -34,7 +30,7 @@ export function YogaWaitlistCta({
         <p className="text-text-muted text-lg mb-10 max-w-xl mx-auto">
           {subtext}
         </p>
-        <Button href="/contact">Zet me op de wachtlijst</Button>
+        <YogaWaitlistForm />
       </Container>
     </Section>
   );
