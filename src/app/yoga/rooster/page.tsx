@@ -4,6 +4,9 @@ import { Section } from "@/components/layout/Section";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { getBreadcrumbSchema } from "@/lib/structuredData";
+import { SITE } from "@/lib/constants";
 import {
   PublicWeekGrid,
   type PublicDay,
@@ -115,8 +118,15 @@ export default async function YogaRoosterPage() {
   const week2 = days.slice(7, 14);
   const totalSessions = cards.length;
 
+  const breadcrumb = getBreadcrumbSchema([
+    { name: "Home", url: SITE.url },
+    { name: "Yoga", url: `${SITE.url}/yoga` },
+    { name: "Rooster", url: `${SITE.url}/yoga/rooster` },
+  ]);
+
   return (
     <>
+      <JsonLd data={breadcrumb} />
       <Section className="pt-32 md:pt-40">
         <Container>
           <header className="mb-14 max-w-3xl">

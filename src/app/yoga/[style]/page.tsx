@@ -8,6 +8,13 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { YogaFaqAccordion } from "@/components/blocks/yoga/YogaFaqAccordion";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  getBreadcrumbSchema,
+  getYogaServiceSchema,
+  getYogaFaqSchema,
+} from "@/lib/structuredData";
+import { SITE } from "@/lib/constants";
 import {
   getYogaStyleBySlug,
   getYogaStyleSlugs,
@@ -47,8 +54,29 @@ export default async function YogaStylePage(props: {
 
   const activeTeachers = (data.teachers ?? []).filter((t) => t.isActive);
 
+  const schemas: object[] = [
+    getBreadcrumbSchema([
+      { name: "Home", url: SITE.url },
+      { name: "Yoga", url: `${SITE.url}/yoga` },
+      { name: data.title, url: `${SITE.url}/yoga/${data.slug}` },
+    ]),
+    getYogaServiceSchema({
+      title: data.title,
+      slug: data.slug,
+      definition: data.definition,
+    }),
+  ];
+  if (data.faqs && data.faqs.length > 0) {
+    schemas.push(
+      getYogaFaqSchema(
+        data.faqs.map((f) => ({ question: f.question, answer: f.answer })),
+      ),
+    );
+  }
+
   return (
     <>
+      <JsonLd data={schemas} />
       {/* Intro met citatie-klare definitiezin */}
       <Section className="pt-32 md:pt-40">
         <Container className="max-w-3xl">

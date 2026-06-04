@@ -8,6 +8,12 @@ import { QuietLink } from "@/components/ui/QuietLink";
 import { YogaComparisonTable } from "@/components/blocks/yoga/YogaComparisonTable";
 import { YogaTeacherStrip } from "@/components/blocks/yoga/YogaTeacherStrip";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  getBreadcrumbSchema,
+  getYogaItemListSchema,
+} from "@/lib/structuredData";
+import { SITE } from "@/lib/constants";
 import { getYogaStyles, getYogaTeachers } from "../../../sanity/lib/fetch";
 
 export const revalidate = 60;
@@ -30,8 +36,17 @@ export default async function YogaHubPage() {
     getYogaTeachers(),
   ]);
 
+  const breadcrumb = getBreadcrumbSchema([
+    { name: "Home", url: SITE.url },
+    { name: "Yoga", url: `${SITE.url}/yoga` },
+  ]);
+  const itemList = getYogaItemListSchema(
+    styles.map((s) => ({ title: s.title, slug: s.slug })),
+  );
+
   return (
     <>
+      <JsonLd data={[breadcrumb, itemList]} />
       {/* Hero */}
       <Section className="pt-32 md:pt-40">
         <Container className="max-w-4xl">

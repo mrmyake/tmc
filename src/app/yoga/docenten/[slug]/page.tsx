@@ -9,6 +9,12 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { Button } from "@/components/ui/Button";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  getBreadcrumbSchema,
+  getYogaTeacherSchema,
+} from "@/lib/structuredData";
+import { SITE } from "@/lib/constants";
 import { teacherPhotoSrc } from "@/lib/yoga";
 import {
   getYogaTeacherBySlug,
@@ -53,8 +59,30 @@ export default async function YogaTeacherPage(props: {
   const photo = teacherPhotoSrc(teacher);
   const styles = teacher.styles ?? [];
 
+  const absolutePhoto = photo
+    ? photo.startsWith("http")
+      ? photo
+      : `${SITE.url}${photo}`
+    : undefined;
+  const schemas = [
+    getBreadcrumbSchema([
+      { name: "Home", url: SITE.url },
+      { name: "Yoga", url: `${SITE.url}/yoga` },
+      { name: "Docenten", url: `${SITE.url}/yoga/docenten` },
+      { name: teacher.name, url: `${SITE.url}/yoga/docenten/${teacher.slug}` },
+    ]),
+    getYogaTeacherSchema({
+      name: teacher.name,
+      slug: teacher.slug,
+      description: teacher.heroQuote,
+      image: absolutePhoto,
+      knowsAbout: styles.map((s) => s.title),
+    }),
+  ];
+
   return (
     <>
+      <JsonLd data={schemas} />
       {/* Hero */}
       <Section className="pt-32 md:pt-40">
         <Container>

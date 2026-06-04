@@ -5,6 +5,9 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { YogaTeacherStrip } from "@/components/blocks/yoga/YogaTeacherStrip";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { getBreadcrumbSchema } from "@/lib/structuredData";
+import { SITE } from "@/lib/constants";
 import { getYogaTeachers } from "../../../../sanity/lib/fetch";
 
 export const revalidate = 60;
@@ -24,8 +27,15 @@ export const metadata: Metadata = {
 export default async function YogaTeachersPage() {
   const teachers = await getYogaTeachers();
 
+  const breadcrumb = getBreadcrumbSchema([
+    { name: "Home", url: SITE.url },
+    { name: "Yoga", url: `${SITE.url}/yoga` },
+    { name: "Docenten", url: `${SITE.url}/yoga/docenten` },
+  ]);
+
   return (
     <>
+      <JsonLd data={breadcrumb} />
       <Section className="pt-32 md:pt-40">
         <Container>
           <ScrollReveal>

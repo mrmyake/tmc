@@ -28,6 +28,7 @@ export const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Over ons", href: "/over" },
   { label: "Aanbod", href: "/aanbod" },
+  { label: "Yoga", href: "/yoga" },
   { label: "Contact", href: "/contact" },
 ] as const;
 
