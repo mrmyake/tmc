@@ -1,9 +1,25 @@
+// Eén canonieke base-URL voor de hele site. Productie redirect non-www
+// naar www, dus www is de canonieke vorm. Leest NEXT_PUBLIC_SITE_URL
+// (zodat localhost en preview-URL's hun eigen base houden), maar borgt de
+// canonieke vorm voor het productiedomein: een lege env valt terug op www,
+// en de apex (non-www) wordt geforceerd naar www zodat een verkeerd gezette
+// env nooit een redirectende canonical oplevert. Trailing slash gestript.
+function resolveSiteUrl(): string {
+  const canonical = "https://www.themovementclub.nl";
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, "");
+  if (!raw) return canonical;
+  if (raw === "https://themovementclub.nl") return canonical;
+  return raw;
+}
+
+export const SITE_URL = resolveSiteUrl();
+
 export const SITE = {
   name: "The Movement Club",
   tagline: "Where Strength Meets Movement",
   description:
     "Boutique training studio in Loosdrecht. Persoonlijk. Exclusief. Resultaatgericht.",
-  url: "https://themovementclub.nl",
+  url: SITE_URL,
   email: "info@themovementclub.nl",
   phone: "+31 6 00 00 00 00", // TODO: echte nummer
   whatsapp: "https://wa.me/31600000000", // TODO: echte nummer

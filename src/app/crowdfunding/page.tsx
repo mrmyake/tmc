@@ -18,12 +18,12 @@ export const metadata: Metadata = {
   title: "Make A Move | Crowdfunding",
   description:
     "Word founding member van The Movement Club in Loosdrecht. Kies jouw tier, claim je plek, en bouw met ons mee.",
-  alternates: { canonical: "https://themovementclub.nl/crowdfunding" },
+  alternates: { canonical: "/crowdfunding" },
   openGraph: {
     title: "Make A Move | The Movement Club Crowdfunding",
     description:
       "Word founding member van The Movement Club in Loosdrecht. Geen anonieme investeerders. Wij bouwen deze gym samen.",
-    url: "https://themovementclub.nl/crowdfunding",
+    url: "https://www.themovementclub.nl/crowdfunding",
     type: "website",
   },
 };
@@ -87,7 +87,7 @@ export default async function CrowdfundingPage() {
 
   const live = await getInitialLiveData(tiers.map((t) => t.tierId));
 
-  const shareUrl = "https://themovementclub.nl/crowdfunding";
+  const shareUrl = "https://www.themovementclub.nl/crowdfunding";
   const shareText =
     settings.whatsappShareText ??
     "Ik heb mijn move gemaakt. Jij ook? Word founding member van The Movement Club in Loosdrecht:";

@@ -203,7 +203,7 @@ export async function createPtBookingWithPayment(
   }
 
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://themovementclub.nl";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
   const whenLabel = new Date(session.start_at).toLocaleDateString("nl-NL", {
     day: "numeric",
     month: "long",
