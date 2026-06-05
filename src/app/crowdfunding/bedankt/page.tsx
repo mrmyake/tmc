@@ -44,7 +44,7 @@ export default async function BedanktPage({
   const text =
     settings?.thankYouText ??
     "Je hebt zojuist je plek gereserveerd als founding member. We houden je op de hoogte.";
-  const shareUrl = "https://themovementclub.nl/crowdfunding";
+  const shareUrl = "https://www.themovementclub.nl/crowdfunding";
   const shareText =
     settings?.whatsappShareText ??
     "Ik heb mijn move gemaakt. Jij ook? Word founding member van The Movement Club in Loosdrecht:";

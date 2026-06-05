@@ -94,7 +94,7 @@ export async function startSignup(
       return { ok: false, error: "Betalingsprovider niet geconfigureerd." };
     }
     const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://themovementclub.nl";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://www.themovementclub.nl";
 
     // Mollie customer — hergebruik als er al eerder een gemaakt is.
     const { data: priorMembership } = await admin

@@ -9,6 +9,7 @@ import {
   getLocalBusinessSchema,
   getWebsiteSchema,
 } from "@/lib/structuredData";
+import { SITE_URL } from "@/lib/constants";
 import { getSiteSettings, getSiteImages } from "../../sanity/lib/fetch";
 import { urlFor } from "../../sanity/lib/client";
 
@@ -74,7 +75,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description:
       "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je gratis proefles.",
-    metadataBase: new URL("https://themovementclub.nl"),
+    metadataBase: new URL(SITE_URL),
     openGraph: {
       type: "website",
       locale: "nl_NL",
@@ -93,7 +94,7 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [ogUrl],
     },
     alternates: {
-      canonical: "https://themovementclub.nl",
+      canonical: SITE_URL,
     },
   };
 }

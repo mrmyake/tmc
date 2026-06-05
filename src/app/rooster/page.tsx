@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   title: "Rooster | The Movement Club",
   description:
     "Bekijk het wekelijkse rooster van The Movement Club. Yoga, kettlebell, kids en senior sessies in Loosdrecht.",
-  alternates: { canonical: "https://themovementclub.nl/rooster" },
+  alternates: { canonical: "/rooster" },
 };
 
 // Bezetting mag niet langer dan een minuut gecached zijn (spec A1).

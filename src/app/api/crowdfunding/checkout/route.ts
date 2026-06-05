@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     }
 
     const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://themovementclub.nl";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://www.themovementclub.nl";
     const amountValue = tier.price.toFixed(2);
 
     // 1. Insert pending backer row (zonder mollie_payment_id — komt straks)
