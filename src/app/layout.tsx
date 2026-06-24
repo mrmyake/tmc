@@ -96,6 +96,15 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: SITE_URL,
     },
+    icons: {
+      // SVG eerst voor moderne browsers; de .ico in /app blijft de fallback
+      // voor clients die hardcoded /favicon.ico opvragen.
+      icon: [
+        { url: "/images/tmc-favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "256x256" },
+      ],
+      shortcut: "/favicon.ico",
+    },
   };
 }
 
