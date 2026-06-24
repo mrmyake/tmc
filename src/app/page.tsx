@@ -6,6 +6,7 @@ import { ScheduleTeaser } from "@/components/blocks/ScheduleTeaser";
 import { StudioSection } from "@/components/blocks/StudioSection";
 import { TrainerSpotlight } from "@/components/blocks/TrainerSpotlight";
 import { OfferingCards } from "@/components/blocks/OfferingCards";
+import { YogaTeaser } from "@/components/blocks/YogaTeaser";
 import { PricingTable } from "@/components/blocks/PricingTable";
 import { ContactSection } from "@/components/blocks/ContactSection";
 import {
@@ -65,6 +66,7 @@ export default async function HomePage() {
       <StudioSection image={images.studio} />
       <TrainerSpotlight trainer={trainer} />
       <OfferingCards offerings={offerings} />
+      <YogaTeaser />
       <PricingTable tiers={pricing} />
       <TestimonialCarousel />
       <ContactSection settings={settings} hours={hours} />
