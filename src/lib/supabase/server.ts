@@ -13,6 +13,9 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Data lives in the `tmc` schema of the consolidated project; auth still
+      // uses Supabase Auth (RLS enforced as the logged-in user via the anon key).
+      db: { schema: process.env.DB_SCHEMA ?? "tmc" },
       cookies: {
         getAll() {
           return cookieStore.getAll();

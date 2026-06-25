@@ -268,7 +268,7 @@ export async function uploadAvatar(data: FormData): Promise<ActionResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());
 
     const { error: upErr } = await supabase.storage
-      .from("avatars")
+      .from("tmc-avatars")
       .upload(path, bytes, {
         contentType: file.type,
         upsert: false,
@@ -280,18 +280,18 @@ export async function uploadAvatar(data: FormData): Promise<ActionResult> {
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(path);
+    } = supabase.storage.from("tmc-avatars").getPublicUrl(path);
 
     // Ruim oudere avatars op — we bewaren alleen de laatste.
     const { data: files } = await supabase.storage
-      .from("avatars")
+      .from("tmc-avatars")
       .list(userId);
     if (files && files.length > 0) {
       const toRemove = files
         .filter((f) => `${userId}/${f.name}` !== path)
         .map((f) => `${userId}/${f.name}`);
       if (toRemove.length > 0) {
-        await supabase.storage.from("avatars").remove(toRemove);
+        await supabase.storage.from("tmc-avatars").remove(toRemove);
       }
     }
 
@@ -319,12 +319,12 @@ export async function removeAvatar(): Promise<ActionResult> {
 
     // Storage objects onder {userId}/* — list + delete
     const { data: files } = await supabase.storage
-      .from("avatars")
+      .from("tmc-avatars")
       .list(userId);
 
     if (files && files.length > 0) {
       await supabase.storage
-        .from("avatars")
+        .from("tmc-avatars")
         .remove(files.map((f) => `${userId}/${f.name}`));
     }
 

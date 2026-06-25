@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const schema = process.env.DB_SCHEMA ?? "tmc";
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(url && anonKey);
@@ -11,15 +12,17 @@ export function isSupabaseConfigured(): boolean {
 export function getPublicClient(): SupabaseClient | null {
   if (!url || !anonKey) return null;
   return createClient(url, anonKey, {
+    db: { schema },
     auth: { persistSession: false },
-  });
+  }) as unknown as SupabaseClient;
 }
 
 export function getAdminClient(): SupabaseClient | null {
   if (!url || !serviceKey) return null;
   return createClient(url, serviceKey, {
+    db: { schema },
     auth: { persistSession: false },
-  });
+  }) as unknown as SupabaseClient;
 }
 
 export interface CrowdfundingStats {
