@@ -19,7 +19,8 @@ import { getYogaStyles, getYogaTeachers } from "../../../sanity/lib/fetch";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
+  // Brand-free: de layout-template voegt " | The Movement Club" toe.
+  title: "Yoga in Loosdrecht, vlakbij Hilversum",
   description:
     "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum en het Gooi. Van diepe rust tot dynamische beweging. Schrijf je in voor de wachtlijst.",
   alternates: { canonical: "/yoga" },

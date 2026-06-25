@@ -14,7 +14,7 @@ import {
 import type { PublicSessionCardData } from "../../rooster/_components/PublicSessionCard";
 
 export const metadata: Metadata = {
-  title: "Yoga rooster | The Movement Club Loosdrecht",
+  title: "Yoga rooster in Loosdrecht",
   description:
     "Het wekelijkse yogarooster van The Movement Club in Loosdrecht. Yin, Restorative, Yoga Nidra, iRest en Flow, in kleine groepen.",
   alternates: { canonical: "/yoga/rooster" },

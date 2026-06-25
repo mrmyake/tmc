@@ -13,7 +13,8 @@ import { getYogaTeachers } from "../../../../sanity/lib/fetch";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Yoga docenten | The Movement Club Loosdrecht",
+  // Brand-free: layout-template voegt " | The Movement Club" toe.
+  title: "Yoga docenten in Loosdrecht",
   description:
     "Maak kennis met de yogadocenten van The Movement Club in Loosdrecht. Een klein team met elk een eigen stem en specialisatie, van Yin tot Flow.",
   alternates: { canonical: "/yoga/docenten" },
