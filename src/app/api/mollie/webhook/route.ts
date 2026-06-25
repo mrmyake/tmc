@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { SequenceType } from "@mollie/api-client";
 import { getMollieClient } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
 import PaymentFailed from "@/emails/payment_failed";
@@ -98,6 +99,45 @@ export async function POST(request: Request) {
       { onConflict: "mollie_payment_id" }
     );
 
+    // Money-fact events. dedupe_key = Mollie payment-id op een vaste plek in de
+    // payload; webhook-retries kunnen dit event dubbel vuren, dedupe-bij-lezen
+    // op payload.dedupe_key. Alleen terminale statussen vuren.
+    const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
+    if (payment.status === "paid") {
+      await emitEvent({
+        type: "payment.received",
+        actorType: "system",
+        subjectType: "payment",
+        subjectId: null,
+        payload: {
+          dedupe_key: payment.id,
+          payment_id: payment.id,
+          profile_id: profileId ?? null,
+          membership_id: membershipId ?? null,
+          pt_booking_id: ptBookingId ?? null,
+          amount_cents: amountCents,
+          sequence: payment.sequenceType ?? null,
+        },
+      });
+    } else if (["failed", "expired", "canceled"].includes(payment.status)) {
+      await emitEvent({
+        type: "payment.failed",
+        actorType: "system",
+        subjectType: "payment",
+        subjectId: null,
+        payload: {
+          dedupe_key: payment.id,
+          payment_id: payment.id,
+          profile_id: profileId ?? null,
+          membership_id: membershipId ?? null,
+          pt_booking_id: ptBookingId ?? null,
+          amount_cents: amountCents,
+          status: payment.status,
+          sequence: payment.sequenceType ?? null,
+        },
+      });
+    }
+
     // PT booking payment — flip pt_booking status + set intake discount flag
     if (type === "pt_booking" && ptBookingId) {
       if (payment.status === "paid") {
@@ -122,6 +162,18 @@ export async function POST(request: Request) {
             `PT sessie betaald. Booking ${ptBookingId}, €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)}.`,
             "tada",
           );
+          await emitEvent({
+            type: "pt_booking.confirmed",
+            actorType: "system",
+            subjectType: "pt_booking",
+            subjectId: ptBookingId,
+            payload: {
+              profile_id: booking.profile_id,
+              pt_booking_id: ptBookingId,
+              payment_id: payment.id,
+              amount_cents: amountCents,
+            },
+          });
         }
       } else if (
         ["failed", "expired", "canceled"].includes(payment.status)
@@ -134,6 +186,17 @@ export async function POST(request: Request) {
             cancelled_at: new Date().toISOString(),
           })
           .eq("id", ptBookingId);
+        await emitEvent({
+          type: "pt_booking.cancelled",
+          actorType: "system",
+          subjectType: "pt_booking",
+          subjectId: ptBookingId,
+          payload: {
+            profile_id: profileId ?? null,
+            pt_booking_id: ptBookingId,
+            payment_id: payment.id,
+          },
+        });
       }
       return NextResponse.json({ ok: true });
     }
@@ -217,6 +280,18 @@ export async function POST(request: Request) {
           `Membership ${membership.id} (${membership.plan_variant}) geactiveerd. €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)} ontvangen.`,
           "tada,moneybag"
         );
+        await emitEvent({
+          type: "membership.activated",
+          actorType: "system",
+          subjectType: "membership",
+          subjectId: membership.id,
+          payload: {
+            profile_id: profileId ?? null,
+            membership_id: membership.id,
+            plan_variant: membership.plan_variant,
+            payment_id: payment.id,
+          },
+        });
       } else if (
         ["failed", "expired", "canceled"].includes(payment.status) &&
         membership.status === "pending"
@@ -230,6 +305,18 @@ export async function POST(request: Request) {
           `Membership ${membership.id} (${membership.plan_variant}) — eerste betaling ${payment.status}.`,
           "warning"
         );
+        await emitEvent({
+          type: "membership.payment_failed",
+          actorType: "system",
+          subjectType: "membership",
+          subjectId: membership.id,
+          payload: {
+            profile_id: profileId ?? null,
+            membership_id: membership.id,
+            payment_id: payment.id,
+            sequence: "first",
+          },
+        });
       }
       return NextResponse.json({ ok: true });
     }
@@ -263,6 +350,17 @@ export async function POST(request: Request) {
             .from("memberships")
             .update({ status: "active" })
             .eq("id", membership.id);
+          await emitEvent({
+            type: "membership.reactivated",
+            actorType: "system",
+            subjectType: "membership",
+            subjectId: membership.id,
+            payload: {
+              profile_id: membership.profile_id,
+              membership_id: membership.id,
+              payment_id: payment.id,
+            },
+          });
         }
         // profile_id op payment-rij vullen (was mogelijk null)
         await supabase
@@ -285,6 +383,18 @@ export async function POST(request: Request) {
             profileId: membership.profile_id,
             amountCents: Math.round(Number(payment.amount?.value ?? "0") * 100),
             planLabel: membership.plan_variant ?? "abonnement",
+          });
+          await emitEvent({
+            type: "membership.payment_failed",
+            actorType: "system",
+            subjectType: "membership",
+            subjectId: membership.id,
+            payload: {
+              profile_id: membership.profile_id,
+              membership_id: membership.id,
+              payment_id: payment.id,
+              sequence: "recurring",
+            },
           });
         }
       }

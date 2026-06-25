@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 
 export type MemberActionResult =
   | { ok: true; message: string }
@@ -127,6 +128,22 @@ export async function grantPause(
     },
   });
 
+  await emitEvent({
+    type: "membership.pause_granted",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "membership",
+    subjectId: input.membershipId,
+    payload: {
+      profile_id: input.profileId,
+      pause_id: pause?.id ?? null,
+      membership_id: input.membershipId,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      reason,
+    },
+  });
+
   revalidateDetail(input.profileId);
   return { ok: true, message: "Pauze toegekend." };
 }
@@ -198,6 +215,22 @@ export async function addCredits(
       previous_balance: previous,
       new_balance: next,
       reason: input.reason.trim(),
+    },
+  });
+
+  await emitEvent({
+    type: "credits.adjusted",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "membership",
+    subjectId: input.membershipId,
+    payload: {
+      profile_id: input.profileId,
+      membership_id: input.membershipId,
+      delta: input.delta,
+      previous_balance: previous,
+      new_balance: next,
+      source: "manual",
     },
   });
 
@@ -335,6 +368,39 @@ export async function overrideNoShow(
     },
   });
 
+  // Outcome-event. Reset-naar-neutraal (attendance.cleared) is bewust
+  // uitgesteld, dus daar emitten we niets.
+  if (input.newStatus === "attended") {
+    await emitEvent({
+      type: "checkin.recorded",
+      actorType: "admin",
+      actorId: auth.userId,
+      subjectType: "booking",
+      subjectId: booking.id,
+      payload: {
+        profile_id: input.profileId,
+        session_id: booking.session_id,
+        booking_id: booking.id,
+        source: "override",
+      },
+    });
+  } else if (input.newStatus === "no_show") {
+    await emitEvent({
+      type: "attendance.no_show_marked",
+      actorType: "admin",
+      actorId: auth.userId,
+      subjectType: "booking",
+      subjectId: booking.id,
+      payload: {
+        profile_id: input.profileId,
+        session_id: booking.session_id,
+        booking_id: booking.id,
+        strike_issued: true,
+        source: "override",
+      },
+    });
+  }
+
   revalidateDetail(input.profileId);
   return { ok: true, message: "Status bijgewerkt." };
 }
@@ -428,11 +494,27 @@ export async function deleteMember(
   // Cancel alle nog-actieve memberships (cleant ook Mollie niet; handmatig
   // stoppen in Mollie-dashboard). De FK-cascades op bookings, waitlist,
   // notes, strikes ruimen op zodra auth.users wordt verwijderd.
-  await admin
+  const { data: cancelled } = await admin
     .from("memberships")
     .update({ status: "cancelled", end_date: new Date().toISOString().slice(0, 10) })
     .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "cancellation_requested", "payment_failed"]);
+    .in("status", ["active", "paused", "cancellation_requested", "payment_failed"])
+    .select("id");
+
+  for (const m of cancelled ?? []) {
+    await emitEvent({
+      type: "membership.cancelled",
+      actorType: "admin",
+      actorId: auth.userId,
+      subjectType: "membership",
+      subjectId: m.id,
+      payload: {
+        profile_id: profile.id,
+        membership_id: m.id,
+        reason: "member_deleted",
+      },
+    });
+  }
 
   const { error: delErr } = await admin.auth.admin.deleteUser(profile.id);
   if (delErr) {
@@ -443,6 +525,15 @@ export async function deleteMember(
         "Auth-user verwijderen lukte niet. Check Supabase-logs. Memberships zijn wel al gecancelled.",
     };
   }
+
+  await emitEvent({
+    type: "member.deleted",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "profile",
+    subjectId: profile.id,
+    payload: { profile_id: profile.id, source: "admin_delete" },
+  });
 
   revalidatePath("/app/admin/leden");
   revalidatePath("/app/admin");

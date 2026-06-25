@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
 import {
   calculatePtPriceCents,
@@ -85,6 +86,20 @@ export async function createPtBookingFromCredits(
       credits_remaining: (membership.credits_remaining ?? 1) - 1,
     })
     .eq("id", membership.id);
+
+  await emitEvent({
+    type: "pt_booking.created",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "pt_booking",
+    subjectId: insertRes.data.id,
+    payload: {
+      profile_id: user.id,
+      pt_session_id: ptSessionId,
+      funded: "credits",
+      price_paid_cents: 0,
+    },
+  });
 
   revalidatePath("/app/pt");
   revalidatePath("/app");
@@ -194,6 +209,19 @@ export async function createPtBookingWithPayment(
       return { ok: false, message: "Boeken lukte niet. Probeer opnieuw." };
     }
     bookingId = insertRes.data.id;
+    await emitEvent({
+      type: "pt_booking.created",
+      actorType: "member",
+      actorId: user.id,
+      subjectType: "pt_booking",
+      subjectId: bookingId,
+      payload: {
+        profile_id: user.id,
+        pt_session_id: ptSessionId,
+        funded: "payment",
+        price_paid_cents: priceCents,
+      },
+    });
   }
 
   const mollie = getMollieClient();

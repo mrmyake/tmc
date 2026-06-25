@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
 import WaitlistPromoted from "@/emails/waitlist_promoted";
@@ -110,6 +111,18 @@ export async function GET(req: Request) {
     }
 
     promoted.push(candidate.id);
+
+    await emitEvent({
+      type: "waitlist.promoted",
+      actorType: "system",
+      subjectType: "waitlist",
+      subjectId: candidate.id,
+      payload: {
+        waitlist_entry_id: candidate.id,
+        session_id: s.id,
+        confirmation_deadline: deadline,
+      },
+    });
 
     // Fire-and-forget email. Don't let a send error drop the cron run.
     void sendPromotedEmail(candidate.id, confirmMinutes);

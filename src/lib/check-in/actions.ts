@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent, type ActorType } from "@/lib/events/emit";
 import { classifyIdentifier, normalizePhone, InvalidPhoneError } from "./normalize-phone";
 import { isAdminUnlocked } from "./admin-lock";
 
@@ -369,11 +370,30 @@ export async function undoCheckIn(checkInId: string): Promise<
     return { ok: false, message: FAIL_COPY.unauthorized };
   }
   const admin = createAdminClient();
+  // Lees profile/session vóór de delete zodat de event-payload de member- en
+  // sessie-filter blijft bedienen.
+  const { data: ci } = await admin
+    .from("check_ins")
+    .select("profile_id, session_id")
+    .eq("id", checkInId)
+    .maybeSingle();
   const { error } = await admin.from("check_ins").delete().eq("id", checkInId);
   if (error) {
     console.error("[undoCheckIn] delete", error);
     return { ok: false, message: FAIL_COPY.db_error };
   }
+  await emitEvent({
+    type: "checkin.reverted",
+    actorType: authCheck.userId ? "admin" : "tablet",
+    actorId: authCheck.userId,
+    subjectType: "check_in",
+    subjectId: checkInId,
+    payload: {
+      profile_id: ci?.profile_id ?? null,
+      session_id: ci?.session_id ?? null,
+      source: "undo",
+    },
+  });
   revalidatePath("/checkin");
   revalidatePath("/app/admin");
   return { ok: true };
@@ -446,6 +466,15 @@ export async function createWalkInProfile(input: {
     .from("profiles")
     .update({ phone, first_name: input.firstName, last_name: input.lastName })
     .eq("id", created.user.id);
+
+  await emitEvent({
+    type: "member.created",
+    actorType: authCheck.userId ? "admin" : "tablet",
+    actorId: authCheck.userId,
+    subjectType: "profile",
+    subjectId: created.user.id,
+    payload: { profile_id: created.user.id, source: "walk_in" },
+  });
 
   return { ok: true, profileId: created.user.id };
 }
@@ -597,6 +626,33 @@ async function checkInForProfile(input: {
   if (accessType === "credit") {
     await decrementCredit(input.profileId);
   }
+
+  // Actor: self-tablet = het lid zelf; admin_tablet = kiosk (PIN); admin_web =
+  // ingelogde staff. Precieze provenance staat op de check_ins-rij zelf.
+  const actorType: ActorType =
+    input.method === "self_tablet"
+      ? "member"
+      : input.method === "admin_tablet"
+        ? "tablet"
+        : "admin";
+  const actorId =
+    input.method === "self_tablet"
+      ? input.profileId
+      : (input.checkedInByProfileId ?? null);
+  await emitEvent({
+    type: "checkin.recorded",
+    actorType,
+    actorId,
+    subjectType: "check_in",
+    subjectId: inserted.id,
+    payload: {
+      profile_id: input.profileId,
+      session_id: input.sessionId ?? null,
+      pillar: input.pillar,
+      access_type: accessType,
+      method: input.method,
+    },
+  });
 
   revalidatePath("/checkin");
   revalidatePath("/app/admin");

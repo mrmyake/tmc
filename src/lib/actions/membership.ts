@@ -3,6 +3,7 @@
 import { SequenceType } from "@mollie/api-client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
 
 export type StartSignupResult =
@@ -175,6 +176,20 @@ export async function startSignup(
       amount_cents: totalCents,
       status: "open",
       description: `First payment — ${plan.display_name}`,
+    });
+
+    await emitEvent({
+      type: "membership.signup_started",
+      actorType: "member",
+      actorId: user.id,
+      subjectType: "membership",
+      subjectId: membership.id,
+      payload: {
+        profile_id: user.id,
+        membership_id: membership.id,
+        plan_variant: plan.plan_variant,
+        price_per_cycle_cents: plan.price_per_cycle_cents,
+      },
     });
 
     const checkoutUrl = payment.getCheckoutUrl();

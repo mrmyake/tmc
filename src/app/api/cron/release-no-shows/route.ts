@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { verifyCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +114,21 @@ export async function GET(req: Request) {
       { ok: false, error: updErr.message },
       { status: 500 },
     );
+  }
+
+  for (const r of toRelease) {
+    await emitEvent({
+      type: "booking.cancelled",
+      actorType: "system",
+      subjectType: "booking",
+      subjectId: r.id,
+      payload: {
+        profile_id: r.profile_id,
+        session_id: r.session_id,
+        reason: "no_show_release",
+        credits_refunded: false,
+      },
+    });
   }
 
   return NextResponse.json({

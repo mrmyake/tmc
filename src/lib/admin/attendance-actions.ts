@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 
 export type AttendanceStatus = "booked" | "attended" | "no_show" | "cancelled";
 
@@ -408,6 +409,22 @@ export async function markAttendance(
           console.error("[markAttendance] check_in insert failed", ciErr);
           return { ok: false, message: "Bijwerken lukte niet." };
         }
+        if (!ciErr) {
+          await emitEvent({
+            type: "checkin.recorded",
+            actorType: auth.ctx.role,
+            actorId: auth.ctx.userId,
+            subjectType: "booking",
+            subjectId: a.bookingId,
+            payload: {
+              profile_id: cur.profileId,
+              session_id: sessionId,
+              booking_id: a.bookingId,
+              method: "admin_web",
+              source: "attendance",
+            },
+          });
+        }
       } else if (!checkInByBooking.get(a.bookingId)) {
         // Check_in bestond wel op sessie+profiel niveau maar booking_id
         // was null — koppel even bij.
@@ -434,14 +451,41 @@ export async function markAttendance(
       const ciId = checkInByBooking.get(a.bookingId);
       if (ciId) {
         await admin.from("check_ins").delete().eq("id", ciId);
+        await emitEvent({
+          type: "checkin.reverted",
+          actorType: auth.ctx.role,
+          actorId: auth.ctx.userId,
+          subjectType: "booking",
+          subjectId: a.bookingId,
+          payload: {
+            profile_id: cur.profileId,
+            session_id: sessionId,
+            booking_id: a.bookingId,
+            source: "no_show_correction",
+          },
+        });
       }
-      if (!strikesByBooking.has(a.bookingId)) {
+      const strikeIssued = !strikesByBooking.has(a.bookingId);
+      if (strikeIssued) {
         newStrikeRows.push({
           id: a.bookingId,
           profile_id: cur.profileId,
           prevStatus: cur.status,
         });
       }
+      await emitEvent({
+        type: "attendance.no_show_marked",
+        actorType: auth.ctx.role,
+        actorId: auth.ctx.userId,
+        subjectType: "booking",
+        subjectId: a.bookingId,
+        payload: {
+          profile_id: cur.profileId,
+          session_id: sessionId,
+          booking_id: a.bookingId,
+          strike_issued: strikeIssued,
+        },
+      });
     } else {
       // "booked" = reset naar neutraal — verwijder check_in, strike, no_show_at.
       await admin
@@ -451,6 +495,18 @@ export async function markAttendance(
       const ciId = checkInByBooking.get(a.bookingId);
       if (ciId) {
         await admin.from("check_ins").delete().eq("id", ciId);
+        await emitEvent({
+          type: "checkin.reverted",
+          actorType: auth.ctx.role,
+          actorId: auth.ctx.userId,
+          subjectType: "booking",
+          subjectId: a.bookingId,
+          payload: {
+            session_id: sessionId,
+            booking_id: a.bookingId,
+            source: "reset",
+          },
+        });
       }
       const strikeId = strikesByBooking.get(a.bookingId);
       if (strikeId) {
@@ -546,6 +602,23 @@ export async function autoMarkNoShows(
     })),
   );
 
+  for (const r of trulyNoShow) {
+    await emitEvent({
+      type: "attendance.no_show_marked",
+      actorType: auth.ctx.role,
+      actorId: auth.ctx.userId,
+      subjectType: "booking",
+      subjectId: r.id,
+      payload: {
+        profile_id: r.profile_id,
+        session_id: sessionId,
+        booking_id: r.id,
+        strike_issued: r.status !== "no_show",
+        source: "auto",
+      },
+    });
+  }
+
   revalidatePath(`/app/admin/sessies/${sessionId}`);
   revalidatePath(`/app/trainer/sessies/${sessionId}`);
 
@@ -585,7 +658,7 @@ export async function refundCredit(
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, session_id, membership_id, credits_used")
+    .select("id, profile_id, session_id, membership_id, credits_used")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -645,6 +718,23 @@ export async function refundCredit(
   if (logErr) {
     console.error("[refundCredit] audit log failed", logErr);
   }
+
+  await emitEvent({
+    type: "credits.adjusted",
+    actorType: "admin",
+    actorId: user.id,
+    subjectType: "membership",
+    subjectId: membership.id,
+    payload: {
+      profile_id: booking.profile_id,
+      membership_id: membership.id,
+      delta: booking.credits_used,
+      previous_balance: membership.credits_remaining,
+      new_balance: newBalance,
+      source: "refund",
+      booking_id: bookingId,
+    },
+  });
 
   if (booking.session_id) {
     revalidatePath(`/app/admin/sessies/${booking.session_id}`);

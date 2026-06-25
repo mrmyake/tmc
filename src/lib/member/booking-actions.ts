@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { sendEmail } from "@/lib/email";
 import BookingConfirmation from "@/emails/booking_confirmation";
 import BookingCancelled from "@/emails/booking_cancelled";
@@ -405,6 +406,23 @@ export async function createBooking(
       .eq("id", decision.coveringMembership.id);
   }
 
+  await emitEvent({
+    type: "booking.created",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "booking",
+    subjectId: insertResult.data.id,
+    payload: {
+      profile_id: user.id,
+      session_id: sessionId,
+      membership_id: decision.coveringMembership?.id ?? null,
+      credits_used:
+        decision.coveringMembership?.plan_type === "ten_ride_card" ? 1 : 0,
+      pillar: session.pillar,
+      session_date: dayStart.toISOString().slice(0, 10),
+    },
+  });
+
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
@@ -436,11 +454,15 @@ async function joinWaitlist(
 
   const position = (positionResult.count ?? 0) + 1;
 
-  const insertResult = await supabase.from("waitlist_entries").insert({
-    profile_id: userId,
-    session_id: sessionId,
-    position,
-  });
+  const insertResult = await supabase
+    .from("waitlist_entries")
+    .insert({
+      profile_id: userId,
+      session_id: sessionId,
+      position,
+    })
+    .select("id")
+    .single();
 
   if (insertResult.error) {
     if (insertResult.error.code === "23505") {
@@ -452,6 +474,15 @@ async function joinWaitlist(
       message: "Wachtlijst-inschrijving lukte niet. Probeer het opnieuw.",
     };
   }
+
+  await emitEvent({
+    type: "booking.waitlisted",
+    actorType: "member",
+    actorId: userId,
+    subjectType: "waitlist",
+    subjectId: insertResult.data.id,
+    payload: { profile_id: userId, session_id: sessionId, position },
+  });
 
   revalidatePath("/app/rooster");
 
@@ -527,6 +558,7 @@ export async function cancelBooking(
     };
   }
 
+  let creditsRefunded = false;
   if (
     withinWindow &&
     booking.credits_used > 0 &&
@@ -545,8 +577,23 @@ export async function cancelBooking(
             (membership.credits_remaining ?? 0) + booking.credits_used,
         })
         .eq("id", booking.membership_id);
+      creditsRefunded = true;
     }
   }
+
+  await emitEvent({
+    type: "booking.cancelled",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "booking",
+    subjectId: bookingId,
+    payload: {
+      profile_id: user.id,
+      session_id: booking.session_id,
+      reason: withinWindow ? "within_window" : "late",
+      credits_refunded: creditsRefunded,
+    },
+  });
 
   revalidatePath("/app/rooster");
   revalidatePath("/app");

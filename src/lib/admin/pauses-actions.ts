@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 
 export type PausesActionResult =
   | { ok: true; message: string }
@@ -106,6 +107,21 @@ export async function approveMembershipPause(
     },
   });
 
+  await emitEvent({
+    type: "membership.pause_granted",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "membership",
+    subjectId: pause.membership_id,
+    payload: {
+      profile_id: m?.profile_id ?? null,
+      pause_id: pauseId,
+      membership_id: pause.membership_id,
+      start_date: pause.start_date,
+      end_date: pause.end_date,
+    },
+  });
+
   revalidateAll(m?.profile_id);
   return { ok: true, message: "Pauze goedgekeurd." };
 }
@@ -166,6 +182,20 @@ export async function rejectMembershipPause(
     target_type: "profile",
     target_id: m?.profile_id ?? pauseId,
     details: {
+      pause_id: pauseId,
+      membership_id: pause.membership_id,
+      reason: trimmed,
+    },
+  });
+
+  await emitEvent({
+    type: "membership.pause_rejected",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "membership",
+    subjectId: pause.membership_id,
+    payload: {
+      profile_id: m?.profile_id ?? null,
       pause_id: pauseId,
       membership_id: pause.membership_id,
       reason: trimmed,

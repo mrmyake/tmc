@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { emitEvent } from "@/lib/events/emit";
 
 export type PauseReason = "pregnancy" | "medical" | "other_approved";
 
@@ -65,15 +66,19 @@ export async function requestMembershipPause(
     };
   }
 
-  const { error } = await supabase.from("membership_pauses").insert({
-    membership_id: input.membershipId,
-    requested_by: user.id,
-    start_date: input.startDate,
-    end_date: input.endDate,
-    reason: input.reason,
-    notes: input.notes?.trim() || null,
-    status: "pending",
-  });
+  const { data: pause, error } = await supabase
+    .from("membership_pauses")
+    .insert({
+      membership_id: input.membershipId,
+      requested_by: user.id,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      reason: input.reason,
+      notes: input.notes?.trim() || null,
+      status: "pending",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     console.error("[requestMembershipPause] insert failed", error);
@@ -82,6 +87,22 @@ export async function requestMembershipPause(
       message: "Verzoek kon niet worden opgeslagen. Probeer het opnieuw.",
     };
   }
+
+  await emitEvent({
+    type: "membership.pause_requested",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "membership",
+    subjectId: input.membershipId,
+    payload: {
+      profile_id: user.id,
+      pause_id: pause.id,
+      membership_id: input.membershipId,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      reason: input.reason,
+    },
+  });
 
   revalidatePath("/app/abonnement");
 
@@ -150,6 +171,19 @@ export async function requestMembershipCancellation(
       message: "Opzegging kon niet worden verwerkt. Probeer het opnieuw.",
     };
   }
+
+  await emitEvent({
+    type: "membership.cancellation_requested",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "membership",
+    subjectId: input.membershipId,
+    payload: {
+      profile_id: user.id,
+      membership_id: input.membershipId,
+      effective_date: effectiveDate,
+    },
+  });
 
   revalidatePath("/app/abonnement");
   revalidatePath("/app");
