@@ -35,8 +35,12 @@ export async function generateMetadata(props: {
   if (!data) {
     return { title: "Yoga | The Movement Club" };
   }
-  const title = data.seoTitle ?? `${data.title} in Loosdrecht | The Movement Club`;
-  const description = data.seoDescription ?? data.definition;
+  const title =
+    data.seoTitle ??
+    `${data.title} in Loosdrecht (regio Hilversum) | The Movement Club`;
+  const description =
+    data.seoDescription ??
+    `${data.definition} Volg ${data.title} in onze kleine studio in Loosdrecht, op tien minuten van Hilversum en het Gooi.`;
   return {
     title,
     description,

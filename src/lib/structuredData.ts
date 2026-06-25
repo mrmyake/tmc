@@ -39,6 +39,7 @@ export function getLocalBusinessSchema() {
     ],
     priceRange: "€€€",
     image: `${SITE.url}/images/hero/studio.jpg`,
+    areaServed: SERVICE_AREA,
     sameAs: [SITE.instagram, SITE.hormoonprofiel],
   };
 }
@@ -60,6 +61,19 @@ const localBusinessRef = {
   name: SITE.name,
   url: SITE.url,
 };
+
+/**
+ * Verzorgingsgebied van de studio. De studio staat in Loosdrecht, maar bedient
+ * eerlijk de hele regio: Hilversum (de grote buur op ~10 minuten) en de rest
+ * van Wijdemeren en het Gooi. Wordt gedeeld door de yoga- en business-schemas.
+ */
+export const SERVICE_AREA = [
+  { "@type": "Place", name: "Loosdrecht" },
+  { "@type": "City", name: "Hilversum" },
+  { "@type": "Place", name: "Wijdemeren" },
+  { "@type": "Place", name: "Kortenhoef" },
+  { "@type": "Place", name: "Nederhorst den Berg" },
+] as const;
 
 export interface BreadcrumbItem {
   name: string;
@@ -92,7 +106,7 @@ export function getYogaServiceSchema(style: {
     description: style.definition,
     url: `${SITE.url}/yoga/${style.slug}`,
     provider: localBusinessRef,
-    areaServed: { "@type": "Place", name: "Loosdrecht" },
+    areaServed: SERVICE_AREA,
   };
 }
 

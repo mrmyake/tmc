@@ -19,14 +19,14 @@ import { getYogaStyles, getYogaTeachers } from "../../../sanity/lib/fetch";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Yoga in Loosdrecht | The Movement Club",
+  title: "Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
   description:
-    "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht. Van diepe rust tot dynamische beweging. Schrijf je in voor de wachtlijst.",
+    "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum en het Gooi. Van diepe rust tot dynamische beweging. Schrijf je in voor de wachtlijst.",
   alternates: { canonical: "/yoga" },
   openGraph: {
-    title: "Yoga in Loosdrecht | The Movement Club",
+    title: "Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
     description:
-      "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht. Schrijf je in voor de wachtlijst.",
+      "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum. Schrijf je in voor de wachtlijst.",
   },
 };
 
@@ -52,7 +52,7 @@ export default async function YogaHubPage() {
         <Container className="max-w-4xl">
           <ScrollReveal>
             <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-              Yoga · Loosdrecht
+              Yoga · Loosdrecht &amp; regio Hilversum
             </span>
             <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-6xl lg:text-7xl text-text leading-[1.02] tracking-[-0.02em]">
               Yoga in Loosdrecht bij The Movement Club
@@ -62,6 +62,8 @@ export default async function YogaHubPage() {
               en gevoel. Sommige lessen zijn vooral gericht op diepe ontspanning
               en herstel, andere op beweging, kracht en energie. In onze kleine,
               persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow.
+              We zitten in Loosdrecht, op zo&apos;n tien minuten van Hilversum,
+              en zijn goed bereikbaar vanuit het hele Gooi.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Button href="#wachtlijst">Zet me op de wachtlijst</Button>
@@ -124,8 +126,31 @@ export default async function YogaHubPage() {
         </Container>
       </Section>
 
+      {/* Bereikbaarheid / regio */}
+      <Section>
+        <Container className="max-w-3xl">
+          <ScrollReveal>
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              Regio
+            </span>
+            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
+              Yoga vlakbij Hilversum en het Gooi
+            </h2>
+            <p className="text-text-muted text-lg leading-relaxed">
+              De studio staat aan de Industrieweg in Loosdrecht, op zo&apos;n
+              tien minuten rijden vanuit het centrum van Hilversum en even goed
+              bereikbaar vanuit Kortenhoef, Nederhorst den Berg en de rest van
+              Wijdemeren. Er is ruime parkeergelegenheid voor de deur, dus je
+              bent zo van Hilversum op je mat. Voor wie liever dichtbij huis
+              traint, vormen onze kleine yogalessen een rustig alternatief voor
+              de drukkere studio&apos;s in Hilversum.
+            </p>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
       {/* Wachtlijst-CTA */}
-      <YogaWaitlistCta bg="default" />
+      <YogaWaitlistCta bg="elevated" />
     </>
   );
 }
