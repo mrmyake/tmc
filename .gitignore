@@ -45,6 +45,10 @@ next-env.d.ts
 .claude/
 .agents/
 skills-lock.json
+.mcp.json
+
+# Audit data exports (local only)
+docs/audit/data/
 
 # Stitch design mockups (reference only)
 stitch/

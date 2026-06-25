@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       {
         // Supabase Storage buckets (avatars, etc.).
         protocol: "https",
-        hostname: "iljyitdazzhalblqetkx.supabase.co",
+        hostname: "xoivleieyfcxcfawgveh.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
     ],
