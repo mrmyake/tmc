@@ -180,7 +180,7 @@ export async function POST(request: Request) {
 
             const siteUrl =
               process.env.NEXT_PUBLIC_SITE_URL ||
-              "https://themovementclub.nl";
+              "https://www.themovementclub.nl";
 
             const subscription = await mollie.customerSubscriptions.create({
               customerId: membership.mollie_customer_id,
