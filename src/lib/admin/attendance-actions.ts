@@ -163,13 +163,13 @@ export async function loadParticipants(
       .select(
         `
           id, profile_id, status, credits_used, membership_id, booked_at, attended_at,
-          rental_mat, rental_towel,
+          no_show_at, rental_mat, rental_towel,
           profile:profiles(first_name, last_name, avatar_url, health_notes),
           membership:memberships(plan_type, plan_variant, credits_remaining)
         `,
       )
       .eq("session_id", sessionId)
-      .in("status", ["booked", "attended", "no_show", "cancelled"])
+      .in("status", ["booked", "cancelled"])
       .order("booked_at", { ascending: true }),
     admin
       .from("check_ins")
@@ -227,6 +227,25 @@ export async function loadParticipants(
       Array.isArray(b.membership) ? b.membership[0] : b.membership
     ) as MembershipRef | null;
     const injuryText = parseInjuryText(p?.health_notes ?? null);
+    const checkedInAt = checkInByProfile.get(b.profile_id) ?? null;
+    const rawStatus = b.status as string;
+    // Display-status derivation: check_in aanwezig wint, dan no_show_at,
+    // anders valt de rauwe booking-status door (booked/cancelled/waitlisted).
+    let displayStatus: AttendanceStatus;
+    if (checkedInAt) {
+      displayStatus = "attended";
+    } else if (b.no_show_at) {
+      displayStatus = "no_show";
+    } else if (
+      rawStatus === "cancelled" ||
+      rawStatus === "booked"
+    ) {
+      displayStatus = rawStatus;
+    } else {
+      // waitlisted telt voor attendance-view als booked (zeldzaam hier
+      // omdat query op booked/cancelled filtert, maar defensief).
+      displayStatus = "booked";
+    }
     return {
       bookingId: b.id,
       profileId: b.profile_id,
@@ -238,10 +257,10 @@ export async function loadParticipants(
       membershipId: b.membership_id,
       creditsUsed: b.credits_used ?? 0,
       creditsRemaining: m?.credits_remaining ?? null,
-      status: b.status as AttendanceStatus,
+      status: displayStatus,
       bookedAt: b.booked_at,
       attendedAt: b.attended_at,
-      checkedInAt: checkInByProfile.get(b.profile_id) ?? null,
+      checkedInAt,
       hasInjury: injuryText !== null,
       injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
       rentalMat: Boolean(b.rental_mat),
@@ -300,21 +319,41 @@ export async function markAttendance(
 
   const admin = createAdminClient();
 
-  // Fetch current bookings for this session so we can validate each id belongs
-  // to the session and detect which updates introduce a new no_show strike.
+  // Fetch current bookings + sessie (voor check_in insert: pillar) + bestaande
+  // check_ins/strikes-koppelingen. De UI stuurt semantische tokens (attended/
+  // booked/no_show) en wij vertalen naar check_ins + no_show_at + strikes.
   const ids = attendances.map((a) => a.bookingId);
-  const { data: existing, error: exErr } = await admin
-    .from("bookings")
-    .select("id, session_id, profile_id, status")
-    .in("id", ids);
+  const [bookingsRes, sessionRes, checkInsRes, strikesRes] = await Promise.all([
+    admin
+      .from("bookings")
+      .select("id, session_id, profile_id, status")
+      .in("id", ids),
+    admin
+      .from("class_sessions")
+      .select("id, pillar")
+      .eq("id", sessionId)
+      .maybeSingle(),
+    admin
+      .from("check_ins")
+      .select("id, booking_id, profile_id")
+      .eq("session_id", sessionId),
+    admin
+      .from("no_show_strikes")
+      .select("id, booking_id")
+      .in("booking_id", ids),
+  ]);
 
-  if (exErr) {
-    console.error("[markAttendance] fetch failed", exErr);
+  if (bookingsRes.error) {
+    console.error("[markAttendance] fetch failed", bookingsRes.error);
     return { ok: false, message: "Kon boekingen niet laden." };
   }
+  if (!sessionRes.data) {
+    return { ok: false, message: "Sessie niet gevonden." };
+  }
 
+  const sessionPillar = sessionRes.data.pillar as string;
   const byId = new Map(
-    (existing ?? []).map((b) => [
+    (bookingsRes.data ?? []).map((b) => [
       b.id,
       {
         sessionId: b.session_id,
@@ -323,6 +362,16 @@ export async function markAttendance(
       },
     ]),
   );
+  const checkInByBooking = new Map<string, string>();
+  const checkInByProfile = new Map<string, string>();
+  for (const ci of checkInsRes.data ?? []) {
+    if (ci.booking_id) checkInByBooking.set(ci.booking_id, ci.id);
+    if (ci.profile_id) checkInByProfile.set(ci.profile_id, ci.id);
+  }
+  const strikesByBooking = new Map<string, string>();
+  for (const s of strikesRes.data ?? []) {
+    if (s.booking_id) strikesByBooking.set(s.booking_id, s.id);
+  }
 
   const nowIso = new Date().toISOString();
   const newStrikeRows: Array<{
@@ -337,29 +386,76 @@ export async function markAttendance(
     if (cur.sessionId !== sessionId) {
       return { ok: false, message: "Boeking hoort niet bij deze sessie." };
     }
-    // Can't mark cancelled bookings.
     if (cur.status === "cancelled") continue;
 
-    const patch: Record<string, unknown> = { status: a.status };
-    if (a.status === "attended") patch.attended_at = nowIso;
-    if (a.status === "booked") patch.attended_at = null;
-
-    const { error } = await admin
-      .from("bookings")
-      .update(patch)
-      .eq("id", a.bookingId);
-
-    if (error) {
-      console.error("[markAttendance] update failed", error);
-      return { ok: false, message: "Bijwerken lukte niet." };
-    }
-
-    if (a.status === "no_show") {
-      newStrikeRows.push({
-        id: a.bookingId,
-        profile_id: cur.profileId,
-        prevStatus: cur.status,
-      });
+    if (a.status === "attended") {
+      // check_ins-row garanderen (idempotent via unique-index session+profile).
+      const existingCi =
+        checkInByBooking.get(a.bookingId) ??
+        checkInByProfile.get(cur.profileId);
+      if (!existingCi) {
+        const { error: ciErr } = await admin.from("check_ins").insert({
+          profile_id: cur.profileId,
+          session_id: sessionId,
+          booking_id: a.bookingId,
+          check_in_method: "admin_web",
+          access_type: "membership",
+          pillar: sessionPillar,
+          checked_in_at: nowIso,
+          checked_in_by: auth.ctx.userId,
+        });
+        if (ciErr && ciErr.code !== "23505") {
+          console.error("[markAttendance] check_in insert failed", ciErr);
+          return { ok: false, message: "Bijwerken lukte niet." };
+        }
+      } else if (!checkInByBooking.get(a.bookingId)) {
+        // Check_in bestond wel op sessie+profiel niveau maar booking_id
+        // was null — koppel even bij.
+        await admin
+          .from("check_ins")
+          .update({ booking_id: a.bookingId })
+          .eq("id", existingCi);
+      }
+      // Attended overrulet no_show/strike signals — opruimen.
+      await admin
+        .from("bookings")
+        .update({ no_show_at: null, attended_at: nowIso })
+        .eq("id", a.bookingId);
+      const strikeId = strikesByBooking.get(a.bookingId);
+      if (strikeId) {
+        await admin.from("no_show_strikes").delete().eq("id", strikeId);
+      }
+    } else if (a.status === "no_show") {
+      await admin
+        .from("bookings")
+        .update({ no_show_at: nowIso, attended_at: null })
+        .eq("id", a.bookingId);
+      // Eventueel eerder gezette check_in die nu wordt "corrected".
+      const ciId = checkInByBooking.get(a.bookingId);
+      if (ciId) {
+        await admin.from("check_ins").delete().eq("id", ciId);
+      }
+      if (!strikesByBooking.has(a.bookingId)) {
+        newStrikeRows.push({
+          id: a.bookingId,
+          profile_id: cur.profileId,
+          prevStatus: cur.status,
+        });
+      }
+    } else {
+      // "booked" = reset naar neutraal — verwijder check_in, strike, no_show_at.
+      await admin
+        .from("bookings")
+        .update({ no_show_at: null, attended_at: null })
+        .eq("id", a.bookingId);
+      const ciId = checkInByBooking.get(a.bookingId);
+      if (ciId) {
+        await admin.from("check_ins").delete().eq("id", ciId);
+      }
+      const strikeId = strikesByBooking.get(a.bookingId);
+      if (strikeId) {
+        await admin.from("no_show_strikes").delete().eq("id", strikeId);
+      }
     }
   }
 
@@ -401,22 +497,39 @@ export async function autoMarkNoShows(
 
   const { data: remaining } = await admin
     .from("bookings")
-    .select("id, profile_id, status")
+    .select("id, profile_id, status, no_show_at")
     .eq("session_id", sessionId)
-    .eq("status", "booked");
+    .eq("status", "booked")
+    .is("no_show_at", null);
 
   if (!remaining || remaining.length === 0) {
     return { ok: true, message: "Geen open boekingen meer." };
+  }
+
+  // Filter op wie geen check_in heeft (die waren wel aanwezig).
+  const { data: checkIns } = await admin
+    .from("check_ins")
+    .select("profile_id")
+    .eq("session_id", sessionId);
+  const checkedInProfiles = new Set(
+    (checkIns ?? []).map((c) => c.profile_id).filter(Boolean),
+  );
+  const trulyNoShow = remaining.filter(
+    (r) => !checkedInProfiles.has(r.profile_id),
+  );
+
+  if (trulyNoShow.length === 0) {
+    return { ok: true, message: "Alle aanwezigen ingecheckt." };
   }
 
   const nowIso = new Date().toISOString();
 
   const { error } = await admin
     .from("bookings")
-    .update({ status: "no_show", attended_at: null, cancelled_at: nowIso })
+    .update({ no_show_at: nowIso, attended_at: null })
     .in(
       "id",
-      remaining.map((r) => r.id),
+      trulyNoShow.map((r) => r.id),
     );
 
   if (error) {
@@ -426,7 +539,7 @@ export async function autoMarkNoShows(
 
   await writeStrikesForNewNoShows(
     admin,
-    remaining.map((r) => ({
+    trulyNoShow.map((r) => ({
       id: r.id,
       profile_id: r.profile_id,
       prevStatus: r.status,
@@ -438,7 +551,7 @@ export async function autoMarkNoShows(
 
   return {
     ok: true,
-    message: `${remaining.length} boeking(en) als no-show gemarkeerd.`,
+    message: `${trulyNoShow.length} boeking(en) als no-show gemarkeerd.`,
   };
 }
 
