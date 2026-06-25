@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import {
@@ -71,9 +72,7 @@ function toHoursNumber(v: unknown): number {
 
 export default async function TrainerHomePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) notFound();
 
   const admin = createAdminClient();
@@ -85,7 +84,7 @@ export default async function TrainerHomePage() {
     .maybeSingle();
 
   const firstName =
-    user.user_metadata?.first_name ?? user.email?.split("@")[0] ?? "";
+    trainer?.display_name?.trim().split(/\s+/)[0] ?? user.email?.split("@")[0] ?? "";
 
   const now = new Date();
   const todayIso = isoDateAms(now);

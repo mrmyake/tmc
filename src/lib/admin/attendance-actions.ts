@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AttendanceStatus = "booked" | "attended" | "no_show" | "cancelled";
@@ -78,9 +79,7 @@ async function authorizeForSession(
   sessionId: string,
 ): Promise<{ ok: true; ctx: AuthContext } | { ok: false; message: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const { data: profile } = await supabase
@@ -455,9 +454,7 @@ export async function refundCredit(
 
   // Admin-only.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
   const { data: profile } = await supabase
     .from("profiles")

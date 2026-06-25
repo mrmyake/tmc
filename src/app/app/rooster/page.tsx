@@ -1,5 +1,6 @@
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import {
   PILLARS,
   PILLAR_LABELS,
@@ -96,9 +97,7 @@ export default async function RoosterPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return null;
 
   const now = new Date();

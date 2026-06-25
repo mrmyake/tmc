@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
-import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   amsterdamParts,
@@ -55,11 +55,8 @@ export default async function PublicRoosterPage(props: {
     ? (searchParams.pijler as Pillar)
     : null;
 
-  // Check auth status via the cookie-scoped server client (doesn't hit admin).
-  const authClient = await createClient();
-  const {
-    data: { user },
-  } = await authClient.auth.getUser();
+  // Check auth status via the Lucia session.
+  const { user } = await validateRequest();
   const loggedIn = Boolean(user);
 
   // Admin client used only for reading session data. Anon-visible by design —
@@ -113,10 +110,11 @@ export default async function PublicRoosterPage(props: {
     if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
   }
 
-  // User's own bookings (if logged in) — scope via auth client so RLS protects.
+  // User's own bookings (if logged in) — explicitly scoped to user.id (service
+  // role bypasses RLS, so the filter is what protects the data).
   const userBookedSessionIds = new Set<string>();
   if (loggedIn && user) {
-    const { data: userBookings } = await authClient
+    const { data: userBookings } = await admin
       .from("bookings")
       .select("session_id, status")
       .eq("profile_id", user.id)

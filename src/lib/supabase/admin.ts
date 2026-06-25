@@ -13,6 +13,7 @@ export function createAdminClient(): SupabaseClient {
     );
   }
   return createServiceClient(url, serviceKey, {
+    db: { schema: process.env.DB_SCHEMA ?? "tmc" },
     auth: { persistSession: false, autoRefreshToken: false },
-  });
+  }) as unknown as SupabaseClient;
 }

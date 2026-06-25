@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { PaymentTracker } from "./PaymentTracker";
 
 export const metadata = {
@@ -44,9 +45,7 @@ export default async function BedanktPage({
   const membershipId = params.membership;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const { data: membership } = membershipId

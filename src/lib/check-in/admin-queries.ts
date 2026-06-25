@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminUnlocked } from "./admin-lock";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import type { AccessType } from "./actions";
 
 export interface AdminProfileRow {
@@ -25,9 +26,7 @@ export interface TodayCheckInRow {
 async function requireAnyStaff(): Promise<boolean> {
   // Web-admin context?
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")

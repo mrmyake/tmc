@@ -7,7 +7,6 @@ Addendum op `CLAUDE.md`. Dekt alles wat nodig is om gedrag én gezondheid van de
 - Member portal analytics (grotendeels nieuw)
 - Acquisition attributie (doortrekken UTM naar Supabase)
 - Admin KPI view (operationeel dashboard)
-- Error tracking (Sentry)
 - Email performance (MailerLite → GA4)
 - Business rapportage (Metabase op Supabase)
 
@@ -39,9 +38,8 @@ Addendum op `CLAUDE.md`. Dekt alles wat nodig is om gedrag én gezondheid van de
 2. Member portal events beperkt tot 3 navigatie-events → core acties (boeken, annuleren, wachtlijst, abbo, pauze, opzeg, profiel, intake) worden niet gemeten
 3. UTM data uit `sessionStorage` persisteert niet naar `profiles` → geen attributie van lead → active member
 4. Geen admin KPI view → `/app/admin` dashboard moet bij elke pageload 20 tabellen bevragen
-5. Geen error tracking → stille fouten in booking/payment flow zijn onzichtbaar
-6. Geen email → GA4 koppeling → MailerLite sequence performance niet in context van rest van de funnel
-7. Geen business rapportage laag → MRR, churn, LTV, cohort retention niet benaderbaar
+5. Geen email → GA4 koppeling → MailerLite sequence performance niet in context van rest van de funnel
+6. Geen business rapportage laag → MRR, churn, LTV, cohort retention niet benaderbaar
 
 ---
 
@@ -51,7 +49,7 @@ Addendum op `CLAUDE.md`. Dekt alles wat nodig is om gedrag én gezondheid van de
 - **Supabase** auth via magic link, RLS policies actief op alle tabellen
 - **GA4** via `@next/third-parties/google`, Measurement ID `G-2VFCDM4KRZ`
 - **Vercel Analytics** parallel voor Core Web Vitals
-- Geen Sentry, geen Metabase, geen log drain (nog) actief
+- Geen Metabase, geen log drain (nog) actief — error-tracking leunt op Vercel logs (Runtime Logs + Log Drains indien nodig)
 
 ---
 
@@ -62,10 +60,9 @@ Addendum op `CLAUDE.md`. Dekt alles wat nodig is om gedrag én gezondheid van de
 | 1 | `user_id` set bij login | 10 min | Hoog — ontsluit cohort analyse |
 | 2 | Portal events uitbreiden | 2-3 uur | Hoog — meet of product werkt |
 | 3 | UTM kolommen op `profiles` + capture | 1 uur | Hoog — zonder dit is attributie kapot |
-| 4 | Sentry setup | 30 min | Hoog — voorkom blinde opening |
-| 5 | `vw_admin_kpis` materialized view + RPC | 1-2 uur | Medium — snel admin dashboard |
-| 6 | MailerLite UTM discipline | 15 min | Laag — simpele config |
-| 7 | Metabase op Supabase + query pack | 2 uur | Medium — schaalt als DB groeit |
+| 4 | `vw_admin_kpis` materialized view + RPC | 1-2 uur | Medium — snel admin dashboard |
+| 5 | MailerLite UTM discipline | 15 min | Laag — simpele config |
+| 6 | Metabase op Supabase + query pack | 2 uur | Medium — schaalt als DB groeit |
 
 ---
 
@@ -911,116 +908,7 @@ export default async function AdminDashboard() {
 
 ---
 
-## 5. Sentry error tracking
-
-### Doel
-
-Stille fouten in transactionele flows (booking race conditions, RLS violations, Mollie webhook failures, cron jobs) worden zichtbaar. Zonder dit opent Marlon de gym blind.
-
-### Setup
-
-```bash
-npx @sentry/wizard@latest -i nextjs
-```
-
-De wizard maakt automatisch aan:
-- `sentry.client.config.ts`
-- `sentry.server.config.ts`
-- `sentry.edge.config.ts`
-- Aanpassing van `next.config.ts`
-- `.env.sentry-build-plugin` (voor source map uploads)
-
-### Env vars
-
-Toevoegen aan `.env.local`:
-
-```env
-NEXT_PUBLIC_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
-SENTRY_ORG=the-movement-club
-SENTRY_PROJECT=tmc-web
-SENTRY_AUTH_TOKEN=xxx  # alleen voor source maps upload build-time
-```
-
-### Configuratie — privacy
-
-In `sentry.client.config.ts`:
-
-```typescript
-import * as Sentry from '@sentry/nextjs';
-
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 0.1, // 10% — voldoende voor klein volume
-  replaysSessionSampleRate: 0, // geen session replay (privacy)
-  replaysOnErrorSampleRate: 1.0, // alleen bij error
-  integrations: [
-    Sentry.replayIntegration({
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
-  beforeSend(event) {
-    // Strip email / PII uit error context
-    if (event.user?.email) delete event.user.email;
-    if (event.request?.cookies) delete event.request.cookies;
-    return event;
-  },
-  environment: process.env.NODE_ENV,
-});
-```
-
-### Context toevoegen
-
-Set user context bij login (zonder email):
-
-```typescript
-import * as Sentry from '@sentry/nextjs';
-
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session?.user) {
-    Sentry.setUser({ id: session.user.id }); // geen email!
-  }
-  if (event === 'SIGNED_OUT') {
-    Sentry.setUser(null);
-  }
-});
-```
-
-### Kritieke paden taggen
-
-Wrap booking server action + Mollie webhook met context:
-
-```typescript
-// In booking server action
-import * as Sentry from '@sentry/nextjs';
-
-export async function bookSession(sessionId: string) {
-  return Sentry.withScope(async (scope) => {
-    scope.setTag('feature', 'booking');
-    scope.setContext('booking', { session_id: sessionId });
-
-    try {
-      // booking logica
-    } catch (err) {
-      Sentry.captureException(err);
-      throw err;
-    }
-  });
-}
-```
-
-### Alert rules (Sentry dashboard)
-
-Stel in via Sentry UI → Alerts → Create Alert Rule:
-
-1. **Mollie webhook failures** — tag `feature:mollie-webhook`, >1 error in 5 min → email naar jou
-2. **Booking failures** — tag `feature:booking`, >3 errors in 15 min → email
-3. **Cron failures** — tag `feature:cron`, any error → email
-4. **RLS violations** — message contains "row-level security" → email (directe bug)
-
----
-
-## 6. MailerLite UTM discipline
+## 5. MailerLite UTM discipline
 
 ### Doel
 
@@ -1056,7 +944,7 @@ Als je geavanceerder wilt: MailerLite heeft webhooks voor open/click events. Die
 
 ---
 
-## 7. Metabase op Supabase
+## 6. Metabase op Supabase
 
 ### Doel
 
@@ -1404,22 +1292,13 @@ Voor jou + Marlon maandelijks.
 - [ ] `/app/admin` dashboard server component gebruik RPC
 - [ ] 4 KPI cards bouwen volgens C1 spec
 
-### Prio 4 — Sentry
-
-- [ ] `npx @sentry/wizard@latest -i nextjs` draaien
-- [ ] Env vars instellen (DSN + org/project + auth token)
-- [ ] `beforeSend` hook configureren (PII stripping)
-- [ ] `Sentry.setUser({ id })` in auth listener
-- [ ] Kritieke server actions wrappen (booking, Mollie webhook, cron)
-- [ ] Alert rules in Sentry dashboard instellen
-
-### Prio 5 — MailerLite UTM discipline
+### Prio 4 — MailerLite UTM discipline
 
 - [ ] Audit alle bestaande MailerLite templates — elke CTA heeft UTM's
 - [ ] Convention documenteren in eigen runbook voor nieuwe campagnes
 - [ ] UTM's toevoegen aan: welkomsmails, Mobility Reset sequence, crowdfunding updates, nieuwsbrief templates
 
-### Prio 6 — Metabase
+### Prio 5 — Metabase
 
 - [ ] Read-only DB user `metabase_read` aanmaken
 - [ ] Metabase hosten (Fly.io of Railway)
@@ -1448,10 +1327,6 @@ RESEND_API_KEY=xxx
 
 # Nieuw
 CRON_SECRET=xxx                          # Vercel Cron authentication
-NEXT_PUBLIC_SENTRY_DSN=xxx              # Sentry client
-SENTRY_ORG=the-movement-club
-SENTRY_PROJECT=tmc-web
-SENTRY_AUTH_TOKEN=xxx                   # build-time source maps
 ```
 
 ---

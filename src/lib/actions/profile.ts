@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { BUCKETS } from "@/lib/supabase";
 import {
   addSubscriber,
   setSubscriberUnsubscribed,
@@ -20,9 +22,7 @@ async function getUserIdOrThrow(): Promise<{
   supabase: Awaited<ReturnType<typeof createClient>>;
 }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) {
     throw new Error("Niet ingelogd.");
   }
@@ -77,16 +77,9 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
       return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
     }
 
-    // Keep auth.users.raw_user_meta_data in sync with the profile, so
-    // email templates can personalise via {{ .Data.first_name }}.
-    try {
-      const admin = createAdminClient();
-      await admin.auth.admin.updateUserById(userId, {
-        user_metadata: { first_name: first, last_name: last },
-      });
-    } catch (metaErr) {
-      console.warn("[updateProfile] user_metadata sync warning:", metaErr);
-    }
+    // (Was: sync first/last name into auth.users.raw_user_meta_data for Supabase
+    // email templates. No longer applicable now that auth is Lucia — the profile
+    // row is the single source of truth.)
 
     revalidatePath("/app/profiel");
     revalidatePath("/app");
@@ -268,7 +261,7 @@ export async function uploadAvatar(data: FormData): Promise<ActionResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());
 
     const { error: upErr } = await supabase.storage
-      .from("avatars")
+      .from(BUCKETS.avatars)
       .upload(path, bytes, {
         contentType: file.type,
         upsert: false,
@@ -280,18 +273,18 @@ export async function uploadAvatar(data: FormData): Promise<ActionResult> {
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(path);
+    } = supabase.storage.from(BUCKETS.avatars).getPublicUrl(path);
 
     // Ruim oudere avatars op — we bewaren alleen de laatste.
     const { data: files } = await supabase.storage
-      .from("avatars")
+      .from(BUCKETS.avatars)
       .list(userId);
     if (files && files.length > 0) {
       const toRemove = files
         .filter((f) => `${userId}/${f.name}` !== path)
         .map((f) => `${userId}/${f.name}`);
       if (toRemove.length > 0) {
-        await supabase.storage.from("avatars").remove(toRemove);
+        await supabase.storage.from(BUCKETS.avatars).remove(toRemove);
       }
     }
 
@@ -319,12 +312,12 @@ export async function removeAvatar(): Promise<ActionResult> {
 
     // Storage objects onder {userId}/* — list + delete
     const { data: files } = await supabase.storage
-      .from("avatars")
+      .from(BUCKETS.avatars)
       .list(userId);
 
     if (files && files.length > 0) {
       await supabase.storage
-        .from("avatars")
+        .from(BUCKETS.avatars)
         .remove(files.map((f) => `${userId}/${f.name}`));
     }
 

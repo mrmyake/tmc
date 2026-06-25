@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import {
@@ -23,9 +24,7 @@ export async function createPtBookingFromCredits(
   ptSessionId: string,
 ): Promise<PtActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const [sessionRes, memRes] = await Promise.all([
@@ -103,9 +102,7 @@ export async function createPtBookingWithPayment(
   ptSessionId: string,
 ): Promise<PtActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const { data: session } = await supabase

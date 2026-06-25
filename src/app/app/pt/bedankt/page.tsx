@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 
@@ -34,9 +35,7 @@ export default async function PtBedanktPage(props: {
   if (!bookingId) redirect("/app/pt");
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const { data: bookingRaw } = await supabase

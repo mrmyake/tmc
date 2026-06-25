@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateIdFromEntropySize } from "lucia";
+import { pool } from "@/lib/db";
 import {
   loadTrainerDetail as loadTrainerDetailInternal,
   type EmploymentTier,
@@ -30,9 +33,7 @@ async function requireAdmin(): Promise<
   { ok: true; userId: string } | { ok: false; message: string }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const { data: profile } = await supabase
@@ -367,37 +368,37 @@ export async function inviteTrainer(
   const lastName = input.lastName.trim();
   const displayName = `${firstName} ${lastName}`;
 
-  // Invite user via auth admin. Supabase maakt een auth.users rij en stuurt
-  // een magic-link mail.
-  const { data: invited, error: inviteErr } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      data: { first_name: firstName, last_name: lastName },
-    });
-
-  if (inviteErr || !invited?.user) {
-    console.error("[inviteTrainer] invite failed", inviteErr);
-    return {
-      ok: false,
-      message: inviteErr?.message ?? "Uitnodigen lukte niet.",
-    };
+  // Create a Lucia auth_user + profile for the trainer. No invite email is sent
+  // anymore — share the login link; the trainer signs in with this email via
+  // Google or by setting a password (password-reset flow).
+  const userId = generateIdFromEntropySize(16);
+  try {
+    await pool.query(
+      "insert into auth_user (id, email, email_verified) values ($1,$2,true) on conflict do nothing",
+      [userId, email]
+    );
+  } catch (e) {
+    console.error("[inviteTrainer] create auth_user failed", e);
+    return { ok: false, message: "Uitnodigen lukte niet." };
   }
 
-  const userId = invited.user.id;
-
-  // De auth-trigger maakt al een profile-rij — hier bumpen we role + naam.
+  // Upsert the profile row with role + name.
   const { error: profileErr } = await admin
     .from("profiles")
-    .update({
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      role: "trainer",
-    })
-    .eq("id", userId);
+    .upsert(
+      {
+        id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        role: "trainer",
+      },
+      { onConflict: "id" }
+    );
 
   if (profileErr) {
-    console.error("[inviteTrainer] profile update failed", profileErr);
-    // Niet fataal — profile zelf bestaat, naam komt misschien uit user_metadata.
+    console.error("[inviteTrainer] profile upsert failed", profileErr);
+    return { ok: false, message: "Trainer-profiel aanmaken lukte niet." };
   }
 
   // Trainers-rij. Slug-uniqueness: append een suffix als nodig.

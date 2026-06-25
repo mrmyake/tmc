@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import GuestConfirmation from "@/emails/guest_confirmation";
@@ -143,9 +144,7 @@ export interface GuestVisit {
 
 export async function getGuestPassStatus(): Promise<GuestPassStatus> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) {
     return {
       eligible: false,
@@ -227,9 +226,7 @@ export async function bookGuest(
   input: BookGuestInput,
 ): Promise<GuestPassResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const name = input.guestName.trim();

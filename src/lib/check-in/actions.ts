@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyIdentifier, normalizePhone, InvalidPhoneError } from "./normalize-phone";
 import { isAdminUnlocked } from "./admin-lock";
@@ -425,29 +426,24 @@ export async function createWalkInProfile(input: {
     input.email?.trim() ||
     `walkin-${phone.slice(-8)}@walkin.tmc.internal`;
 
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: {
+  // Walk-ins don't log in, so we no longer create an auth user — just a profile
+  // row. member_code is auto-assigned by the tmc.assign_member_code trigger.
+  const newId = globalThis.crypto.randomUUID();
+  const { error: createErr } = await admin
+    .from("profiles")
+    .insert({
+      id: newId,
+      email,
       first_name: input.firstName,
       last_name: input.lastName,
       phone,
-    },
-  });
-  if (createErr || !created.user) {
-    console.error("[createWalkInProfile] createUser", createErr);
+    });
+  if (createErr) {
+    console.error("[createWalkInProfile] insert profile", createErr);
     return { ok: false, message: FAIL_COPY.db_error };
   }
 
-  // De trigger handle_new_auth_user vult profiles + member_code al aan.
-  // Als phone NIET in user_metadata belandt (trigger-race), zet 'm hier
-  // expliciet via update.
-  await admin
-    .from("profiles")
-    .update({ phone, first_name: input.firstName, last_name: input.lastName })
-    .eq("id", created.user.id);
-
-  return { ok: true, profileId: created.user.id };
+  return { ok: true, profileId: newId };
 }
 
 /**
@@ -645,9 +641,7 @@ async function requireStaff(): Promise<
   { ok: true; userId: string | null } | { ok: false }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")

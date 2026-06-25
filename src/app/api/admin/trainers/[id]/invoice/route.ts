@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   TrainerInvoicePdf,
@@ -58,9 +59,7 @@ export async function GET(
 
   // Admin gate via cookie client.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return new Response("Unauthorized", { status: 401 });
   const { data: callerProfile } = await supabase
     .from("profiles")

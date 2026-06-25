@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
-import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Inloggen | The Movement Club",
-  description: "Log in bij The Movement Club met een magic link.",
+  description: "Log in bij The Movement Club.",
   robots: { index: false, follow: false },
 };
 
@@ -33,10 +33,7 @@ export default async function LoginPage({
   // "Inloggen" link in the marketing navbar doing the right thing for
   // both states without requiring an auth-aware navbar.
   if (!errorKey) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await validateRequest();
     if (user) redirect("/app");
   }
 

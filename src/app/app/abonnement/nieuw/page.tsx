@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Check, ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { PlanChooser } from "./PlanChooser";
 import { AddressGate } from "./AddressGate";
@@ -48,9 +49,7 @@ interface PlanRow {
 
 export default async function AbonnementNieuwPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   // Als je al een lopend/actief abbo hebt, niet opnieuw kiezen.

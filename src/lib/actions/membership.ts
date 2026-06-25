@@ -2,6 +2,7 @@
 
 import { SequenceType } from "@mollie/api-client";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 
@@ -26,9 +27,7 @@ export async function startSignup(
 ): Promise<StartSignupResult> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await validateRequest();
     if (!user?.email) {
       return { ok: false, error: "Niet ingelogd." };
     }

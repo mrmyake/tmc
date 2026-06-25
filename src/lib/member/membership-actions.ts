@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 
 export type PauseReason = "pregnancy" | "medical" | "other_approved";
 
@@ -31,9 +32,7 @@ export async function requestMembershipPause(
   input: PauseInput,
 ): Promise<MembershipActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   if (
@@ -100,9 +99,7 @@ export async function requestMembershipCancellation(
   input: CancellationInput,
 ): Promise<MembershipActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const { data: membership, error: mErr } = await supabase

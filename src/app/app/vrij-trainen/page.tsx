@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import {
   addDaysIsoAmsterdam,
   isoDateAmsterdam,
@@ -64,9 +65,7 @@ type CheckInRow = {
 
 export default async function VrijTrainenPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   // Bepaal of check-in-modus aan staat voor vrij trainen. Zo ja → pure

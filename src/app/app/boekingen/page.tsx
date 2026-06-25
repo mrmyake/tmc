@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { isoDateAmsterdam } from "@/lib/format-date";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import {
@@ -66,9 +67,7 @@ export default async function BoekingenPage(props: {
   const page = parsePage(pageParam);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return null;
 
   const nowIso = new Date().toISOString();

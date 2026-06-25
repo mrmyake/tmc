@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import type { PtTier } from "@/lib/member/pt-pricing";
 import { PtBookingFlow } from "./PtBookingFlow";
 import type { TrainerOption } from "./_components/TrainerStep";
@@ -36,9 +37,7 @@ type PtSessionRow = {
 
 export default async function PtPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const now = new Date();

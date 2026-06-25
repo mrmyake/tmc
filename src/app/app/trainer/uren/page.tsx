@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatShortDate } from "@/lib/format-date";
 import { UrenForm } from "./_components/UrenForm";
@@ -66,9 +67,7 @@ export default async function TrainerUrenPage(props: {
     ? isoWeekMondayIso(weekHint.year, weekHint.week)
     : null;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) notFound();
 
   const admin = createAdminClient();

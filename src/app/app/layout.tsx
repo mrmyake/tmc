@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ensureProfile } from "@/lib/supabase/ensure-profile";
+import { validateRequest } from "@/lib/session";
 import { AppChrome } from "./AppChrome";
 import type { Role } from "@/components/nav/AvatarDropdown";
 
@@ -18,14 +18,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
 
   if (!user) redirect("/login");
-
-  // Self-heal ontbrekende profile-rij
-  await ensureProfile(user);
 
   const [profileRes, membershipRes] = await Promise.all([
     supabase

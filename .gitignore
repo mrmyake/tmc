@@ -51,3 +51,6 @@ stitch/
 
 # Supabase CLI cache
 supabase/.temp/
+
+# GSC audit data (raw exports — not committed; generated via npm run audit:gsc)
+docs/audit/data/gsc/

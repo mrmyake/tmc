@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pool } from "@/lib/db";
 
 export type MemberActionResult =
   | { ok: true; message: string }
@@ -12,9 +14,7 @@ async function requireAdmin(): Promise<
   { ok: true; userId: string } | { ok: false; message: string }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const { data: profile } = await supabase
@@ -371,13 +371,16 @@ export async function deleteMember(
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "cancellation_requested", "payment_failed"]);
 
-  const { error: delErr } = await admin.auth.admin.deleteUser(profile.id);
-  if (delErr) {
-    console.error("[deleteMember] auth delete failed", delErr);
+  // Remove the Lucia login (cascades sessions/keys/oauth) and the profile row.
+  try {
+    await pool.query("delete from auth_user where id = $1", [profile.id]);
+    await pool.query("delete from profiles where id = $1", [profile.id]);
+  } catch (delErr) {
+    console.error("[deleteMember] delete failed", delErr);
     return {
       ok: false,
       message:
-        "Auth-user verwijderen lukte niet. Check Supabase-logs. Memberships zijn wel al gecancelled.",
+        "Lid verwijderen lukte niet (mogelijk nog gekoppelde data). Memberships zijn wel al gecancelled.",
     };
   }
 

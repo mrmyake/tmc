@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { MandateStatusCard } from "./_components/MandateStatusCard";
 import { PaymentRow } from "./_components/PaymentRow";
 import type { PaymentStatus } from "./_components/PaymentStatusBadge";
@@ -55,9 +56,7 @@ export default async function FacturenPage(props: {
   const page = parsePage(pageParam);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const [paymentsResult, paymentsCountResult, activeMembershipResult] =

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { formatDateLong } from "@/lib/format-date";
 import { ProfileForm } from "./ProfileForm";
 import { EmergencyContactForm } from "./EmergencyContactForm";
@@ -29,9 +30,7 @@ export default async function ProfielPage({
   const justCompletedIntake = params.intake === "done";
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase

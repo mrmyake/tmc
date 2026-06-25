@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { IntakeForm } from "./IntakeForm";
 import type { HealthIntakePayload } from "@/lib/actions/profile";
 
@@ -22,9 +23,7 @@ function parseIntake(notes: string | null): Partial<HealthIntakePayload> {
 
 export default async function IntakePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase

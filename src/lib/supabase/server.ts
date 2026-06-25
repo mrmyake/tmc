@@ -1,33 +1,20 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient as createSb } from "@supabase/supabase-js";
+
+const schema = process.env.DB_SCHEMA ?? "tmc";
 
 /**
- * Cookie-aware Supabase client voor Server Components, Route Handlers
- * en Server Actions. Respecteert RLS — leest/schrijft als de ingelogde
- * user. Next 16: cookies() is async.
+ * Data/storage client for Server Components, Route Handlers and Server Actions.
+ * Auth is now Lucia (not Supabase Auth), so this connects with the service-role
+ * key scoped to the `tmc` schema. RLS is bypassed — authorization is enforced in
+ * app code via validateRequest() + role checks. Async kept for call-site compat.
+ *
+ * ⚠️ Because RLS no longer scopes rows, member-facing queries MUST filter by the
+ * authenticated user (e.g. .eq("profile_id", user.id)).
  */
 export async function createClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
+  return createSb(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          } catch {
-            // Server Components mogen geen cookies zetten. De proxy regelt
-            // de refresh; hier silent negeren is safe.
-          }
-        },
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { db: { schema }, auth: { persistSession: false, autoRefreshToken: false } }
   );
 }

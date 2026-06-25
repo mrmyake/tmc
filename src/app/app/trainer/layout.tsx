@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,7 @@ export default async function TrainerLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase

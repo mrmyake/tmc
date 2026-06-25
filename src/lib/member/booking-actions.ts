@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateRequest } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import BookingConfirmation from "@/emails/booking_confirmation";
@@ -178,9 +179,7 @@ export async function createBooking(
   options: CreateBookingOptions = {},
 ): Promise<BookingActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const now = new Date();
@@ -466,9 +465,7 @@ export async function cancelBooking(
   bookingId: string,
 ): Promise<BookingActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await validateRequest();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const [bookingResult, settingsResult] = await Promise.all([
