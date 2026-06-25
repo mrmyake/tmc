@@ -19,7 +19,8 @@ import {
 import type { PublicSessionCardData } from "./_components/PublicSessionCard";
 
 export const metadata: Metadata = {
-  title: "Rooster | The Movement Club",
+  // Brand-free: layout-template voegt " | The Movement Club" toe.
+  title: "Rooster",
   description:
     "Bekijk het wekelijkse rooster van The Movement Club. Yoga, kettlebell, kids en senior sessies in Loosdrecht.",
   alternates: { canonical: "/rooster" },

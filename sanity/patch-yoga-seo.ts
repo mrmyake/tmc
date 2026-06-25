@@ -34,35 +34,35 @@ const SEO: Array<{
   {
     id: "yogaStyle-yoga-nidra",
     slug: "yoga-nidra",
-    seoTitle: "Yoga Nidra in Loosdrecht, vlakbij Hilversum | The Movement Club",
+    seoTitle: "Yoga Nidra in Loosdrecht, vlakbij Hilversum",
     seoDescription:
       "Yoga nidra in Loosdrecht: diepe ontspanning door geleide meditatie in lig. Kleine groepen, op tien minuten van Hilversum. Zet je op de wachtlijst.",
   },
   {
     id: "yogaStyle-irest",
     slug: "irest",
-    seoTitle: "iRest Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
+    seoTitle: "iRest Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
       "iRest yoga nidra in Loosdrecht: meditatieve diepe rust en herstel. Kleine lessen vlakbij Hilversum en het Gooi. Schrijf je in voor de wachtlijst.",
   },
   {
     id: "yogaStyle-restorative-yoga",
     slug: "restorative-yoga",
-    seoTitle: "Restorative Yoga in Loosdrecht, regio Hilversum | The Movement Club",
+    seoTitle: "Restorative Yoga in Loosdrecht, regio Hilversum",
     seoDescription:
       "Restorative yoga in Loosdrecht: volledig tot rust komen met ondersteunde houdingen. Kleine lessen vlakbij Hilversum en het Gooi. Zet je op de wachtlijst.",
   },
   {
     id: "yogaStyle-yin-yoga",
     slug: "yin-yoga",
-    seoTitle: "Yin Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
+    seoTitle: "Yin Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
       "Yin yoga in Loosdrecht: rustige, lang vastgehouden houdingen voor diepe ontspanning en soepelheid. Kleine groepen, op tien minuten van Hilversum.",
   },
   {
     id: "yogaStyle-flow-yoga",
     slug: "flow-yoga",
-    seoTitle: "Flow Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
+    seoTitle: "Flow Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
       "Flow yoga in Loosdrecht: dynamische beweging op je adem, voor kracht en mobiliteit. Kleine groepen vlakbij Hilversum. Zet je op de wachtlijst.",
   },

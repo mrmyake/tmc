@@ -34,18 +34,19 @@ export async function generateMetadata(props: {
   const { slug } = await props.params;
   const teacher = await getYogaTeacherBySlug(slug);
   if (!teacher || !teacher.isActive) {
-    return { title: "Yoga docenten | The Movement Club" };
+    return { title: "Yoga docenten" };
   }
   const specialty = teacher.specialty ? ` (${teacher.specialty})` : "";
-  const title = `${teacher.name}${specialty} | Yoga docent in Loosdrecht | The Movement Club`;
+  // Brand-free voor metadata.title (template voegt merknaam toe); OG expliciet.
+  const metaTitle = `${teacher.name}${specialty} | Yoga docent in Loosdrecht`;
   const description =
     teacher.heroQuote ??
     `Maak kennis met ${teacher.name}, yogadocent bij The Movement Club in Loosdrecht.`;
   return {
-    title,
+    title: metaTitle,
     description,
     alternates: { canonical: `/yoga/docenten/${teacher.slug}` },
-    openGraph: { title, description },
+    openGraph: { title: `${metaTitle} | The Movement Club`, description },
   };
 }
 

@@ -33,19 +33,20 @@ export async function generateMetadata(props: {
   const { style } = await props.params;
   const data = await getYogaStyleBySlug(style);
   if (!data) {
-    return { title: "Yoga | The Movement Club" };
+    return { title: "Yoga" };
   }
-  const title =
-    data.seoTitle ??
-    `${data.title} in Loosdrecht (regio Hilversum) | The Movement Club`;
+  // Brand-free voor metadata.title (layout-template voegt de merknaam toe);
+  // openGraph.title krijgt de merknaam expliciet want daar geldt geen template.
+  const metaTitle =
+    data.seoTitle ?? `${data.title} in Loosdrecht (regio Hilversum)`;
   const description =
     data.seoDescription ??
     `${data.definition} Volg ${data.title} in onze kleine studio in Loosdrecht, op tien minuten van Hilversum en het Gooi.`;
   return {
-    title,
+    title: metaTitle,
     description,
     alternates: { canonical: `/yoga/${data.slug}` },
-    openGraph: { title, description },
+    openGraph: { title: `${metaTitle} | The Movement Club`, description },
   };
 }
 
