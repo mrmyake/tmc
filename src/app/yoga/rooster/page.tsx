@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
 import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -44,46 +44,52 @@ function isoDate(d: Date): string {
 export default async function YogaRoosterPage() {
   // Admin client leest alleen sessie-metadata + aggregate bezetting; geen
   // member-PII in de resultaatvorm. Zelfde patroon als de publieke /rooster.
-  const admin = createAdminClient();
+  // Zonder Supabase-env (preview-branch zonder env) degraderen we naar de lege
+  // "binnenkort"-staat in plaats van de build te laten falen.
+  const admin = isAdminConfigured() ? createAdminClient() : null;
 
   const now = new Date();
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * 86400000);
 
-  const { data: sessions, error } = await admin
-    .from("class_sessions")
-    .select(
-      `
-        id,
-        start_at,
-        end_at,
-        pillar,
-        capacity,
-        class_type:class_types(name),
-        trainer:trainers(display_name)
-      `,
-    )
-    .eq("status", "scheduled")
-    .eq("pillar", YOGA_PILLAR)
-    .gte("start_at", now.toISOString())
-    .lt("start_at", horizonEnd.toISOString())
-    .order("start_at", { ascending: true })
-    .returns<SessionRow[]>();
-
-  if (error) {
-    console.error("[/yoga/rooster] sessions query:", error);
-  }
-
-  const sessionIds = (sessions ?? []).map((s) => s.id);
-  const availabilityRes =
-    sessionIds.length === 0
-      ? { data: [] as Array<{ id: string | null; booked_count: number | null }> }
-      : await admin
-          .from("v_session_availability")
-          .select("id, booked_count")
-          .in("id", sessionIds);
+  let sessions: SessionRow[] | null = [];
   const bookedBySession = new Map<string, number>();
-  for (const row of availabilityRes.data ?? []) {
-    if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
+
+  if (admin) {
+    const sessionsRes = await admin
+      .from("class_sessions")
+      .select(
+        `
+          id,
+          start_at,
+          end_at,
+          pillar,
+          capacity,
+          class_type:class_types(name),
+          trainer:trainers(display_name)
+        `,
+      )
+      .eq("status", "scheduled")
+      .eq("pillar", YOGA_PILLAR)
+      .gte("start_at", now.toISOString())
+      .lt("start_at", horizonEnd.toISOString())
+      .order("start_at", { ascending: true })
+      .returns<SessionRow[]>();
+
+    if (sessionsRes.error) {
+      console.error("[/yoga/rooster] sessions query:", sessionsRes.error);
+    }
+    sessions = sessionsRes.data;
+
+    const sessionIds = (sessions ?? []).map((s) => s.id);
+    if (sessionIds.length > 0) {
+      const availabilityRes = await admin
+        .from("v_session_availability")
+        .select("id, booked_count")
+        .in("id", sessionIds);
+      for (const row of availabilityRes.data ?? []) {
+        if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
+      }
+    }
   }
 
   const cards: PublicSessionCardData[] = (sessions ?? []).map((s) => ({

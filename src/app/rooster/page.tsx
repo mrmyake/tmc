@@ -4,7 +4,7 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import {
   amsterdamParts,
   DAY_SHORT_NL,
@@ -65,53 +65,60 @@ export default async function PublicRoosterPage(props: {
   // Admin client used only for reading session data. Anon-visible by design —
   // no member PII in the result shape, just session/class/trainer metadata +
   // aggregate booked counts.
-  const admin = createAdminClient();
+  // Zonder Supabase-env (preview-branch zonder env) degraderen we naar een leeg
+  // rooster in plaats van een 500; in productie is de env aanwezig.
+  const admin = isAdminConfigured() ? createAdminClient() : null;
 
   const now = new Date();
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * 86400000);
 
-  let sessionsQuery = admin
-    .from("class_sessions")
-    .select(
-      `
-        id,
-        start_at,
-        end_at,
-        pillar,
-        capacity,
-        class_type:class_types(name),
-        trainer:trainers(display_name)
-      `,
-    )
-    .eq("status", "scheduled")
-    .neq("pillar", "vrij_trainen")
-    .gte("start_at", now.toISOString())
-    .lt("start_at", horizonEnd.toISOString())
-    .order("start_at", { ascending: true });
+  let sessions: SessionRow[] | null = [];
+  const bookedBySession = new Map<string, number>();
 
-  if (pillarFilter) {
-    sessionsQuery = sessionsQuery.eq("pillar", pillarFilter);
-  }
+  if (admin) {
+    let sessionsQuery = admin
+      .from("class_sessions")
+      .select(
+        `
+          id,
+          start_at,
+          end_at,
+          pillar,
+          capacity,
+          class_type:class_types(name),
+          trainer:trainers(display_name)
+        `,
+      )
+      .eq("status", "scheduled")
+      .neq("pillar", "vrij_trainen")
+      .gte("start_at", now.toISOString())
+      .lt("start_at", horizonEnd.toISOString())
+      .order("start_at", { ascending: true });
 
-  const { data: sessions, error: sessionsError } =
-    await sessionsQuery.returns<SessionRow[]>();
+    if (pillarFilter) {
+      sessionsQuery = sessionsQuery.eq("pillar", pillarFilter);
+    }
 
-  if (sessionsError) {
-    console.error("[/rooster] sessions query:", sessionsError);
+    const sessionsRes = await sessionsQuery.returns<SessionRow[]>();
+
+    if (sessionsRes.error) {
+      console.error("[/rooster] sessions query:", sessionsRes.error);
+    }
+    sessions = sessionsRes.data;
+
+    const ids = (sessions ?? []).map((s) => s.id);
+    if (ids.length > 0) {
+      const availabilityRes = await admin
+        .from("v_session_availability")
+        .select("id, booked_count")
+        .in("id", ids);
+      for (const row of availabilityRes.data ?? []) {
+        if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
+      }
+    }
   }
 
   const sessionIds = (sessions ?? []).map((s) => s.id);
-  const availabilityRes =
-    sessionIds.length === 0
-      ? { data: [] as Array<{ id: string | null; booked_count: number | null }> }
-      : await admin
-          .from("v_session_availability")
-          .select("id, booked_count")
-          .in("id", sessionIds);
-  const bookedBySession = new Map<string, number>();
-  for (const row of availabilityRes.data ?? []) {
-    if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
-  }
 
   // User's own bookings (if logged in) — scope via auth client so RLS protects.
   const userBookedSessionIds = new Set<string>();
