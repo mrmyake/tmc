@@ -1,7 +1,7 @@
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { QuietLink } from "@/components/ui/QuietLink";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import {
   amsterdamParts,
   formatTime,
@@ -37,6 +37,10 @@ interface SessionRow {
 }
 
 async function fetchTeaserSessions(): Promise<TeaserSession[]> {
+  // Geen Supabase-env (bv. preview-branch zonder env): toon de lege staat in
+  // plaats van de build te laten falen tijdens prerender van de homepage.
+  if (!isAdminConfigured()) return [];
+
   const admin = createAdminClient();
   const now = new Date();
   const horizon = new Date(now.getTime() + 48 * 3_600_000);
