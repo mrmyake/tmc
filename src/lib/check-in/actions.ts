@@ -244,10 +244,10 @@ export async function lookupByIdentifier(
       .from("memberships")
       .select("covered_pillars, status")
       .eq("profile_id", profile.id)
-      .in("status", ["active", "paused"]);
+      .in("status", ["active", "paused", "cancellation_requested"]);
     const coversVrij = (memberships ?? []).some(
       (m) =>
-        m.status === "active" &&
+        (m.status === "active" || m.status === "cancellation_requested") &&
         (m.covered_pillars ?? []).includes("vrij_trainen"),
     );
     if (coversVrij) {
@@ -561,7 +561,10 @@ async function checkInForProfile(input: {
         "covered_pillars, status, plan_type, credits_remaining, frequency_cap",
       )
       .eq("profile_id", input.profileId)
-      .in("status", ["active", "paused"]);
+      // cancellation_requested = opgezegd maar nog binnen de opzegtermijn:
+      // houdt volledige toegang tot de cron op effective_date naar cancelled
+      // flipt.
+      .in("status", ["active", "paused", "cancellation_requested"]);
     const covers = (memberships ?? []).find((m) =>
       (m.covered_pillars ?? []).includes(input.pillar),
     );

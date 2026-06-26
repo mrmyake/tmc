@@ -208,9 +208,11 @@ export async function createBooking(
       .maybeSingle(),
     supabase
       .from("memberships")
-      .select("id, plan_type, frequency_cap, credits_remaining")
+      .select(
+        "id, plan_type, frequency_cap, credits_remaining, status, cancellation_effective_date",
+      )
       .eq("profile_id", user.id)
-      .eq("status", "active"),
+      .in("status", ["active", "cancellation_requested"]),
     supabase
       .from("booking_settings")
       .select(
@@ -319,14 +321,25 @@ export async function createBooking(
         ).toISOString()
       : null;
 
-  const memberships: CanBookMembership[] = (
-    membershipsResult.data ?? []
-  ).map((m) => ({
-    id: m.id,
-    plan_type: m.plan_type,
-    frequency_cap: m.frequency_cap,
-    credits_remaining: m.credits_remaining,
-  }));
+  // Een opgezegd lid (cancellation_requested) houdt toegang tot de einddatum:
+  // het abonnement dekt boekingen voor sessies op of voor effective_date. De
+  // boekingswindow (< opzegtermijn) maakt boeken voorbij die datum praktisch
+  // onmogelijk; de datum-guard borgt het defensief.
+  const sessionDateStr = dayStart.toISOString().slice(0, 10);
+  const memberships: CanBookMembership[] = (membershipsResult.data ?? [])
+    .filter(
+      (m) =>
+        m.status === "active" ||
+        (m.status === "cancellation_requested" &&
+          m.cancellation_effective_date != null &&
+          m.cancellation_effective_date >= sessionDateStr),
+    )
+    .map((m) => ({
+      id: m.id,
+      plan_type: m.plan_type,
+      frequency_cap: m.frequency_cap,
+      credits_remaining: m.credits_remaining,
+    }));
 
   const decision: CanBookResult = canBook({
     session,

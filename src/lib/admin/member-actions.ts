@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
+import { cancelMollieSubscription } from "@/lib/mollie";
+import { sendNotification } from "@/lib/ntfy";
 
 export type MemberActionResult =
   | { ok: true; message: string }
@@ -491,17 +493,26 @@ export async function deleteMember(
     },
   });
 
-  // Cancel alle nog-actieve memberships (cleant ook Mollie niet; handmatig
-  // stoppen in Mollie-dashboard). De FK-cascades op bookings, waitlist,
-  // notes, strikes ruimen op zodra auth.users wordt verwijderd.
+  // Cancel alle nog-actieve memberships en stop de bijbehorende Mollie-
+  // subscriptions, zodat er na de hard-delete geen incasso doorloopt. De
+  // FK-cascades op bookings, waitlist, notes, strikes ruimen op zodra
+  // auth.users wordt verwijderd.
   const { data: cancelled } = await admin
     .from("memberships")
     .update({ status: "cancelled", end_date: new Date().toISOString().slice(0, 10) })
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "cancellation_requested", "payment_failed"])
-    .select("id");
+    .select("id, mollie_customer_id, mollie_subscription_id");
 
+  const mollieFailures: string[] = [];
   for (const m of cancelled ?? []) {
+    if (m.mollie_subscription_id) {
+      const stopped = await cancelMollieSubscription(
+        m.mollie_customer_id,
+        m.mollie_subscription_id,
+      );
+      if (!stopped) mollieFailures.push(m.id);
+    }
     await emitEvent({
       type: "membership.cancelled",
       actorType: "admin",
@@ -512,8 +523,19 @@ export async function deleteMember(
         profile_id: profile.id,
         membership_id: m.id,
         reason: "member_deleted",
+        subscription_cancelled: Boolean(m.mollie_subscription_id),
       },
     });
+  }
+
+  // Hard-delete gaat door, maar een mislukte Mollie-cancel betekent
+  // doorlopende incasso voor een verwijderd lid: loud melden.
+  if (mollieFailures.length > 0) {
+    await sendNotification(
+      "Mollie-incasso niet gestopt",
+      `Lid ${profile.id} wordt verwijderd, maar ${mollieFailures.length} Mollie-subscription(s) konden niet worden geannuleerd. Stop ze handmatig in het Mollie-dashboard.`,
+      "warning",
+    );
   }
 
   const { error: delErr } = await admin.auth.admin.deleteUser(profile.id);
