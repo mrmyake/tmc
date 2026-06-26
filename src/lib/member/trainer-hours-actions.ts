@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 
 export type TrainerHoursResult =
   | { ok: true; message: string }
@@ -51,18 +52,37 @@ export async function submitOwnHours(
     return { ok: false, message: "Je bent niet actief als trainer." };
   }
 
-  const { error } = await supabase.from("trainer_hours").insert({
-    trainer_id: trainer.id,
-    work_date: input.workDate,
-    hours: input.hours,
-    notes: input.notes?.trim() || null,
-    status: "pending",
-  });
+  const { data: row, error } = await supabase
+    .from("trainer_hours")
+    .insert({
+      trainer_id: trainer.id,
+      work_date: input.workDate,
+      hours: input.hours,
+      notes: input.notes?.trim() || null,
+      status: "pending",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     console.error("[submitOwnHours] insert failed", error);
     return { ok: false, message: "Opslaan lukte niet. Probeer opnieuw." };
   }
+
+  await emitEvent({
+    type: "trainer_hours.submitted",
+    actorType: "trainer",
+    actorId: user.id,
+    subjectType: "trainer_hours",
+    subjectId: row.id,
+    payload: {
+      profile_id: user.id,
+      trainer_hours_id: row.id,
+      trainer_id: trainer.id,
+      work_date: input.workDate,
+      hours: input.hours,
+    },
+  });
 
   revalidatePath("/app/trainer");
   revalidatePath("/app/trainer/uren");

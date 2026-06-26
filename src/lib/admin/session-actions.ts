@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
 import SessionCancelledByAdmin from "@/emails/session_cancelled_by_admin";
@@ -128,6 +129,20 @@ export async function adminUpdateSession(
     return { ok: false, message: "Bijwerken lukte niet. Probeer het opnieuw." };
   }
 
+  await emitEvent({
+    type: "session.updated",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "session",
+    subjectId: input.id,
+    payload: {
+      session_id: input.id,
+      changed: Object.keys(patch),
+      trainer_id: patch.trainer_id ?? null,
+      capacity: patch.capacity ?? null,
+    },
+  });
+
   revalidateAll();
   return { ok: true, message: "Sessie bijgewerkt." };
 }
@@ -215,6 +230,35 @@ export async function adminCancelSession(
   if (sErr) {
     console.error("[adminCancelSession] session update failed", sErr);
     return { ok: false, message: "Annuleren lukte niet." };
+  }
+
+  await emitEvent({
+    type: "session.cancelled",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "session",
+    subjectId: input.id,
+    payload: {
+      session_id: input.id,
+      reason,
+      affected_booking_count: affected.length,
+    },
+  });
+  for (const b of affected) {
+    await emitEvent({
+      type: "booking.cancelled",
+      actorType: "admin",
+      actorId: auth.userId,
+      subjectType: "booking",
+      subjectId: b.id,
+      payload: {
+        profile_id: b.profile_id,
+        session_id: input.id,
+        reason: "session_cancelled",
+        credits_refunded:
+          Boolean(b.membership_id) && (b.credits_used ?? 0) > 0,
+      },
+    });
   }
 
   await sendNotification(
@@ -325,6 +369,22 @@ export async function adminCreateSession(
     console.error("[adminCreateSession] insert failed", error);
     return { ok: false, message: "Aanmaken lukte niet." };
   }
+
+  await emitEvent({
+    type: "session.created",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "session",
+    subjectId: data.id,
+    payload: {
+      session_id: data.id,
+      class_type_id: input.classTypeId,
+      trainer_id: input.trainerId,
+      pillar: classType.pillar,
+      start_at: start.toISOString(),
+      capacity: input.capacity,
+    },
+  });
 
   revalidateAll();
 

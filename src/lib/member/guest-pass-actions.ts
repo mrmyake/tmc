@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
 import { sendEmail } from "@/lib/email";
 import GuestConfirmation from "@/emails/guest_confirmation";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
@@ -334,14 +335,18 @@ export async function bookGuest(
   }
 
   // 4. Insert met idempotent-check op unique(session_id, email).
-  const { error: insertError } = await admin.from("guest_bookings").insert({
-    guest_pass_id: period.id,
-    session_id: input.sessionId,
-    booked_by: user.id,
-    guest_name: name,
-    guest_email: email,
-    status: "booked",
-  });
+  const { data: guestBooking, error: insertError } = await admin
+    .from("guest_bookings")
+    .insert({
+      guest_pass_id: period.id,
+      session_id: input.sessionId,
+      booked_by: user.id,
+      guest_name: name,
+      guest_email: email,
+      status: "booked",
+    })
+    .select("id")
+    .single();
 
   if (insertError) {
     if (insertError.code === "23505") {
@@ -353,6 +358,21 @@ export async function bookGuest(
     console.error("[bookGuest] insert failed", insertError);
     return { ok: false, message: "Gast toevoegen lukte niet." };
   }
+
+  // Geen gast-naam/e-mail in de payload: dat is PII die de event-laag niet
+  // nodig heeft.
+  await emitEvent({
+    type: "guest.booked",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "guest_booking",
+    subjectId: guestBooking.id,
+    payload: {
+      profile_id: user.id,
+      guest_pass_id: period.id,
+      session_id: input.sessionId,
+    },
+  });
 
   // 5. Bump passes_used.
   const { error: updateError } = await admin
