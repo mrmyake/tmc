@@ -10,16 +10,6 @@ export type MembershipActionResult =
   | { ok: true; message: string; effectiveDate?: string }
   | { ok: false; message: string };
 
-function todayPlus(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function maxDate(a: string, b: string): string {
-  return a >= b ? a : b;
-}
-
 interface PauseInput {
   membershipId: string;
   startDate: string; // yyyy-mm-dd
@@ -117,6 +107,15 @@ interface CancellationInput {
   membershipId: string;
 }
 
+/**
+ * Self-service opzegging. De transitie + autorisatie zitten in de
+ * SECURITY DEFINER RPC `tmc.request_membership_cancellation` (audit-fix #1):
+ * `memberships` heeft geen self-UPDATE-policy (prijs-/lock-in-/mollie-
+ * kolommen mag een lid nooit zelf raken), dus een kale `.update()` hier
+ * matchte vroeger geen RLS-policy en raakte stil 0 rijen — geen error, wel
+ * een "gelukt"-melding, en de incasso liep door. De RPC raise't nu een
+ * echte exception bij een ongeldige/niet-eigen aanroep.
+ */
 export async function requestMembershipCancellation(
   input: CancellationInput,
 ): Promise<MembershipActionResult> {
@@ -126,51 +125,24 @@ export async function requestMembershipCancellation(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  const { data: membership, error: mErr } = await supabase
-    .from("memberships")
-    .select("id, profile_id, status, commit_end_date")
-    .eq("id", input.membershipId)
-    .eq("profile_id", user.id)
+  const { data, error } = await supabase
+    .rpc("request_membership_cancellation", {
+      p_membership_id: input.membershipId,
+    })
+    .select("cancellation_effective_date")
     .maybeSingle();
 
-  if (mErr || !membership) {
-    return { ok: false, message: "Abonnement niet gevonden." };
-  }
-  if (membership.status === "cancellation_requested") {
-    return { ok: false, message: "Je opzegverzoek staat al open." };
-  }
-  if (
-    membership.status !== "active" &&
-    membership.status !== "paused" &&
-    membership.status !== "payment_failed"
-  ) {
-    return { ok: false, message: "Dit abonnement kan niet worden opgezegd." };
-  }
-
-  // Effective date: max of commit_end_date and today + 28 days (4 weeks notice).
-  const effectiveDate = maxDate(
-    membership.commit_end_date,
-    todayPlus(28),
-  );
-  const nowIso = new Date().toISOString();
-
-  const { error } = await supabase
-    .from("memberships")
-    .update({
-      status: "cancellation_requested",
-      cancellation_requested_at: nowIso,
-      cancellation_effective_date: effectiveDate,
-    })
-    .eq("id", input.membershipId)
-    .eq("profile_id", user.id);
-
   if (error) {
-    console.error("[requestMembershipCancellation] update failed", error);
+    console.error("[requestMembershipCancellation] rpc failed", error);
     return {
       ok: false,
-      message: "Opzegging kon niet worden verwerkt. Probeer het opnieuw.",
+      message:
+        error.message ||
+        "Opzegging kon niet worden verwerkt. Probeer het opnieuw.",
     };
   }
+
+  const effectiveDate = data?.cancellation_effective_date ?? null;
 
   await emitEvent({
     type: "membership.cancellation_requested",
@@ -192,6 +164,6 @@ export async function requestMembershipCancellation(
     ok: true,
     message:
       "Je opzegverzoek staat. We bevestigen binnen een werkdag en zetten de incasso stop per einddatum.",
-    effectiveDate,
+    effectiveDate: effectiveDate ?? undefined,
   };
 }
