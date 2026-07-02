@@ -1842,6 +1842,15 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_trainer: { Args: never; Returns: boolean }
       refresh_admin_kpis: { Args: never; Returns: undefined }
+      request_membership_cancellation: {
+        Args: { p_membership_id: string }
+        Returns: {
+          cancellation_effective_date: string | null
+          cancellation_requested_at: string | null
+          id: string | null
+          status: string | null
+        }[]
+      }
       set_admin_checkin_pin: { Args: { p_pin: string }; Returns: undefined }
       verify_admin_checkin_pin: { Args: { p_pin: string }; Returns: boolean }
     }
