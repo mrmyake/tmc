@@ -46,7 +46,21 @@ export const CancellationDialog = forwardRef<
     setError(null);
     setSuccess(null);
     startTransition(async () => {
-      const res = await requestMembershipCancellation({ membershipId });
+      let res;
+      try {
+        res = await requestMembershipCancellation({ membershipId });
+      } catch {
+        // De server action-fetch zelf kan falen (bv. offline in de PWA) —
+        // dat is geen `{ ok: false }` van de action maar een thrown
+        // exception, die anders ongevangen doorschiet naar de
+        // `/app`-errorboundary en de hele pagina (incl. deze dialog)
+        // wegvaagt. Vang 'm hier af zodat de bestaande inline
+        // foutmelding hieronder gewoon werkt.
+        setError(
+          "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        );
+        return;
+      }
       if (!res.ok) {
         setError(res.message);
       } else {
