@@ -12,12 +12,7 @@ import {
   formatTimeRange,
   formatWeekdayDate,
 } from "@/lib/format-date";
-import {
-  canBook,
-  REASON_COPY,
-  type CanBookMembership,
-  type CanBookResult,
-} from "./can-book";
+import { planCovers } from "./plan-coverage";
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
@@ -174,6 +169,143 @@ export interface CreateBookingOptions {
   acknowledgeOverCap?: boolean;
 }
 
+/**
+ * Copy voor de weiger-redenen die tmc.book_class_session teruggeeft. De
+ * harde regels zelf leven sinds audit-fix #3 in de SECURITY DEFINER RPC;
+ * dit is alleen de vertaling naar user-facing tekst.
+ */
+const BOOK_REASON_COPY: Record<string, string> = {
+  session_not_found: "Sessie niet gevonden.",
+  profile_not_found: "Profiel niet gevonden.",
+  age_mismatch: "Deze sessie valt buiten jouw leeftijdscategorie.",
+  booking_window_closed: "Nog niet open voor boeking.",
+  session_not_scheduled: "Deze sessie is niet meer beschikbaar.",
+  session_in_past: "Deze sessie is al voorbij.",
+  capacity_full: "Vol. Je kunt je op de wachtlijst zetten.",
+  strike_blocked:
+    "Door meerdere no-shows is boeken tijdelijk geblokkeerd. Neem contact op als je vragen hebt.",
+  weekly_cap_reached:
+    "Je weekcap voor deze discipline is bereikt. Volgende week weer.",
+  daily_cap_reached: "Maximaal twee sessies per dag.",
+  no_coverage: "Deze sessie valt buiten je huidige abonnement.",
+  already_booked: "Je hebt deze sessie al geboekt.",
+};
+
+type BookClassSessionResult = {
+  ok: boolean;
+  reason?: string;
+  can_join_waitlist?: boolean;
+  booking_id?: string;
+  membership_id?: string | null;
+  credits_used?: number;
+  pillar?: string;
+  session_date?: string;
+};
+
+type CancelClassBookingResult = {
+  ok: boolean;
+  reason?: string;
+  session_id?: string;
+  pillar?: string;
+  within_window?: boolean;
+  credits_refunded?: boolean;
+};
+
+/**
+ * Zachte weekly-cap check (besluit #1, optie B): puur een UX-nudge vóór de
+ * RPC-call, voor pillars mét check-in. Geeft de bevestig-dialoog terug als
+ * bookings + check-ins deze week op of over de cap zitten. De hárde cap
+ * (pillars zonder check-in) wordt server-side in tmc.book_class_session
+ * afgedwongen; deze check handhaaft niets.
+ */
+async function softWeeklyCapCheck(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  sessionId: string,
+): Promise<{ combined: number; cap: number } | null> {
+  const [sessionResult, settingsResult, membershipsResult] =
+    await Promise.all([
+      supabase
+        .from("class_sessions")
+        .select("start_at, pillar")
+        .eq("id", sessionId)
+        .maybeSingle(),
+      supabase
+        .from("booking_settings")
+        .select("check_in_enabled, check_in_pillars")
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("memberships")
+        .select(
+          "plan_type, frequency_cap, status, cancellation_effective_date",
+        )
+        .eq("profile_id", userId)
+        .in("status", ["active", "cancellation_requested"]),
+    ]);
+
+  const session = sessionResult.data;
+  if (!session) return null; // RPC geeft zo de echte foutmelding
+
+  const settings = settingsResult.data ?? {
+    check_in_enabled: true,
+    check_in_pillars: ["yoga_mobility", "kettlebell", "vrij_trainen"],
+  };
+  const checkInEnabledForPillar =
+    Boolean(settings.check_in_enabled) &&
+    Array.isArray(settings.check_in_pillars) &&
+    settings.check_in_pillars.includes(session.pillar);
+  if (!checkInEnabledForPillar) return null;
+
+  const sessionStart = new Date(session.start_at);
+  const sessionDateStr = sessionStart.toISOString().slice(0, 10);
+  const covering = (membershipsResult.data ?? [])
+    .filter(
+      (m) =>
+        m.status === "active" ||
+        (m.status === "cancellation_requested" &&
+          m.cancellation_effective_date != null &&
+          m.cancellation_effective_date >= sessionDateStr),
+    )
+    .find((m) => planCovers(m.plan_type, session.pillar));
+  if (!covering || covering.frequency_cap == null) return null;
+
+  const sessionIso = getIsoWeekYear(sessionStart);
+  // Maandag 00:00 UTC → volgende maandag 00:00 UTC van de sessie-week
+  // (check_ins heeft geen iso_week-kolom, dus datum-range).
+  const weekStart = new Date(sessionStart);
+  weekStart.setUTCHours(0, 0, 0, 0);
+  const weekDow = weekStart.getUTCDay() || 7;
+  weekStart.setUTCDate(weekStart.getUTCDate() - (weekDow - 1));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
+  const [pillarWeekCountResult, checkInWeekCountResult] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", userId)
+      .eq("status", "booked")
+      .eq("pillar", session.pillar)
+      .eq("iso_week", sessionIso.isoWeek)
+      .eq("iso_year", sessionIso.isoYear),
+    supabase
+      .from("check_ins")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", userId)
+      .eq("pillar", session.pillar)
+      .gte("checked_in_at", weekStart.toISOString())
+      .lt("checked_in_at", weekEnd.toISOString()),
+  ]);
+
+  const combined =
+    (pillarWeekCountResult.count ?? 0) + (checkInWeekCountResult.count ?? 0);
+  if (combined >= covering.frequency_cap) {
+    return { combined, cap: covering.frequency_cap };
+  }
+  return null;
+}
+
 export async function createBooking(
   sessionId: string,
   options: CreateBookingOptions = {},
@@ -184,239 +316,44 @@ export async function createBooking(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  const now = new Date();
-
-  const [
-    sessionResult,
-    profileResult,
-    membershipsResult,
-    settingsResult,
-    existingBookingResult,
-    strikesResult,
-  ] = await Promise.all([
-    supabase
-      .from("class_sessions")
-      .select(
-        "id, start_at, end_at, status, pillar, age_category, capacity",
-      )
-      .eq("id", sessionId)
-      .maybeSingle(),
-    supabase
-      .from("profiles")
-      .select("age_category")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("memberships")
-      .select(
-        "id, plan_type, frequency_cap, credits_remaining, status, cancellation_effective_date",
-      )
-      .eq("profile_id", user.id)
-      .in("status", ["active", "cancellation_requested"]),
-    supabase
-      .from("booking_settings")
-      .select(
-        "booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, cancellation_window_hours, check_in_enabled, check_in_pillars",
-      )
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("bookings")
-      .select("id, status")
-      .eq("profile_id", user.id)
-      .eq("session_id", sessionId)
-      .in("status", ["booked", "waitlisted"])
-      .maybeSingle(),
-    supabase
-      .from("v_active_strikes")
-      .select("strike_count, last_strike_at")
-      .eq("profile_id", user.id)
-      .maybeSingle(),
-  ]);
-
-  if (existingBookingResult.data) {
-    return { ok: false, message: "Je hebt deze sessie al geboekt." };
+  // Zachte weekcap-nudge (alleen check-in-pillars) vóór de RPC. Server-side
+  // wordt deze bewust niet gehandhaafd — besluit #1, optie B.
+  if (!options.acknowledgeOverCap) {
+    const overCap = await softWeeklyCapCheck(supabase, user.id, sessionId);
+    if (overCap) {
+      return {
+        ok: false,
+        message: `Je hebt deze week al ${overCap.combined} van ${overCap.cap} trainingen voor deze discipline. Toch doorgaan?`,
+        needsConfirmation: { kind: "weekly_cap_combined", ...overCap },
+      };
+    }
   }
 
-  const session = sessionResult.data;
-  const profile = profileResult.data;
-  if (!session) return { ok: false, message: "Sessie niet gevonden." };
-  if (!profile) return { ok: false, message: "Profiel niet gevonden." };
-
-  const settings = settingsResult.data ?? {
-    booking_window_days: 14,
-    fair_use_daily_max: 2,
-    no_show_strike_threshold: 3,
-    no_show_block_days: 7,
-    cancellation_window_hours: 6,
-    check_in_enabled: true,
-    check_in_pillars: ["yoga_mobility", "kettlebell", "vrij_trainen"],
-  };
-
-  const checkInEnabledForPillar =
-    Boolean(settings.check_in_enabled) &&
-    Array.isArray(settings.check_in_pillars) &&
-    settings.check_in_pillars.includes(session.pillar);
-
-  const sessionStart = new Date(session.start_at);
-  const dayStart = new Date(sessionStart);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  const sessionIso = getIsoWeekYear(sessionStart);
-
-  // Voor de check-ins count hebben we een datum-range nodig (ISO-week
-  // bestaat niet als kolom op check_ins). Maandag 00:00 UTC → volgende
-  // maandag 00:00 UTC van de week waarin de sessie valt.
-  const weekStart = new Date(sessionStart);
-  weekStart.setUTCHours(0, 0, 0, 0);
-  const weekDow = weekStart.getUTCDay() || 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - (weekDow - 1));
-  const weekEnd = new Date(weekStart);
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
-
-  const [
-    bookedCountResult,
-    sameDayCountResult,
-    pillarWeekCountResult,
-    checkInWeekCountResult,
-  ] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", sessionId)
-      .eq("status", "booked"),
-    supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", user.id)
-      .eq("status", "booked")
-      .eq("session_date", dayStart.toISOString().slice(0, 10)),
-    supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", user.id)
-      .eq("status", "booked")
-      .eq("pillar", session.pillar)
-      .eq("iso_week", sessionIso.isoWeek)
-      .eq("iso_year", sessionIso.isoYear),
-    checkInEnabledForPillar
-      ? supabase
-          .from("check_ins")
-          .select("id", { count: "exact", head: true })
-          .eq("profile_id", user.id)
-          .eq("pillar", session.pillar)
-          .gte("checked_in_at", weekStart.toISOString())
-          .lt("checked_in_at", weekEnd.toISOString())
-      : Promise.resolve({ count: 0, error: null, data: null }),
-  ]);
-
-  const strikeCount = strikesResult.data?.strike_count ?? 0;
-  const strikeBlockUntil =
-    strikeCount >= settings.no_show_strike_threshold &&
-    strikesResult.data?.last_strike_at
-      ? new Date(
-          new Date(strikesResult.data.last_strike_at).getTime() +
-            settings.no_show_block_days * 86400000,
-        ).toISOString()
-      : null;
-
-  // Een opgezegd lid (cancellation_requested) houdt toegang tot de einddatum:
-  // het abonnement dekt boekingen voor sessies op of voor effective_date. De
-  // boekingswindow (< opzegtermijn) maakt boeken voorbij die datum praktisch
-  // onmogelijk; de datum-guard borgt het defensief.
-  const sessionDateStr = dayStart.toISOString().slice(0, 10);
-  const memberships: CanBookMembership[] = (membershipsResult.data ?? [])
-    .filter(
-      (m) =>
-        m.status === "active" ||
-        (m.status === "cancellation_requested" &&
-          m.cancellation_effective_date != null &&
-          m.cancellation_effective_date >= sessionDateStr),
-    )
-    .map((m) => ({
-      id: m.id,
-      plan_type: m.plan_type,
-      frequency_cap: m.frequency_cap,
-      credits_remaining: m.credits_remaining,
-    }));
-
-  const decision: CanBookResult = canBook({
-    session,
-    profile: {
-      age_category: profile.age_category,
-      active_strikes: strikeCount,
-      strikes_block_until: strikeBlockUntil,
-    },
-    memberships,
-    usage: {
-      bookedCountThisSession: bookedCountResult.count ?? 0,
-      bookingsSameDay: sameDayCountResult.count ?? 0,
-      bookingsSamePillarThisWeek: pillarWeekCountResult.count ?? 0,
-      checkInsSamePillarThisWeek: checkInWeekCountResult.count ?? 0,
-    },
-    settings: { ...settings, checkInEnabledForPillar },
-    now,
-    acknowledgeOverCap: options.acknowledgeOverCap ?? false,
+  // Alle harde regels (capaciteit, caps, dekking, credits) + de insert en
+  // credit-aftrek zitten atomair in de SECURITY DEFINER RPC (audit-fix #3).
+  const rpcResult = await supabase.rpc("book_class_session", {
+    p_session_id: sessionId,
+    p_rental_mat: Boolean(options.rentals?.mat),
+    p_rental_towel: Boolean(options.rentals?.towel),
   });
 
-  if (!decision.allowed) {
-    if (decision.canJoinWaitlist) {
-      return await joinWaitlist(sessionId, user.id);
-    }
-    return { ok: false, message: REASON_COPY[decision.reason] };
-  }
-
-  if (decision.confirmation) {
-    const { combined, cap, kind } = decision.confirmation;
-    return {
-      ok: false,
-      message: `Je hebt deze week al ${combined} van ${cap} trainingen voor deze discipline. Toch doorgaan?`,
-      needsConfirmation: { kind, combined, cap },
-    };
-  }
-
-  // Rentals only make sense on yoga_mobility. Other pillars: silently
-  // ignore, per spec.
-  const isYogaMobility = session.pillar === "yoga_mobility";
-  const rentalMat = isYogaMobility && Boolean(options.rentals?.mat);
-  const rentalTowel = isYogaMobility && Boolean(options.rentals?.towel);
-
-  const insertResult = await supabase
-    .from("bookings")
-    .insert({
-      profile_id: user.id,
-      session_id: sessionId,
-      session_date: dayStart.toISOString().slice(0, 10),
-      pillar: session.pillar,
-      iso_week: sessionIso.isoWeek,
-      iso_year: sessionIso.isoYear,
-      membership_id: decision.coveringMembership?.id ?? null,
-      credits_used:
-        decision.coveringMembership?.plan_type === "ten_ride_card" ? 1 : 0,
-      status: "booked",
-      rental_mat: rentalMat,
-      rental_towel: rentalTowel,
-    })
-    .select("id")
-    .single();
-
-  if (insertResult.error) {
-    if (insertResult.error.code === "23505") {
-      return { ok: false, message: "Je hebt deze sessie al geboekt." };
-    }
-    console.error("[createBooking] insert failed", insertResult.error);
+  if (rpcResult.error) {
+    console.error("[createBooking] rpc failed", rpcResult.error);
     return { ok: false, message: "Boeken lukte niet. Probeer het opnieuw." };
   }
 
-  if (decision.coveringMembership?.plan_type === "ten_ride_card") {
-    await supabase
-      .from("memberships")
-      .update({
-        credits_remaining:
-          (decision.coveringMembership.credits_remaining ?? 1) - 1,
-      })
-      .eq("id", decision.coveringMembership.id);
+  const result = rpcResult.data as BookClassSessionResult;
+
+  if (!result.ok) {
+    if (result.reason === "capacity_full" && result.can_join_waitlist) {
+      return await joinWaitlist(sessionId, user.id);
+    }
+    return {
+      ok: false,
+      message:
+        BOOK_REASON_COPY[result.reason ?? ""] ??
+        "Boeken lukte niet. Probeer het opnieuw.",
+    };
   }
 
   await emitEvent({
@@ -424,15 +361,14 @@ export async function createBooking(
     actorType: "member",
     actorId: user.id,
     subjectType: "booking",
-    subjectId: insertResult.data.id,
+    subjectId: result.booking_id ?? null,
     payload: {
       profile_id: user.id,
       session_id: sessionId,
-      membership_id: decision.coveringMembership?.id ?? null,
-      credits_used:
-        decision.coveringMembership?.plan_type === "ten_ride_card" ? 1 : 0,
-      pillar: session.pillar,
-      session_date: dayStart.toISOString().slice(0, 10),
+      membership_id: result.membership_id ?? null,
+      credits_used: result.credits_used ?? 0,
+      pillar: result.pillar ?? null,
+      session_date: result.session_date ?? null,
     },
   });
 
@@ -515,84 +451,41 @@ export async function cancelBooking(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  const [bookingResult, settingsResult] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select(
-        "id, session_id, status, credits_used, membership_id, pillar, session:class_sessions(start_at)",
-      )
-      .eq("id", bookingId)
-      .eq("profile_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("booking_settings")
-      .select(
-        "cancellation_window_hours, vrij_trainen_cancel_window_minutes",
-      )
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  // Status-check, cancel-venster, status-flip én credit-refund zitten
+  // atomair in de SECURITY DEFINER RPC (audit-fix #3 + #1 deel 2).
+  const rpcResult = await supabase.rpc("cancel_class_booking", {
+    p_booking_id: bookingId,
+  });
 
-  const booking = bookingResult.data;
-  if (!booking) return { ok: false, message: "Boeking niet gevonden." };
-  if (booking.status !== "booked") {
-    return { ok: false, message: "Deze boeking staat al open." };
-  }
-
-  // Vrij trainen gebruikt een veel soepeler venster dan groepslessen.
-  const isVrijTrainen = booking.pillar === "vrij_trainen";
-  const windowMs = isVrijTrainen
-    ? (settingsResult.data?.vrij_trainen_cancel_window_minutes ?? 5) * 60_000
-    : (settingsResult.data?.cancellation_window_hours ?? 6) * 3_600_000;
-
-  const sessionRow = Array.isArray(booking.session)
-    ? booking.session[0]
-    : booking.session;
-  if (!sessionRow) return { ok: false, message: "Sessie niet gevonden." };
-  const sessionStart = new Date(sessionRow.start_at);
-  const msUntil = sessionStart.getTime() - Date.now();
-  const withinWindow = msUntil >= windowMs;
-
-  const updateResult = await supabase
-    .from("bookings")
-    .update({
-      status: "cancelled",
-      cancelled_at: new Date().toISOString(),
-      cancellation_reason: withinWindow ? "within_window" : "late",
-    })
-    .eq("id", bookingId)
-    .eq("profile_id", user.id);
-
-  if (updateResult.error) {
-    console.error("[cancelBooking] update failed", updateResult.error);
+  if (rpcResult.error) {
+    console.error("[cancelBooking] rpc failed", rpcResult.error);
     return {
       ok: false,
       message: "Annuleren lukte niet. Probeer het opnieuw.",
     };
   }
 
-  let creditsRefunded = false;
-  if (
-    withinWindow &&
-    booking.credits_used > 0 &&
-    booking.membership_id
-  ) {
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("credits_remaining")
-      .eq("id", booking.membership_id)
-      .maybeSingle();
-    if (membership) {
-      await supabase
-        .from("memberships")
-        .update({
-          credits_remaining:
-            (membership.credits_remaining ?? 0) + booking.credits_used,
-        })
-        .eq("id", booking.membership_id);
-      creditsRefunded = true;
+  const result = rpcResult.data as CancelClassBookingResult;
+
+  if (!result.ok) {
+    if (result.reason === "not_found") {
+      return { ok: false, message: "Boeking niet gevonden." };
     }
+    if (result.reason === "not_booked") {
+      return { ok: false, message: "Deze boeking staat al open." };
+    }
+    if (result.reason === "session_not_found") {
+      return { ok: false, message: "Sessie niet gevonden." };
+    }
+    return {
+      ok: false,
+      message: "Annuleren lukte niet. Probeer het opnieuw.",
+    };
   }
+
+  const isVrijTrainen = result.pillar === "vrij_trainen";
+  const withinWindow = Boolean(result.within_window);
+  const sessionId = result.session_id as string;
 
   await emitEvent({
     type: "booking.cancelled",
@@ -602,9 +495,9 @@ export async function cancelBooking(
     subjectId: bookingId,
     payload: {
       profile_id: user.id,
-      session_id: booking.session_id,
+      session_id: sessionId,
       reason: withinWindow ? "within_window" : "late",
-      credits_refunded: creditsRefunded,
+      credits_refunded: Boolean(result.credits_refunded),
     },
   });
 
@@ -619,7 +512,7 @@ export async function cancelBooking(
   // Fire-and-forget confirmation mail. Catch inside helper.
   void sendBookingCancelledEmail({
     profileId: user.id,
-    sessionId: booking.session_id,
+    sessionId,
     withinWindow,
     lateMessage,
   });

@@ -1667,6 +1667,20 @@ export type Database = {
       }
     }
     Functions: {
+      book_class_session: {
+        Args: {
+          p_rental_mat?: boolean
+          p_rental_towel?: boolean
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      book_pt_credits: { Args: { p_pt_session_id: string }; Returns: Json }
+      book_pt_pending_payment: {
+        Args: { p_pt_session_id: string }
+        Returns: Json
+      }
+      cancel_class_booking: { Args: { p_booking_id: string }; Returns: Json }
       cleanup_expired_strikes: { Args: never; Returns: number }
       current_user_role: { Args: never; Returns: string }
       get_admin_kpis: {
@@ -1714,6 +1728,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_trainer: { Args: never; Returns: boolean }
+      plan_covers: {
+        Args: { p_pillar: string; p_plan_type: string }
+        Returns: boolean
+      }
       refresh_admin_kpis: { Args: never; Returns: undefined }
       request_membership_cancellation: {
         Args: { p_membership_id: string }
