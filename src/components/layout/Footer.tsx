@@ -114,9 +114,12 @@ export function Footer({ settings }: FooterProps) {
             &copy; {new Date().getFullYear()} {settings.studioName}. Alle
             rechten voorbehouden.
           </p>
-          <p>
-            KvK {settings.kvkNumber} · BTW {settings.btwNumber}
-          </p>
+          <div className="flex items-center gap-6">
+            <QuietLink href="/privacybeleid">Privacyverklaring</QuietLink>
+            <p>
+              KvK {settings.kvkNumber} · BTW {settings.btwNumber}
+            </p>
+          </div>
         </div>
       </Container>
     </footer>
