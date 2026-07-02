@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · The Movement Club</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.25rem;
+        padding: 2rem;
+        text-align: center;
+        background: #0b0b0b;
+        color: #f5f2ec;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      h1 {
+        font-size: 1.375rem;
+        font-weight: 500;
+        margin: 0;
+      }
+      p {
+        margin: 0;
+        max-width: 32ch;
+        color: #b8b3aa;
+        line-height: 1.5;
+      }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.75rem 1.75rem;
+        border: 1px solid #c9a86b;
+        background: transparent;
+        color: #c9a86b;
+        font-size: 0.75rem;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #c9a86b;
+        color: #0b0b0b;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Je bent offline</h1>
+    <p>
+      Deze pagina staat niet in het geheugen van je toestel. Verbind opnieuw
+      met internet om verder te gaan.
+    </p>
+    <button onclick="location.reload()">Probeer opnieuw</button>
+  </body>
+</html>

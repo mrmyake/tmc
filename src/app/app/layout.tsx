@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppChrome } from "./AppChrome";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import type { Role } from "@/components/nav/AvatarDropdown";
 
 export const dynamic = "force-dynamic";
@@ -79,12 +80,15 @@ export default async function AppLayout({
     membershipRes.data?.covered_pillars?.includes("vrij_trainen") ?? false;
 
   return (
-    <AppChrome
-      firstName={firstName}
-      role={role}
-      eligibleForVrijTrainen={eligibleForVrijTrainen}
-    >
-      {children}
-    </AppChrome>
+    <>
+      <ServiceWorkerRegister />
+      <AppChrome
+        firstName={firstName}
+        role={role}
+        eligibleForVrijTrainen={eligibleForVrijTrainen}
+      >
+        {children}
+      </AppChrome>
+    </>
   );
 }
