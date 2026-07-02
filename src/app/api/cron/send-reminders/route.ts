@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
+import { sendPushToProfile } from "@/lib/push";
 import BookingReminder from "@/emails/booking_reminder";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
@@ -141,6 +142,15 @@ export async function GET(req: Request) {
         whenLabel,
         siteUrl: siteUrl(),
       }),
+    });
+
+    // Los kanaal naast de e-mail — alleen iets doet als het lid de
+    // native app heeft (zie src/lib/push.ts). Fire-and-forget, blokkeert
+    // de cron niet.
+    void sendPushToProfile(row.profile_id, {
+      title: `Morgen: ${ct?.name ?? "Sessie"}`,
+      body: `${whenLabel} met ${tr?.display_name ?? "je coach"}`,
+      data: { type: "booking_reminder", sessionId: row.session_id },
     });
 
     sent++;

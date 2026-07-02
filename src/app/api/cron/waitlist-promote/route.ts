@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
+import { sendPushToProfile } from "@/lib/push";
 import WaitlistPromoted from "@/emails/waitlist_promoted";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
@@ -146,7 +147,7 @@ async function sendPromotedEmail(
     const { data: row } = await admin
       .from("waitlist_entries")
       .select(
-        `id,
+        `id, profile_id,
          profile:profiles(first_name, email),
          session:class_sessions(
            start_at, end_at,
@@ -185,6 +186,15 @@ async function sendPromotedEmail(
         deadlineLabel: `binnen ${confirmMinutes} minuten`,
         siteUrl: siteUrl(),
       }),
+    });
+
+    // Los kanaal naast de e-mail — wachtlijst-promotie is tijdsgevoelig
+    // (confirmMinutes-deadline), een directe push is hier extra waardevol
+    // t.o.v. wachten tot iemand zijn mail checkt.
+    void sendPushToProfile(row.profile_id, {
+      title: `Plek vrij: ${ct?.name ?? "Sessie"}`,
+      body: `${whenLabel} — bevestig binnen ${confirmMinutes} minuten`,
+      data: { type: "waitlist_promoted", waitlistEntryId: entryId },
     });
   } catch (err) {
     console.error("[cron/waitlist-promote email] skipped", err);
