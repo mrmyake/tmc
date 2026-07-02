@@ -12,7 +12,7 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  public: {
+  tmc: {
     Tables: {
       admin_audit_log: {
         Row: {
@@ -199,6 +199,7 @@ export type Database = {
           iso_week: number
           iso_year: number
           membership_id: string | null
+          no_show_at: string | null
           pillar: string
           profile_id: string
           reminder_sent_at: string | null
@@ -220,6 +221,7 @@ export type Database = {
           iso_week: number
           iso_year: number
           membership_id?: string | null
+          no_show_at?: string | null
           pillar: string
           profile_id: string
           reminder_sent_at?: string | null
@@ -241,6 +243,7 @@ export type Database = {
           iso_week?: number
           iso_year?: number
           membership_id?: string | null
+          no_show_at?: string | null
           pillar?: string
           profile_id?: string
           reminder_sent_at?: string | null
@@ -256,13 +259,6 @@ export type Database = {
             columns: ["membership_id"]
             isOneToOne: false
             referencedRelation: "memberships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookings_membership_id_fkey"
-            columns: ["membership_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_memberships"
             referencedColumns: ["id"]
           },
           {
@@ -601,6 +597,39 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          created_at: string
+          id: string
+          payload: Json
+          subject_id: string | null
+          subject_type: string | null
+          type: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          subject_id?: string | null
+          subject_type?: string | null
+          type: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          subject_id?: string | null
+          subject_type?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
       guest_bookings: {
         Row: {
           booked_at: string
@@ -709,13 +738,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "guest_passes_membership_id_fkey"
-            columns: ["membership_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_memberships"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "guest_passes_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -819,13 +841,6 @@ export type Database = {
             columns: ["membership_id"]
             isOneToOne: false
             referencedRelation: "memberships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "membership_pauses_membership_id_fkey"
-            columns: ["membership_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_memberships"
             referencedColumns: ["id"]
           },
           {
@@ -1108,13 +1123,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payments_membership_id_fkey"
-            columns: ["membership_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_memberships"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payments_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -1269,13 +1277,6 @@ export type Database = {
             columns: ["credits_used_from"]
             isOneToOne: false
             referencedRelation: "memberships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pt_bookings_credits_used_from_fkey"
-            columns: ["credits_used_from"]
-            isOneToOne: false
-            referencedRelation: "v_active_memberships"
             referencedColumns: ["id"]
           },
           {
@@ -1592,116 +1593,6 @@ export type Database = {
       }
     }
     Views: {
-      v_active_memberships: {
-        Row: {
-          age_category: string | null
-          billing_cycle_weeks: number | null
-          cancellation_effective_date: string | null
-          cancellation_requested_at: string | null
-          commit_end_date: string | null
-          commit_months: number | null
-          covered_pillars: string[] | null
-          created_at: string | null
-          credits_expires_at: string | null
-          credits_remaining: number | null
-          credits_total: number | null
-          crowdfunding_tier_id: string | null
-          end_date: string | null
-          frequency_cap: number | null
-          id: string | null
-          lock_in_active: boolean | null
-          lock_in_expired_at: string | null
-          lock_in_price_cents: number | null
-          lock_in_source: string | null
-          mollie_customer_id: string | null
-          mollie_subscription_id: string | null
-          notes: string | null
-          plan_type: string | null
-          plan_variant: string | null
-          price_per_cycle_cents: number | null
-          profile_id: string | null
-          registration_fee_paid: boolean | null
-          source: string | null
-          start_date: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          age_category?: string | null
-          billing_cycle_weeks?: number | null
-          cancellation_effective_date?: string | null
-          cancellation_requested_at?: string | null
-          commit_end_date?: string | null
-          commit_months?: number | null
-          covered_pillars?: string[] | null
-          created_at?: string | null
-          credits_expires_at?: string | null
-          credits_remaining?: number | null
-          credits_total?: number | null
-          crowdfunding_tier_id?: string | null
-          end_date?: string | null
-          frequency_cap?: number | null
-          id?: string | null
-          lock_in_active?: boolean | null
-          lock_in_expired_at?: string | null
-          lock_in_price_cents?: number | null
-          lock_in_source?: string | null
-          mollie_customer_id?: string | null
-          mollie_subscription_id?: string | null
-          notes?: string | null
-          plan_type?: string | null
-          plan_variant?: string | null
-          price_per_cycle_cents?: number | null
-          profile_id?: string | null
-          registration_fee_paid?: boolean | null
-          source?: string | null
-          start_date?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          age_category?: string | null
-          billing_cycle_weeks?: number | null
-          cancellation_effective_date?: string | null
-          cancellation_requested_at?: string | null
-          commit_end_date?: string | null
-          commit_months?: number | null
-          covered_pillars?: string[] | null
-          created_at?: string | null
-          credits_expires_at?: string | null
-          credits_remaining?: number | null
-          credits_total?: number | null
-          crowdfunding_tier_id?: string | null
-          end_date?: string | null
-          frequency_cap?: number | null
-          id?: string | null
-          lock_in_active?: boolean | null
-          lock_in_expired_at?: string | null
-          lock_in_price_cents?: number | null
-          lock_in_source?: string | null
-          mollie_customer_id?: string | null
-          mollie_subscription_id?: string | null
-          notes?: string | null
-          plan_type?: string | null
-          plan_variant?: string | null
-          price_per_cycle_cents?: number | null
-          profile_id?: string | null
-          registration_fee_paid?: boolean | null
-          source?: string | null
-          start_date?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "memberships_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_active_strikes: {
         Row: {
           earliest_expiry: string | null
@@ -1758,24 +1649,6 @@ export type Database = {
           },
         ]
       }
-      v_weekly_bookings: {
-        Row: {
-          booking_count: number | null
-          iso_week: number | null
-          iso_year: number | null
-          pillar: string | null
-          profile_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bookings_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       vw_admin_kpis: {
         Row: {
           active_members: number | null
@@ -1827,13 +1700,13 @@ export type Database = {
             Args: { p_amount: number }
             Returns: {
               error: true
-            } & "Could not choose the best candidate function between: public.increment_cf_stats(p_amount => int4), public.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+            } & "Could not choose the best candidate function between: tmc.increment_cf_stats(p_amount => int4), tmc.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
         | {
             Args: { p_amount: number }
             Returns: {
               error: true
-            } & "Could not choose the best candidate function between: public.increment_cf_stats(p_amount => int4), public.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+            } & "Could not choose the best candidate function between: tmc.increment_cf_stats(p_amount => int4), tmc.increment_cf_stats(p_amount => numeric). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
       increment_cf_tier_slot: {
         Args: { p_tier_id: string }
@@ -1845,10 +1718,10 @@ export type Database = {
       request_membership_cancellation: {
         Args: { p_membership_id: string }
         Returns: {
-          cancellation_effective_date: string | null
-          cancellation_requested_at: string | null
-          id: string | null
-          status: string | null
+          cancellation_effective_date: string
+          cancellation_requested_at: string
+          id: string
+          status: string
         }[]
       }
       set_admin_checkin_pin: { Args: { p_pin: string }; Returns: undefined }
@@ -1981,7 +1854,7 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  tmc: {
     Enums: {},
   },
 } as const
