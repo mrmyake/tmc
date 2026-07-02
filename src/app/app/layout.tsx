@@ -1,10 +1,37 @@
 import { redirect } from "next/navigation";
+import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppChrome } from "./AppChrome";
 import type { Role } from "@/components/nav/AvatarDropdown";
 
 export const dynamic = "force-dynamic";
+
+// Manifest + iOS-installatie-tags horen alleen bij de member-app, niet bij
+// de marketing-site — daarom hier op het /app-segment, niet in de root
+// layout. Next merged dit automatisch in de <head> voor elke /app/**-pagina
+// zonder de root-metadata te overschrijven.
+export const metadata: Metadata = {
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TMC",
+  },
+  icons: {
+    icon: [
+      { url: "/images/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/images/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/images/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B0B0B",
+};
 
 /**
  * Outer `/app` layout: één plek voor auth-guard + profile-fetch. De
