@@ -13,7 +13,7 @@
 // Cache-versionering: handmatig, geen build-time manifest. Bump
 // CACHE_VERSION bij elke materiële wijziging aan de caching-logica; oude
 // caches worden in `activate` opgeruimd.
-const CACHE_VERSION = "tmc-pwa-v1";
+const CACHE_VERSION = "tmc-pwa-v2";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
@@ -36,6 +36,15 @@ function isStaticAsset(url) {
     url.pathname.startsWith("/images/") ||
     url.pathname === "/manifest.json"
   );
+}
+
+// Rooster is de enige route met een expliciete "offline-caching"-eis (zie
+// discovery-plan): meteen tonen wat er is, verversen op de achtergrond.
+// Andere member-schermen (boekingen/facturen/abonnement/profiel) blijven
+// bewust op NetworkFirst — dat is financiële/persoonlijke data, geen
+// staleness-risico nemen door standaard eerst de cache te tonen.
+function isRoosterRoute(url) {
+  return url.pathname === "/app/rooster";
 }
 
 self.addEventListener("install", (event) => {
@@ -132,6 +141,39 @@ async function networkFirst(request) {
   }
 }
 
+// StaleWhileRevalidate: geef meteen de laatst gecachete versie terug (geen
+// wachttijd), ververs tegelijk op de achtergrond voor het volgende bezoek.
+// Eerste bezoek (nog niets in cache) wacht alsnog op het netwerk, met
+// dezelfde offline-fallback als networkFirst.
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(PAGES_CACHE);
+  const cached = await cache.match(request);
+
+  const networkPromise = fetch(request)
+    .then(async (response) => {
+      if (response && response.ok) {
+        await cache.put(request, response.clone());
+        await trimCache(PAGES_CACHE);
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    // Achtergrond-refresh mag falen zonder de responder te raken — de user
+    // heeft al een antwoord. `.catch` hierboven vangt dat al af.
+    return cached;
+  }
+
+  const response = await networkPromise;
+  if (response) return response;
+  if (request.mode === "navigate") {
+    const offline = await caches.match(OFFLINE_URL);
+    if (offline) return offline;
+  }
+  throw new Error("stale-while-revalidate-failed");
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -148,9 +190,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isRoosterRoute(url)) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
   // Alle overige same-origin GET's (paginanavigatie binnen /app/**, en
-  // overige app-routes) — NetworkFirst als veilige default. Rooster krijgt
-  // in een latere PR een eigen StaleWhileRevalidate-regel; tot die tijd
-  // valt ook /app/rooster hieronder.
+  // overige app-routes) — NetworkFirst als veilige default.
   event.respondWith(networkFirst(request));
 });
