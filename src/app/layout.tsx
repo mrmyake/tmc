@@ -5,6 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
+import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
   getWebsiteSchema,
@@ -164,6 +165,12 @@ export default async function RootLayout({
           }}
         />
         <SiteShell settings={settings}>{children}</SiteShell>
+        {/* Verbergt het native Capacitor-launchscherm zodra déze pagina
+            client-side mount — no-op in de browser-PWA
+            (Capacitor.isNativePlatform()-guard). In de root layout, niet
+            `/app/layout.tsx`: moet ook op `/login` vuren (zie
+            SplashScreenHide.tsx voor de volledige onderbouwing). */}
+        <SplashScreenHide />
         {/* gtag.js wordt uitgesteld tot eerste interactie of idle
             (DeferredAnalytics) zodat het niet op de kritieke render-path
             zit. Respecteert de consent-default state die inline in <head>
