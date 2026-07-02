@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppChrome } from "./AppChrome";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { PushNotificationRegister } from "@/components/capacitor/PushNotificationRegister";
 import type { Role } from "@/components/nav/AvatarDropdown";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,7 @@ export default async function AppLayout({
   return (
     <>
       <ServiceWorkerRegister />
+      <PushNotificationRegister />
       <AppChrome
         firstName={firstName}
         role={role}
