@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
+import { sendPushToProfile } from "@/lib/push";
 import PaymentFailed from "@/emails/payment_failed";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 
@@ -36,6 +37,14 @@ async function notifyMemberPaymentFailed(args: {
         planLabel: args.planLabel,
         siteUrl: siteUrl(),
       }),
+    });
+
+    // Los kanaal naast de e-mail — geldzaken verdienen een directe melding
+    // i.p.v. te wachten tot iemand zijn mail checkt.
+    void sendPushToProfile(args.profileId, {
+      title: "Incasso niet gelukt",
+      body: `${formatEuro(Math.round(args.amountCents / 100))} voor ${args.planLabel} kon niet worden afgeschreven.`,
+      data: { type: "payment_failed" },
     });
   } catch (err) {
     console.error("[notifyMemberPaymentFailed] skipped", err);
