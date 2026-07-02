@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   DoorOpen,
+  LifeBuoy,
   UserCircle,
 } from "lucide-react";
 import { AvatarDropdown, type Role } from "./AvatarDropdown";
@@ -14,7 +15,7 @@ import { AvatarDropdown, type Role } from "./AvatarDropdown";
 interface NavItem {
   href: string;
   label: string;
-  /** Kortere label voor mobiele bottom-tab bar — 5 items in 4 grid-cols krap. */
+  /** Kortere label voor mobiele bottom-tab bar — 5-6 items maken de tabs smal. */
   labelMobile?: string;
   icon: typeof Calendar;
   /** Pathname-prefixes die deze item als actief markeren. */
@@ -47,6 +48,12 @@ const BASE_ITEMS: NavItem[] = [
     label: "Profiel",
     icon: UserCircle,
     matchPrefixes: ["/app/profiel"],
+  },
+  {
+    href: "/app/support",
+    label: "Support",
+    icon: LifeBuoy,
+    matchPrefixes: ["/app/support"],
   },
 ];
 
@@ -88,7 +95,16 @@ export function MemberNav({
   const items: NavItem[] = eligibleForVrijTrainen
     ? [BASE_ITEMS[0], VRIJ_TRAINEN_ITEM, ...BASE_ITEMS.slice(1)]
     : BASE_ITEMS;
-  const mobileGridCols = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
+  // BASE_ITEMS heeft 5 items (incl. Support); met Vrij trainen erbij is
+  // dat 6. Expliciete lookup i.p.v. een template-literal grid-cols-${n}
+  // klasse — Tailwind's JIT-scanner ziet dynamisch samengestelde
+  // classnames niet en zou de utility dan niet genereren.
+  const GRID_COLS: Record<number, string> = {
+    4: "grid-cols-4",
+    5: "grid-cols-5",
+    6: "grid-cols-6",
+  };
+  const mobileGridCols = GRID_COLS[items.length] ?? "grid-cols-4";
 
   return (
     <>
