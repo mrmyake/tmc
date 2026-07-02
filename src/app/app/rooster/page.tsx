@@ -18,6 +18,7 @@ import { DayStrip, type DayStripDay } from "./_components/DayStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
 import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
+import { OfflineBanner } from "./_components/OfflineBanner";
 
 export const metadata = {
   title: "Rooster | The Movement Club",
@@ -402,6 +403,8 @@ export default async function RoosterPage(props: {
           Kies je moment.
         </h1>
       </header>
+
+      <OfflineBanner />
 
       {!intakeDone && (
         <div className="mb-10">
