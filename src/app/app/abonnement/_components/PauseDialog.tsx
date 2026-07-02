@@ -30,13 +30,26 @@ export const PauseDialog = forwardRef<HTMLDialogElement, PauseDialogProps>(
       const notes = String(formData.get("notes") ?? "");
 
       startTransition(async () => {
-        const res = await requestMembershipPause({
-          membershipId,
-          startDate,
-          endDate,
-          reason,
-          notes: notes || undefined,
-        });
+        let res;
+        try {
+          res = await requestMembershipPause({
+            membershipId,
+            startDate,
+            endDate,
+            reason,
+            notes: notes || undefined,
+          });
+        } catch {
+          // Zie CancellationDialog voor de reden: de server action-fetch
+          // zelf kan falen (bv. offline in de PWA), en zonder deze vangst
+          // schiet dat ongevangen door naar de `/app`-errorboundary — die
+          // vaagt de hele pagina (incl. dit formulier) weg i.p.v. de
+          // bestaande inline foutmelding hieronder te tonen.
+          setError(
+            "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+          );
+          return;
+        }
         if (!res.ok) {
           setError(res.message);
         } else {
