@@ -45,7 +45,19 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
       : null;
     if (note && !window.confirm(note)) return;
     startTransition(async () => {
-      const res = await cancelBooking(row.bookingId);
+      let res;
+      try {
+        res = await cancelBooking(row.bookingId);
+      } catch {
+        // De server action-fetch zelf kan falen (bv. offline in de PWA) —
+        // dat is geen `{ ok: false }` van de action maar een thrown
+        // exception, die anders ongevangen doorschiet naar de
+        // `/app`-errorboundary en de hele boekingenlijst wegvaagt. Vang
+        // 'm hier af zodat de bestaande inline foutmelding hieronder
+        // gewoon werkt (zelfde patroon als CancellationDialog/PauseDialog).
+        setError("Geen verbinding. Controleer je internet en probeer het opnieuw.");
+        return;
+      }
       if (!res.ok) setError(res.message);
     });
   }
