@@ -5,20 +5,43 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
-import {
-  calculatePtPriceCents,
-  qualifiesForIntakeDiscount,
-  type PtTier,
-} from "./pt-pricing";
 
 export type PtActionResult =
   | { ok: true; action: "booked"; bookingId: string }
   | { ok: true; action: "redirect"; url: string }
   | { ok: false; message: string };
 
+type BookPtCreditsResult = {
+  ok: boolean;
+  reason?: string;
+  booking_id?: string;
+  membership_id?: string;
+};
+
+type BookPtPendingPaymentResult = {
+  ok: boolean;
+  reason?: string;
+  booking_id?: string;
+  price_cents?: number;
+  is_intake_discount?: boolean;
+  reused?: boolean;
+  trainer_name?: string;
+  start_at?: string;
+};
+
+const PT_REASON_COPY: Record<string, string> = {
+  session_unavailable: "Deze sessie is niet meer beschikbaar.",
+  session_in_past: "Deze sessie is al voorbij.",
+  profile_not_found: "Profiel niet gevonden.",
+  no_credits: "Geen PT-pakket met beschikbare credits gevonden.",
+  already_booked: "Je hebt deze sessie al geboekt.",
+};
+
 /**
  * Book a PT session using credits from an active pt_package membership.
- * Direct path — no Mollie. Decrements credits on success.
+ * Direct path — no Mollie. Sessie-checks, pakket-keuze en credit-aftrek
+ * zitten atomair in de SECURITY DEFINER RPC (audit-fix #3 + #1 deel 2);
+ * credits_used_from is dus nooit client-supplied.
  */
 export async function createPtBookingFromCredits(
   ptSessionId: string,
@@ -29,70 +52,31 @@ export async function createPtBookingFromCredits(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  const [sessionRes, memRes] = await Promise.all([
-    supabase
-      .from("pt_sessions")
-      .select("id, status, start_at, format, trainer_id")
-      .eq("id", ptSessionId)
-      .maybeSingle(),
-    supabase
-      .from("memberships")
-      .select("id, plan_type, credits_remaining, credits_total")
-      .eq("profile_id", user.id)
-      .eq("status", "active")
-      .eq("plan_type", "pt_package")
-      .gt("credits_remaining", 0)
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const rpcResult = await supabase.rpc("book_pt_credits", {
+    p_pt_session_id: ptSessionId,
+  });
 
-  const session = sessionRes.data;
-  const membership = memRes.data;
-  if (!session || session.status !== "scheduled")
-    return { ok: false, message: "Deze sessie is niet meer beschikbaar." };
-  if (new Date(session.start_at) <= new Date())
-    return { ok: false, message: "Deze sessie is al voorbij." };
-  if (!membership)
-    return {
-      ok: false,
-      message: "Geen PT-pakket met beschikbare credits gevonden.",
-    };
-
-  const insertRes = await supabase
-    .from("pt_bookings")
-    .insert({
-      profile_id: user.id,
-      pt_session_id: ptSessionId,
-      price_paid_cents: 0,
-      credits_used_from: membership.id,
-      is_intake_discount: false,
-      status: "booked",
-    })
-    .select("id")
-    .single();
-
-  if (insertRes.error) {
-    if (insertRes.error.code === "23505") {
-      return { ok: false, message: "Je hebt deze sessie al geboekt." };
-    }
-    console.error("[createPtBookingFromCredits] insert:", insertRes.error);
+  if (rpcResult.error) {
+    console.error("[createPtBookingFromCredits] rpc:", rpcResult.error);
     return { ok: false, message: "Boeken lukte niet. Probeer opnieuw." };
   }
 
-  await supabase
-    .from("memberships")
-    .update({
-      credits_remaining: (membership.credits_remaining ?? 1) - 1,
-    })
-    .eq("id", membership.id);
+  const result = rpcResult.data as BookPtCreditsResult;
+  if (!result.ok || !result.booking_id) {
+    return {
+      ok: false,
+      message:
+        PT_REASON_COPY[result.reason ?? ""] ??
+        "Boeken lukte niet. Probeer opnieuw.",
+    };
+  }
 
   await emitEvent({
     type: "pt_booking.created",
     actorType: "member",
     actorId: user.id,
     subjectType: "pt_booking",
-    subjectId: insertRes.data.id,
+    subjectId: result.booking_id,
     payload: {
       profile_id: user.id,
       pt_session_id: ptSessionId,
@@ -106,13 +90,16 @@ export async function createPtBookingFromCredits(
   revalidatePath("/app/boekingen");
   revalidatePath("/app/abonnement");
 
-  return { ok: true, action: "booked", bookingId: insertRes.data.id };
+  return { ok: true, action: "booked", bookingId: result.booking_id };
 }
 
 /**
- * Book a PT session with Mollie payment. Creates a pending pt_booking row,
- * opens a Mollie payment with metadata.type='pt_booking', returns the
- * checkout URL. Webhook flips status to 'booked' on payment.paid.
+ * Book a PT session with Mollie payment. De SECURITY DEFINER RPC maakt (of
+ * hergebruikt) de pending pt_booking-rij en berekent price_paid_cents +
+ * is_intake_discount server-side (audit-fix #3: de intake-korting is niet
+ * langer client-side manipuleerbaar). Daarna opent deze action de Mollie-
+ * betaling en koppelt het payment-id via de admin-client — leden hebben
+ * geen write-toegang meer op pt_bookings.
  */
 export async function createPtBookingWithPayment(
   ptSessionId: string,
@@ -123,92 +110,36 @@ export async function createPtBookingWithPayment(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  const { data: session } = await supabase
-    .from("pt_sessions")
-    .select(
-      "id, status, start_at, format, trainer_id, trainer:trainers(display_name, pt_tier)",
-    )
-    .eq("id", ptSessionId)
-    .maybeSingle();
-
-  if (!session || session.status !== "scheduled")
-    return { ok: false, message: "Deze sessie is niet meer beschikbaar." };
-  if (new Date(session.start_at) <= new Date())
-    return { ok: false, message: "Deze sessie is al voorbij." };
-
-  const trainerRow = Array.isArray(session.trainer)
-    ? session.trainer[0]
-    : session.trainer;
-  const tier = (trainerRow?.pt_tier as PtTier | undefined) ?? "standard";
-  const trainerName = trainerRow?.display_name ?? "coach";
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("email, first_name, last_name, has_used_pt_intake_discount")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile) return { ok: false, message: "Profiel niet gevonden." };
-
-  const { data: activeSub } = await supabase
-    .from("memberships")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("status", "active")
-    .neq("plan_type", "pt_package")
-    .limit(1)
-    .maybeSingle();
-
-  const isIntake = qualifiesForIntakeDiscount({
-    hasUsedIntakeDiscount: profile.has_used_pt_intake_discount,
-    trainerTier: tier,
-    format: (session.format as PtTier extends never ? never : "one_on_one") ?? "one_on_one",
-    purchaseType: "single",
+  const rpcResult = await supabase.rpc("book_pt_pending_payment", {
+    p_pt_session_id: ptSessionId,
   });
 
-  const priceCents = calculatePtPriceCents({
-    tier,
-    format: "one_on_one",
-    purchaseType: "single",
-    memberHasActiveSub: Boolean(activeSub),
-    isIntakeSession: isIntake,
-  });
+  if (rpcResult.error) {
+    console.error("[createPtBookingWithPayment] rpc:", rpcResult.error);
+    return { ok: false, message: "Boeken lukte niet. Probeer opnieuw." };
+  }
 
-  // Insert pending booking first — so we can reference it from Mollie metadata.
-  // Idempotency: the unique(profile_id, pt_session_id) constraint stops
-  // duplicates; if a previous pending booking exists we reuse it.
-  const { data: existing } = await supabase
-    .from("pt_bookings")
-    .select("id, status, mollie_payment_id")
-    .eq("profile_id", user.id)
-    .eq("pt_session_id", ptSessionId)
-    .maybeSingle();
+  const result = rpcResult.data as BookPtPendingPaymentResult;
+  if (
+    !result.ok ||
+    !result.booking_id ||
+    typeof result.price_cents !== "number" ||
+    !result.start_at
+  ) {
+    return {
+      ok: false,
+      message:
+        PT_REASON_COPY[result.reason ?? ""] ??
+        "Boeken lukte niet. Probeer opnieuw.",
+    };
+  }
 
-  let bookingId: string;
-  if (existing) {
-    if (existing.status === "booked") {
-      return { ok: false, message: "Je hebt deze sessie al geboekt." };
-    }
-    bookingId = existing.id;
-  } else {
-    const insertRes = await supabase
-      .from("pt_bookings")
-      .insert({
-        profile_id: user.id,
-        pt_session_id: ptSessionId,
-        price_paid_cents: priceCents,
-        is_intake_discount: isIntake,
-        status: "booked", // we use 'booked' at insert; webhook keeps it on paid, flips to 'cancelled' on failure
-      })
-      .select("id")
-      .single();
-    if (insertRes.error) {
-      if (insertRes.error.code === "23505") {
-        return { ok: false, message: "Je hebt deze sessie al geboekt." };
-      }
-      console.error("[createPtBookingWithPayment] insert:", insertRes.error);
-      return { ok: false, message: "Boeken lukte niet. Probeer opnieuw." };
-    }
-    bookingId = insertRes.data.id;
+  const bookingId = result.booking_id;
+  const priceCents = result.price_cents;
+  const isIntake = Boolean(result.is_intake_discount);
+  const trainerName = result.trainer_name ?? "coach";
+
+  if (!result.reused) {
     await emitEvent({
       type: "pt_booking.created",
       actorType: "member",
@@ -232,7 +163,7 @@ export async function createPtBookingWithPayment(
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
-  const whenLabel = new Date(session.start_at).toLocaleDateString("nl-NL", {
+  const whenLabel = new Date(result.start_at).toLocaleDateString("nl-NL", {
     day: "numeric",
     month: "long",
   });
@@ -257,7 +188,9 @@ export async function createPtBookingWithPayment(
   }
 
   // Store Mollie payment id on the booking row for webhook correlation.
-  const { error: updateErr } = await supabase
+  // Via de admin-client: pt_bookings heeft geen self-write-policy meer.
+  const admin = createAdminClient();
+  const { error: updateErr } = await admin
     .from("pt_bookings")
     .update({ mollie_payment_id: payment.id })
     .eq("id", bookingId);
@@ -266,7 +199,6 @@ export async function createPtBookingWithPayment(
   }
 
   // Also log the payment row so /app/facturen picks it up later.
-  const admin = createAdminClient();
   await admin.from("payments").upsert(
     {
       mollie_payment_id: payment.id,
