@@ -109,12 +109,28 @@ export function BookingSheet({
   function runBook(acknowledgeOverCap: boolean) {
     if (!session) return;
     startTransition(async () => {
-      const res = await createBooking(session.id, {
-        rentals: isYogaMobility
-          ? { mat: rentMat, towel: rentTowel }
-          : undefined,
-        acknowledgeOverCap,
-      });
+      let res: BookingActionResult;
+      try {
+        res = await createBooking(session.id, {
+          rentals: isYogaMobility
+            ? { mat: rentMat, towel: rentTowel }
+            : undefined,
+          acknowledgeOverCap,
+        });
+      } catch {
+        // De server action-fetch zelf kan falen (bv. offline in de PWA) —
+        // dat is geen `{ ok: false }` van de action maar een thrown
+        // exception, die anders ongevangen doorschiet naar de
+        // `/app`-errorboundary en de hele rooster-pagina wegvaagt. Vang
+        // 'm hier af zodat de bestaande inline foutmelding hieronder
+        // gewoon werkt (zelfde patroon als CancellationDialog/PauseDialog
+        // en UpcomingRow).
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
       setResult(res);
       if (res.ok) {
         const hoursBefore = hoursUntil(session.startAt);
@@ -158,7 +174,16 @@ export function BookingSheet({
     if (!session?.bookingId) return;
     const target = session;
     startTransition(async () => {
-      const res = await cancelBooking(target.bookingId!);
+      let res: BookingActionResult;
+      try {
+        res = await cancelBooking(target.bookingId!);
+      } catch {
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
       setResult(res);
       if (res.ok && res.action === "cancelled") {
         const hoursBefore = hoursUntil(target.startAt);
@@ -177,11 +202,20 @@ export function BookingSheet({
     if (!session) return;
     setGuestMsg(null);
     startTransition(async () => {
-      const res = await bookGuest({
-        sessionId: session.id,
-        guestName,
-        guestEmail,
-      });
+      let res;
+      try {
+        res = await bookGuest({
+          sessionId: session.id,
+          guestName,
+          guestEmail,
+        });
+      } catch {
+        setGuestMsg({
+          tone: "error",
+          text: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
       if (res.ok) {
         setGuestMsg({ tone: "success", text: res.message });
         setGuestName("");
