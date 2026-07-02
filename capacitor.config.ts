@@ -25,6 +25,36 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     allowNavigation: ['*.mollie.com'],
   },
+  // Native chrome (PR6). Beide blokken zijn hier declaratief te zetten —
+  // toegepast door de native laag vóórdat de webview zelfs maar bestaat,
+  // dus geen enkel risico op een flits van de OS-default (witte
+  // statusbar-tekst / verkeerde achtergrond) tussen app-start en de eerste
+  // JS-tick. Geen runtime StatusBar-JS-call nodig: het merk heeft één
+  // vaste donkere achtergrond (#0B0B0B, zie CLAUDE.md) over de hele app —
+  // marketing-site én member-app — dus er is geen per-pagina lichte
+  // variant die een dynamische stijl-switch zou rechtvaardigen.
+  plugins: {
+    StatusBar: {
+      // Style.Dark = "lichte tekst/iconen op donkere achtergrond" in
+      // Capacitor-termen (contra-intuïtieve naam: "Dark" beschrijft de
+      // *achtergrond* onder de statusbar, niet de iconkleur) — bevestigd
+      // in node_modules/@capacitor/status-bar se definitions.d.ts.
+      // Correct voor onze near-black achtergrond.
+      style: 'DARK',
+      backgroundColor: '#0B0B0B',
+    },
+    SplashScreen: {
+      // launchAutoHide bewust UIT: zie SplashScreenHide.tsx voor de
+      // volledige onderbouwing — in server-mode is er geen lokaal
+      // tussenscherm dat de netwerk-laadtijd van server.url opvangt, dus
+      // een vaste timer zou moeten gokken. Handmatig verbergen zodra de
+      // pagina client-side mount is de betrouwbare vervanging.
+      launchAutoHide: false,
+      backgroundColor: '#0B0B0B',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false,
+    },
+  },
 };
 
 export default config;
