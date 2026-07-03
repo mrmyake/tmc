@@ -60,7 +60,8 @@ export type EventType =
   | "member.dropoff_flagged"
   | "trial_booking.created"
   | "trial_booking.paid"
-  | "trial_booking.cancelled";
+  | "trial_booking.cancelled"
+  | "member.milestone_reached";
 
 export type ActorType =
   | "member"
