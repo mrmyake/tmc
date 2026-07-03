@@ -57,9 +57,18 @@ export type EventType =
   // Auth (OTP-login, zie src/lib/actions/auth.ts)
   | "auth.otp_failed"
   // Community & growth (spec-community-growth.md)
-  | "member.dropoff_flagged";
+  | "member.dropoff_flagged"
+  | "trial_booking.created"
+  | "trial_booking.paid"
+  | "trial_booking.cancelled";
 
-export type ActorType = "member" | "admin" | "trainer" | "system" | "tablet";
+export type ActorType =
+  | "member"
+  | "admin"
+  | "trainer"
+  | "system"
+  | "tablet"
+  | "visitor";
 
 export type SubjectType =
   | "profile"
@@ -72,7 +81,8 @@ export type SubjectType =
   | "waitlist"
   | "guest_booking"
   | "trainer_hours"
-  | "check_in";
+  | "check_in"
+  | "trial_booking";
 
 export interface EmitEventInput {
   type: EventType;
