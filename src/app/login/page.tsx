@@ -7,10 +7,14 @@ import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Inloggen | The Movement Club",
-  description: "Log in bij The Movement Club met een magic link.",
+  description: "Log in bij The Movement Club met een eenmalige inlogcode.",
   robots: { index: false, follow: false },
 };
 
+// Deze error-keys komen uit /auth/callback (die route blijft bestaan
+// voor trainer-invites en de seed-workflow) en dekken dus link-flows,
+// niet de OTP-flow; OTP-fouten rendert LoginForm zelf inline.
+// COPY: confirm with Marlon
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_link:
     "Deze inloglink is verlopen of al gebruikt. Vraag een nieuwe aan.",
