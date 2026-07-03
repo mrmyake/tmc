@@ -2,7 +2,7 @@
 
 ## Status
 
-**UNDECIDED — draft for a Fable policy session.** Nothing here is a committed decision. This spec supersedes and fills in the placeholder roadmap entry "**Fase 4 — Content, voortgang, community**" from `spec-member-app.md` §6 ("Instructeursbio's, contentcluster, aanwezigheidsstreak, eventueel referral") — treat this document as that phase's real content, not a competing initiative running alongside it.
+**DECIDED — ready to serve as implementation prompts, one per workstream.** All six open questions below are resolved (2026-07-03). This spec supersedes and fills in the placeholder roadmap entry "**Fase 4 — Content, voortgang, community**" from `spec-member-app.md` §6 ("Instructeursbio's, contentcluster, aanwezigheidsstreak, eventueel referral") — treat this document as that phase's real content, not a competing initiative running alongside it.
 
 Covers three build-from-scratch-or-partial workstreams (trial booking, attendance-dropoff signal, milestone push) plus one net-new feature under discussion (social class visibility). The waitlist feature originally in scope for discovery was found to be **fully built already** (see below) and is dropped from this spec entirely.
 
@@ -29,9 +29,13 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 - Public (non-auth-gated) route showing bookable trial slots for a specific session type, one-off Mollie payment (reusing the crowdfunding checkout pattern) collecting name/email/phone as payment metadata, webhook confirms → row flips to `paid`.
 - Post-attendance: an obvious upsell moment to become a real signup (`/app/abonnement` or a dedicated post-trial nudge) — not building the conversion mechanics here, just noting the seam.
 
-### Open question for Marlon (not decided here)
+### Decided
 
-**Does self-service instant trial booking replace `/proefles`'s manual-follow-up model, run alongside it as a second option, or become a deliberate choice presented to the visitor** ("book instantly" vs. "I'd rather they call me")? The personal follow-up may be a deliberate conversion strength for a boutique studio — a founder personally calling every prospective member is a positioning signal, not necessarily a gap to automate away. Do not assume full replacement is the goal. This is a tone/positioning call, not a technical one.
+**The visitor is presented an explicit choice** — "Book instantly" vs. "I'd rather they call me" — rather than replacing `/proefles` outright or running the two paths unmarked side by side. This preserves the personal-follow-up conversion strength for visitors who want it, without forcing everyone who's already decided through an unnecessary wait. `/proefles`'s existing manual-follow-up flow becomes the second branch of this choice, not a separate, competing entry point.
+
+**Pricing: paid, reusing the existing drop-in price already defined per pillar in `booking_settings`** — no separate "trial price" concept. A paid trial fits a boutique/premium positioning better than a free one, and having money already on the table removes the need to build any no-show enforcement mechanism for someone with no account to attach a strike to.
+
+**Cancellation/no-show policy: identical to the existing member policy.** Same cancellation window as members; a no-show simply forfeits the already-collected payment. No new policy surface, no separate rules to maintain.
 
 ---
 
@@ -46,7 +50,13 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 ### Proposed shape (PROPOSAL, not committed)
 
 - Move the last-session-date + inactivity computation out of `members-query.ts`'s post-fetch JS and into a SQL view or a maintained computed column (e.g. `profiles.last_attended_at`, refreshed the same way `vw_admin_kpis` already is via the existing `refresh-kpis` cron, or a lighter trigger-maintained column updated on check-in). This is explicitly **not** "reuse the existing app-layer inactive-filter logic as-is" — that logic is fine for a bounded admin-UI page, wrong shape for a whole-membership-base periodic scan.
-- New cron (matching the existing 7-cron pattern) that queries the resulting view/column for active memberships past a configurable inactivity threshold, and acts — exact action (admin notification only, direct member nudge, both) is an open question below.
+- New cron (matching the existing 7-cron pattern) that queries the resulting view/column for active memberships past the threshold below, and acts per the decision below.
+
+### Decided
+
+**Admin-facing signal only — no automated message to the member.** The point of this signal is to let Marlon reach out personally, not to trigger a generic "we miss you" automated message. An automated nudge is exactly the kind of impersonal-at-scale mechanic this studio's positioning works against.
+
+**Inactivity threshold: 14 days, distinct from the existing 30-day admin-UI "inactive" filter.** The 30-day figure is a lagging, after-the-fact definition suited to a cleanup/reporting filter. A churn signal needs to fire early enough to still be actionable — with a 4-week billing cycle, 14 days lands roughly at the cycle's midpoint: long enough to reflect a real pattern rather than one busy week, early enough to reach someone before they quietly decide not to renew.
 
 ---
 
@@ -62,8 +72,11 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 ### Proposed shape (PROPOSAL, not committed)
 
 - A counting mechanism for attended classes per member — either query-time `count()` against `bookings` (simplest, no new state) or a maintained counter column (faster reads, more moving parts to keep in sync). Given the volumes involved (a boutique studio, not a high-traffic gym), query-time counting is probably sufficient — flagged as a technical call, not locked here.
-- A milestone-detection step (cron or triggered on check-in) comparing the current count/streak/anniversary against a milestone table or hardcoded thresholds, calling the already-working `sendPushToProfile()`.
-- **Milestone set is not decided here** — options to put in front of Marlon: classes-attended thresholds (10/25/50/100), consecutive-week streaks, membership-anniversary dates. This is a copy/product call, not a technical one; the spec's job is to make the mechanism pluggable against whatever set gets chosen, not to lock the set.
+- A milestone-detection step (cron or triggered on check-in) comparing the current count/anniversary against a milestone table or hardcoded thresholds, calling the already-working `sendPushToProfile()`.
+
+### Decided
+
+**Milestone set: classes-attended thresholds (10/25/50/100) plus membership anniversaries. No streaks.** Attendance counts and anniversaries are unambiguously positive — there's no version of "your 25th class!" or "1 year with us!" that lands badly. Streaks were deliberately excluded: they work only as long as someone stays consistent, and turn a missed week (illness, travel, a busy stretch) into a negative-feeling notification dressed up as encouragement. That failure mode is also the most generic, app-gamification-flavored of the three options, which cuts against the personal, coach-led tone the rest of this spec has held to.
 
 ---
 
@@ -72,21 +85,25 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 - Confirmed in discovery: **no existing member-to-member visibility of any kind.** RLS on `bookings`/`pt_bookings` restricts every member to `profile_id = auth.uid()` — even a direct REST call can't see another member's booking. Trainers see their own sessions' rosters (staff visibility), which is unrelated.
 - Confirmed: **no consent/privacy flag exists on `profiles`** that could gate this. The only opt-in field today is `marketing_opt_in` (email marketing, unrelated purpose).
 - This spec presents the feature as **"who's coming" opt-in visibility, not a social feed** — a member could optionally see first-names (or similar) of others already booked into a session they're considering, nothing feed-like, nothing browsable independent of a specific session.
-- **The opt-in-vs-default-on question is explicitly unresolved and flagged for Marlon.** This is a tone/community-feel decision (does visibility make the studio feel warmer and more social, or does it feel exposing for a boutique/private-feeling space), not a technical one. No default is proposed here. Whatever Marlon decides, the technical shape is straightforward (a boolean opt-in column + a filtered read of first-names for members who opted in, scoped to sessions the requesting member is themselves booked into) — the decision, not the mechanism, is the open item.
+### Decided
+
+**Default: off.** With zero existing consent infrastructure to build on, this was never really a live option — starting from anything other than off would be assuming consent that doesn't exist.
+
+**Presentation: contextual, at the moment it becomes relevant** — e.g. the first time a member views a session where visibility would add something ("Turn on visibility to see who else is coming — and be seen yourself?"), rather than a toggle buried in onboarding or profile settings. An onboarding toggle gets clicked through without real consideration, which is technically opt-in but not meaningfully informed consent. A settings-page toggle is safe but invisible enough that the feature would likely sit unused. Contextual presentation gives the member exactly enough reason to make a real decision, at the point where the decision actually matters. Technical shape: a boolean opt-in column + a filtered read of first-names for members who opted in, scoped to sessions the requesting member is themselves booked into.
 
 ---
 
-## Open questions for the Fable session
+## Decision log (resolved 2026-07-03)
 
-1. **Trial booking positioning** (§1): replace `/proefles`, run alongside it, or present as an explicit visitor choice? Marlon's call, tone/positioning not technical.
-2. **Trial booking pricing/policy**: free trial vs. paid one-off (drop-in price already exists in `booking_settings` for some pillars — reuse those, or a distinct trial price)? Cancellation/no-show policy for a paying stranger with no account and no strike history?
-3. **Dropoff-signal action**: admin-facing notification only (a cockpit alert/list), a direct nudge to the member themselves ("we miss you" email/push), or both? And what inactivity threshold — is 30 days (the existing admin-UI default) right for a churn signal, or does that need its own, possibly shorter, threshold?
-4. **Milestone set** (§3): which milestones matter enough to notify on — classes-attended counts, streaks, anniversaries, some combination? Marlon's call, product/copy not technical.
-5. **Social visibility default** (§4): opt-in only, confirmed — but opt-in *presented how* (onboarding toggle, profile settings, prompted contextually)? And default state of the toggle itself (defaulting to off is close to non-negotiable given no consent exists today, but confirm explicitly rather than assume).
-6. **Sequencing**: do all three build-workstreams (trial booking, dropoff signal, milestone push) ship together, or independently as they each get decided? Given the Firebase blocker on milestone push (§3) is independent of the other two, it may make sense to sequence dropoff-signal and trial-booking ahead of milestone push regardless of decision order.
+1. **Trial booking positioning** (§1): visitor is given an explicit choice — book instantly, or request a call. Not a full replacement of `/proefles`, not an unmarked parallel path.
+2. **Trial booking pricing/policy** (§1): paid, using the existing per-pillar drop-in price. Cancellation/no-show policy identical to members' — payment is forfeited on no-show, no separate enforcement mechanism.
+3. **Dropoff-signal action and threshold** (§2): admin-facing signal only, no automated member-facing message. 14-day inactivity threshold, deliberately shorter than and independent from the existing 30-day admin-UI "inactive" filter.
+4. **Milestone set** (§3): classes-attended thresholds (10/25/50/100) and membership anniversaries. Streaks explicitly excluded.
+5. **Social visibility default and presentation** (§4): default off. Presented contextually, at the point where it's relevant, not during onboarding or buried in settings.
+6. **Sequencing**: independent per workstream. Trial booking and the dropoff signal can build as soon as scheduled; milestone push remains gated on Firebase project creation (`tmc-member-app`, `europe-west4`) regardless of when that happens relative to the other two.
 
 ## Explicitly out of scope for this spec
 
 - Waitlist (already built, see top).
-- Any schema change, cron, Capacitor build change, or Mollie integration work in the drafting phase — all of that waits for "decided" status.
-- Locking the exact milestone set, the trial-booking positioning, the dropoff threshold, or the social-visibility default — these are flagged for Marlon, not resolved here.
+- Firebase project creation itself — tracked separately, blocks §3's delivery but isn't part of this spec's build work.
+- Exact copy for milestone notifications, the contextual visibility prompt, and the trial-booking choice screen — content decisions, drafted during implementation and flagged `// COPY: confirm with Marlon`, not locked here.
