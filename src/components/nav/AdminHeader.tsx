@@ -1,4 +1,5 @@
 import { PauzeRequestBell } from "./PauzeRequestBell";
+import { DropoffBell } from "./DropoffBell";
 import { AvatarDropdown } from "./AvatarDropdown";
 
 interface AdminHeaderProps {
@@ -25,6 +26,7 @@ export function AdminHeader({ firstName }: AdminHeaderProps) {
           <span className="tmc-eyebrow">Admin</span>
         </div>
         <div className="flex items-center gap-5">
+          <DropoffBell />
           <PauzeRequestBell />
           <AvatarDropdown
             firstName={firstName}

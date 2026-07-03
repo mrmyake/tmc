@@ -55,7 +55,9 @@ export type EventType =
   // Trainer
   | "trainer_hours.submitted"
   // Auth (OTP-login, zie src/lib/actions/auth.ts)
-  | "auth.otp_failed";
+  | "auth.otp_failed"
+  // Community & growth (spec-community-growth.md)
+  | "member.dropoff_flagged";
 
 export type ActorType = "member" | "admin" | "trainer" | "system" | "tablet";
 
