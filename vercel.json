@@ -30,6 +30,10 @@
       "schedule": "30 3 * * *"
     },
     {
+      "path": "/api/cron/flag-dropoff",
+      "schedule": "10 4 * * *"
+    },
+    {
       "path": "/api/cron/check-milestones",
       "schedule": "20 4 * * *"
     }

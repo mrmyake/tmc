@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ProeflesContent } from "./ProeflesContent";
+import { ProeflesChoice } from "./ProeflesChoice";
 
 export const metadata: Metadata = {
   title: "Boek een Proefles | Gratis & Vrijblijvend",
@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function ProeflesPage() {
-  return <ProeflesContent />;
+  return <ProeflesChoice />;
 }
