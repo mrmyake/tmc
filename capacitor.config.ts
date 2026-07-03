@@ -21,9 +21,29 @@ const config: CapacitorConfig = {
   appName: 'The Movement Club',
   webDir: 'capacitor-shell/www',
   server: {
+    // BUGFIX (native verificatie): www.themovementclub.nl staat hier expliciet
+    // in allowNavigation. Capacitor's iOS-navigatiebeleid
+    // (WebViewDelegationHandler.swift, decidePolicyFor) staat een top-level
+    // navigatie alleen intern toe als de nieuwe URL letterlijk begint met de
+    // VOLLEDIGE `server.url`-string (incl. pad `/app/rooster`) — zonder deze
+    // regel matcht bv. `/login` daar niet tegen en werd élke same-origin
+    // navigatie buiten dat ene pad naar de externe Safari gestuurd (empirisch
+    // bevestigd: cold start zonder sessie opende /login in Safari i.p.v. in
+    // de app). Android's equivalent (Bridge.java, launchIntent) vergelijkt
+    // alleen host+scheme en had dit probleem niet — dit was iOS-only.
+    //
+    // AFGEWEZEN ALTERNATIEF: `server.appStartPath` (Capacitor's eigen
+    // mechanisme om met een sub-pad te starten zonder dat pad in de
+    // navigatie-whitelist-check te laten meewegen) lijkt de "schone"
+    // oplossing, maar `appStartFileURL` (CAPInstanceConfiguration.swift)
+    // hergebruikt datzelfde pad óók als vereiste LOKALE bestandslocatie
+    // (`webDir/app/rooster`) — die bestaat niet in dit server-mode project
+    // (zie capacitor-shell/README.md) en de app weigerde daardoor
+    // fataal te starten ("Unable to load .../public//app/rooster"),
+    // empirisch bevestigd op iOS Simulator. Vandaar deze eenvoudigere fix.
     url: 'https://www.themovementclub.nl/app/rooster',
     androidScheme: 'https',
-    allowNavigation: ['*.mollie.com'],
+    allowNavigation: ['*.mollie.com', 'www.themovementclub.nl'],
   },
   // Native chrome (PR6). Beide blokken zijn hier declaratief te zetten —
   // toegepast door de native laag vóórdat de webview zelfs maar bestaat,
