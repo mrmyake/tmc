@@ -48,7 +48,7 @@ export function AuthListener() {
             if (getConsent() === "granted") {
               setUserId(session.user.id);
             }
-            trackPortalLogin("magic_link");
+            trackPortalLogin("otp");
           }
           if (event === "SIGNED_OUT") {
             setUserId(null);

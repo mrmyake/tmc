@@ -159,7 +159,7 @@ export const setUserId = (userId: string | null): void => {
 // ---- Portal login ----
 
 export const trackPortalLogin = (
-  method: "magic_link" | "oauth" = "magic_link",
+  method: "otp" | "oauth" = "otp",
 ): void => {
   trackEvent("portal_login", {
     event_category: "portal",
