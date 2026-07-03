@@ -14,8 +14,8 @@ const inputStyles =
   "w-full bg-bg-elevated border border-bg-subtle px-4 py-3 text-text text-base placeholder:text-text-muted/50 focus:outline-none focus:border-accent transition-colors";
 
 // Moet gelijk blijven aan mailer_otp_length in de Supabase Auth-config
-// (bewust 8, niet 6: zie spec-otp-login.md, besluit uit discovery).
-const OTP_LENGTH = 8;
+// (6 cijfers, de conventie die leden van andere diensten kennen).
+const OTP_LENGTH = 6;
 
 // Client-side spiegel van de server-side resend-limiet
 // (smtp_max_frequency = 60s in de Supabase-config). De UI toont de

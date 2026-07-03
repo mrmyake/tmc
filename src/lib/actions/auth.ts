@@ -30,7 +30,7 @@ function roleRedirect(role: string | null | undefined): string {
 }
 
 /**
- * Verifieert een 8-cijferige e-mail-OTP en zet de sessie-cookies.
+ * Verifieert een 6-cijferige e-mail-OTP en zet de sessie-cookies.
  *
  * Waarom een server action en geen directe client-side verifyOtp:
  * 1. Mislukte pogingen moeten in de append-only audit-log
@@ -47,9 +47,9 @@ function roleRedirect(role: string | null | undefined): string {
  *    (aangezet op 2026-07-03, samen met deze feature).
  *
  * Brute-force-beleid (spec-otp-login.md, besluit 3): geen eigen
- * lockout-tabel. Een 8-cijferige code, 10 minuten geldig, met
+ * lockout-tabel. Een 6-cijferige code, 10 minuten geldig, met
  * Supabase's IP-limiet van 30 verificaties per 5 minuten geeft een
- * aanvaller maximaal ~60 pogingen per codevenster op 100M combinaties.
+ * aanvaller maximaal ~60 pogingen per codevenster op 1M combinaties.
  * Restrisico: een aanvaller die per poging van IP wisselt omzeilt de
  * IP-limiet. Geaccepteerd op deze schaal; de korte expiry en de
  * codelengte houden de slaagkans ook dan verwaarloosbaar.
