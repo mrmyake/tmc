@@ -164,7 +164,17 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                     />
                   </td>
                   <td className="py-4 px-4 align-middle">
-                    <MembershipStatusBadge status={r.membershipStatus} />
+                    <div className="flex items-center gap-2">
+                      <MembershipStatusBadge status={r.membershipStatus} />
+                      {r.profileIncomplete && (
+                        <span
+                          title="Geen telefoonnummer bekend"
+                          className="tmc-eyebrow text-[10px] px-1.5 py-0.5 border border-amber-500/40 text-amber-400 whitespace-nowrap"
+                        >
+                          Profiel incompleet
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-4 px-4 align-middle text-right text-sm text-text tabular-nums">
                     {r.creditsRemaining == null ? "—" : r.creditsRemaining}
@@ -231,6 +241,14 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                     planVariant={r.planVariant}
                   />
                   <MembershipStatusBadge status={r.membershipStatus} />
+                  {r.profileIncomplete && (
+                    <span
+                      title="Geen telefoonnummer bekend"
+                      className="tmc-eyebrow text-[10px] px-1.5 py-0.5 border border-amber-500/40 text-amber-400 whitespace-nowrap"
+                    >
+                      Profiel incompleet
+                    </span>
+                  )}
                 </div>
                 <p className="text-text-muted text-xs mt-2">
                   {formatLastSession(r.lastSessionDate)} ·{" "}

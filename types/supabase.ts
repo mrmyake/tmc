@@ -1198,7 +1198,7 @@ export type Database = {
           locale: string
           marketing_opt_in: boolean
           member_code: string
-          phone: string
+          phone: string | null
           postal_code: string | null
           role: string
           signup_path: string | null
@@ -1229,7 +1229,7 @@ export type Database = {
           locale?: string
           marketing_opt_in?: boolean
           member_code: string
-          phone: string
+          phone?: string | null
           postal_code?: string | null
           role?: string
           signup_path?: string | null
@@ -1260,7 +1260,7 @@ export type Database = {
           locale?: string
           marketing_opt_in?: boolean
           member_code?: string
-          phone?: string
+          phone?: string | null
           postal_code?: string | null
           role?: string
           signup_path?: string | null

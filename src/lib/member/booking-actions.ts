@@ -316,6 +316,22 @@ export async function createBooking(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
+  // Telefoon is sinds de profiles_phone_nullable-migratie optioneel bij
+  // signup (geen verzonnen fallback meer) — verplicht wel vóór de eerste
+  // boeking, want de studio moet een lid kunnen bereiken bij een
+  // last-minute wijziging.
+  const { data: profileForPhone } = await supabase
+    .from("profiles")
+    .select("phone")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profileForPhone?.phone) {
+    return {
+      ok: false,
+      message: "Vul eerst je telefoonnummer in bij je profiel.",
+    };
+  }
+
   // Zachte weekcap-nudge (alleen check-in-pillars) vóór de RPC. Server-side
   // wordt deze bewust niet gehandhaafd — besluit #1, optie B.
   if (!options.acknowledgeOverCap) {

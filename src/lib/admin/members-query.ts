@@ -30,6 +30,7 @@ export interface MemberRow {
   firstName: string;
   lastName: string;
   email: string;
+  profileIncomplete: boolean;
   planType: string | null;
   planVariant: string | null;
   membershipStatus: MemberStatus;
@@ -59,6 +60,7 @@ type ProfileJoinRow = {
   first_name: string;
   last_name: string;
   email: string;
+  phone: string | null;
   memberships: Array<{
     plan_type: string;
     plan_variant: string | null;
@@ -154,7 +156,7 @@ export async function listMembers(
     .from("profiles")
     .select(
       `
-        id, first_name, last_name, email,
+        id, first_name, last_name, email, phone,
         memberships:memberships(
           plan_type, plan_variant, status, credits_remaining,
           price_per_cycle_cents, start_date
@@ -253,6 +255,7 @@ export async function listMembers(
       firstName: p.first_name,
       lastName: p.last_name,
       email: p.email,
+      profileIncomplete: !p.phone,
       planType: primary?.plan_type ?? null,
       planVariant: primary?.plan_variant ?? null,
       membershipStatus: membershipStatusOf(p.memberships),

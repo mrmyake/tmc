@@ -36,13 +36,22 @@ export async function startSignup(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("first_name,last_name,health_intake_completed_at")
+      .select("first_name,last_name,phone,health_intake_completed_at")
       .eq("id", user.id)
       .maybeSingle();
     if (!profile?.first_name || !profile?.last_name) {
       return {
         ok: false,
         error: "Vul eerst je profiel in (voor- en achternaam).",
+      };
+    }
+    // Telefoon is nu optioneel bij signup (geen verzonnen fallback meer,
+    // zie profiles_phone_nullable-migratie) — verplicht wel vóór checkout,
+    // want Marlon heeft een bereikbaar nummer nodig bij een betalend lid.
+    if (!profile?.phone) {
+      return {
+        ok: false,
+        error: "Vul eerst je telefoonnummer in bij je profiel.",
       };
     }
 
