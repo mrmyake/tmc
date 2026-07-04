@@ -10,6 +10,7 @@ import {
   Settings,
   Megaphone,
   Pause,
+  Dumbbell,
   ExternalLink,
 } from "lucide-react";
 
@@ -50,6 +51,7 @@ const SECONDARY: NavItem[] = [
     label: "Aankondigingen",
     icon: Megaphone,
   },
+  { href: "/app/admin/oefeningen", label: "Oefeningen", icon: Dumbbell },
   { href: "/app/admin/instellingen", label: "Instellingen", icon: Settings },
 ];
 
