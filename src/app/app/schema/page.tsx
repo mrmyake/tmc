@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
@@ -32,10 +33,17 @@ export default async function SchemaPage() {
           {program?.title || "Jouw schema."}
         </h1>
         {program?.notes && (
-          <p className="text-text-muted text-lg leading-relaxed max-w-xl whitespace-pre-wrap">
+          <p className="text-text-muted text-lg leading-relaxed max-w-xl whitespace-pre-wrap mb-6">
             {program.notes}
           </p>
         )}
+        <Link
+          href="/app/schema/geschiedenis"
+          className="inline-flex items-center text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-accent transition-colors"
+        >
+          {/* COPY: confirm met Marlon */}
+          Bekijk je voortgang
+        </Link>
       </header>
 
       {!program && (
