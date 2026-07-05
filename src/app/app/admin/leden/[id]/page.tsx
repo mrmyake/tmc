@@ -17,6 +17,7 @@ const VALID_TABS = [
   "boekingen",
   "facturen",
   "schema",
+  "historie",
   "health",
   "notities",
 ] as const;
@@ -24,10 +25,10 @@ type Tab = (typeof VALID_TABS)[number];
 
 export default async function MemberDetailPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; exercise?: string }>;
 }) {
   const { id } = await props.params;
-  const { tab: tabParam } = await props.searchParams;
+  const { tab: tabParam, exercise: exerciseParam } = await props.searchParams;
   const tab: Tab = (VALID_TABS as readonly string[]).includes(tabParam ?? "")
     ? (tabParam as Tab)
     : "overzicht";
@@ -47,7 +48,11 @@ export default async function MemberDetailPage(props: {
 
       <MemberHeader detail={detail} />
 
-      <MemberTabs detail={detail} activeTab={tab} />
+      <MemberTabs
+        detail={detail}
+        activeTab={tab}
+        selectedExerciseId={exerciseParam}
+      />
     </div>
   );
 }

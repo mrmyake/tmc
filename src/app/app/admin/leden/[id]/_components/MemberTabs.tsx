@@ -6,18 +6,21 @@ import { PaymentsTab } from "./PaymentsTab";
 import { HealthIntakeTab } from "./HealthIntakeTab";
 import { NotesTab } from "./NotesTab";
 import { TrainingTab } from "./TrainingTab";
+import { HistoryTab } from "./HistoryTab";
 
 export type MemberTab =
   | "overzicht"
   | "boekingen"
   | "facturen"
   | "schema"
+  | "historie"
   | "health"
   | "notities";
 
 interface MemberTabsProps {
   detail: MemberDetail;
   activeTab: MemberTab;
+  selectedExerciseId?: string;
 }
 
 const TABS: Array<{ slug: MemberTab; label: string; count?: keyof MemberDetail }> = [
@@ -26,16 +29,19 @@ const TABS: Array<{ slug: MemberTab; label: string; count?: keyof MemberDetail }
   { slug: "facturen", label: "Facturen" },
   // COPY: confirm met Marlon (tab-naam "Schema")
   { slug: "schema", label: "Schema" },
+  // COPY: confirm met Marlon (tab-naam "Historie")
+  { slug: "historie", label: "Historie" },
   { slug: "health", label: "Health intake" },
   { slug: "notities", label: "Notities" },
 ];
 
-export function MemberTabs({ detail, activeTab }: MemberTabsProps) {
+export function MemberTabs({ detail, activeTab, selectedExerciseId }: MemberTabsProps) {
   const counts: Record<MemberTab, number | null> = {
     overzicht: null,
     boekingen: detail.upcomingBookings.length + detail.pastBookings.length,
     facturen: detail.payments.length,
     schema: null,
+    historie: null,
     health: null,
     notities: detail.notes.length,
   };
@@ -79,6 +85,12 @@ export function MemberTabs({ detail, activeTab }: MemberTabsProps) {
       {activeTab === "boekingen" && <BookingsTab detail={detail} />}
       {activeTab === "facturen" && <PaymentsTab detail={detail} />}
       {activeTab === "schema" && <TrainingTab profileId={detail.profile.id} />}
+      {activeTab === "historie" && (
+        <HistoryTab
+          profileId={detail.profile.id}
+          selectedExerciseId={selectedExerciseId}
+        />
+      )}
       {activeTab === "health" && <HealthIntakeTab detail={detail} />}
       {activeTab === "notities" && <NotesTab detail={detail} />}
     </>
