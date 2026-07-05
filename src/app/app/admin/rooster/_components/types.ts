@@ -12,6 +12,7 @@ export interface AdminSessionBlockData {
   endAt: string;
   status: "scheduled" | "cancelled" | "completed";
   notes: string | null;
+  blocksFreeTraining: boolean;
   /** Onderdeel van een herhalende serie (schedule_templates.id), of null voor een ad-hoc sessie. */
   templateId: string | null;
   // Pre-computed Amsterdam-local offsets so the client doesn't need to do

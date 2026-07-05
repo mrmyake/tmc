@@ -1,5 +1,3 @@
-import "server-only";
-
 /**
  * Gedeeld met src/app/api/cron/generate-sessions/route.ts en
  * src/lib/scheduling/*: één plek voor Amsterdam wall-clock <-> UTC conversie

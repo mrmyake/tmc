@@ -1,34 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "./require-admin";
 
 export type OpeningHoursActionResult =
   | { ok: true; message: string; id?: string }
   | { ok: false; message: string };
-
-async function requireAdmin(): Promise<
-  { ok: true; userId: string } | { ok: false; message: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // COPY: confirm met Marlon
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Geen toegang." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 function revalidateAll() {
   revalidatePath("/app/admin/instellingen");
@@ -90,21 +68,20 @@ export async function saveOpeningHours(
 
   const admin = createAdminClient();
 
-  for (const r of rows) {
-    const { error } = await admin
-      .from("opening_hours")
-      .update({
-        is_closed: r.isClosed,
-        opens_at: r.isClosed ? null : `${r.opensAt}:00`,
-        closes_at: r.isClosed ? null : `${r.closesAt}:00`,
-      })
-      .eq("weekday", r.weekday);
+  const { error } = await admin.from("opening_hours").upsert(
+    rows.map((r) => ({
+      weekday: r.weekday,
+      is_closed: r.isClosed,
+      opens_at: r.isClosed ? null : `${r.opensAt}:00`,
+      closes_at: r.isClosed ? null : `${r.closesAt}:00`,
+    })),
+    { onConflict: "weekday" },
+  );
 
-    if (error) {
-      console.error("[saveOpeningHours] update failed", r.weekday, error);
-      // COPY: confirm met Marlon
-      return { ok: false, message: "Opslaan lukte niet." };
-    }
+  if (error) {
+    console.error("[saveOpeningHours] upsert failed", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Opslaan lukte niet." };
   }
 
   await admin.from("admin_audit_log").insert({

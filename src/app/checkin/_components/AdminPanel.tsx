@@ -14,6 +14,7 @@ import {
   createWalkInProfile,
   type AccessType,
 } from "@/lib/check-in/actions";
+import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
 
 interface Props {
   onExit: () => void;
@@ -25,15 +26,6 @@ const PILLAR_LABELS: Record<string, string> = {
   vrij_trainen: "Vrij trainen",
   kids: "Kids",
   senior: "Senior",
-};
-
-const ACCESS_LABELS: Record<AccessType, string> = {
-  membership: "Abonnement",
-  guest_pass: "Guest pass",
-  credit: "Credit",
-  drop_in: "Drop-in",
-  trial: "Proefles",
-  comp: "Gratis",
 };
 
 export function AdminPanel({ onExit }: Props) {
@@ -176,7 +168,7 @@ export function AdminPanel({ onExit }: Props) {
                     </p>
                     <p className="text-text-muted text-[11px]">
                       {c.timeLabel} · {PILLAR_LABELS[c.pillar] ?? c.pillar} ·{" "}
-                      {ACCESS_LABELS[c.accessType] ?? c.accessType}
+                      {ACCESS_TYPE_LABELS_NL[c.accessType] ?? c.accessType}
                     </p>
                   </div>
                   <button

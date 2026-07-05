@@ -1,17 +1,9 @@
 import { getFreeTrainingAvailability } from "@/lib/scheduling/opening-hours";
 import { getTodayCheckIns } from "@/lib/check-in/actions";
+import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
 import { Chip } from "@/components/ui/Chip";
 import { formatTime } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
-
-const ACCESS_TYPE_LABEL_NL: Record<string, string> = {
-  membership: "Lidmaatschap",
-  guest_pass: "Gastenpas",
-  credit: "Rittenkaart",
-  drop_in: "Drop-in",
-  trial: "Proefles",
-  comp: "Gratis",
-};
 
 export async function FreeTrainingPanel() {
   const now = new Date();
@@ -115,7 +107,7 @@ export async function FreeTrainingPanel() {
                     <span className="text-text-muted text-xs">
                       {formatTime(new Date(c.checkedInAt))} ·{" "}
                       {PILLAR_LABELS[c.pillar as Pillar] ?? c.pillar} ·{" "}
-                      {ACCESS_TYPE_LABEL_NL[c.accessType] ?? c.accessType}
+                      {ACCESS_TYPE_LABELS_NL[c.accessType] ?? c.accessType}
                     </span>
                   </div>
                 </li>

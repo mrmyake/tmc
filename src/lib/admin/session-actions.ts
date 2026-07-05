@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
@@ -16,26 +16,6 @@ function siteUrl(): string {
 export type AdminActionResult =
   | { ok: true; message: string; id?: string }
   | { ok: false; message: string };
-
-async function requireAdmin(): Promise<
-  { ok: true; userId: string } | { ok: false; message: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== "admin") {
-    return { ok: false, message: "Geen toegang." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 function revalidateAll() {
   revalidatePath("/app/admin");
@@ -54,6 +34,7 @@ interface UpdateSessionInput {
   trainerId?: string;
   capacity?: number;
   notes?: string | null;
+  blocksFreeTraining?: boolean;
 }
 
 export async function adminUpdateSession(
@@ -115,6 +96,10 @@ export async function adminUpdateSession(
     patch.notes = input.notes?.trim() || null;
   }
 
+  if (input.blocksFreeTraining !== undefined) {
+    patch.blocks_free_training = input.blocksFreeTraining;
+  }
+
   if (Object.keys(patch).length === 0) {
     return { ok: true, message: "Geen wijzigingen." };
   }
@@ -140,6 +125,7 @@ export async function adminUpdateSession(
       changed: Object.keys(patch),
       trainer_id: patch.trainer_id ?? null,
       capacity: patch.capacity ?? null,
+      blocks_free_training: patch.blocks_free_training ?? null,
     },
   });
 
@@ -298,6 +284,7 @@ interface CreateSessionInput {
   endAt: string; // ISO
   capacity: number;
   notes?: string;
+  blocksFreeTraining?: boolean;
 }
 
 export async function adminCreateSession(
@@ -361,6 +348,7 @@ export async function adminCreateSession(
       status: "scheduled",
       notes: input.notes?.trim() || null,
       template_id: null,
+      blocks_free_training: input.blocksFreeTraining ?? false,
     })
     .select("id")
     .single();
