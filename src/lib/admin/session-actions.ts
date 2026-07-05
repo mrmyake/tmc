@@ -32,7 +32,8 @@ function revalidateAll() {
 interface UpdateSessionInput {
   id: string;
   trainerId?: string;
-  capacity?: number;
+  /** NULL betekent onbeperkt (alleen kettlebell); undefined betekent niet wijzigen. */
+  capacity?: number | null;
   notes?: string | null;
   blocksFreeTraining?: boolean;
 }
@@ -74,20 +75,26 @@ export async function adminUpdateSession(
   }
 
   if (input.capacity !== undefined) {
-    if (!Number.isInteger(input.capacity) || input.capacity < 1) {
-      return { ok: false, message: "Capaciteit moet minstens 1 zijn." };
-    }
-    const { count } = await admin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", input.id)
-      .eq("status", "booked");
-    const booked = count ?? 0;
-    if (input.capacity < booked) {
-      return {
-        ok: false,
-        message: `Er staan al ${booked} boekingen. Capaciteit moet minstens ${booked} zijn.`,
-      };
+    if (input.capacity !== null) {
+      if (!Number.isInteger(input.capacity) || input.capacity < 1) {
+        // COPY: confirm met Marlon
+        return {
+          ok: false,
+          message: "Capaciteit moet minstens 1 zijn, of leeg voor onbeperkt.",
+        };
+      }
+      const { count } = await admin
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", input.id)
+        .eq("status", "booked");
+      const booked = count ?? 0;
+      if (input.capacity < booked) {
+        return {
+          ok: false,
+          message: `Er staan al ${booked} boekingen. Capaciteit moet minstens ${booked} zijn.`,
+        };
+      }
     }
     patch.capacity = input.capacity;
   }
@@ -282,7 +289,8 @@ interface CreateSessionInput {
   trainerId: string;
   startAt: string; // ISO
   endAt: string; // ISO
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   notes?: string;
   blocksFreeTraining?: boolean;
 }
@@ -296,8 +304,15 @@ export async function adminCreateSession(
   if (!input.classTypeId || !input.trainerId || !input.startAt || !input.endAt) {
     return { ok: false, message: "Vul alle velden in." };
   }
-  if (!Number.isInteger(input.capacity) || input.capacity < 1) {
-    return { ok: false, message: "Capaciteit moet minstens 1 zijn." };
+  if (
+    input.capacity !== null &&
+    (!Number.isInteger(input.capacity) || input.capacity < 1)
+  ) {
+    // COPY: confirm met Marlon
+    return {
+      ok: false,
+      message: "Capaciteit moet minstens 1 zijn, of leeg voor onbeperkt.",
+    };
   }
 
   const start = new Date(input.startAt);

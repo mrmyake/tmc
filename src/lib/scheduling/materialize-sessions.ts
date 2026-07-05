@@ -23,7 +23,8 @@ export interface TemplateForMaterialization {
   day_of_week: number;
   start_time: string; // "06:30:00"
   duration_minutes: number;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   valid_from: string; // ISO date
   valid_until: string | null;
   blocks_free_training: boolean;

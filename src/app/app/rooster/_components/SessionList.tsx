@@ -12,7 +12,8 @@ interface SerializedSession {
   trainerName: string;
   trainerBio: string | null;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   bookedCount: number;
   status: SessionRowData["status"];
   bookingId: string | null;

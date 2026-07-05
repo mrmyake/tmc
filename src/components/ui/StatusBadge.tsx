@@ -11,7 +11,8 @@ export type SessionStatus =
 
 interface StatusBadgeProps {
   status: SessionStatus;
-  spotsAvailable?: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  spotsAvailable?: number | null;
 }
 
 export function StatusBadge({ status, spotsAvailable }: StatusBadgeProps) {
@@ -114,7 +115,10 @@ export function StatusBadge({ status, spotsAvailable }: StatusBadgeProps) {
   }
   return (
     <span className={`${base} text-accent`} aria-label="Open">
-      {spotsAvailable ?? 0} {spotsAvailable === 1 ? "plek" : "plekken"}
+      {spotsAvailable === null
+        ? // COPY: confirm met Marlon
+          "Onbeperkt"
+        : `${spotsAvailable ?? 0} ${spotsAvailable === 1 ? "plek" : "plekken"}`}
     </span>
   );
 }

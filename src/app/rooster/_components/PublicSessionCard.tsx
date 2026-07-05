@@ -8,7 +8,8 @@ export interface PublicSessionCardData {
   className: string;
   trainerName: string;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   bookedCount: number;
   userHasBooked: boolean;
 }
@@ -20,7 +21,11 @@ interface PublicSessionCardProps {
 export function PublicSessionCard({ session }: PublicSessionCardProps) {
   const start = new Date(session.startAt);
   const end = new Date(session.endAt);
-  const spotsLeft = Math.max(0, session.capacity - session.bookedCount);
+  // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
+  const spotsLeft =
+    session.capacity === null
+      ? null
+      : Math.max(0, session.capacity - session.bookedCount);
   const isFull = spotsLeft === 0;
   const pillarLabel =
     PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar;
@@ -53,7 +58,10 @@ export function PublicSessionCard({ session }: PublicSessionCardProps) {
             ? "Geboekt"
             : isFull
               ? "Vol"
-              : `${spotsLeft} van ${session.capacity} plekken`}
+              : spotsLeft === null
+                ? // COPY: confirm met Marlon
+                  "Onbeperkt aantal plekken"
+                : `${spotsLeft} van ${session.capacity} plekken`}
         </span>
       </div>
     </article>

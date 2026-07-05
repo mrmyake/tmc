@@ -87,7 +87,7 @@ type SessionRow = {
   start_at: string;
   end_at: string;
   status: "scheduled" | "cancelled" | "completed";
-  capacity: number;
+  capacity: number | null;
   pillar: string;
   age_category: string;
   notes: string | null;
@@ -103,7 +103,7 @@ type ScheduleTemplateRow = {
   day_of_week: number;
   start_time: string;
   duration_minutes: number;
-  capacity: number;
+  capacity: number | null;
   blocks_free_training: boolean;
   valid_from: string;
   valid_until: string | null;

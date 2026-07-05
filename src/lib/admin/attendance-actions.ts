@@ -14,7 +14,8 @@ export interface SessionSummary {
   pillar: string;
   startAt: string;
   endAt: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   status: "scheduled" | "cancelled" | "completed";
 }
 

@@ -109,7 +109,12 @@ export async function startTrialBooking(
     .select("spots_available")
     .eq("id", session.id)
     .maybeSingle();
-  if ((availability?.spots_available ?? 0) <= 0) {
+  // spots_available NULL betekent onbeperkte capaciteit (alleen kettlebell):
+  // nooit vol. Geen rij gevonden blijft, net als voorheen, vol.
+  const trialSpots =
+    availability === null ? 0 : availability.spots_available;
+  if (trialSpots !== null && trialSpots <= 0) {
+    // COPY: confirm met Marlon
     return { ok: false, error: "Deze sessie is helaas vol." };
   }
 

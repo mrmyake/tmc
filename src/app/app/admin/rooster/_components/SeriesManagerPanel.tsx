@@ -191,7 +191,8 @@ function SeriesRowView({
       </div>
       <p className="text-text-muted text-sm">
         {DAY_LABEL[t.dayOfWeek]} · {t.startTime} · {t.durationMinutes} min ·{" "}
-        {t.trainerName} · capaciteit {t.capacity}
+        {/* COPY: confirm met Marlon */}
+        {t.trainerName} · capaciteit {t.capacity ?? "onbeperkt"}
       </p>
       <p className="text-text-muted text-xs">
         {/* COPY: confirm met Marlon */}
@@ -278,7 +279,8 @@ function SeriesEditForm({
   const [dayOfWeek, setDayOfWeek] = useState(t.dayOfWeek);
   const [startTime, setStartTime] = useState(t.startTime);
   const [durationMinutes, setDurationMinutes] = useState(t.durationMinutes);
-  const [capacity, setCapacity] = useState(t.capacity);
+  // NULL betekent onbeperkt (alleen kettlebell).
+  const [capacity, setCapacity] = useState<number | null>(t.capacity);
   const [blocksFreeTraining, setBlocksFreeTraining] = useState(
     t.blocksFreeTraining,
   );
@@ -369,13 +371,25 @@ function SeriesEditForm({
         </AdminField>
       </div>
 
-      <AdminField label="Capaciteit">
+      <AdminField
+        label="Capaciteit"
+        // COPY: confirm met Marlon
+        hint="Leeg laten betekent onbeperkt (alleen kettlebell)."
+      >
         <AdminInput
           type="number"
           min={1}
           max={50}
-          value={capacity}
-          onChange={(e) => setCapacity(Number(e.target.value) || 1)}
+          value={capacity ?? ""}
+          // COPY: confirm met Marlon
+          placeholder="Onbeperkt"
+          onChange={(e) =>
+            setCapacity(
+              e.target.value.trim() === ""
+                ? null
+                : Number(e.target.value) || 1,
+            )
+          }
         />
       </AdminField>
 
