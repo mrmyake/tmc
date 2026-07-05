@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Plus, Settings2 } from "lucide-react";
 import { AdminWeekGrid } from "./_components/AdminWeekGrid";
 import { SessionEditPanel } from "./_components/SessionEditPanel";
 import { NewSessionDialog } from "./_components/NewSessionDialog";
+import { SeriesManagerPanel } from "./_components/SeriesManagerPanel";
 import type {
   AdminClassTypeOption,
   AdminDay,
+  AdminScheduleTemplateOption,
   AdminTrainerOption,
 } from "./_components/types";
 
@@ -16,7 +17,7 @@ interface RoosterEditorClientProps {
   days: AdminDay[];
   trainers: AdminTrainerOption[];
   classTypes: AdminClassTypeOption[];
-  sanityStudioUrl: string;
+  scheduleTemplates: AdminScheduleTemplateOption[];
   defaultNewDate: string;
 }
 
@@ -24,11 +25,12 @@ export function RoosterEditorClient({
   days,
   trainers,
   classTypes,
-  sanityStudioUrl,
+  scheduleTemplates,
   defaultNewDate,
 }: RoosterEditorClientProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [seriesOpen, setSeriesOpen] = useState(false);
 
   const allSessions = useMemo(
     () => days.flatMap((d) => d.sessions),
@@ -49,15 +51,14 @@ export function RoosterEditorClient({
           <Plus size={14} strokeWidth={1.8} />
           Nieuwe sessie
         </button>
-        <Link
-          href={sanityStudioUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-5 py-3 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent"
+        <button
+          type="button"
+          onClick={() => setSeriesOpen(true)}
+          className="inline-flex items-center gap-2 px-5 py-3 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent cursor-pointer"
         >
           <Settings2 size={14} strokeWidth={1.8} />
-          Template beheren
-        </Link>
+          Series beheren
+        </button>
       </div>
 
       <AdminWeekGrid days={days} onSelect={setSelectedId} />
@@ -74,6 +75,14 @@ export function RoosterEditorClient({
         trainers={trainers}
         defaultDate={defaultNewDate}
         onClose={() => setNewOpen(false)}
+      />
+
+      <SeriesManagerPanel
+        open={seriesOpen}
+        templates={scheduleTemplates}
+        classTypes={classTypes}
+        trainers={trainers}
+        onClose={() => setSeriesOpen(false)}
       />
     </>
   );

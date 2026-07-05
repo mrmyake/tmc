@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent, type ActorType } from "@/lib/events/emit";
 import { classifyIdentifier, normalizePhone, InvalidPhoneError } from "./normalize-phone";
 import { isAdminUnlocked } from "./admin-lock";
+import { zonedWallClockToUtc, amsterdamYmd } from "@/lib/scheduling/amsterdam-time";
 
 export type CheckInMethod = "self_tablet" | "admin_tablet" | "admin_web";
 export type AccessType =
@@ -510,6 +511,55 @@ export async function getCheckInsThisWeek(
     return 0;
   }
   return count ?? 0;
+}
+
+export interface TodayCheckIn {
+  id: string;
+  firstName: string;
+  lastInitial: string;
+  pillar: string;
+  accessType: AccessType;
+  checkInMethod: CheckInMethod;
+  checkedInAt: string; // ISO
+}
+
+/**
+ * Alle check-ins van vandaag (Amsterdam-lokale dag), nieuwste eerst.
+ * Voor het admin "Vrij trainen vandaag"-paneel op /app/admin/rooster.
+ */
+export async function getTodayCheckIns(): Promise<TodayCheckIn[]> {
+  const admin = createAdminClient();
+  const now = new Date();
+  const { year, month, day } = amsterdamYmd(now);
+  const dayStart = zonedWallClockToUtc(year, month, day, 0, 0);
+  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+
+  const { data, error } = await admin
+    .from("check_ins")
+    .select(
+      "id, pillar, access_type, check_in_method, checked_in_at, profile:profiles!check_ins_profile_id_fkey(first_name, last_name)",
+    )
+    .gte("checked_in_at", dayStart.toISOString())
+    .lt("checked_in_at", dayEnd.toISOString())
+    .order("checked_in_at", { ascending: false });
+
+  if (error) {
+    console.error("[getTodayCheckIns]", error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => {
+    const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile;
+    return {
+      id: r.id,
+      firstName: profile?.first_name ?? "Onbekend",
+      lastInitial: (profile?.last_name ?? "").charAt(0).toUpperCase(),
+      pillar: r.pillar,
+      accessType: r.access_type as AccessType,
+      checkInMethod: r.check_in_method as CheckInMethod,
+      checkedInAt: r.checked_in_at,
+    };
+  });
 }
 
 // ----------------------------------------------------------------------------

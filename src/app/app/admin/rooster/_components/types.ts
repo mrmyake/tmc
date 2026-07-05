@@ -12,6 +12,8 @@ export interface AdminSessionBlockData {
   endAt: string;
   status: "scheduled" | "cancelled" | "completed";
   notes: string | null;
+  /** Onderdeel van een herhalende serie (schedule_templates.id), of null voor een ad-hoc sessie. */
+  templateId: string | null;
   // Pre-computed Amsterdam-local offsets so the client doesn't need to do
   // timezone math. startOffsetMin is minutes after GRID_START_HOUR (06:00 AMS);
   // durationMin is session length.
@@ -33,6 +35,23 @@ export interface AdminClassTypeOption {
   ageCategory: string;
   defaultCapacity: number | null;
   defaultDurationMinutes: number;
+}
+
+export interface AdminScheduleTemplateOption {
+  id: string;
+  classTypeId: string;
+  className: string;
+  pillar: string;
+  trainerId: string;
+  trainerName: string;
+  /** 0-6, 0 = zondag (JS getDay-conventie). */
+  dayOfWeek: number;
+  startTime: string; // "HH:mm"
+  durationMinutes: number;
+  capacity: number;
+  blocksFreeTraining: boolean;
+  validFrom: string; // ISO date
+  validUntil: string | null;
 }
 
 export interface AdminDay {
