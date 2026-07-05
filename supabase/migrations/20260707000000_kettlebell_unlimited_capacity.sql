@@ -292,8 +292,11 @@ select cs.id,
 --    booked). De no_show_rate_30d-CTE blijft bewust letterlijk ongemoeid;
 --    zie de losse bevinding daarover. Materialized view kan niet via
 --    create or replace; drop en recreate met dezelfde unieke index (vereist
---    voor refresh concurrently) en dezelfde grants.
+--    voor refresh concurrently) en dezelfde grants. get_admin_kpis
+--    retourneert het rowtype van de matview en moet daarom mee in de
+--    drop-en-recreate; de definitie hieronder is letterlijk de live versie.
 
+drop function tmc.get_admin_kpis();
 drop materialized view tmc.vw_admin_kpis;
 
 create materialized view tmc.vw_admin_kpis as
@@ -375,3 +378,24 @@ create unique index vw_admin_kpis_refresh_idx
 grant select, insert, update, delete on tmc.vw_admin_kpis to anon;
 grant select, insert, update, delete on tmc.vw_admin_kpis to authenticated;
 grant all on tmc.vw_admin_kpis to service_role;
+
+create or replace function tmc.get_admin_kpis()
+returns tmc.vw_admin_kpis
+language plpgsql
+security definer
+set search_path to 'tmc', 'extensions'
+as $function$
+declare
+  result tmc.vw_admin_kpis;
+begin
+  if not tmc.is_admin() then
+    raise exception 'Unauthorized' using errcode = '42501';
+  end if;
+  select * into result from tmc.vw_admin_kpis limit 1;
+  return result;
+end;
+$function$;
+
+grant execute on function tmc.get_admin_kpis() to anon;
+grant execute on function tmc.get_admin_kpis() to authenticated;
+grant execute on function tmc.get_admin_kpis() to service_role;
