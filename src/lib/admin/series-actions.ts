@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import {
   materializeSessionsForTemplates,
   MATERIALIZATION_HORIZON_DAYS,
   type TemplateForMaterialization,
 } from "@/lib/scheduling/materialize-sessions";
+import { toIsoDate } from "@/lib/scheduling/amsterdam-time";
 
 export type SeriesActionResult =
   | {
@@ -19,28 +20,6 @@ export type SeriesActionResult =
       skippedWithBookings?: number;
     }
   | { ok: false; message: string };
-
-async function requireAdmin(): Promise<
-  { ok: true; userId: string } | { ok: false; message: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // COPY: confirm met Marlon
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== "admin") {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Geen toegang." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 function revalidateAll() {
   revalidatePath("/app/admin");
@@ -105,7 +84,7 @@ async function validateSeriesFields(
     return { ok: false, message: "Capaciteit moet minstens 1 zijn." };
   }
 
-  const validFrom = input.validFrom?.trim() || new Date().toISOString().slice(0, 10);
+  const validFrom = input.validFrom?.trim() || toIsoDate(new Date());
   const validUntil = input.validUntil?.trim() || null;
   if (validUntil && validUntil < validFrom) {
     // COPY: confirm met Marlon

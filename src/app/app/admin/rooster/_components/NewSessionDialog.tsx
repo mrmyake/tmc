@@ -19,6 +19,7 @@ import {
   type AdminTrainerOption,
 } from "./types";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+import { zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
 
 const clubEase: [number, number, number, number] = [0.2, 0.7, 0.1, 1];
 
@@ -106,11 +107,13 @@ export function NewSessionDialog({
   }
 
   function submitOnce() {
-    // Build timezone-safe ISO strings: interpret date+time as Amsterdam wall-clock.
-    // Supabase timestamptz will store UTC; we submit as local + offset.
-    const startLocal = buildAmsterdamIso(date, startTime);
+    // Interpret date+time as Amsterdam wall-clock; Supabase timestamptz stores UTC.
+    const [year, month, day] = date.split("-").map(Number);
+    const [hour, minute] = startTime.split(":").map(Number);
+    const startUtc = zonedWallClockToUtc(year, month, day, hour, minute);
+    const startLocal = startUtc.toISOString();
     const endDateTime = new Date(
-      new Date(startLocal).getTime() + durationMinutes * 60_000,
+      startUtc.getTime() + durationMinutes * 60_000,
     );
     const endIso = endDateTime.toISOString();
 
@@ -122,6 +125,7 @@ export function NewSessionDialog({
         endAt: endIso,
         capacity,
         notes,
+        blocksFreeTraining,
       });
       setResult(res);
       if (res.ok) {
@@ -420,27 +424,25 @@ export function NewSessionDialog({
                         />
                       )}
                     </AdminField>
-
-                    <AdminField
-                      label="Blokkeert vrij trainen"
-                      // COPY: confirm met Marlon
-                      hint="Tijdens deze sessie is de studio niet beschikbaar voor vrij trainen."
-                    >
-                      <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={blocksFreeTraining}
-                          onChange={(e) =>
-                            setBlocksFreeTraining(e.target.checked)
-                          }
-                          className="cursor-pointer"
-                        />
-                        {/* COPY: confirm met Marlon */}
-                        {blocksFreeTraining ? "Ja" : "Nee"}
-                      </label>
-                    </AdminField>
                   </>
                 )}
+
+                <AdminField
+                  label="Blokkeert vrij trainen"
+                  // COPY: confirm met Marlon
+                  hint="Tijdens deze sessie is de studio niet beschikbaar voor vrij trainen."
+                >
+                  <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={blocksFreeTraining}
+                      onChange={(e) => setBlocksFreeTraining(e.target.checked)}
+                      className="cursor-pointer"
+                    />
+                    {/* COPY: confirm met Marlon */}
+                    {blocksFreeTraining ? "Ja" : "Nee"}
+                  </label>
+                </AdminField>
 
                 {mode === "once" && (
                   <AdminField label="Notities">
@@ -491,38 +493,4 @@ export function NewSessionDialog({
       )}
     </AnimatePresence>
   );
-}
-
-/**
- * Given Amsterdam-local date + time, produce an ISO timestamp that will
- * parse to that wall-clock in the Europe/Amsterdam zone. Uses the browser's
- * timezone-aware Intl to find the current UTC offset for that wall-clock.
- * Handles DST transitions correctly.
- */
-function buildAmsterdamIso(date: string, time: string): string {
-  // Try both offsets (summer +02:00, winter +01:00) and pick the one whose
-  // resulting UTC instant formats back to the same wall-clock in Amsterdam.
-  for (const offset of ["+02:00", "+01:00"]) {
-    const candidate = `${date}T${time}:00${offset}`;
-    const parsed = new Date(candidate);
-    if (Number.isNaN(parsed.getTime())) continue;
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Amsterdam",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(parsed);
-    const pick = (t: string) =>
-      parts.find((p) => p.type === t)?.value ?? "";
-    const backDate = `${pick("year")}-${pick("month")}-${pick("day")}`;
-    const backTime = `${pick("hour")}:${pick("minute")}`;
-    if (backDate === date && backTime === time) {
-      return parsed.toISOString();
-    }
-  }
-  // Fallback: treat as UTC.
-  return new Date(`${date}T${time}:00Z`).toISOString();
 }

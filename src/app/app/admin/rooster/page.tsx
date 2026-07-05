@@ -91,6 +91,7 @@ type SessionRow = {
   pillar: string;
   age_category: string;
   notes: string | null;
+  blocks_free_training: boolean;
   class_type: { name: string } | null;
   trainer: { display_name: string } | null;
 };
@@ -158,6 +159,7 @@ export default async function AdminRoosterPage(props: {
           pillar,
           age_category,
           notes,
+          blocks_free_training,
           class_type:class_types(name),
           trainer:trainers(display_name)
         `,
@@ -259,6 +261,7 @@ export default async function AdminRoosterPage(props: {
       endAt: s.end_at,
       status: s.status,
       notes: s.notes,
+      blocksFreeTraining: s.blocks_free_training,
       templateId: s.template_id,
       startOffsetMin,
       durationMin,

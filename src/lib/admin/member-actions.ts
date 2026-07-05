@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { cancelMollieSubscription } from "@/lib/mollie";
 import { sendNotification } from "@/lib/ntfy";
@@ -10,26 +10,6 @@ import { sendNotification } from "@/lib/ntfy";
 export type MemberActionResult =
   | { ok: true; message: string }
   | { ok: false; message: string };
-
-async function requireAdmin(): Promise<
-  { ok: true; userId: string } | { ok: false; message: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") {
-    return { ok: false, message: "Geen toegang." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 function revalidateDetail(profileId: string) {
   revalidatePath(`/app/admin/leden/${profileId}`);

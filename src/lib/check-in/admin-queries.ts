@@ -112,7 +112,7 @@ export async function getTodayCheckIns(): Promise<TodayCheckInRow[]> {
     .from("check_ins")
     .select(
       `id, checked_in_at, pillar, access_type,
-       profile:profiles(first_name, last_name)`,
+       profile:profiles!check_ins_profile_id_fkey(first_name, last_name)`,
     )
     .gte("checked_in_at", todayUtc.toISOString())
     .order("checked_in_at", { ascending: false })

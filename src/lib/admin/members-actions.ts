@@ -1,33 +1,13 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "./require-admin";
 
 export type MembersActionResult =
   | { ok: true; message: string; groupId?: string; groupName?: string; count?: number }
   | { ok: false; message: string };
 
 const MAILERLITE_API = "https://connect.mailerlite.com/api";
-
-async function requireAdmin(): Promise<
-  { ok: true; userId: string } | { ok: false; message: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") {
-    return { ok: false, message: "Geen toegang." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 async function mlRequest(
   path: string,

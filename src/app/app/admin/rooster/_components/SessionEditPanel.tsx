@@ -44,6 +44,7 @@ export function SessionEditPanel({
   const [trainerId, setTrainerId] = useState("");
   const [capacity, setCapacity] = useState<number>(0);
   const [notes, setNotes] = useState("");
+  const [blocksFreeTraining, setBlocksFreeTraining] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [tab, setTab] = useState<PanelTab>("edit");
   const lastFocusedRef = useRef<HTMLElement | null>(null);
@@ -57,6 +58,7 @@ export function SessionEditPanel({
       setTrainerId(session.trainerId);
       setCapacity(session.capacity);
       setNotes(session.notes ?? "");
+      setBlocksFreeTraining(session.blocksFreeTraining);
       setResult(null);
       setConfirmCancel(false);
       setCancelReason("");
@@ -81,6 +83,9 @@ export function SessionEditPanel({
     if (trainerId !== session.trainerId) patch.trainerId = trainerId;
     if (capacity !== session.capacity) patch.capacity = capacity;
     if ((notes || null) !== (session.notes || null)) patch.notes = notes;
+    if (blocksFreeTraining !== session.blocksFreeTraining) {
+      patch.blocksFreeTraining = blocksFreeTraining;
+    }
 
     startTransition(async () => {
       const res = await adminUpdateSession(patch);
@@ -114,7 +119,8 @@ export function SessionEditPanel({
     session !== null &&
     (trainerId !== session.trainerId ||
       capacity !== session.capacity ||
-      (notes || null) !== (session.notes || null));
+      (notes || null) !== (session.notes || null) ||
+      blocksFreeTraining !== session.blocksFreeTraining);
 
   return (
     <AnimatePresence>
@@ -277,6 +283,24 @@ export function SessionEditPanel({
                     rows={3}
                     placeholder="Intern zichtbaar voor trainers en admin."
                   />
+                </AdminField>
+
+                <AdminField
+                  label="Blokkeert vrij trainen"
+                  // COPY: confirm met Marlon
+                  hint="Tijdens deze sessie is de studio niet beschikbaar voor vrij trainen."
+                >
+                  <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={blocksFreeTraining}
+                      onChange={(e) => setBlocksFreeTraining(e.target.checked)}
+                      disabled={sessionIsCancelled || pending}
+                      className="cursor-pointer"
+                    />
+                    {/* COPY: confirm met Marlon */}
+                    {blocksFreeTraining ? "Ja" : "Nee"}
+                  </label>
                 </AdminField>
               </div>
 

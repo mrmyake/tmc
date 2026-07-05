@@ -8,6 +8,7 @@ import {
 } from "./_components/OpeningHoursExceptionsPanel";
 import { CHECK_IN_PILLAR_OPTIONS } from "@/lib/admin/settings-constants";
 import type { OpeningHoursRowInput } from "@/lib/admin/opening-hours-actions";
+import { toIsoDate } from "@/lib/scheduling/amsterdam-time";
 
 export const metadata = {
   title: "Admin · Instellingen | The Movement Club",
@@ -45,7 +46,7 @@ export default async function AdminSettingsPage() {
       admin
         .from("opening_hours_exceptions")
         .select("id, date, is_closed, opens_at, closes_at, note")
-        .gte("date", new Date().toISOString().slice(0, 10))
+        .gte("date", toIsoDate(new Date()))
         .order("date", { ascending: true }),
     ]);
 
