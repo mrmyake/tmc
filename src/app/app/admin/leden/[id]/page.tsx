@@ -16,6 +16,7 @@ const VALID_TABS = [
   "overzicht",
   "boekingen",
   "facturen",
+  "schema",
   "health",
   "notities",
 ] as const;

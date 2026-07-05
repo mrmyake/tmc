@@ -5,11 +5,13 @@ import { BookingsTab } from "./BookingsTab";
 import { PaymentsTab } from "./PaymentsTab";
 import { HealthIntakeTab } from "./HealthIntakeTab";
 import { NotesTab } from "./NotesTab";
+import { TrainingTab } from "./TrainingTab";
 
 export type MemberTab =
   | "overzicht"
   | "boekingen"
   | "facturen"
+  | "schema"
   | "health"
   | "notities";
 
@@ -22,6 +24,8 @@ const TABS: Array<{ slug: MemberTab; label: string; count?: keyof MemberDetail }
   { slug: "overzicht", label: "Overzicht" },
   { slug: "boekingen", label: "Boekingen" },
   { slug: "facturen", label: "Facturen" },
+  // COPY: confirm met Marlon (tab-naam "Schema")
+  { slug: "schema", label: "Schema" },
   { slug: "health", label: "Health intake" },
   { slug: "notities", label: "Notities" },
 ];
@@ -31,6 +35,7 @@ export function MemberTabs({ detail, activeTab }: MemberTabsProps) {
     overzicht: null,
     boekingen: detail.upcomingBookings.length + detail.pastBookings.length,
     facturen: detail.payments.length,
+    schema: null,
     health: null,
     notities: detail.notes.length,
   };
@@ -73,6 +78,7 @@ export function MemberTabs({ detail, activeTab }: MemberTabsProps) {
       {activeTab === "overzicht" && <OverviewTab detail={detail} />}
       {activeTab === "boekingen" && <BookingsTab detail={detail} />}
       {activeTab === "facturen" && <PaymentsTab detail={detail} />}
+      {activeTab === "schema" && <TrainingTab profileId={detail.profile.id} />}
       {activeTab === "health" && <HealthIntakeTab detail={detail} />}
       {activeTab === "notities" && <NotesTab detail={detail} />}
     </>
