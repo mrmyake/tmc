@@ -102,7 +102,8 @@ export function SeriesManagerPanel({
               <p className="text-text-muted text-sm mb-8">
                 {/* COPY: confirm met Marlon */}
                 Wijzigen of stoppen raakt alleen toekomstige sessies zonder
-                boekingen. Sessies met boekingen blijven ongemoeid.
+                boekingen of wachtlijst. Sessies met boekingen of wachtlijst
+                blijven ongemoeid.
               </p>
 
               {templates.length === 0 ? (

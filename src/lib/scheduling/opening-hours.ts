@@ -43,6 +43,14 @@ function parseHms(t: string): { h: number; m: number } {
   return { h: Number(hStr), m: Number(mStr) };
 }
 
+function isoToYmd(iso: string): { year: number; month: number; day: number } {
+  return {
+    year: Number(iso.slice(0, 4)),
+    month: Number(iso.slice(5, 7)),
+    day: Number(iso.slice(8, 10)),
+  };
+}
+
 /**
  * Vrij-trainen-beschikbaarheid per dag in [from, to): openingstijd
  * (opening_hours, met exceptions als override) minus sessies die
@@ -56,6 +64,26 @@ export async function getFreeTrainingAvailability(opts: {
   const admin = createAdminClient();
   const fromIso = toIsoDate(opts.from);
   const toIso = toIsoDate(opts.to);
+
+  // De blokkerende-sessies-query moet de volledige Amsterdam-lokale
+  // dagen [fromIso, toIso] dekken, niet het instant opts.from/opts.to
+  // (die twee kunnen identiek zijn — bv. FreeTrainingPanel roept dit aan
+  // met from===to===nu — waardoor een instant-overlap-test sessies later
+  // op dezelfde dag zou missen).
+  const fromYmd = isoToYmd(fromIso);
+  const rangeStartUtc = zonedWallClockToUtc(
+    fromYmd.year,
+    fromYmd.month,
+    fromYmd.day,
+    0,
+    0,
+  );
+  const toYmd = isoToYmd(toIso);
+  // Middernacht aan het begin van de dag ná toIso = einde van het bereik.
+  const dayAfterTo = new Date(
+    zonedWallClockToUtc(toYmd.year, toYmd.month, toYmd.day, 0, 0).getTime() +
+      86_400_000,
+  );
 
   const [hoursRes, exceptionsRes, blockingRes] = await Promise.all([
     admin
@@ -73,8 +101,8 @@ export async function getFreeTrainingAvailability(opts: {
       .select("start_at, end_at, class_type:class_types(name)")
       .eq("status", "scheduled")
       .eq("blocks_free_training", true)
-      .lt("start_at", opts.to.toISOString())
-      .gt("end_at", opts.from.toISOString())
+      .lt("start_at", dayAfterTo.toISOString())
+      .gt("end_at", rangeStartUtc.toISOString())
       .returns<BlockingSessionRow[]>(),
   ]);
 

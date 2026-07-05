@@ -177,9 +177,10 @@ async function fetchTemplateForMaterialization(
 
 /**
  * Vindt toekomstige, geplande sessies van een template en splitst ze in
- * "zonder actieve boekingen" (veilig aan te passen/annuleren) en "met
- * boekingen" (nooit stilzwijgend wijzigen — blijft ongemoeid, gerapporteerd
- * aan de admin).
+ * "zonder actieve boekingen of wachtlijst" (veilig aan te passen/
+ * annuleren) en "bezet" (nooit stilzwijgend wijzigen — blijft ongemoeid,
+ * gerapporteerd aan de admin). Een actieve wachtlijst-entry telt ook als
+ * bezet, ook zonder bevestigde boeking.
  */
 async function splitFutureSessionsByBookings(
   admin: ReturnType<typeof createAdminClient>,
@@ -196,16 +197,30 @@ async function splitFutureSessionsByBookings(
   const sessionIds = (sessions ?? []).map((s) => s.id);
   if (sessionIds.length === 0) return { emptyIds: [], skippedCount: 0 };
 
-  const { data: bookedRows } = await admin
-    .from("bookings")
-    .select("session_id")
-    .in("session_id", sessionIds)
-    .eq("status", "booked");
+  const [bookedRes, waitlistRes] = await Promise.all([
+    admin
+      .from("bookings")
+      .select("session_id")
+      .in("session_id", sessionIds)
+      .eq("status", "booked"),
+    // Actieve wachtlijst = nog niet bevestigd en niet verlopen (zelfde
+    // definitie als de waitlist-promote cron); ook zonder boekingen telt
+    // een sessie met actieve wachtlijst niet als "leeg".
+    admin
+      .from("waitlist_entries")
+      .select("session_id")
+      .in("session_id", sessionIds)
+      .is("confirmed_at", null)
+      .is("expired_at", null),
+  ]);
 
-  const sessionsWithBookings = new Set((bookedRows ?? []).map((b) => b.session_id));
-  const emptyIds = sessionIds.filter((id) => !sessionsWithBookings.has(id));
+  const occupiedIds = new Set([
+    ...(bookedRes.data ?? []).map((b) => b.session_id),
+    ...(waitlistRes.data ?? []).map((w) => w.session_id),
+  ]);
+  const emptyIds = sessionIds.filter((id) => !occupiedIds.has(id));
 
-  return { emptyIds, skippedCount: sessionsWithBookings.size };
+  return { emptyIds, skippedCount: occupiedIds.size };
 }
 
 // ----------------------------------------------------------------------------
@@ -386,22 +401,44 @@ export async function adminUpdateSeries(
         );
       }
     } else {
-      const { error: patchErr } = await admin
+      // Duur kan zijn gewijzigd: end_at hangt af van elke rij's eigen
+      // start_at, dus per rij herberekenen i.p.v. één statische waarde
+      // over alle emptyIds heen te zetten.
+      const { data: emptySessions, error: fetchErr } = await admin
         .from("class_sessions")
-        .update({
-          class_type_id: f.classTypeId,
-          trainer_id: f.trainerId,
-          pillar: f.pillar,
-          age_category: f.ageCategory,
-          capacity: f.capacity,
-          blocks_free_training: f.blocksFreeTraining,
-        })
+        .select("id, start_at")
         .in("id", emptyIds);
-      if (patchErr) {
+
+      if (fetchErr) {
         console.error(
-          "[adminUpdateSeries] patch of existing occurrences failed",
-          patchErr,
+          "[adminUpdateSeries] fetch of existing occurrences failed",
+          fetchErr,
         );
+      }
+
+      for (const s of emptySessions ?? []) {
+        const endAt = new Date(
+          new Date(s.start_at).getTime() + f.durationMinutes * 60_000,
+        ).toISOString();
+        const { error: patchErr } = await admin
+          .from("class_sessions")
+          .update({
+            class_type_id: f.classTypeId,
+            trainer_id: f.trainerId,
+            pillar: f.pillar,
+            age_category: f.ageCategory,
+            capacity: f.capacity,
+            blocks_free_training: f.blocksFreeTraining,
+            end_at: endAt,
+          })
+          .eq("id", s.id);
+        if (patchErr) {
+          console.error(
+            "[adminUpdateSeries] patch of existing occurrence failed",
+            s.id,
+            patchErr,
+          );
+        }
       }
     }
   }
@@ -439,7 +476,7 @@ export async function adminUpdateSeries(
     message:
       skippedCount > 0
         ? // COPY: confirm met Marlon
-          `Serie bijgewerkt. ${skippedCount} sessie(s) met boekingen zijn ongewijzigd gelaten.`
+          `Serie bijgewerkt. ${skippedCount} sessie(s) met boekingen of wachtlijst zijn ongewijzigd gelaten.`
         : // COPY: confirm met Marlon
           "Serie bijgewerkt.",
     materializedCount: attempts,
@@ -522,7 +559,7 @@ export async function adminCancelSeries(
     message:
       skippedCount > 0
         ? // COPY: confirm met Marlon
-          `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd, ${skippedCount} sessie(s) met boekingen blijven staan.`
+          `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd, ${skippedCount} sessie(s) met boekingen of wachtlijst blijven staan.`
         : // COPY: confirm met Marlon
           `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd.`,
     skippedWithBookings: skippedCount,
