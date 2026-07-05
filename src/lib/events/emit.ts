@@ -49,6 +49,10 @@ export type EventType =
   | "session.created"
   | "session.updated"
   | "session.cancelled"
+  // Recurring series (admin, schedule_templates)
+  | "series.created"
+  | "series.updated"
+  | "series.cancelled"
   // Member lifecycle
   | "member.created"
   | "member.deleted"
@@ -75,6 +79,7 @@ export type SubjectType =
   | "profile"
   | "membership"
   | "session"
+  | "schedule_template"
   | "booking"
   | "payment"
   | "pt_booking"
