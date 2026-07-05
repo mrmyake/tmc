@@ -31,7 +31,7 @@ export interface AdminClassTypeOption {
   name: string;
   pillar: string;
   ageCategory: string;
-  defaultCapacity: number;
+  defaultCapacity: number | null;
   defaultDurationMinutes: number;
 }
 

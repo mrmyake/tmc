@@ -49,9 +49,12 @@ export function NewSessionDialog({
   const selectedType = classTypes.find((t) => t.id === classTypeId);
 
   // Sync capacity + duration from chosen class type (but only when type changes).
+  // defaultCapacity can be null (onbeperkt); dit dialoog boekt losse
+  // sessies met een harde capaciteit, dus val terug op 8 totdat PR 2
+  // nullable capaciteit hier functioneel maakt.
   useEffect(() => {
     if (!selectedType) return;
-    setCapacity(selectedType.defaultCapacity);
+    setCapacity(selectedType.defaultCapacity ?? 8);
     setDurationMinutes(selectedType.defaultDurationMinutes);
   }, [selectedType]);
 
