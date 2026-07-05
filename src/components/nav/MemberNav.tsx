@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   DoorOpen,
+  Dumbbell,
   LifeBuoy,
   UserCircle,
 } from "lucide-react";
@@ -42,6 +43,12 @@ const BASE_ITEMS: NavItem[] = [
     labelMobile: "Abbo",
     icon: CreditCard,
     matchPrefixes: ["/app/abonnement", "/app/facturen"],
+  },
+  {
+    href: "/app/schema",
+    label: "Schema",
+    icon: Dumbbell,
+    matchPrefixes: ["/app/schema"],
   },
   {
     href: "/app/profiel",
@@ -95,14 +102,15 @@ export function MemberNav({
   const items: NavItem[] = eligibleForVrijTrainen
     ? [BASE_ITEMS[0], VRIJ_TRAINEN_ITEM, ...BASE_ITEMS.slice(1)]
     : BASE_ITEMS;
-  // BASE_ITEMS heeft 5 items (incl. Support); met Vrij trainen erbij is
-  // dat 6. Expliciete lookup i.p.v. een template-literal grid-cols-${n}
+  // BASE_ITEMS heeft 6 items (incl. Support); met Vrij trainen erbij is
+  // dat 7. Expliciete lookup i.p.v. een template-literal grid-cols-${n}
   // klasse — Tailwind's JIT-scanner ziet dynamisch samengestelde
   // classnames niet en zou de utility dan niet genereren.
   const GRID_COLS: Record<number, string> = {
     4: "grid-cols-4",
     5: "grid-cols-5",
     6: "grid-cols-6",
+    7: "grid-cols-7",
   };
   const mobileGridCols = GRID_COLS[items.length] ?? "grid-cols-4";
 

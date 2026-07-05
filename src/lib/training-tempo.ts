@@ -31,3 +31,27 @@ export function parseTempoInput(raw: string): number | null {
   if (!/^\d{1,2}$/.test(v)) return null;
   return Number(v);
 }
+
+// COPY: confirm met Marlon
+function secondsPhrase(value: number, zeroWord: string, unit: string): string {
+  return value === 0 ? zeroWord : `${value} sec ${unit}`;
+}
+
+/**
+ * Tempo uitgeschreven in begrijpelijke taal naast de "41X0"-notatie,
+ * voor de klant-view (spec-trainingsprotocol.md PR 3).
+ */
+// COPY: confirm met Marlon
+export function tempoPlainLanguage(
+  eccentric: number,
+  pauseBottom: number,
+  concentric: number,
+  pauseTop: number,
+): string {
+  return [
+    secondsPhrase(eccentric, "explosief zakken", "zakken"),
+    secondsPhrase(pauseBottom, "geen pauze onder", "pauze onder"),
+    secondsPhrase(concentric, "explosief omhoog", "omhoog"),
+    secondsPhrase(pauseTop, "geen pauze boven", "pauze boven"),
+  ].join(", ");
+}
