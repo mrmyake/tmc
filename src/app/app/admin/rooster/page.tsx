@@ -7,6 +7,7 @@ import {
   GRID_START_HOUR,
   type AdminClassTypeOption,
   type AdminDay,
+  type AdminScheduleTemplateOption,
   type AdminSessionBlockData,
   type AdminTrainerOption,
 } from "./_components/types";
@@ -81,6 +82,7 @@ type SessionRow = {
   id: string;
   class_type_id: string;
   trainer_id: string;
+  template_id: string | null;
   start_at: string;
   end_at: string;
   status: "scheduled" | "cancelled" | "completed";
@@ -89,6 +91,21 @@ type SessionRow = {
   age_category: string;
   notes: string | null;
   class_type: { name: string } | null;
+  trainer: { display_name: string } | null;
+};
+
+type ScheduleTemplateRow = {
+  id: string;
+  class_type_id: string;
+  trainer_id: string;
+  day_of_week: number;
+  start_time: string;
+  duration_minutes: number;
+  capacity: number;
+  blocks_free_training: boolean;
+  valid_from: string;
+  valid_until: string | null;
+  class_type: { name: string; pillar: string } | null;
   trainer: { display_name: string } | null;
 };
 
@@ -124,7 +141,7 @@ export default async function AdminRoosterPage(props: {
   const prev = getIsoWeekYear(prevRef);
   const next = getIsoWeekYear(nextRef);
 
-  const [sessionsRes, trainersRes, classTypesRes] = await Promise.all([
+  const [sessionsRes, trainersRes, classTypesRes, templatesRes] = await Promise.all([
     admin
       .from("class_sessions")
       .select(
@@ -132,6 +149,7 @@ export default async function AdminRoosterPage(props: {
           id,
           class_type_id,
           trainer_id,
+          template_id,
           start_at,
           end_at,
           status,
@@ -158,6 +176,20 @@ export default async function AdminRoosterPage(props: {
       )
       .eq("is_active", true)
       .order("name", { ascending: true }),
+    admin
+      .from("schedule_templates")
+      .select(
+        `
+          id, class_type_id, trainer_id, day_of_week, start_time,
+          duration_minutes, capacity, blocks_free_training, valid_from, valid_until,
+          class_type:class_types(name, pillar),
+          trainer:trainers(display_name)
+        `,
+      )
+      .eq("is_active", true)
+      .order("day_of_week", { ascending: true })
+      .order("start_time", { ascending: true })
+      .returns<ScheduleTemplateRow[]>(),
   ]);
 
   const sessions = sessionsRes.data ?? [];
@@ -226,6 +258,7 @@ export default async function AdminRoosterPage(props: {
       endAt: s.end_at,
       status: s.status,
       notes: s.notes,
+      templateId: s.template_id,
       startOffsetMin,
       durationMin,
       startLabel: `${String(sp.hour).padStart(2, "0")}:${String(sp.minute).padStart(2, "0")}`,
@@ -249,6 +282,24 @@ export default async function AdminRoosterPage(props: {
       defaultDurationMinutes: c.default_duration_minutes,
     }),
   );
+
+  const scheduleTemplates: AdminScheduleTemplateOption[] = (
+    templatesRes.data ?? []
+  ).map((t) => ({
+    id: t.id,
+    classTypeId: t.class_type_id,
+    className: t.class_type?.name ?? "Lestype",
+    pillar: t.class_type?.pillar ?? "",
+    trainerId: t.trainer_id,
+    trainerName: t.trainer?.display_name ?? "—",
+    dayOfWeek: t.day_of_week,
+    startTime: t.start_time.slice(0, 5),
+    durationMinutes: t.duration_minutes,
+    capacity: t.capacity,
+    blocksFreeTraining: t.blocks_free_training,
+    validFrom: t.valid_from,
+    validUntil: t.valid_until,
+  }));
 
   const startParts = amsterdamParts(weekStart);
   const endParts = amsterdamParts(addDays(weekStart, 6));
@@ -304,7 +355,7 @@ export default async function AdminRoosterPage(props: {
         days={days}
         trainers={trainers}
         classTypes={classTypes}
-        sanityStudioUrl="/studio/structure/schedule"
+        scheduleTemplates={scheduleTemplates}
         defaultNewDate={defaultNewDate}
       />
     </div>

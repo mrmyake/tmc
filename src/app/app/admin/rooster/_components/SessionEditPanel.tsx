@@ -164,14 +164,36 @@ export function SessionEditPanel({
               <p className="text-text-muted text-sm mb-2">
                 {formatWeekdayDate(new Date(session.startAt))}
               </p>
-              <p className="text-text-muted text-sm mb-6">
+              <p
+                className={`text-text-muted text-sm ${session.templateId ? "mb-2" : "mb-6"}`}
+              >
                 {formatTimeRange(
                   new Date(session.startAt),
                   new Date(session.endAt),
                 )}{" "}
                 ·{" "}
                 {PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar}
+                {session.templateId && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span
+                      className="text-accent"
+                      aria-label="Onderdeel van een herhalende serie"
+                    >
+                      {/* COPY: confirm met Marlon */}
+                      Herhalend
+                    </span>
+                  </>
+                )}
               </p>
+              {session.templateId && (
+                <p className="text-text-muted text-xs mb-6">
+                  {/* COPY: confirm met Marlon */}
+                  Onderdeel van een serie. Wijzig of stop de hele serie via
+                  &quot;Series beheren&quot; in de rooster-toolbar.
+                </p>
+              )}
 
               <div
                 role="tablist"

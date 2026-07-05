@@ -354,25 +354,55 @@ export async function adminUpdateSeries(
     return { ok: false, message: "Bijwerken van de serie lukte niet." };
   }
 
-  // Toekomstige, boekingloze occurrences van de oude vorm annuleren; ze
-  // worden hieronder opnieuw gematerialiseerd vanuit de bijgewerkte
-  // template. Sessies met boekingen blijven onaangetast (nooit stilzwijgend
-  // wijzigen) en worden geteld/gerapporteerd.
+  // Dag/tijd ongewijzigd: bestaande boekingloze occurrences vallen op
+  // dezelfde (template_id, start_at) als voorheen. Die direct patchen i.p.v.
+  // annuleren + her-materialiseren — de materialisatie-upsert slaat een
+  // reeds bestaande (ook geannuleerde) rij op die sleutel over
+  // (ignoreDuplicates), dus annuleren zou de sessie stilzwijgend geannuleerd
+  // laten staan in plaats van bijgewerkt.
+  //
+  // Dag of tijd wél gewijzigd: de oude occurrences vallen op de verkeerde
+  // datum. Die annuleren en opnieuw materialiseren op de nieuwe dag/tijd —
+  // dat botst niet, want de nieuwe start_at wijkt af van de oude.
+  const timeChanged =
+    f.dayOfWeek !== existing.day_of_week ||
+    f.startTime !== existing.start_time.slice(0, 5);
+
   const { emptyIds, skippedCount } = await splitFutureSessionsByBookings(
     admin,
     input.templateId,
   );
 
   if (emptyIds.length > 0) {
-    const { error: cancelErr } = await admin
-      .from("class_sessions")
-      .update({ status: "cancelled", cancellation_reason: "series_updated" })
-      .in("id", emptyIds);
-    if (cancelErr) {
-      console.error(
-        "[adminUpdateSeries] cancel of stale occurrences failed",
-        cancelErr,
-      );
+    if (timeChanged) {
+      const { error: cancelErr } = await admin
+        .from("class_sessions")
+        .update({ status: "cancelled", cancellation_reason: "series_updated" })
+        .in("id", emptyIds);
+      if (cancelErr) {
+        console.error(
+          "[adminUpdateSeries] cancel of stale occurrences failed",
+          cancelErr,
+        );
+      }
+    } else {
+      const { error: patchErr } = await admin
+        .from("class_sessions")
+        .update({
+          class_type_id: f.classTypeId,
+          trainer_id: f.trainerId,
+          pillar: f.pillar,
+          age_category: f.ageCategory,
+          capacity: f.capacity,
+          blocks_free_training: f.blocksFreeTraining,
+        })
+        .in("id", emptyIds);
+      if (patchErr) {
+        console.error(
+          "[adminUpdateSeries] patch of existing occurrences failed",
+          patchErr,
+        );
+      }
     }
   }
 
