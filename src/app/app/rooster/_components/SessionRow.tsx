@@ -11,7 +11,8 @@ export interface SessionRowData {
   className: string;
   trainerName: string;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   bookedCount: number;
   status: SessionStatus;
   bookingId: string | null;
@@ -80,7 +81,11 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
       </span>
       <StatusBadge
         status={session.status}
-        spotsAvailable={Math.max(0, session.capacity - session.bookedCount)}
+        spotsAvailable={
+          session.capacity === null
+            ? null
+            : Math.max(0, session.capacity - session.bookedCount)
+        }
       />
       <ChevronRight
         size={16}

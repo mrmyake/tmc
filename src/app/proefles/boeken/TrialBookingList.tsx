@@ -18,7 +18,8 @@ export interface TrialSessionOption {
   pillarLabel: string;
   className: string;
   trainerName: string;
-  spotsAvailable: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  spotsAvailable: number | null;
   priceCents: number;
 }
 
@@ -123,8 +124,10 @@ export function TrialBookingList({ options }: Props) {
                         {formatEuro(Math.round(o.priceCents / 100))}
                       </p>
                       <p className="text-text-muted text-xs">
-                        {o.spotsAvailable}{" "}
-                        {o.spotsAvailable === 1 ? "plek" : "plekken"}
+                        {o.spotsAvailable === null
+                          ? // COPY: confirm met Marlon
+                            "Onbeperkt aantal plekken"
+                          : `${o.spotsAvailable} ${o.spotsAvailable === 1 ? "plek" : "plekken"}`}
                       </p>
                     </div>
                   </button>

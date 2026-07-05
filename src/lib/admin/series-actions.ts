@@ -39,7 +39,8 @@ interface SeriesFieldsInput {
   dayOfWeek: number;
   startTime: string; // "HH:mm"
   durationMinutes: number;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   validFrom?: string; // ISO date, default vandaag
   validUntil?: string | null; // ISO date, null = oneindig
   blocksFreeTraining?: boolean; // default false
@@ -53,7 +54,7 @@ interface ValidatedSeriesFields {
   dayOfWeek: number;
   startTime: string;
   durationMinutes: number;
-  capacity: number;
+  capacity: number | null;
   validFrom: string;
   validUntil: string | null;
   blocksFreeTraining: boolean;
@@ -79,9 +80,15 @@ async function validateSeriesFields(
     // COPY: confirm met Marlon
     return { ok: false, message: "Duur moet een positief getal zijn." };
   }
-  if (!Number.isInteger(input.capacity) || input.capacity < 1) {
+  if (
+    input.capacity !== null &&
+    (!Number.isInteger(input.capacity) || input.capacity < 1)
+  ) {
     // COPY: confirm met Marlon
-    return { ok: false, message: "Capaciteit moet minstens 1 zijn." };
+    return {
+      ok: false,
+      message: "Capaciteit moet minstens 1 zijn, of leeg voor onbeperkt.",
+    };
   }
 
   const validFrom = input.validFrom?.trim() || toIsoDate(new Date());
@@ -315,7 +322,9 @@ export async function adminUpdateSeries(
     dayOfWeek: input.dayOfWeek ?? existing.day_of_week,
     startTime: input.startTime ?? existing.start_time.slice(0, 5),
     durationMinutes: input.durationMinutes ?? existing.duration_minutes,
-    capacity: input.capacity ?? existing.capacity,
+    // Nullable veld: null betekent expliciet onbeperkt, undefined betekent
+    // niet meegegeven (zelfde patroon als validUntil hieronder).
+    capacity: input.capacity !== undefined ? input.capacity : existing.capacity,
     validFrom: input.validFrom ?? existing.valid_from,
     validUntil:
       input.validUntil !== undefined ? input.validUntil : existing.valid_until,

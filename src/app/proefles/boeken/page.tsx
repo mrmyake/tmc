@@ -71,29 +71,38 @@ export default async function TrialBookingPage() {
     }
 
     const ids = (sessions ?? []).map((s) => s.id);
-    const spotsBySession = new Map<string, number>();
+    // spots_available NULL betekent onbeperkte capaciteit (alleen
+    // kettlebell): altijd boekbaar. Sessies zonder availability-rij
+    // blijven, net als voorheen, uitgefilterd.
+    const spotsBySession = new Map<string, number | null>();
     if (ids.length > 0) {
       const { data: availability } = await admin
         .from("v_session_availability")
         .select("id, spots_available")
         .in("id", ids);
       for (const row of availability ?? []) {
-        spotsBySession.set(row.id, row.spots_available ?? 0);
+        spotsBySession.set(row.id, row.spots_available);
       }
     }
 
     options = (sessions ?? [])
-      .filter((s) => (spotsBySession.get(s.id) ?? 0) > 0)
-      .map((s) => ({
-        id: s.id,
-        startAt: s.start_at,
-        endAt: s.end_at,
-        pillarLabel: PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar,
-        className: s.class_type?.name ?? "Sessie",
-        trainerName: s.trainer?.display_name ?? "coach",
-        spotsAvailable: spotsBySession.get(s.id) ?? 0,
-        priceCents: priceByPillar[s.pillar] ?? 0,
-      }));
+      .filter((s) => {
+        const spots = spotsBySession.get(s.id);
+        return spots === null || (spots ?? 0) > 0;
+      })
+      .map((s) => {
+        const spots = spotsBySession.get(s.id);
+        return {
+          id: s.id,
+          startAt: s.start_at,
+          endAt: s.end_at,
+          pillarLabel: PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar,
+          className: s.class_type?.name ?? "Sessie",
+          trainerName: s.trainer?.display_name ?? "coach",
+          spotsAvailable: spots === undefined ? 0 : spots,
+          priceCents: priceByPillar[s.pillar] ?? 0,
+        };
+      });
   }
 
   return <TrialBookingList options={options} />;

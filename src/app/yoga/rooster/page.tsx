@@ -31,7 +31,8 @@ type SessionRow = {
   start_at: string;
   end_at: string;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   class_type: { name: string } | null;
   trainer: { display_name: string } | null;
 };

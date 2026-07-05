@@ -280,7 +280,14 @@ export function AttendanceList({
 
       {/* Summary strip */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mb-6 pb-6 border-b border-[color:var(--ink-500)]/60">
-        <SummaryStat label="Totaal" value={`${stats.total}/${session.capacity}`} />
+        <SummaryStat
+          label="Totaal"
+          value={
+            session.capacity === null
+              ? String(stats.total)
+              : `${stats.total}/${session.capacity}`
+          }
+        />
         <SummaryStat label="Aanwezig" value={String(stats.attended)} tone="success" />
         <SummaryStat label="No-show" value={String(stats.noShow)} tone="danger" />
         <div className="ml-auto flex items-center gap-3">

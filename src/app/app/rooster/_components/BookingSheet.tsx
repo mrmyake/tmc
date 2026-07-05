@@ -304,9 +304,12 @@ export function BookingSheet({
                 <Detail
                   label="Groep"
                   value={
-                    isFull
-                      ? `Vol · ${session.bookedCount} / ${session.capacity}`
-                      : `${Math.max(0, session.capacity - session.bookedCount)} plekken nog vrij · max ${session.capacity}`
+                    session.capacity === null
+                      ? // COPY: confirm met Marlon
+                        `${session.bookedCount} aangemeld · onbeperkt aantal plekken`
+                      : isFull
+                        ? `Vol · ${session.bookedCount} / ${session.capacity}`
+                        : `${Math.max(0, session.capacity - session.bookedCount)} plekken nog vrij · max ${session.capacity}`
                   }
                 />
               </dl>

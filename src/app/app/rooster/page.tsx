@@ -32,7 +32,8 @@ type SessionRow = {
   start_at: string;
   end_at: string;
   status: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   pillar: string;
   class_type: { name: string } | null;
   trainer: { display_name: string; bio: string | null } | null;
@@ -286,7 +287,10 @@ export default async function RoosterPage(props: {
     else if (isOngoing(start, end, now)) status = "ongoing";
     else if (booking) status = "booked";
     else if (waitlisted) status = "waitlisted";
-    else if (bookedCount >= s.capacity) status = "full";
+    // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
+    // Expliciete null-check; anders coercet JS null naar 0 en zou elke
+    // onbeperkte sessie direct als vol renderen.
+    else if (s.capacity !== null && bookedCount >= s.capacity) status = "full";
     else if (s.status !== "scheduled") status = "cancelled";
     else status = "open";
 

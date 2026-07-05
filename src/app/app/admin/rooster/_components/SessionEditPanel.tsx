@@ -42,7 +42,8 @@ export function SessionEditPanel({
   const [result, setResult] = useState<AdminActionResult | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [trainerId, setTrainerId] = useState("");
-  const [capacity, setCapacity] = useState<number>(0);
+  // NULL betekent onbeperkt (alleen kettlebell).
+  const [capacity, setCapacity] = useState<number | null>(0);
   const [notes, setNotes] = useState("");
   const [blocksFreeTraining, setBlocksFreeTraining] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -263,14 +264,23 @@ export function SessionEditPanel({
 
                 <AdminField
                   label="Capaciteit"
-                  hint={`${session.bookedCount} boeking(en) nu. Nieuwe waarde moet ≥ ${session.bookedCount} zijn.`}
+                  // COPY: confirm met Marlon
+                  hint={`${session.bookedCount} boeking(en) nu. Nieuwe waarde moet minstens ${session.bookedCount} zijn; leeg betekent onbeperkt.`}
                 >
                   <AdminInput
                     type="number"
                     min={1}
                     max={50}
-                    value={capacity}
-                    onChange={(e) => setCapacity(Number(e.target.value) || 0)}
+                    value={capacity ?? ""}
+                    // COPY: confirm met Marlon
+                    placeholder="Onbeperkt"
+                    onChange={(e) =>
+                      setCapacity(
+                        e.target.value.trim() === ""
+                          ? null
+                          : Number(e.target.value) || 0,
+                      )
+                    }
                     disabled={sessionIsCancelled || pending}
                   />
                 </AdminField>

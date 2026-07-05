@@ -24,7 +24,8 @@ type SessionRow = {
   end_at: string;
   status: string;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   class_type: { name: string | null } | null;
 };
 
@@ -178,7 +179,10 @@ export default async function TrainerSessiesPage() {
                         </p>
                         <p className="text-text-muted text-xs mt-0.5">
                           {PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar} ·{" "}
-                          {booked}/{s.capacity} geboekt
+                          {s.capacity === null
+                            ? // COPY: confirm met Marlon
+                              `${booked} geboekt`
+                            : `${booked}/${s.capacity} geboekt`}
                         </p>
                       </div>
                       <Link

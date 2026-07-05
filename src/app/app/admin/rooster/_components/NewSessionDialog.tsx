@@ -58,7 +58,8 @@ export function NewSessionDialog({
   const [date, setDate] = useState(defaultDate);
   const [startTime, setStartTime] = useState("09:00");
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [capacity, setCapacity] = useState(8);
+  // NULL betekent onbeperkt (alleen kettlebell); volgt de class-type-default.
+  const [capacity, setCapacity] = useState<number | null>(8);
   const [notes, setNotes] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [hasEndDate, setHasEndDate] = useState(false);
@@ -68,12 +69,10 @@ export function NewSessionDialog({
   const selectedType = classTypes.find((t) => t.id === classTypeId);
 
   // Sync capacity + duration from chosen class type (but only when type changes).
-  // defaultCapacity can be null (onbeperkt); dit dialoog boekt losse
-  // sessies met een harde capaciteit, dus val terug op 8 totdat PR 2
-  // nullable capaciteit hier functioneel maakt.
+  // defaultCapacity null betekent onbeperkt en stroomt door naar de sessie.
   useEffect(() => {
     if (!selectedType) return;
-    setCapacity(selectedType.defaultCapacity ?? 8);
+    setCapacity(selectedType.defaultCapacity);
     setDurationMinutes(selectedType.defaultDurationMinutes);
   }, [selectedType]);
 
@@ -376,14 +375,24 @@ export function NewSessionDialog({
                       }
                     />
                   </AdminField>
-                  <AdminField label="Capaciteit">
+                  <AdminField
+                    label="Capaciteit"
+                    // COPY: confirm met Marlon
+                    hint="Leeg laten betekent onbeperkt (alleen kettlebell)."
+                  >
                     <AdminInput
                       type="number"
                       min={1}
                       max={50}
-                      value={capacity}
+                      value={capacity ?? ""}
+                      // COPY: confirm met Marlon
+                      placeholder="Onbeperkt"
                       onChange={(e) =>
-                        setCapacity(Number(e.target.value) || 1)
+                        setCapacity(
+                          e.target.value.trim() === ""
+                            ? null
+                            : Number(e.target.value) || 1,
+                        )
                       }
                     />
                   </AdminField>

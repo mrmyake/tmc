@@ -6,7 +6,8 @@ export interface AdminSessionBlockData {
   trainerName: string;
   pillar: string;
   ageCategory: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   bookedCount: number;
   startAt: string;
   endAt: string;
@@ -49,7 +50,8 @@ export interface AdminScheduleTemplateOption {
   dayOfWeek: number;
   startTime: string; // "HH:mm"
   durationMinutes: number;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   blocksFreeTraining: boolean;
   validFrom: string; // ISO date
   validUntil: string | null;

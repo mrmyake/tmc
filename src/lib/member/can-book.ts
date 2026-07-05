@@ -6,7 +6,8 @@ export interface CanBookSession {
   status: string;
   pillar: string;
   age_category: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
 }
 
 export interface CanBookMembership {
@@ -123,7 +124,12 @@ export function canBook(params: {
     return { allowed: false, reason: "session_in_past" };
   }
 
-  if (usage.bookedCountThisSession >= session.capacity) {
+  // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol,
+  // geen waitlist-pad. Zelfde overslag-tak als in de book_class_session RPC.
+  if (
+    session.capacity !== null &&
+    usage.bookedCountThisSession >= session.capacity
+  ) {
     return { allowed: false, reason: "capacity_full", canJoinWaitlist: true };
   }
 

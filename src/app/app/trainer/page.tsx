@@ -25,7 +25,8 @@ type SessionRow = {
   start_at: string;
   end_at: string;
   pillar: string;
-  capacity: number;
+  /** NULL betekent onbeperkt (alleen kettlebell). */
+  capacity: number | null;
   class_type: { name: string | null } | null;
 };
 
@@ -291,7 +292,8 @@ export default async function TrainerHomePage() {
               const end = new Date(s.end_at);
               const p = amsterdamParts(start);
               const booked = bookedBy.get(s.id) ?? 0;
-              const full = booked >= s.capacity;
+              // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
+              const full = s.capacity !== null && booked >= s.capacity;
               return (
                 <li
                   key={s.id}
@@ -320,7 +322,10 @@ export default async function TrainerHomePage() {
                           full ? "text-[color:var(--warning)]" : undefined
                         }
                       >
-                        {booked}/{s.capacity} deelnemers
+                        {s.capacity === null
+                          ? // COPY: confirm met Marlon
+                            `${booked} deelnemers`
+                          : `${booked}/${s.capacity} deelnemers`}
                       </span>
                     </p>
                   </div>

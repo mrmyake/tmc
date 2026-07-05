@@ -163,7 +163,14 @@ export function MobileAttendanceList({
       </header>
 
       <div className="grid grid-cols-3 gap-3 mb-6 pb-6 border-b border-[color:var(--ink-500)]/60">
-        <Stat label="Totaal" value={`${stats.total}/${session.capacity}`} />
+        <Stat
+          label="Totaal"
+          value={
+            session.capacity === null
+              ? String(stats.total)
+              : `${stats.total}/${session.capacity}`
+          }
+        />
         <Stat
           label="Aanwezig"
           value={String(stats.attended)}
