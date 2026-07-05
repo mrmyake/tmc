@@ -5,8 +5,12 @@ import { amsterdamDayOfWeek, toIsoDate, zonedWallClockToUtc } from "./amsterdam-
 export interface FreeTrainingSlot {
   /** ISO date (yyyy-mm-dd), Amsterdam-local dag. */
   date: string;
-  /** Lege array = geen vrij-trainen-ruimte die dag (dicht, of volledig geblokkeerd). */
+  /** True = dicht die dag (opening_hours of exception); slots/blocked zijn dan altijd leeg. */
+  isClosed: boolean;
+  /** Lege array kan ook betekenen: open, maar volledig geblokkeerd door sessies. */
   slots: Array<{ start: string; end: string }>; // ISO UTC instants
+  /** Segmenten binnen de openingstijd die bezet zijn door een blocks_free_training-sessie. */
+  blocked: Array<{ start: string; end: string; className: string }>;
 }
 
 interface OpeningHoursRow {
@@ -26,6 +30,12 @@ interface OpeningHoursExceptionRow {
 interface BlockingSessionRow {
   start_at: string;
   end_at: string;
+  class_type: { name: string } | { name: string }[] | null;
+}
+
+function blockingClassName(row: BlockingSessionRow): string {
+  const ct = Array.isArray(row.class_type) ? row.class_type[0] : row.class_type;
+  return ct?.name ?? "Sessie";
 }
 
 function parseHms(t: string): { h: number; m: number } {
@@ -60,7 +70,7 @@ export async function getFreeTrainingAvailability(opts: {
       .returns<OpeningHoursExceptionRow[]>(),
     admin
       .from("class_sessions")
-      .select("start_at, end_at")
+      .select("start_at, end_at, class_type:class_types(name)")
       .eq("status", "scheduled")
       .eq("blocks_free_training", true)
       .lt("start_at", opts.to.toISOString())
@@ -77,6 +87,7 @@ export async function getFreeTrainingAvailability(opts: {
   const blocking = (blockingRes.data ?? []).map((r) => ({
     start: new Date(r.start_at),
     end: new Date(r.end_at),
+    className: blockingClassName(r),
   }));
 
   const days: FreeTrainingSlot[] = [];
@@ -96,7 +107,7 @@ export async function getFreeTrainingAvailability(opts: {
     const closesAt = exception ? exception.closes_at : base?.closes_at;
 
     if (isClosed || !opensAt || !closesAt) {
-      days.push({ date: dateIso, slots: [] });
+      days.push({ date: dateIso, isClosed: true, slots: [], blocked: [] });
       continue;
     }
 
@@ -115,6 +126,7 @@ export async function getFreeTrainingAvailability(opts: {
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     const slots: Array<{ start: string; end: string }> = [];
+    const blocked: Array<{ start: string; end: string; className: string }> = [];
     let openCursor = dayOpenUtc;
     for (const b of dayBlocking) {
       const bStart = b.start < dayOpenUtc ? dayOpenUtc : b.start;
@@ -125,6 +137,11 @@ export async function getFreeTrainingAvailability(opts: {
           end: bStart.toISOString(),
         });
       }
+      blocked.push({
+        start: bStart.toISOString(),
+        end: bEnd.toISOString(),
+        className: b.className,
+      });
       if (bEnd > openCursor) openCursor = bEnd;
     }
     if (openCursor < dayCloseUtc) {
@@ -134,7 +151,7 @@ export async function getFreeTrainingAvailability(opts: {
       });
     }
 
-    days.push({ date: dateIso, slots });
+    days.push({ date: dateIso, isClosed: false, slots, blocked });
   }
 
   return days;

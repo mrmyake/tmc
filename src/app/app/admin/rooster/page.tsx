@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
 import { RoosterEditorClient } from "./RoosterEditorClient";
+import { FreeTrainingPanel } from "./_components/FreeTrainingPanel";
 import {
   GRID_END_HOUR,
   GRID_START_HOUR,
@@ -358,6 +359,8 @@ export default async function AdminRoosterPage(props: {
         scheduleTemplates={scheduleTemplates}
         defaultNewDate={defaultNewDate}
       />
+
+      <FreeTrainingPanel />
     </div>
   );
 }
