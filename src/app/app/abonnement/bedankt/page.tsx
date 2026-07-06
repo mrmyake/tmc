@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Confetti } from "@/components/blocks/crowdfunding/Confetti";
+import { Confetti } from "@/components/ui/Confetti";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { formatEuro } from "@/lib/crowdfunding-helpers";

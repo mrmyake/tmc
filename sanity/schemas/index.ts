@@ -5,8 +5,6 @@ import offering from "./offering";
 import pricingTier from "./pricingTier";
 import faq from "./faq";
 import siteImages from "./siteImages";
-import crowdfundingSettings from "./crowdfundingSettings";
-import crowdfundingTier from "./crowdfundingTier";
 import yogaStyle from "./yogaStyle";
 import yogaTeacher from "./yogaTeacher";
 
@@ -19,16 +17,17 @@ import yogaTeacher from "./yogaTeacher";
 // - classPillar  — member-system gebruikt Supabase enums, geen Sanity docs
 // - classType    — idem
 // - scheduleTemplate, membershipPlan, bookingSettings — live in Supabase
+// - crowdfundingSettings, crowdfundingTier — campagne vervangen door Early
+//   Member (/early-member); documenten blijven in de dataset voor de legacy
+//   checkout/webhook-routes, maar zijn niet meer bewerkbaar in Studio
 
 export const schemaTypes = [
   siteSettings,
   siteImages,
   openingHours,
-  crowdfundingSettings,
   trainer,
   offering,
   pricingTier,
-  crowdfundingTier,
   faq,
   yogaStyle,
   yogaTeacher,

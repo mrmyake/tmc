@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    // De crowdfunding-campagne is vervangen door Early Member. Permanente
+    // redirect zodat oude links (social, mail, QR) blijven werken.
+    return [
+      {
+        source: "/crowdfunding",
+        destination: "/early-member",
+        permanent: true,
+      },
+      {
+        source: "/crowdfunding/:path*",
+        destination: "/early-member",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

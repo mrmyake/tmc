@@ -1,3 +1,8 @@
+// LEGACY: de publieke crowdfunding-campagne is vervangen door /early-member
+// en de pagina's die dit endpoint aanriepen bestaan niet meer. De route blijft
+// tijdelijk staan als referentie voor het oneoff-Mollie-patroon (o.a. voor de
+// trial-booking-flow) en voor eventuele nog openstaande betalingen.
+// Opruimen in een latere PR, samen met de crowdfunding-tabellen/RPC's.
 import { NextResponse } from "next/server";
 import { PaymentMethod } from "@mollie/api-client";
 import { getMollieClient } from "@/lib/mollie";
