@@ -6,12 +6,19 @@
 --     (claimed + niet-verlopen reserved) en reserveert onder de cap. Idempotent
 --     per profiel-per-pool.
 --   * claim_early_member_slot() flipt reserved -> claimed vanuit de Mollie-webhook
---     (service_role, PR 2).
+--     (service_role, PR 2). Superseedt een eventuele nieuwere hold van hetzelfde
+--     profiel zodat de unique index nooit botst.
+--   * cancel_early_member_reservation() geeft een plek terug na refund/chargeback
+--     of een gesuperseedde checkout (service_role, tooling in latere PR).
 --   * De release-cron (/api/cron/release-early-member-holds) zet verlopen holds op
 --     'expired' — puur boekhouding: de telling negeert verlopen holds sowieso via
 --     expires_at, dus correctheid hangt nooit af van cron-timing.
 --   * get_early_member_availability() voedt de publieke "nog X van 40"-teller
 --     zonder de reserveringstabel publiek te maken.
+--
+-- Alle schrijf-RPC's zijn service_role-only: reserveren gebeurt uitsluitend via de
+-- checkout server action (PR 2), nooit rechtstreeks vanuit de client. Dit voorkomt
+-- dat ingelogde accounts zonder betaalintentie de pools kunnen kampeer-blokkeren.
 
 -- ---------------------------------------------------------------------------
 -- Pool-configuratie
@@ -48,11 +55,11 @@ ON CONFLICT ("pool") DO NOTHING;
 CREATE TABLE IF NOT EXISTS "tmc"."early_member_reservations" (
     "id" uuid DEFAULT gen_random_uuid() NOT NULL,
     "pool" text NOT NULL,
-    "profile_id" uuid NOT NULL,
+    "profile_id" uuid,
     "status" text DEFAULT 'reserved' NOT NULL,
-    "reserved_at" timestamp with time zone DEFAULT now() NOT NULL,
     "expires_at" timestamp with time zone NOT NULL,
     "claimed_at" timestamp with time zone,
+    "cancelled_at" timestamp with time zone,
     "mollie_payment_id" text,
     "membership_id" uuid,
     "created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -61,8 +68,11 @@ CREATE TABLE IF NOT EXISTS "tmc"."early_member_reservations" (
         CHECK ("status" IN ('reserved', 'claimed', 'expired', 'cancelled')),
     CONSTRAINT "early_member_reservations_pool_fkey"
         FOREIGN KEY ("pool") REFERENCES "tmc"."early_member_pools"("pool"),
+    -- SET NULL i.p.v. CASCADE: een hard-delete van een lid mag een geclaimde
+    -- (betaalde) plek nooit stilletjes heropenen of het betaalspoor
+    -- (mollie_payment_id) wissen — zelfde keuze als tmc.payments.
     CONSTRAINT "early_member_reservations_profile_id_fkey"
-        FOREIGN KEY ("profile_id") REFERENCES "tmc"."profiles"("id") ON DELETE CASCADE,
+        FOREIGN KEY ("profile_id") REFERENCES "tmc"."profiles"("id") ON DELETE SET NULL,
     CONSTRAINT "early_member_reservations_membership_id_fkey"
         FOREIGN KEY ("membership_id") REFERENCES "tmc"."memberships"("id") ON DELETE SET NULL
 );
@@ -71,6 +81,9 @@ ALTER TABLE "tmc"."early_member_reservations" OWNER TO "postgres";
 
 COMMENT ON TABLE "tmc"."early_member_reservations" IS
   'Early Member slot-holds. Bezet = claimed + reserved met expires_at in de toekomst; verlopen holds tellen nooit mee, ook vóór de release-cron ze op expired zet.';
+
+COMMENT ON COLUMN "tmc"."early_member_reservations"."status" IS
+  'Lees status nooit los van expires_at: een rij kan tot de volgende cron-run op reserved staan terwijl de hold al verlopen is. Actief = claimed OR (reserved AND expires_at > now()).';
 
 -- Eén actieve reservering per profiel per pool (idempotentie-anker).
 CREATE UNIQUE INDEX IF NOT EXISTS "early_member_reservations_active_profile_idx"
@@ -94,14 +107,17 @@ ALTER TABLE "tmc"."early_member_reservations" ENABLE ROW LEVEL SECURITY;
 
 -- Pools: alleen admin leest de config direct; de publieke teller loopt via
 -- get_early_member_availability() (SECURITY DEFINER).
+DROP POLICY IF EXISTS "early_member_pools_admin_read" ON "tmc"."early_member_pools";
 CREATE POLICY "early_member_pools_admin_read" ON "tmc"."early_member_pools"
     FOR SELECT USING ("tmc"."is_admin"());
 
 -- Reserveringen: leden zien alleen hun eigen rij; admin alles.
 -- Schrijven gaat uitsluitend via de RPC's en service_role.
+DROP POLICY IF EXISTS "early_member_reservations_self_read" ON "tmc"."early_member_reservations";
 CREATE POLICY "early_member_reservations_self_read" ON "tmc"."early_member_reservations"
     FOR SELECT USING ("profile_id" = "auth"."uid"());
 
+DROP POLICY IF EXISTS "early_member_reservations_admin_read" ON "tmc"."early_member_reservations";
 CREATE POLICY "early_member_reservations_admin_read" ON "tmc"."early_member_reservations"
     FOR SELECT USING ("tmc"."is_admin"());
 
@@ -129,8 +145,12 @@ declare
   v_occupied integer;
   v_reservation tmc.early_member_reservations%rowtype;
 begin
-  -- Ingelogde gebruikers kunnen alleen voor zichzelf reserveren;
-  -- service_role (auth.uid() is null) mag elk profiel doorgeven.
+  if p_profile_id is null then
+    raise exception 'p_profile_id is verplicht.' using errcode = '22004';
+  end if;
+
+  -- Defense-in-depth: de functie is service_role-only, maar mocht de grant ooit
+  -- verruimd worden dan kan een ingelogde caller alleen voor zichzelf reserveren.
   if v_uid is not null and v_uid <> p_profile_id then
     raise exception 'Reservering kan alleen voor het eigen profiel.' using errcode = '42501';
   end if;
@@ -145,11 +165,9 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'pool_not_found');
   end if;
 
-  if now() >= v_pool.closes_at then
-    return jsonb_build_object('ok', false, 'reason', 'closed');
-  end if;
-
-  -- Idempotent: bestaande actieve reservering (of claim) teruggeven.
+  -- Idempotentie vóór de sluitdatum-check: wie al een geldige hold (of claim)
+  -- heeft, houdt die ook net na closes_at — anders blokkeert een page-refresh
+  -- op de sluitingsavond de checkout die de hold juist moest garanderen.
   select * into v_existing
   from tmc.early_member_reservations
   where pool = p_pool
@@ -158,6 +176,16 @@ begin
   limit 1;
 
   if found then
+    if v_existing.status = 'claimed' then
+      -- Al betaald: expliciet weigeren zodat de checkout-laag (PR 2) nooit per
+      -- ongeluk een tweede Mollie-betaling start voor een al gekochte plek.
+      return jsonb_build_object(
+        'ok', false,
+        'reason', 'already_claimed',
+        'reservation_id', v_existing.id
+      );
+    end if;
+
     return jsonb_build_object(
       'ok', true,
       'reservation_id', v_existing.id,
@@ -165,6 +193,10 @@ begin
       'expires_at', v_existing.expires_at,
       'existing', true
     );
+  end if;
+
+  if now() >= v_pool.closes_at then
+    return jsonb_build_object('ok', false, 'reason', 'closed');
   end if;
 
   -- Verlopen hold van dit profiel opruimen zodat de unique index niet botst.
@@ -203,10 +235,9 @@ $$;
 ALTER FUNCTION "tmc"."reserve_early_member_slot"(text, uuid) OWNER TO "postgres";
 
 COMMENT ON FUNCTION "tmc"."reserve_early_member_slot"(text, uuid) IS
-  'Reserveert atomair een Early Member-plek: lockt de pool-rij, telt bezet (claimed + niet-verlopen reserved) en reserveert onder de cap en vóór closes_at. Idempotent per profiel-per-pool. Ingelogde callers alleen voor eigen profiel (42501); service_role vrij.';
+  'Reserveert atomair een Early Member-plek: lockt de pool-rij, telt bezet (claimed + niet-verlopen reserved) en reserveert onder de cap en vóór closes_at. Idempotent per profiel-per-pool; een al geclaimde plek geeft already_claimed terug. Service_role-only: alleen aanroepbaar vanuit de checkout server action, zodat accounts zonder betaalintentie de pools niet kunnen blokkeren.';
 
 REVOKE ALL ON FUNCTION "tmc"."reserve_early_member_slot"(text, uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION "tmc"."reserve_early_member_slot"(text, uuid) TO "authenticated";
 GRANT ALL ON FUNCTION "tmc"."reserve_early_member_slot"(text, uuid) TO "service_role";
 
 -- ---------------------------------------------------------------------------
@@ -223,15 +254,24 @@ CREATE OR REPLACE FUNCTION "tmc"."claim_early_member_slot"(
     AS $$
 declare
   v_reservation tmc.early_member_reservations%rowtype;
+  v_was_expired boolean;
 begin
   select * into v_reservation
   from tmc.early_member_reservations
-  where id = p_reservation_id
-  for update;
+  where id = p_reservation_id;
 
   if not found then
     return jsonb_build_object('ok', false, 'reason', 'not_found');
   end if;
+
+  -- Zelfde lock-volgorde als reserve (eerst pool, dan reserveringen) zodat
+  -- claim en reserve elkaar nooit kunnen deadlocken.
+  perform 1 from tmc.early_member_pools where pool = v_reservation.pool for update;
+
+  select * into v_reservation
+  from tmc.early_member_reservations
+  where id = p_reservation_id
+  for update;
 
   -- Webhook-retries: een tweede claim op dezelfde rij is een no-op.
   if v_reservation.status = 'claimed' then
@@ -246,10 +286,37 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'cancelled');
   end if;
 
+  v_was_expired := v_reservation.status = 'expired';
+
+  if v_reservation.profile_id is not null then
+    -- Heeft dit profiel al een ándere geclaimde plek in deze pool, dan is dit
+    -- een dubbele betaling: niet claimen, de webhook-laag moet refunden/alarmeren.
+    if exists (
+      select 1 from tmc.early_member_reservations
+      where pool = v_reservation.pool
+        and profile_id = v_reservation.profile_id
+        and status = 'claimed'
+        and id <> p_reservation_id
+    ) then
+      return jsonb_build_object('ok', false, 'reason', 'profile_already_claimed');
+    end if;
+
+    -- Een nieuwere hold van hetzelfde profiel (gestart nadat deze verliep)
+    -- superseden, anders botst de flip naar claimed op de unique index.
+    update tmc.early_member_reservations
+       set status = 'cancelled',
+           cancelled_at = now()
+     where pool = v_reservation.pool
+       and profile_id = v_reservation.profile_id
+       and status = 'reserved'
+       and id <> p_reservation_id;
+  end if;
+
   -- 'reserved' én 'expired' zijn claimbaar: een afgeronde betaling wint van de
   -- hold-deadline. In het zeldzame geval dat de pool intussen weer volliep kan
   -- de telling daardoor één boven de cap uitkomen — de klant kreeg de deal
-  -- beloofd bij checkout-start, dus die honoreren we.
+  -- beloofd bij checkout-start, dus die honoreren we. was_expired in het
+  -- resultaat laat de webhook-laag dat geval loggen/alarmeren.
   update tmc.early_member_reservations
      set status = 'claimed',
          claimed_at = now(),
@@ -260,7 +327,8 @@ begin
   return jsonb_build_object(
     'ok', true,
     'reservation_id', p_reservation_id,
-    'already_claimed', false
+    'already_claimed', false,
+    'was_expired', v_was_expired
   );
 end;
 $$;
@@ -268,10 +336,65 @@ $$;
 ALTER FUNCTION "tmc"."claim_early_member_slot"(uuid, uuid, text) OWNER TO "postgres";
 
 COMMENT ON FUNCTION "tmc"."claim_early_member_slot"(uuid, uuid, text) IS
-  'Flipt een Early Member-reservering naar claimed bij bevestigde Mollie-betaling en koppelt de membership. Idempotent bij webhook-retries; expired-maar-betaald wordt gehonoreerd. Alleen service_role.';
+  'Flipt een Early Member-reservering naar claimed bij bevestigde Mollie-betaling en koppelt de membership. Idempotent bij webhook-retries; expired-maar-betaald wordt gehonoreerd (was_expired in resultaat); een nieuwere hold van hetzelfde profiel wordt gesuperseed. Alleen service_role.';
 
 REVOKE ALL ON FUNCTION "tmc"."claim_early_member_slot"(uuid, uuid, text) FROM PUBLIC;
 GRANT ALL ON FUNCTION "tmc"."claim_early_member_slot"(uuid, uuid, text) TO "service_role";
+
+-- ---------------------------------------------------------------------------
+-- RPC: plek teruggeven (refund/chargeback of handmatige vrijgave)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION "tmc"."cancel_early_member_reservation"(
+    "p_reservation_id" uuid
+) RETURNS jsonb
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'tmc', 'extensions'
+    AS $$
+declare
+  v_reservation tmc.early_member_reservations%rowtype;
+begin
+  select * into v_reservation
+  from tmc.early_member_reservations
+  where id = p_reservation_id;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+
+  -- Zelfde lock-volgorde als reserve/claim.
+  perform 1 from tmc.early_member_pools where pool = v_reservation.pool for update;
+
+  select * into v_reservation
+  from tmc.early_member_reservations
+  where id = p_reservation_id
+  for update;
+
+  if v_reservation.status = 'cancelled' then
+    return jsonb_build_object('ok', true, 'reservation_id', v_reservation.id, 'already_cancelled', true);
+  end if;
+
+  update tmc.early_member_reservations
+     set status = 'cancelled',
+         cancelled_at = now()
+   where id = p_reservation_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'reservation_id', p_reservation_id,
+    'already_cancelled', false,
+    'previous_status', v_reservation.status
+  );
+end;
+$$;
+
+ALTER FUNCTION "tmc"."cancel_early_member_reservation"(uuid) OWNER TO "postgres";
+
+COMMENT ON FUNCTION "tmc"."cancel_early_member_reservation"(uuid) IS
+  'Geeft een Early Member-plek terug: zet de reservering op cancelled (bijv. na refund/chargeback), waarna de plek weer meetelt als vrij en het profiel opnieuw kan reserveren. Idempotent. Alleen service_role.';
+
+REVOKE ALL ON FUNCTION "tmc"."cancel_early_member_reservation"(uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION "tmc"."cancel_early_member_reservation"(uuid) TO "service_role";
 
 -- ---------------------------------------------------------------------------
 -- Publieke teller

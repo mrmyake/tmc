@@ -19,12 +19,11 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
 
-  const { data, error } = await admin
+  const { count, error } = await admin
     .from("early_member_reservations")
-    .update({ status: "expired" })
+    .update({ status: "expired" }, { count: "exact" })
     .eq("status", "reserved")
-    .lt("expires_at", nowIso)
-    .select("id");
+    .lt("expires_at", nowIso);
 
   if (error) {
     console.error("[cron/release-early-member-holds]", error);
@@ -34,5 +33,5 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, released: data?.length ?? 0 });
+  return NextResponse.json({ ok: true, released: count ?? 0 });
 }
