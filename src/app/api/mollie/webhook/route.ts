@@ -216,10 +216,15 @@ export async function POST(request: Request) {
       type === "first_payment" &&
       membershipId
     ) {
+      const emReservationId =
+        typeof meta.earlyMemberReservationId === "string"
+          ? meta.earlyMemberReservationId
+          : undefined;
+
       const { data: membership } = await supabase
         .from("memberships")
         .select(
-          "id,status,price_per_cycle_cents,billing_cycle_weeks,plan_variant,mollie_customer_id,mollie_subscription_id"
+          "id,status,price_per_cycle_cents,extended_access_price_cents,billing_cycle_weeks,plan_variant,mollie_customer_id,mollie_subscription_id"
         )
         .eq("id", membershipId)
         .maybeSingle();
@@ -230,77 +235,121 @@ export async function POST(request: Request) {
       }
 
       // Status bijwerken bij elke transitie
-      if (payment.status === "paid" && membership.status !== "active") {
-        const startDate = new Date().toISOString().split("T")[0];
-        await supabase
-          .from("memberships")
-          .update({
-            status: "active",
-            start_date: startDate,
-            registration_fee_paid: true,
-          })
-          .eq("id", membership.id);
+      if (payment.status === "paid") {
+        if (membership.status !== "active") {
+          const startDate = new Date().toISOString().split("T")[0];
+          await supabase
+            .from("memberships")
+            .update({
+              status: "active",
+              start_date: startDate,
+              registration_fee_paid: true,
+            })
+            .eq("id", membership.id);
 
-        // Maak Mollie subscription (alleen plan-prijs, zonder inschrijfkosten)
-        if (!membership.mollie_subscription_id && membership.mollie_customer_id) {
-          try {
-            const subStart = new Date();
-            subStart.setDate(
-              subStart.getDate() + membership.billing_cycle_weeks * 7
-            );
-            const startDateISO = subStart.toISOString().split("T")[0];
+          // Maak Mollie subscription: plan-prijs + eventuele verlengde-
+          // toegang-add-on, zonder inschrijfkosten.
+          if (!membership.mollie_subscription_id && membership.mollie_customer_id) {
+            try {
+              const subStart = new Date();
+              subStart.setDate(
+                subStart.getDate() + membership.billing_cycle_weeks * 7
+              );
+              const startDateISO = subStart.toISOString().split("T")[0];
 
-            const siteUrl =
-              process.env.NEXT_PUBLIC_SITE_URL ||
-              "https://www.themovementclub.nl";
+              const siteUrl =
+                process.env.NEXT_PUBLIC_SITE_URL ||
+                "https://www.themovementclub.nl";
 
-            const subscription = await mollie.customerSubscriptions.create({
-              customerId: membership.mollie_customer_id,
-              amount: {
-                currency: "EUR",
-                value: (membership.price_per_cycle_cents / 100).toFixed(2),
-              },
-              interval: "28 days",
-              description: `TMC ${membership.plan_variant}`,
-              startDate: startDateISO,
-              webhookUrl: `${siteUrl}/api/mollie/webhook`,
-              metadata: {
-                membershipId: membership.id,
-                type: "recurring",
-              },
-            });
+              const recurringCents =
+                membership.price_per_cycle_cents +
+                (membership.extended_access_price_cents ?? 0);
+              const subscription = await mollie.customerSubscriptions.create({
+                customerId: membership.mollie_customer_id,
+                amount: {
+                  currency: "EUR",
+                  value: (recurringCents / 100).toFixed(2),
+                },
+                interval: "28 days",
+                description: `TMC ${membership.plan_variant}`,
+                startDate: startDateISO,
+                webhookUrl: `${siteUrl}/api/mollie/webhook`,
+                metadata: {
+                  membershipId: membership.id,
+                  type: "recurring",
+                },
+              });
 
-            await supabase
-              .from("memberships")
-              .update({ mollie_subscription_id: subscription.id })
-              .eq("id", membership.id);
-          } catch (e) {
-            console.error(
-              "[mollie/webhook] subscription create failed",
-              e
-            );
-            // Membership is active, maar subscription mislukt — admin moet
-            // handmatig afronden. ntfy hieronder.
+              await supabase
+                .from("memberships")
+                .update({ mollie_subscription_id: subscription.id })
+                .eq("id", membership.id);
+            } catch (e) {
+              console.error(
+                "[mollie/webhook] subscription create failed",
+                e
+              );
+              // Membership is active, maar subscription mislukt — admin moet
+              // handmatig afronden. ntfy hieronder.
+            }
           }
+
+          await sendNotification(
+            "Nieuw abonnement!",
+            `Membership ${membership.id} (${membership.plan_variant}) geactiveerd. €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)} ontvangen.`,
+            "tada,moneybag"
+          );
+          await emitEvent({
+            type: "membership.activated",
+            actorType: "system",
+            subjectType: "membership",
+            subjectId: membership.id,
+            payload: {
+              profile_id: profileId ?? null,
+              membership_id: membership.id,
+              plan_variant: membership.plan_variant,
+              payment_id: payment.id,
+            },
+          });
         }
 
-        await sendNotification(
-          "Nieuw abonnement!",
-          `Membership ${membership.id} (${membership.plan_variant}) geactiveerd. €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)} ontvangen.`,
-          "tada,moneybag"
-        );
-        await emitEvent({
-          type: "membership.activated",
-          actorType: "system",
-          subjectType: "membership",
-          subjectId: membership.id,
-          payload: {
-            profile_id: profileId ?? null,
-            membership_id: membership.id,
-            plan_variant: membership.plan_variant,
-            payment_id: payment.id,
-          },
-        });
+        // Early Member: claim de gereserveerde pool-plek. Bewust búiten de
+        // status-guard, zodat een webhook-retry een eerder mislukte claim
+        // alsnog afrondt — de RPC zelf is idempotent (already_claimed no-op).
+        if (emReservationId) {
+          const { data: claim, error: claimErr } = await supabase.rpc(
+            "claim_early_member_slot",
+            {
+              p_reservation_id: emReservationId,
+              p_membership_id: membership.id,
+              p_mollie_payment_id: payment.id,
+            }
+          );
+          if (claimErr || !claim) {
+            console.error("[mollie/webhook] claim slot failed", claimErr);
+            await sendNotification(
+              "Early Member claim gefaald",
+              `Membership ${membership.id}: reservering ${emReservationId} kon niet geclaimd worden — handmatig naklopen.`,
+              "warning"
+            );
+          } else if (!claim.ok) {
+            // profile_already_claimed = dubbele betaling voor dezelfde pool;
+            // cancelled = plek was al teruggegeven. Beide vragen om een mens.
+            await sendNotification(
+              "Early Member claim geweigerd",
+              `Membership ${membership.id}: reservering ${emReservationId} → ${claim.reason}. Refund/opvolging nodig.`,
+              "warning"
+            );
+          } else if (claim.was_expired) {
+            // Betaling kwam binnen na het hold-window; de claim is gehonoreerd
+            // maar de pool kan daardoor één boven de cap zitten.
+            await sendNotification(
+              "Early Member claim na verlopen hold",
+              `Membership ${membership.id}: reservering ${emReservationId} was verlopen maar is gehonoreerd. Check de pool-telling.`,
+              "warning"
+            );
+          }
+        }
       } else if (
         ["failed", "expired", "canceled"].includes(payment.status) &&
         membership.status === "pending"
@@ -309,6 +358,22 @@ export async function POST(request: Request) {
           .from("memberships")
           .update({ status: "payment_failed" })
           .eq("id", membership.id);
+
+        // Early Member: geef de pool-plek direct terug i.p.v. te wachten
+        // tot het hold-window verloopt. Idempotent.
+        if (emReservationId) {
+          const { error: cancelErr } = await supabase.rpc(
+            "cancel_early_member_reservation",
+            { p_reservation_id: emReservationId }
+          );
+          if (cancelErr) {
+            console.error(
+              "[mollie/webhook] release reservation failed",
+              cancelErr
+            );
+          }
+        }
+
         await sendNotification(
           "Aanmelding gefaald",
           `Membership ${membership.id} (${membership.plan_variant}) — eerste betaling ${payment.status}.`,
