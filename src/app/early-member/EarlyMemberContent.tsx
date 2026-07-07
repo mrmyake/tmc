@@ -143,85 +143,136 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
         </Container>
       </Section>
 
-      {/* Wat is Early Member */}
+      {/* Kies je vorm */}
       <Section bg="elevated">
         <Container className="max-w-3xl">
           <ScrollReveal>
+            {/* COPY: confirm met Marlon */}
             <SectionHeading
-              label="Wat het inhoudt"
-              heading="Geen korting. Wel betere voorwaarden."
-              subtext="Je betaalt als Early Member hetzelfde als ieder ander lid. Het verschil zit in wat je ervoor terugkrijgt — en waar je níet aan vastzit."
+              label="Kies je vorm"
+              heading="Twee manieren om te starten"
+              subtext="Allebei met hetzelfde Early Member-voordeel: geen inschrijfkosten en direct maandelijks opzegbaar, in plaats van het gebruikelijke jaar-commitment."
             />
           </ScrollReveal>
         </Container>
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* "Geen inschrijfkosten" geldt voor beide pools — zo ook
-                geïmplementeerd in startSignup (PR 2). */}
             <ScrollReveal>
               <div className="border border-text-muted/15 bg-bg p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
                 <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
                   Groepslessen
                 </span>
                 <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-6">
-                  Vrijheid als voorwaarde
+                  Yoga, mobility en kettlebell
                 </h3>
+                <ul className="divide-y divide-bg-subtle border-y border-bg-subtle mb-6 text-sm">
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">2x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                      €79
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">3x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                      €99
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">Onbeperkt</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                      €119
+                    </span>
+                  </li>
+                </ul>
                 <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Geen inschrijfkosten
+                    {/* COPY: confirm met Marlon */}
+                    Geen inschrijfkosten (t.w.v. €39)
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Per vier weken opzegbaar, in plaats van het standaard
-                    jaarcommitment
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Train je nu per losse les? Stap over zonder ergens aan vast
-                    te zitten
+                    Direct maandelijks opzegbaar
                   </li>
                 </ul>
                 <Button href="/app/abonnement/nieuw" className="w-full">
-                  {groepslessenOpen ? "Reserveer je plek" : "Bekijk het reguliere abonnement"}
+                  {groepslessenOpen ? "Kies Groepslessen" : "Bekijk het reguliere abonnement"}
                 </Button>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={0.15}>
               <div className="border border-accent/30 bg-bg p-8 md:p-10 h-full flex flex-col">
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                  All Access · all inclusive
+                {/* COPY: confirm met Marlon */}
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+                  Meest gekozen
                 </span>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-6">
-                  Jouw tarief, voor altijd
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+                  All Access
                 </h3>
+                <div className="mb-1">
+                  <span className="text-text-muted text-lg line-through mr-2">
+                    €149
+                  </span>
+                  <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
+                    €139
+                  </span>
+                  <span className="text-text-muted text-sm ml-2">
+                    / 4 weken
+                  </span>
+                </div>
+                {/* COPY: confirm met Marlon. Bedrag geverifieerd tegen de
+                    checkout: startSignup rekent voor deze pool
+                    daadwerkelijk EUR 139 i.p.v. EUR 149 (zie
+                    EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS). */}
+                <p className="text-accent text-sm mb-6">
+                  Bespaar €10 per 4 weken, blijvend
+                </p>
                 <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
+                  {/* COPY: confirm met Marlon */}
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Onbeperkt groepslessen: yoga, mobility en kettlebell
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Onbeperkt vrij trainen
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Geen inschrijfkosten (t.w.v. €39)
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Korte intake / movement check
+                  </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
                     {/* Lock-in-semantiek: vast zolang het lidmaatschap
                         onafgebroken doorloopt (lock_in_active vervalt bij
-                        opzegging, zie de expire-on-cancel-trigger). Live
-                        gezet als voorgestelde copy; scherpstellen als
-                        Marlon een andere lezing wil. */}
-                    Je tarief staat vast zolang je lid bent — prijsverhogingen
-                    gaan aan jou voorbij
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Geen inschrijfkosten
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Inclusief verlengde toegang: train van 06:00 tot 23:00,
-                    zeven dagen per week
+                        opzegging, zie de expire-on-cancel-trigger). */}
+                    Tarief blijft gelden zolang je lid blijft
                   </li>
                 </ul>
                 <Button href="/app/abonnement/nieuw" className="w-full">
-                  {allAccessOpen ? "Reserveer je plek" : "Bekijk het reguliere abonnement"}
+                  {allAccessOpen ? "Word Early Member" : "Bekijk het reguliere abonnement"}
                 </Button>
               </div>
             </ScrollReveal>
           </div>
+          {/* COPY: confirm met Marlon. Link naar /prijzen (nog niet
+              gemerged op moment van schrijven, zie PR-beschrijving voor de
+              merge-afhankelijkheid) i.p.v. /aanbod: die pagina heeft geen
+              enkele prijs, /prijzen is de daadwerkelijke prijslijst. */}
+          <p className="text-text-muted text-xs text-center mt-8">
+            Liever alleen vrij trainen, zonder lessen? Dat kan los, vanaf €49
+            per 4 weken.{" "}
+            <a href="/prijzen" className="text-accent underline underline-offset-2">
+              Bekijk alle prijzen
+            </a>
+            .
+          </p>
         </Container>
       </Section>
 
