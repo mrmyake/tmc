@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
+import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 
 export type StartSignupResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -200,12 +201,27 @@ export async function startSignup(
       emReservationId = String(reservation.reservation_id);
     }
 
+    // Early Member All Access: EUR 10/4wk korting op de catalogusprijs,
+    // blijvend (verwerkt in price_per_cycle_cents en lock_in_price_cents
+    // hieronder, dus ook de latere Mollie-subscription in de webhook
+    // gebruikt automatisch dit bedrag).
+    const isAllAccessEm = earlyMember && emPool === "all_access";
+    // Ondergrens op 0: de catalogus heeft geen kolom-check op een minimale
+    // prijs voor de all_access-pool, dus een toekomstige goedkope variant
+    // mag nooit een negatief bedrag naar Mollie sturen.
+    const signupPriceCents = isAllAccessEm
+      ? Math.max(
+          0,
+          plan.price_per_cycle_cents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
+        )
+      : plan.price_per_cycle_cents;
+
     // Early Member: geen inschrijfkosten.
     const registrationFeeCents: number = earlyMember
       ? 0
       : (settings?.registration_fee_cents ?? 3900);
     const totalCents: number =
-      plan.price_per_cycle_cents + extendedAccessPriceCents + registrationFeeCents;
+      signupPriceCents + extendedAccessPriceCents + registrationFeeCents;
 
     // Mollie + env
     const mollie = getMollieClient();
@@ -241,9 +257,9 @@ export async function startSignup(
     //  - commit_months 0: de commit_end_date-trigger zet die op start_date,
     //    waardoor request_membership_cancellation via greatest(commit_end_date,
     //    current_date + 28) neerkomt op puur 4 weken opzegtermijn.
-    //  - all_access-pool: prijs-lock via de bestaande lock_in_*-kolommen;
-    //    de expire-on-cancel-trigger ruimt de lock op bij opzegging.
-    const isAllAccessEm = earlyMember && emPool === "all_access";
+    //  - all_access-pool: signupPriceCents bevat al de EUR 10-korting;
+    //    prijs-lock via de bestaande lock_in_*-kolommen; de
+    //    expire-on-cancel-trigger ruimt de lock op bij opzegging.
     const today = new Date().toISOString().split("T")[0];
     const { data: membership, error: insertErr } = await admin
       .from("memberships")
@@ -253,7 +269,7 @@ export async function startSignup(
         plan_variant: plan.plan_variant,
         frequency_cap: plan.frequency_cap,
         age_category: plan.age_category,
-        price_per_cycle_cents: plan.price_per_cycle_cents,
+        price_per_cycle_cents: signupPriceCents,
         billing_cycle_weeks: plan.billing_cycle_weeks,
         commit_months: earlyMember ? 0 : plan.commit_months,
         start_date: today,
@@ -267,8 +283,7 @@ export async function startSignup(
           ? {
               lock_in_active: true,
               lock_in_source: "early_member",
-              lock_in_price_cents:
-                plan.price_per_cycle_cents + extendedAccessPriceCents,
+              lock_in_price_cents: signupPriceCents + extendedAccessPriceCents,
             }
           : {}),
       })
@@ -331,7 +346,7 @@ export async function startSignup(
         profile_id: user.id,
         membership_id: membership.id,
         plan_variant: plan.plan_variant,
-        price_per_cycle_cents: plan.price_per_cycle_cents,
+        price_per_cycle_cents: signupPriceCents,
         early_member: earlyMember,
         early_member_pool: emPool,
         early_member_reservation_id: emReservationId,

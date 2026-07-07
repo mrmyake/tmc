@@ -14,6 +14,14 @@ function resolveSiteUrl(): string {
 
 export const SITE_URL = resolveSiteUrl();
 
+// Early Member All Access: EUR 10 per 4 weken korting, blijvend zolang het
+// lidmaatschap doorloopt. Gedeeld tussen de checkout-actie (die het bedrag
+// afschrijft) en de plan-kiespagina (die de korting moet tonen); één bron
+// voorkomt dat de twee ooit uit elkaar lopen. Geen "use server"-bestand
+// mag naast async functions een const exporteren, vandaar hier i.p.v. in
+// membership.ts.
+export const EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS = 1000;
+
 export const SITE = {
   name: "The Movement Club",
   tagline: "Where Strength Meets Movement",
