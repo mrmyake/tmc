@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
+import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 
 export type StartSignupResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -24,13 +25,6 @@ export interface StartSignupOptions {
    */
   extendedAccess?: boolean;
 }
-
-// Early Member All Access: EUR 10 per 4 weken korting, blijvend zolang het
-// lidmaatschap doorloopt (marketingcopy: "EUR 139 i.p.v. EUR 149" voor de
-// Onbeperkt-variant). Vlakke korting op de catalogusprijs i.p.v. een vast
-// bedrag, zodat de 3x-variant (EUR 129) niet duurder wordt dan zonder Early
-// Member: EUR 129 wordt EUR 119, EUR 149 wordt EUR 139.
-const ALL_ACCESS_EARLY_MEMBER_DISCOUNT_CENTS = 1000;
 
 const EM_RESERVE_ERRORS: Record<string, string> = {
   pool_full:
@@ -212,8 +206,14 @@ export async function startSignup(
     // hieronder, dus ook de latere Mollie-subscription in de webhook
     // gebruikt automatisch dit bedrag).
     const isAllAccessEm = earlyMember && emPool === "all_access";
+    // Ondergrens op 0: de catalogus heeft geen kolom-check op een minimale
+    // prijs voor de all_access-pool, dus een toekomstige goedkope variant
+    // mag nooit een negatief bedrag naar Mollie sturen.
     const signupPriceCents = isAllAccessEm
-      ? plan.price_per_cycle_cents - ALL_ACCESS_EARLY_MEMBER_DISCOUNT_CENTS
+      ? Math.max(
+          0,
+          plan.price_per_cycle_cents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
+        )
       : plan.price_per_cycle_cents;
 
     // Early Member: geen inschrijfkosten.

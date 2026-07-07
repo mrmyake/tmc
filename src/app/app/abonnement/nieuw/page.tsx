@@ -4,6 +4,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { PlanChooser } from "./PlanChooser";
 import { AddressGate } from "./AddressGate";
 
@@ -179,13 +180,27 @@ export default async function AbonnementNieuwPage() {
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {typePlans.map((plan) => {
-                  const priceEuro = formatEuro(
-                    Math.round(plan.price_per_cycle_cents / 100)
-                  );
                   const em = plan.early_member_pool
                     ? emByPool.get(plan.early_member_pool)
                     : undefined;
                   const emOpen = em?.is_open === true;
+                  // Toon dezelfde korting als startSignup daadwerkelijk
+                  // rekent, anders klopt de kaart niet met wat er bij
+                  // Mollie wordt afgeschreven.
+                  const isAllAccessEm = emOpen && plan.plan_type === "all_inclusive";
+                  const signupPriceCents = isAllAccessEm
+                    ? Math.max(
+                        0,
+                        plan.price_per_cycle_cents -
+                          EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
+                      )
+                    : plan.price_per_cycle_cents;
+                  const priceEuro = formatEuro(
+                    Math.round(signupPriceCents / 100)
+                  );
+                  const catalogueEuro = isAllAccessEm
+                    ? formatEuro(Math.round(plan.price_per_cycle_cents / 100))
+                    : null;
                   return (
                     <div
                       key={plan.id}
@@ -204,6 +219,11 @@ export default async function AbonnementNieuwPage() {
                         {plan.display_name}
                       </h3>
                       <div className="mb-5">
+                        {catalogueEuro && (
+                          <span className="text-text-muted text-lg line-through mr-2">
+                            {catalogueEuro}
+                          </span>
+                        )}
                         <span className="font-[family-name:var(--font-playfair)] text-3xl text-text">
                           {priceEuro}
                         </span>
