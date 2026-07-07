@@ -52,12 +52,15 @@ export async function startSignup(
   planVariant: string,
   options?: StartSignupOptions
 ): Promise<StartSignupResult> {
-  const admin = createAdminClient();
+  // Binnen de try geïnitialiseerd: createAdminClient() throwt bij ontbrekende
+  // env en moet dan als nette {ok:false} terugkomen, niet als digest-error.
+  let admin: ReturnType<typeof createAdminClient> | null = null;
   let emReservationId: string | null = null;
+  let pendingMembershipId: string | null = null;
 
   /** Geef de pool-plek direct terug bij een fout ná het reserveren. */
   async function releaseReservation(): Promise<void> {
-    if (!emReservationId) return;
+    if (!emReservationId || !admin) return;
     try {
       await admin.rpc("cancel_early_member_reservation", {
         p_reservation_id: emReservationId,
@@ -65,6 +68,24 @@ export async function startSignup(
     } catch (e) {
       // Hold verloopt sowieso na het hold-window; alleen loggen.
       console.error("[startSignup] release reservation failed", e);
+    }
+  }
+
+  /**
+   * Zet een al aangemaakte pending membership op payment_failed als de flow
+   * daarna strandt (bijv. Mollie-storing). Zonder dit blokkeert de
+   * openstaande-aanmelding-guard elke nieuwe poging van dit profiel.
+   */
+  async function abandonPendingMembership(): Promise<void> {
+    if (!pendingMembershipId || !admin) return;
+    try {
+      await admin
+        .from("memberships")
+        .update({ status: "payment_failed" })
+        .eq("id", pendingMembershipId)
+        .eq("status", "pending");
+    } catch (e) {
+      console.error("[startSignup] abandon pending membership failed", e);
     }
   }
 
@@ -112,6 +133,7 @@ export async function startSignup(
     }
 
     // Plan uit catalog
+    admin = createAdminClient();
     const { data: plan, error: planErr } = await admin
       .from("membership_plan_catalogue")
       .select("*")
@@ -257,6 +279,7 @@ export async function startSignup(
       await releaseReservation();
       return { ok: false, error: "Kon aanmelding niet opslaan." };
     }
+    pendingMembershipId = membership.id;
 
     // Mollie first payment
     const descriptionParts = [plan.display_name];
@@ -319,12 +342,14 @@ export async function startSignup(
     const checkoutUrl = payment.getCheckoutUrl();
     if (!checkoutUrl) {
       await releaseReservation();
+      await abandonPendingMembership();
       return { ok: false, error: "Kon betaallink niet genereren." };
     }
     return { ok: true, checkoutUrl, amountCents: totalCents };
   } catch (e) {
     console.error("[startSignup]", e);
     await releaseReservation();
+    await abandonPendingMembership();
     return { ok: false, error: "Er ging iets mis. Probeer opnieuw." };
   }
 }
