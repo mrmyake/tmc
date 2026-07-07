@@ -25,7 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const params = await searchParams;
   const errorKey = params.error;
@@ -33,15 +33,25 @@ export default async function LoginPage({
     ? ERROR_MESSAGES[errorKey] ?? ERROR_MESSAGES.unknown
     : undefined;
 
-  // Already authenticated? Send straight to the member app. Keeps the
-  // "Inloggen" link in the marketing navbar doing the right thing for
-  // both states without requiring an auth-aware navbar.
+  // Alleen interne paths accepteren voor `next` (voorkom open-redirect) —
+  // zelfde validatie als src/app/auth/callback/route.ts en
+  // verifyLoginOtp in lib/actions/auth.ts.
+  const safeNext =
+    params.next && params.next.startsWith("/") && !params.next.startsWith("//")
+      ? params.next
+      : undefined;
+
+  // Already authenticated? Send straight to the member app (of naar
+  // `next` als dat er is — bijv. een lid dat via /early-member komt en
+  // toevallig al ingelogd is). Keeps the "Inloggen" link in the marketing
+  // navbar doing the right thing for both states without requiring an
+  // auth-aware navbar.
   if (!errorKey) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) redirect("/app");
+    if (user) redirect(safeNext ?? "/app");
   }
 
   return (
@@ -64,7 +74,7 @@ export default async function LoginPage({
             </h1>
           </div>
 
-          <LoginForm initialError={initialError} />
+          <LoginForm initialError={initialError} next={safeNext} />
         </div>
       </Container>
     </section>

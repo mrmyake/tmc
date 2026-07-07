@@ -25,11 +25,13 @@ const RESEND_COOLDOWN_S = 60;
 
 interface Props {
   initialError?: string;
+  /** Waar na succesvol inloggen heen — bijv. terug naar de flow die inloggen vereiste. */
+  next?: string;
 }
 
 type Step = "email" | "code";
 
-export function LoginForm({ initialError }: Props) {
+export function LoginForm({ initialError, next }: Props) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -111,7 +113,7 @@ export function LoginForm({ initialError }: Props) {
     setBusy(true);
     setErrorMsg("");
 
-    const result = await verifyLoginOtp(email, code);
+    const result = await verifyLoginOtp(email, code, next);
 
     if (!result.ok) {
       setBusy(false);

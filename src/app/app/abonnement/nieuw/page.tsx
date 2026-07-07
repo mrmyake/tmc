@@ -44,6 +44,14 @@ interface PlanRow {
   includes: string[];
   is_highlighted: boolean;
   display_order: number;
+  early_member_pool: string | null;
+}
+
+interface EarlyMemberAvailability {
+  pool: string;
+  cap: number;
+  remaining: number;
+  is_open: boolean;
 }
 
 export default async function AbonnementNieuwPage() {
@@ -51,7 +59,7 @@ export default async function AbonnementNieuwPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?next=/app/abonnement/nieuw");
 
   // Als je al een lopend/actief abbo hebt, niet opnieuw kiezen.
   const { data: existing } = await supabase
@@ -67,11 +75,34 @@ export default async function AbonnementNieuwPage() {
     .maybeSingle();
   if (existing) redirect("/app/abonnement");
 
-  const { data: profileAddress } = await supabase
-    .from("profiles")
-    .select("street_address, postal_code, city")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Vier onafhankelijke reads — parallel.
+  const [
+    { data: profileAddress },
+    { data: plans },
+    { data: settings },
+    // Early Member-beschikbaarheid per pool. Bij een fout gewoon zonder
+    // Early Member-aanbod renderen; startSignup valideert sowieso atomair.
+    { data: emRows },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("street_address, postal_code, city")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("membership_plan_catalogue")
+      .select(
+        "id,plan_type,plan_variant,display_name,frequency_cap,age_category,price_per_cycle_cents,billing_cycle_weeks,commit_months,covered_pillars,includes,is_highlighted,display_order,early_member_pool"
+      )
+      .eq("is_active", true)
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("booking_settings")
+      .select("registration_fee_cents, extended_access_price_cents")
+      .eq("id", "singleton")
+      .maybeSingle(),
+    supabase.rpc("get_early_member_availability"),
+  ]);
 
   const addressComplete = Boolean(
     profileAddress?.street_address?.trim() &&
@@ -79,20 +110,11 @@ export default async function AbonnementNieuwPage() {
       profileAddress?.city?.trim(),
   );
 
-  const { data: plans } = await supabase
-    .from("membership_plan_catalogue")
-    .select(
-      "id,plan_type,plan_variant,display_name,frequency_cap,age_category,price_per_cycle_cents,billing_cycle_weeks,commit_months,covered_pillars,includes,is_highlighted,display_order"
-    )
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
-
-  const { data: settings } = await supabase
-    .from("booking_settings")
-    .select("registration_fee_cents")
-    .eq("id", "singleton")
-    .maybeSingle();
   const regFee = settings?.registration_fee_cents ?? 3900;
+  const extendedAccessPrice = settings?.extended_access_price_cents ?? 1000;
+  const emByPool = new Map<string, EarlyMemberAvailability>(
+    ((emRows ?? []) as EarlyMemberAvailability[]).map((r) => [r.pool, r])
+  );
 
   const plansByType = (plans ?? []).reduce<Record<string, PlanRow[]>>(
     (acc, p) => {
@@ -122,7 +144,8 @@ export default async function AbonnementNieuwPage() {
       </h1>
       <p className="text-text-muted mb-4 max-w-xl">
         Alle prijzen zijn per 4 weken. Eenmalige inschrijfkosten van{" "}
-        {formatEuro(regFee / 100)} worden bij de eerste betaling bijgeteld.
+        {formatEuro(regFee / 100)} worden bij de eerste betaling bijgeteld —
+        als Early Member vervallen die.
       </p>
       <p className="text-xs text-text-muted mb-12 max-w-xl">
         Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische
@@ -159,6 +182,10 @@ export default async function AbonnementNieuwPage() {
                   const priceEuro = formatEuro(
                     Math.round(plan.price_per_cycle_cents / 100)
                   );
+                  const em = plan.early_member_pool
+                    ? emByPool.get(plan.early_member_pool)
+                    : undefined;
+                  const emOpen = em?.is_open === true;
                   return (
                     <div
                       key={plan.id}
@@ -199,17 +226,54 @@ export default async function AbonnementNieuwPage() {
                               <span>{item}</span>
                             </li>
                           ))}
+                          {plan.plan_type === "all_inclusive" && (
+                            <li className="flex items-start gap-2 text-sm text-text">
+                              <Check
+                                className="text-accent flex-shrink-0 mt-0.5"
+                                size={14}
+                              />
+                              <span>Verlengde toegang 06:00–23:00</span>
+                            </li>
+                          )}
                         </ul>
                       )}
 
+                      {emOpen && (
+                        <div className="border border-accent/30 bg-bg px-4 py-3 mb-4">
+                          <div className="flex items-baseline justify-between gap-2 mb-2">
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-accent">
+                              Early Member
+                            </span>
+                            <span className="text-[10px] uppercase tracking-[0.15em] text-text-muted">
+                              nog {em!.remaining} van {em!.cap}
+                            </span>
+                          </div>
+                          <ul className="space-y-1 text-xs text-text-muted">
+                            <li>Geen inschrijfkosten</li>
+                            <li>Per 4 weken opzegbaar — geen jaarcommitment</li>
+                            {plan.plan_type === "all_inclusive" && (
+                              <li>Jouw tarief blijft vast zolang je lid bent</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
                       <div className="text-xs text-text-muted mb-4">
-                        Commitment: {plan.commit_months} maanden
+                        {emOpen
+                          ? "Geen commitment — per 4 weken opzegbaar"
+                          : `Commitment: ${plan.commit_months} maanden`}
                       </div>
 
                       <PlanChooser
                         planVariant={plan.plan_variant}
                         highlighted={plan.is_highlighted}
                         label={`Kies ${plan.display_name}`}
+                        earlyMember={emOpen}
+                        extendedAccessPriceCents={
+                          plan.plan_type === "vrij_trainen"
+                            ? extendedAccessPrice
+                            : undefined
+                        }
                       />
                     </div>
                   );
