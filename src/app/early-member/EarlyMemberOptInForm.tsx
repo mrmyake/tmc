@@ -51,6 +51,7 @@ export function EarlyMemberOptInForm() {
 
   if (status === "done") {
     return (
+      // COPY: confirm met Marlon
       <div className="max-w-md mx-auto text-center">
         <p className="text-text text-lg font-medium mb-2">
           Bedankt, we houden je op de hoogte.
@@ -69,6 +70,7 @@ export function EarlyMemberOptInForm() {
       className="max-w-md mx-auto flex flex-col sm:flex-row gap-4 sm:gap-3 items-start"
     >
       <div className="flex-1 w-full">
+        {/* COPY: confirm met Marlon */}
         <Field label="E-mailadres" htmlFor="early-member-optin-email">
           <input
             id="early-member-optin-email"
@@ -80,6 +82,7 @@ export function EarlyMemberOptInForm() {
           />
         </Field>
       </div>
+      {/* COPY: confirm met Marlon */}
       <Button
         type="submit"
         className={`sm:mt-6 whitespace-nowrap ${

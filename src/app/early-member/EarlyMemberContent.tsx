@@ -235,9 +235,10 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Start je een 12-weken programma?
             </h2>
+            {/* COPY: confirm met Marlon */}
             <p className="text-text-muted text-lg leading-relaxed mb-12 max-w-2xl mx-auto">
-              Eén vaste prijs, voor iedereen. Start je tijdens de Early
-              Member-periode, dan train je er gratis bij.
+              Vaste prijs per programma, voor iedereen gelijk. Start je
+              tijdens de Early Member-periode, dan train je er gratis bij.
             </p>
           </ScrollReveal>
         </Container>
@@ -325,28 +326,37 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
             Deze bonus is niet plek-gelimiteerd en telt niet mee in de 40
             plekken hierboven.
           </p>
+          <div className="text-center mt-8">
+            <Button href="/aanbod" variant="secondary">
+              Bekijk het volledige aanbod
+            </Button>
+          </div>
         </Container>
       </Section>
 
-      {/* Overstapaanbod */}
+      {/* Overstapaanbod, hetzelfde Groepslessen Early Member-aanbod
+          (zie de kaart hierboven), voor wie nu al op losse basis traint.
+          Copy hier volgt daarom groepslessenOpen: het is dezelfde pool. */}
       <Section bg="elevated">
         <Container className="max-w-3xl text-center">
           <ScrollReveal>
+            {/* COPY: confirm met Marlon */}
             <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Al aan het trainen met Marlon?
+              Voor bestaande klanten
             </span>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Train je al mee met Marlon?
             </h2>
             {/* COPY: confirm met Marlon */}
             <p className="text-text-muted text-lg leading-relaxed mb-8 max-w-xl mx-auto">
-              Wie nu op losse basis traint, kan overstappen naar een
-              abonnement zonder inschrijfkosten en zonder het gebruikelijke
-              jaar-commitment: direct maandelijks opzegbaar, tegen hetzelfde
-              instaptarief van €79 per 4 weken.
+              {groepslessenOpen
+                ? "Wie nu op losse basis traint, kan overstappen naar een abonnement zonder inschrijfkosten en zonder het gebruikelijke jaar-commitment: direct maandelijks opzegbaar, tegen hetzelfde instaptarief van €79 per 4 weken."
+                : "Wie nu op losse basis traint, kan altijd overstappen naar een regulier abonnement. De Early Member-voorwaarden hierboven zijn niet meer beschikbaar voor Groepslessen."}
             </p>
             <Button href="/app/abonnement/nieuw">
-              Vraag het overstapaanbod aan
+              {groepslessenOpen
+                ? "Vraag het overstapaanbod aan"
+                : "Bekijk het reguliere abonnement"}
             </Button>
           </ScrollReveal>
         </Container>
@@ -427,6 +437,7 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
             <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
               Nog niet klaar om te starten?
             </span>
+            {/* COPY: confirm met Marlon */}
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Laat je e-mailadres achter, dan houden we je persoonlijk op de
               hoogte.

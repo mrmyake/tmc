@@ -44,8 +44,12 @@ interface SubscriberData {
 export async function addSubscriber(data: SubscriberData) {
   return mailerliteRequest("/subscribers", {
     email: data.email,
+    // name alleen meesturen als de caller 'm heeft: MailerLite's upsert laat
+    // weggelaten velden ongemoeid, maar een expliciete lege string overschrijft
+    // een eerder ingevulde naam voor hetzelfde e-mailadres (bijv. via een
+    // eerder formulier zonder naamveld, zoals de Early Member-opt-in).
     fields: {
-      name: data.name || "",
+      ...(data.name ? { name: data.name } : {}),
       ...data.fields,
     },
     groups: data.groups || [],
