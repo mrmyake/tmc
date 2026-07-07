@@ -54,9 +54,19 @@ function roleRedirect(role: string | null | undefined): string {
  * IP-limiet. Geaccepteerd op deze schaal; de korte expiry en de
  * codelengte houden de slaagkans ook dan verwaarloosbaar.
  */
+/**
+ * Alleen interne paths accepteren voor `next` (voorkom open-redirect).
+ * Zelfde validatie als src/app/auth/callback/route.ts — wijzig ze samen.
+ */
+function safeNextPath(next: string | undefined | null): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next === "/app" ? null : next;
+}
+
 export async function verifyLoginOtp(
   email: string,
   token: string,
+  next?: string,
 ): Promise<VerifyOtpResult> {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedToken = token.replace(/\D/g, "");
@@ -140,7 +150,8 @@ export async function verifyLoginOtp(
     .eq("id", data.session.user.id)
     .maybeSingle();
 
-  return { ok: true, redirectTo: roleRedirect(profile?.role) };
+  const safeNext = safeNextPath(next);
+  return { ok: true, redirectTo: safeNext ?? roleRedirect(profile?.role) };
 }
 
 async function lookupProfileId(email: string): Promise<string | null> {

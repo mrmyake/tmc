@@ -59,7 +59,7 @@ export default async function AbonnementNieuwPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?next=/app/abonnement/nieuw");
 
   // Als je al een lopend/actief abbo hebt, niet opnieuw kiezen.
   const { data: existing } = await supabase
