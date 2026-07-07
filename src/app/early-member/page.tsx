@@ -5,7 +5,6 @@ import { EarlyMemberContent, type PoolAvailability } from "./EarlyMemberContent"
 // ISR: de "nog X van 40"-teller mag maximaal een minuut achterlopen.
 export const revalidate = 60;
 
-// COPY: concept — alle teksten op deze pagina bevestigen met Marlon.
 export const metadata: Metadata = {
   title: "Early Member | The Movement Club Loosdrecht",
   description:

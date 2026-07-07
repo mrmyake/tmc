@@ -38,7 +38,6 @@ function PoolCounter({ availability }: { availability?: PoolAvailability }) {
         </>
       ) : (
         <p className="text-text-muted text-sm mt-2 uppercase tracking-[0.18em]">
-          {/* COPY: concept — bevestigen met Marlon */}
           Alle plekken zijn vergeven
         </p>
       )}
@@ -50,12 +49,17 @@ interface EarlyMemberContentProps {
   availability: PoolAvailability[] | null;
 }
 
-// COPY: alle teksten hieronder zijn concept en moeten door Marlon worden
-// bevestigd. Bewust nergens kortingspercentages, nergens "crowdfunding" of
-// "founding member" — de lijn is bonus/voorwaarden in plaats van korting.
+// Copy hieronder is geaccordeerd voor launch. Bewust nergens
+// kortingspercentages, nergens "crowdfunding" of "founding member" — de
+// lijn is bonus/voorwaarden in plaats van korting.
 export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
   const groepslessen = availability?.find((a) => a.pool === "groepslessen");
   const allAccess = availability?.find((a) => a.pool === "all_access");
+  // availability === null (fetch mislukt) laat de knop gewoon naar de
+  // signup-flow gaan; reserve_early_member_slot valideert daar sowieso
+  // opnieuw atomair. Alleen een expliciet gesloten pool past het label aan.
+  const groepslessenOpen = availability ? groepslessen?.is_open === true : true;
+  const allAccessOpen = availability ? allAccess?.is_open === true : true;
 
   return (
     <>
@@ -80,7 +84,6 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
               </p>
             )}
             <p className="text-text-muted text-center text-sm mt-8">
-              {/* COPY: concept — bevestigen met Marlon */}
               Geldig t/m september 2026, of zolang er plekken zijn.
             </p>
           </ScrollReveal>
@@ -100,8 +103,8 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
         </Container>
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* COPY: concept — bevestigen met Marlon (incl. of "geen
-                inschrijfkosten" ook voor All Access geldt) */}
+            {/* "Geen inschrijfkosten" geldt voor beide pools — zo ook
+                geïmplementeerd in startSignup (PR 2). */}
             <ScrollReveal>
               <div className="border border-text-muted/15 bg-bg p-8 md:p-10 h-full flex flex-col">
                 <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
@@ -126,10 +129,8 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                     te zitten
                   </li>
                 </ul>
-                {/* TODO(PR 2): vervang door de echte checkout-flow met
-                    slot-reservering zodra die live is. */}
-                <Button href="/contact" className="w-full">
-                  Reserveer je plek
+                <Button href="/app/abonnement/nieuw" className="w-full">
+                  {groepslessenOpen ? "Reserveer je plek" : "Bekijk het reguliere abonnement"}
                 </Button>
               </div>
             </ScrollReveal>
@@ -144,8 +145,11 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                 <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    {/* COPY: exacte lifetime lock-in-semantiek bevestigen met
-                        Marlon (vast zolang het lidmaatschap doorloopt) */}
+                    {/* Lock-in-semantiek: vast zolang het lidmaatschap
+                        onafgebroken doorloopt (lock_in_active vervalt bij
+                        opzegging, zie de expire-on-cancel-trigger). Live
+                        gezet als voorgestelde copy; scherpstellen als
+                        Marlon een andere lezing wil. */}
                     Je tarief staat vast zolang je lid bent — prijsverhogingen
                     gaan aan jou voorbij
                   </li>
@@ -159,10 +163,8 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                     zeven dagen per week
                   </li>
                 </ul>
-                {/* TODO(PR 2): vervang door de echte checkout-flow met
-                    slot-reservering zodra die live is. */}
-                <Button href="/contact" className="w-full">
-                  Reserveer je plek
+                <Button href="/app/abonnement/nieuw" className="w-full">
+                  {allAccessOpen ? "Reserveer je plek" : "Bekijk het reguliere abonnement"}
                 </Button>
               </div>
             </ScrollReveal>
@@ -182,8 +184,9 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
             </h2>
             <div className="space-y-4 text-text-muted text-lg leading-relaxed mb-8">
               <p>
-                {/* COPY: concept — bevestigen met Marlon. Bonus bij het
-                    studioprogramma is mogelijk 1x yoga i.p.v. kettlebell. */}
+                {/* Live gezet met kettlebell als bonusles; het studio-
+                    programma kan mogelijk 1x yoga krijgen i.p.v. kettlebell
+                    — aanpassen als Marlon dat wil. */}
                 De 12-weken programma&apos;s — in de studio of online — hebben
                 één vaste prijs, voor iedereen. Start je tijdens de Early
                 Member-periode, dan train je er gratis bij: twee keer per week
