@@ -44,8 +44,12 @@ interface SubscriberData {
 export async function addSubscriber(data: SubscriberData) {
   return mailerliteRequest("/subscribers", {
     email: data.email,
+    // name alleen meesturen als de caller 'm heeft: MailerLite's upsert laat
+    // weggelaten velden ongemoeid, maar een expliciete lege string overschrijft
+    // een eerder ingevulde naam voor hetzelfde e-mailadres (bijv. via een
+    // eerder formulier zonder naamveld, zoals de Early Member-opt-in).
     fields: {
-      name: data.name || "",
+      ...(data.name ? { name: data.name } : {}),
       ...data.fields,
     },
     groups: data.groups || [],
@@ -78,4 +82,9 @@ export const GROUPS = {
   // Zet in .env.local als MAILERLITE_MEMBERS_GROUP_ID. Leeg = DB-only
   // toggle zonder MailerLite sync.
   MEMBERS: process.env.MAILERLITE_MEMBERS_GROUP_ID ?? "",
+  // Opt-in vanaf /early-member voor wie nog niet klaar is om te starten.
+  // Zet in .env.local als MAILERLITE_EARLY_MEMBER_GROUP_ID. Leeg = geen
+  // MailerLite sync (formulier blijft wel werken, alleen zonder sync).
+  EARLY_MEMBER_INTERESTED:
+    process.env.MAILERLITE_EARLY_MEMBER_GROUP_ID ?? "",
 } as const;
