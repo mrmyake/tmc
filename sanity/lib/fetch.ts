@@ -8,7 +8,6 @@ import {
   faqsByPageQuery,
   siteImagesQuery,
   crowdfundingSettingsQuery,
-  crowdfundingTiersQuery,
   yogaStylesQuery,
   yogaStyleBySlugQuery,
   yogaStyleSlugsQuery,
@@ -252,13 +251,11 @@ export interface SanityCrowdfundingTier {
   order: number;
 }
 
+// Alleen nog in gebruik door de legacy checkout/webhook-routes onder
+// /api/crowdfunding — de publieke campagne is vervangen door /early-member.
+// Opruimen zodra die routes verwijderd worden.
 export async function getCrowdfundingSettings(): Promise<SanityCrowdfundingSettings | null> {
   return await safeFetch<SanityCrowdfundingSettings>(crowdfundingSettingsQuery);
-}
-
-export async function getCrowdfundingTiers(): Promise<SanityCrowdfundingTier[]> {
-  const data = await safeFetch<SanityCrowdfundingTier[]>(crowdfundingTiersQuery);
-  return data || [];
 }
 
 export async function getCrowdfundingTierById(
