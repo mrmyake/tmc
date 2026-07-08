@@ -35,8 +35,16 @@ export function SiteShell({ children, settings }: SiteShellProps) {
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
   const isLogin = pathname === "/login";
   const isCheckin = pathname === "/checkin" || pathname.startsWith("/checkin/");
+  // /12-weken-programma heeft een eigen topbar (merk + één CTA, transparant
+  // over de donkere hero) en eigen footer (merk, adres, disclaimer, geen
+  // 3-koloms nav-footer) — zie src/app/12-weken-programma/layout.tsx. Beide
+  // routes (incl. /intake) uitsluiten voorkomt de dubbele-header bug die
+  // /beweeg-beter vandaag heeft (LeadPageLayout's eigen header + de
+  // standaard Navbar allebei renderen omdat die route hier niet uitgesloten
+  // is — niet hier herhalen).
+  const isProgramma = pathname.startsWith("/12-weken-programma");
 
-  if (isStudio || isApp || isLogin || isCheckin) {
+  if (isStudio || isApp || isLogin || isCheckin || isProgramma) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
     return <>{children}</>;
