@@ -7,6 +7,8 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { formatDateLong } from "@/lib/format-date";
+import { formatPriceEuro } from "@/lib/member/pt-pricing";
+import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 
 const FEATURES = [
@@ -73,14 +75,21 @@ function PoolCounter({ availability }: { availability?: PoolAvailability }) {
   );
 }
 
+export interface EarlyMemberPricing {
+  groepslessen: { twoX: number; threeX: number; unl: number };
+  allAccessUnlCents: number;
+  vrijTrainenTwoXCents: number;
+}
+
 interface EarlyMemberContentProps {
   availability: PoolAvailability[] | null;
+  pricing: EarlyMemberPricing;
 }
 
 // Copy hieronder is geaccordeerd voor launch. Bewust nergens
 // kortingspercentages, nergens "crowdfunding" of "founding member" — de
 // lijn is bonus/voorwaarden in plaats van korting.
-export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
+export function EarlyMemberContent({ availability, pricing }: EarlyMemberContentProps) {
   const groepslessen = availability?.find((a) => a.pool === "groepslessen");
   const allAccess = availability?.find((a) => a.pool === "all_access");
   // availability === null (fetch mislukt) laat de knop gewoon naar de
@@ -88,6 +97,13 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
   // opnieuw atomair. Alleen een expliciet gesloten pool past het label aan.
   const groepslessenOpen = availability ? groepslessen?.is_open === true : true;
   const allAccessOpen = availability ? allAccess?.is_open === true : true;
+
+  // Live uit tmc.membership_plan_catalogue, zelfde korting-constante als de
+  // daadwerkelijke checkout (startSignup) gebruikt voor deze pool.
+  const allAccessEarlyMemberCents = Math.max(
+    0,
+    pricing.allAccessUnlCents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
+  );
 
   return (
     <>
@@ -171,19 +187,19 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                   <li className="flex items-center justify-between py-3">
                     <span className="text-text-muted">2x per week</span>
                     <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €79
+                      {formatPriceEuro(pricing.groepslessen.twoX)}
                     </span>
                   </li>
                   <li className="flex items-center justify-between py-3">
                     <span className="text-text-muted">3x per week</span>
                     <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €99
+                      {formatPriceEuro(pricing.groepslessen.threeX)}
                     </span>
                   </li>
                   <li className="flex items-center justify-between py-3">
                     <span className="text-text-muted">Onbeperkt</span>
                     <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €119
+                      {formatPriceEuro(pricing.groepslessen.unl)}
                     </span>
                   </li>
                 </ul>
@@ -214,21 +230,23 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                 </h3>
                 <div className="mb-1">
                   <span className="text-text-muted text-lg line-through mr-2">
-                    €149
+                    {formatPriceEuro(pricing.allAccessUnlCents)}
                   </span>
                   <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
-                    €139
+                    {formatPriceEuro(allAccessEarlyMemberCents)}
                   </span>
                   <span className="text-text-muted text-sm ml-2">
                     / 4 weken
                   </span>
                 </div>
-                {/* COPY: confirm met Marlon. Bedrag geverifieerd tegen de
-                    checkout: startSignup rekent voor deze pool
-                    daadwerkelijk EUR 139 i.p.v. EUR 149 (zie
-                    EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS). */}
+                {/* COPY: confirm met Marlon. Bedrag live uit de catalogus
+                    min EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS, zelfde
+                    berekening als startSignup gebruikt voor deze pool, dus
+                    dit blijft kloppen met wat de checkout daadwerkelijk
+                    afschrijft. */}
                 <p className="text-accent text-sm mb-6">
-                  Bespaar €10 per 4 weken, blijvend
+                  Bespaar {formatPriceEuro(EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS)} per
+                  4 weken, blijvend
                 </p>
                 <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
                   {/* COPY: confirm met Marlon */}
@@ -267,8 +285,8 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
               merge-afhankelijkheid) i.p.v. /aanbod: die pagina heeft geen
               enkele prijs, /prijzen is de daadwerkelijke prijslijst. */}
           <p className="text-text-muted text-xs text-center mt-8">
-            Liever alleen vrij trainen, zonder lessen? Dat kan los, vanaf €49
-            per 4 weken.{" "}
+            Liever alleen vrij trainen, zonder lessen? Dat kan los, vanaf{" "}
+            {formatPriceEuro(pricing.vrijTrainenTwoXCents)} per 4 weken.{" "}
             <a href="/prijzen" className="text-accent underline underline-offset-2">
               Bekijk alle prijzen
             </a>
@@ -432,10 +450,13 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
               Train je al mee met Marlon?
             </h2>
-            {/* COPY: confirm met Marlon */}
+            {/* COPY: confirm met Marlon. Instaptarief hergebruikt
+                pricing.groepslessen.twoX (dezelfde catalogusprijs als de
+                Groepslessen-kaart hierboven), zodat dit bedrag niet los
+                kan raken van de rest van de pagina. */}
             <p className="text-text-muted text-lg leading-relaxed mb-8 max-w-xl mx-auto">
               {groepslessenOpen
-                ? "Wie nu op losse basis traint, kan overstappen naar een abonnement zonder inschrijfkosten en zonder het gebruikelijke jaar-commitment: direct maandelijks opzegbaar, tegen hetzelfde instaptarief van €79 per 4 weken."
+                ? `Wie nu op losse basis traint, kan overstappen naar een abonnement zonder inschrijfkosten en zonder het gebruikelijke jaar-commitment: direct maandelijks opzegbaar, tegen hetzelfde instaptarief van ${formatPriceEuro(pricing.groepslessen.twoX)} per 4 weken.`
                 : "Wie nu op losse basis traint, kan altijd overstappen naar een regulier abonnement. De Early Member-voorwaarden hierboven zijn niet meer beschikbaar voor Groepslessen."}
             </p>
             <Button href="/app/abonnement/nieuw">
@@ -535,11 +556,13 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
       {/* Juridische afsluitregel, alleen op deze pagina. Niet in de
           site-brede Footer, want dat zou de regel op elke pagina tonen. */}
       <Container className="max-w-3xl pb-12">
-        {/* COPY: confirm met Marlon */}
+        {/* COPY: confirm met Marlon. Restitutiezin verwijderd: er is geen
+            refund-mechaniek gebouwd en er is geen restitutiebeleid
+            vastgesteld, dus een publieke claim die restitutie ontkent is
+            niet onderbouwd. Zie PR-beschrijving. */}
         <p className="text-text-muted text-xs text-center leading-relaxed">
           Early Member tarieven gelden t/m september 2026 voor de eerste 40
-          leden, daarna gelden de reguliere tarieven. Bij vooruitbetalen
-          ineens geldt geen recht op restitutie.
+          leden, daarna gelden de reguliere tarieven.
         </p>
       </Container>
     </>
