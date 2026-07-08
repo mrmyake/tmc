@@ -15,8 +15,8 @@ export const metadata = {
 
 const PLAN_TYPE_LABELS: Record<string, string> = {
   vrij_trainen: "Vrij Trainen",
-  yoga_mobility: "Yoga & Mobility",
-  kettlebell: "Kettlebell Club",
+  // COPY: confirm met Marlon
+  groepslessen: "Groepslessen",
   all_inclusive: "All Inclusive",
   kids: "Kids",
   senior: "Senior 65+",
@@ -24,8 +24,7 @@ const PLAN_TYPE_LABELS: Record<string, string> = {
 
 const PLAN_TYPE_ORDER = [
   "vrij_trainen",
-  "yoga_mobility",
-  "kettlebell",
+  "groepslessen",
   "all_inclusive",
   "kids",
   "senior",

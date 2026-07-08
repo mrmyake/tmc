@@ -12,6 +12,7 @@ export type PlanType =
   | "vrij_trainen"
   | "yoga_mobility"
   | "kettlebell"
+  | "groepslessen"
   | "all_inclusive"
   | "kids"
   | "senior"
@@ -23,6 +24,9 @@ export const PLAN_COVERAGE: Record<PlanType, Pillar[]> = {
   vrij_trainen: ["vrij_trainen"],
   yoga_mobility: ["yoga_mobility"],
   kettlebell: ["kettlebell"],
+  // Gecombineerd lesabonnement: een les is een les, lid mixt zelf binnen
+  // de weekcap. Vervangt de losse yoga_mobility- en kettlebell-lijnen.
+  groepslessen: ["yoga_mobility", "kettlebell"],
   all_inclusive: ["vrij_trainen", "yoga_mobility", "kettlebell"],
   kids: ["kids"],
   senior: ["senior"],

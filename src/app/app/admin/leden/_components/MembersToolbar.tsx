@@ -29,6 +29,8 @@ const STATUS_LABEL: Record<MemberStatus | "all", string> = {
 const PLAN_LABEL: Record<string, string> = {
   all: "Alle abbo's",
   vrij_trainen: "Vrij trainen",
+  // COPY: confirm met Marlon
+  groepslessen: "Groepslessen",
   yoga_mobility: "Yoga & mobility",
   kettlebell: "Kettlebell",
   all_inclusive: "All-inclusive",

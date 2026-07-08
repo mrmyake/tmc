@@ -28,6 +28,10 @@ export function allocationFor(plan: PlanIdentity): number {
       return unlimited ? 2 : 1;
     case "kettlebell":
       return 1;
+    // Groepslessen vervangt de losse yoga_mobility/kettlebell-lijnen en
+    // volgt dezelfde staffel: 2-3x -> 1 pas, onbeperkt -> 2.
+    case "groepslessen":
+      return unlimited ? 2 : 1;
     case "all_inclusive":
       return unlimited ? 2 : 1;
     case "vrij_trainen":
