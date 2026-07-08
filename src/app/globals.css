@@ -46,6 +46,17 @@
   /* Fonts — we map de oude CSS-vars (playfair/dm-sans) in stap 1.3 */
   --font-display: var(--font-serif-display);
   --font-body:    var(--font-sans);
+
+  /* Light/stone surface — first real usage is /12-weken-programma's
+     Section bg="stone" variant. Aliases the surface-light / fg-on-light(-3)
+     / border-on-light tokens already defined in tokens.css (unused until
+     now) so light sections get the same semantic-alias treatment as
+     bg-bg / bg-bg-elevated instead of reaching for bg-stone-100 /
+     text-ink-900 directly. */
+  --color-surface-light:  var(--surface-light);
+  --color-on-light:       var(--fg-on-light);
+  --color-on-light-muted: var(--fg-on-light-3);
+  --color-border-on-light: var(--border-on-light);
 }
 
 body {
