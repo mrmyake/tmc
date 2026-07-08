@@ -33,7 +33,7 @@ export default async function AdminSettingsPage() {
            drop_in_kids_cents, drop_in_senior_cents,
            ten_ride_card_cents, kids_ten_ride_card_cents,
            senior_ten_ride_card_cents, ten_ride_card_validity_months,
-           pt_intake_discount_cents, member_pt_discount_percent,
+           pt_intake_discount_cents,
            admin_checkin_pin_hash,
            check_in_enabled, check_in_pillars, no_show_release_minutes`,
         )
@@ -117,7 +117,6 @@ export default async function AdminSettingsPage() {
           seniorTenRideCardCents: row.senior_ten_ride_card_cents,
           tenRideCardValidityMonths: row.ten_ride_card_validity_months,
           ptIntakeDiscountCents: row.pt_intake_discount_cents,
-          memberPtDiscountPercent: row.member_pt_discount_percent,
           checkInEnabled: row.check_in_enabled ?? true,
           checkInPillars: (Array.isArray(row.check_in_pillars)
             ? row.check_in_pillars

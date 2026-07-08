@@ -7,10 +7,7 @@ import {
   createPtBookingFromCredits,
   createPtBookingWithPayment,
 } from "@/lib/member/pt-booking-actions";
-import {
-  calculatePtPriceCents,
-  qualifiesForIntakeDiscount,
-} from "@/lib/member/pt-pricing";
+import { calculatePtPriceCents } from "@/lib/member/pt-pricing";
 import { PtStepper } from "./_components/PtStepper";
 import {
   TrainerStep,
@@ -30,9 +27,7 @@ interface Slot extends SlotOption {
 interface PtBookingFlowProps {
   trainers: TrainerOption[];
   slots: Slot[];
-  hasIntakeDiscountAvailable: boolean;
   creditsRemaining: number | null;
-  hasActiveNonPtMembership: boolean;
 }
 
 const STEPS = [
@@ -45,9 +40,7 @@ const STEPS = [
 export function PtBookingFlow({
   trainers,
   slots,
-  hasIntakeDiscountAvailable,
   creditsRemaining,
-  hasActiveNonPtMembership,
 }: PtBookingFlowProps) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
@@ -71,22 +64,10 @@ export function PtBookingFlow({
     [slots, slotId],
   );
 
-  const isIntake = selectedTrainer
-    ? qualifiesForIntakeDiscount({
-        hasUsedIntakeDiscount: !hasIntakeDiscountAvailable,
-        trainerTier: selectedTrainer.tier,
-        format: "one_on_one",
-        purchaseType: "single",
-      })
-    : false;
-
   const priceCents = selectedTrainer
     ? calculatePtPriceCents({
-        tier: selectedTrainer.tier,
         format: "one_on_one",
         purchaseType: "single",
-        memberHasActiveSub: hasActiveNonPtMembership,
-        isIntakeSession: isIntake,
       })
     : 0;
 
@@ -147,7 +128,6 @@ export function PtBookingFlow({
         {stepIndex === 0 && (
           <TrainerStep
             trainers={trainers}
-            hasIntakeDiscountAvailable={hasIntakeDiscountAvailable}
             selectedId={trainerId}
             onSelect={handleTrainerSelect}
           />
@@ -174,7 +154,6 @@ export function PtBookingFlow({
             slotEnd={selectedSlot.endAt}
             paymentMethod={paymentMethod}
             priceCents={priceCents}
-            isIntakeDiscount={isIntake}
             creditsRemaining={creditsRemaining}
             pending={pending}
             error={error}

@@ -31,7 +31,6 @@ export interface BookingSettingsInput {
   seniorTenRideCardCents: number;
   tenRideCardValidityMonths: number;
   ptIntakeDiscountCents: number;
-  memberPtDiscountPercent: number;
   checkInEnabled: boolean;
   checkInPillars: CheckInPillar[];
   noShowReleaseMinutes: number;
@@ -68,7 +67,6 @@ export async function saveBookingSettings(
     ["seniorTenRideCardCents", 0, 1_000_000],
     ["tenRideCardValidityMonths", 1, 24],
     ["ptIntakeDiscountCents", 0, 100_000],
-    ["memberPtDiscountPercent", 0, 100],
     ["noShowReleaseMinutes", 0, 120],
   ];
   for (const [key, min, max] of checks) {
@@ -115,7 +113,6 @@ export async function saveBookingSettings(
     senior_ten_ride_card_cents: input.seniorTenRideCardCents,
     ten_ride_card_validity_months: input.tenRideCardValidityMonths,
     pt_intake_discount_cents: input.ptIntakeDiscountCents,
-    member_pt_discount_percent: input.memberPtDiscountPercent,
     check_in_enabled: input.checkInEnabled,
     check_in_pillars: dedupedPillars,
     no_show_release_minutes: input.noShowReleaseMinutes,
