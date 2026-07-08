@@ -6,6 +6,7 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { formatDateLong } from "@/lib/format-date";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 
 const FEATURES = [
@@ -52,22 +53,20 @@ const POOL_LABELS: Record<PoolAvailability["pool"], string> = {
 function PoolCounter({ availability }: { availability?: PoolAvailability }) {
   if (!availability) return null;
   const label = POOL_LABELS[availability.pool];
+  const closesAt = formatDateLong(new Date(availability.closes_at));
 
   return (
     <div className="border border-accent/20 bg-bg-elevated px-8 py-8 text-center">
       <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">{label}</span>
       {availability.is_open ? (
-        <>
-          <p className="font-[family-name:var(--font-playfair)] text-5xl md:text-6xl text-text leading-none">
-            {availability.remaining}
-          </p>
-          <p className="text-text-muted text-sm mt-3 uppercase tracking-[0.18em]">
-            van {availability.cap} plekken vrij
-          </p>
-        </>
+        <p className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text leading-snug">
+          {/* COPY: confirm met Marlon */}
+          Nog beschikbaar tot {closesAt}
+        </p>
       ) : (
         <p className="text-text-muted text-sm mt-2 uppercase tracking-[0.18em]">
-          Alle plekken zijn vergeven
+          {/* COPY: confirm met Marlon */}
+          De Early Member periode is gesloten.
         </p>
       )}
     </div>
@@ -108,12 +107,14 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
               <PoolCounter availability={allAccess} />
             </div>
             {!availability && (
+              // COPY: confirm met Marlon
               <p className="text-text-muted text-center text-sm mt-2 uppercase tracking-[0.18em]">
-                Maximaal 40 plekken per membership
+                Voor een beperkte periode beschikbaar
               </p>
             )}
+            {/* COPY: confirm met Marlon */}
             <p className="text-text-muted text-center text-sm mt-8">
-              Geldig t/m september 2026, of zolang er plekken zijn.
+              Geldig t/m 1 oktober 2026.
             </p>
           </ScrollReveal>
         </Container>
@@ -308,21 +309,53 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                   €2.400
                 </p>
                 <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
-                  {/* COPY: confirm met Marlon */}
+                  {/* COPY: confirm met Marlon
+                      Wat zit er in het 12-weken programma (Studio) */}
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Persoonlijke training, meting en trainingsprotocol
+                    Uitgebreide Intake
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Voedings-, supplementen- en maagzuuradvies
+                    12 Punts Huidplooimeting
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Volledig Hormonaal Profiel
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Twee Personal Training sessies per week
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Persoonlijk Voedingsadvies
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Persoonlijk Supplementenadvies
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Deelname motiverende groepsles
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Optimalisatie voeding d.m.v. Maagzuurtest
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Dagelijkse begeleiding
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Duurzame leefstijl begeleiding
                   </li>
                   <li className="flex gap-3 border-t border-text-muted/15 pt-4 mt-2">
                     <span className="text-accent">—</span>
-                    {/* COPY: confirm met Marlon, bonus mogelijk 1x yoga per
-                        week i.p.v. onderstaande */}
-                    Bonus tijdens Early Member: gratis 2x vrij trainen + 1x
-                    kettlebell per week
+                    {/* COPY: confirm met Marlon */}
+                    Early Member bonus: onbeperkt groepslessen tijdens je
+                    programma.
                   </li>
                 </ul>
                 <Button href="/contact" variant="secondary" className="w-full">
@@ -363,8 +396,9 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                   </li>
                   <li className="flex gap-3 border-t border-text-muted/15 pt-4 mt-2">
                     <span className="text-accent">—</span>
-                    Bonus tijdens Early Member: gratis 2x vrij trainen + 1x
-                    kettlebell per week
+                    {/* COPY: confirm met Marlon */}
+                    Early Member bonus: 2x vrij trainen + 1x kettlebell per
+                    week.
                   </li>
                 </ul>
                 <Button href="/contact" variant="secondary" className="w-full">
@@ -373,9 +407,9 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
               </div>
             </ScrollReveal>
           </div>
+          {/* COPY: confirm met Marlon */}
           <p className="text-text-muted text-sm text-center mt-8">
-            Deze bonus is niet plek-gelimiteerd en telt niet mee in de 40
-            plekken hierboven.
+            Deze bonus is niet plek-gelimiteerd.
           </p>
           <div className="text-center mt-8">
             <Button href="/aanbod" variant="secondary">
