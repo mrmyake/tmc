@@ -42,6 +42,7 @@ const VALID_STATUSES: Array<MemberStatus | "all"> = [
 const VALID_PLANS = [
   "all",
   "vrij_trainen",
+  "groepslessen",
   "yoga_mobility",
   "kettlebell",
   "all_inclusive",

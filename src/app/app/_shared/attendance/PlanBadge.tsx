@@ -4,6 +4,8 @@ const PLAN_LABEL: Record<string, string> = {
   vrij_trainen: "Vrij trainen",
   yoga_mobility: "Yoga & mobility",
   kettlebell: "Kettlebell",
+  // COPY: confirm met Marlon
+  groepslessen: "Groepslessen",
   all_inclusive: "All-inclusive",
   kids: "Kids",
   senior: "Senior",
@@ -15,6 +17,7 @@ const PLAN_LABEL: Record<string, string> = {
 // Non-pillar plan_type values map to a pillar-equivalent color for the
 // dot so member-facing dots stay consistent with the rooster pillars.
 const PLAN_DOT_FALLBACK: Record<string, string> = {
+  groepslessen: "bg-accent",
   all_inclusive: "bg-accent",
   ten_ride_card: "bg-text-muted",
   pt_package: "bg-accent",
