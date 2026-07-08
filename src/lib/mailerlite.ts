@@ -87,4 +87,9 @@ export const GROUPS = {
   // MailerLite sync (formulier blijft wel werken, alleen zonder sync).
   EARLY_MEMBER_INTERESTED:
     process.env.MAILERLITE_EARLY_MEMBER_GROUP_ID ?? "",
+  // Generieke "blijf op de hoogte" opt-in vanuit de slide-in banner op de
+  // marketingpagina's. Maak de group aan in MailerLite Studio en zet het ID
+  // in .env.local en Vercel als MAILERLITE_INFO_GROUP_ID. Leeg = formulier
+  // blijft werken en vangt de lead, alleen (nog) zonder MailerLite group sync.
+  INFO_INTERESTED: process.env.MAILERLITE_INFO_GROUP_ID ?? "",
 } as const;
