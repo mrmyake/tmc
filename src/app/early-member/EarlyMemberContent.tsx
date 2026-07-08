@@ -1,102 +1,49 @@
 "use client";
 
-import { Smartphone, ClipboardList, BellRing, Users } from "lucide-react";
+import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
-import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { Countdown } from "@/components/ui/Countdown";
 import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 
-const FEATURES = [
-  {
-    icon: Smartphone,
-    // COPY: confirm met Marlon
-    title: "Boek in twee tikken",
-    text: "Rooster, boeken en annuleren vanaf je telefoon.",
-  },
-  {
-    icon: ClipboardList,
-    // COPY: confirm met Marlon
-    title: "Jouw trainingsschema",
-    text: "Een persoonlijk schema van Marlon dat meegroeit met je voortgang.",
-  },
-  {
-    icon: BellRing,
-    // COPY: confirm met Marlon
-    title: "Automatische herinneringen",
-    text: "Nooit meer een les vergeten, inclusief automatische wachtlijst.",
-  },
-  {
-    icon: Users,
-    // COPY: confirm met Marlon
-    title: "Neem gratis een vriend mee",
-    text: "Elke maand een gastenles, zonder aparte betaling.",
-  },
-];
-
-export interface PoolAvailability {
-  pool: "groepslessen" | "all_access";
-  cap: number;
-  occupied: number;
-  remaining: number;
-  closes_at: string;
-  is_open: boolean;
-}
-
-const POOL_LABELS: Record<PoolAvailability["pool"], string> = {
-  groepslessen: "Groepslessen",
-  all_access: "All Access",
-};
-
-function PoolCounter({ availability }: { availability?: PoolAvailability }) {
-  if (!availability) return null;
-  const label = POOL_LABELS[availability.pool];
-  const closesAt = formatDateLong(new Date(availability.closes_at));
-
-  return (
-    <div className="border border-accent/20 bg-bg-elevated px-8 py-8 text-center">
-      <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">{label}</span>
-      {availability.is_open ? (
-        <p className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text leading-snug">
-          {/* COPY: confirm met Marlon */}
-          Nog beschikbaar tot {closesAt}
-        </p>
-      ) : (
-        <p className="text-text-muted text-sm mt-2 uppercase tracking-[0.18em]">
-          {/* COPY: confirm met Marlon */}
-          De Early Member periode is gesloten.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export interface EarlyMemberPricing {
   groepslessen: { twoX: number; threeX: number; unl: number };
+  allAccessTwoXCents: number;
+  allAccessThreeXCents: number;
   allAccessUnlCents: number;
   vrijTrainenTwoXCents: number;
 }
 
 interface EarlyMemberContentProps {
-  availability: PoolAvailability[] | null;
+  /** ISO closes_at, live uit get_early_member_availability() (of fallback). */
+  deadline: string;
   pricing: EarlyMemberPricing;
+  /** true als STUDIO_OPENING_DATE al gepasseerd is, bepaalt de hero-framing. */
+  hasOpened: boolean;
 }
 
-// Copy hieronder is geaccordeerd voor launch. Bewust nergens
-// kortingspercentages, nergens "crowdfunding" of "founding member" — de
-// lijn is bonus/voorwaarden in plaats van korting.
-export function EarlyMemberContent({ availability, pricing }: EarlyMemberContentProps) {
-  const groepslessen = availability?.find((a) => a.pool === "groepslessen");
-  const allAccess = availability?.find((a) => a.pool === "all_access");
-  // availability === null (fetch mislukt) laat de knop gewoon naar de
-  // signup-flow gaan; reserve_early_member_slot valideert daar sowieso
-  // opnieuw atomair. Alleen een expliciet gesloten pool past het label aan.
-  const groepslessenOpen = availability ? groepslessen?.is_open === true : true;
-  const allAccessOpen = availability ? allAccess?.is_open === true : true;
+// Ghost-button op een lichte ("stone") sectie. Button's "secondary"-variant
+// hardcodet text-text/border-text-muted (bedoeld voor donkere achtergronden),
+// dus op een lichte kaart geeft dat te weinig contrast — zelfde patroon en
+// motivatie als src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx.
+const ghostOnLightClasses =
+  "w-full inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer border border-border-on-light text-on-light hover:border-accent hover:text-accent active:scale-[0.99]";
+
+// Copy hieronder volgt de zes-secties rebuild (zie PR-beschrijving). Bewust
+// nergens plek-tellingen, reservering/hold-taal of "1 augustus" meer — de
+// enige schaarste is de deadline-countdown, en de opening heet "medio
+// augustus" tot de echte datum vaststaat.
+export function EarlyMemberContent({
+  deadline,
+  pricing,
+  hasOpened,
+}: EarlyMemberContentProps) {
+  const deadlineLabel = formatDateLong(new Date(deadline));
 
   // Live uit tmc.membership_plan_catalogue, zelfde korting-constante als de
   // daadwerkelijke checkout (startSignup) gebruikt voor deze pool.
@@ -105,449 +52,471 @@ export function EarlyMemberContent({ availability, pricing }: EarlyMemberContent
     pricing.allAccessUnlCents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
   );
 
+  // Meerprijs om vrij trainen aan Groepslessen toe te voegen (= het verschil
+  // tussen All Access en Groepslessen op de Onbeperkt-kolom). Live afgeleid
+  // i.p.v. hardcoded, zodat dit bedrag nooit los kan raken van de catalogus
+  // als de tarieven ooit wijzigen. Zie /prijzen (PrijzenContent.tsx) voor
+  // dezelfde berekening met een volledige gelijkheidscheck over alle kolommen.
+  const vrijTrainenAddOnCents = Math.max(
+    0,
+    pricing.allAccessUnlCents - pricing.groepslessen.unl
+  );
+
   return (
     <>
-      {/* Page header + tellers */}
-      <Section className="pt-32 md:pt-40">
+      {/* 1. Hero (donker) */}
+      <Section className="pt-32 pb-20 md:pt-40 md:pb-28">
         <Container>
           <ScrollReveal>
-            <SectionHeading
-              label="Early Member"
-              heading="Er als eerste bij zijn heeft z'n voordelen"
-              subtext="Op 1 augustus opent The Movement Club in Loosdrecht. De eerste 40 leden per membership starten als Early Member — met voorwaarden die daarna niet meer terugkomen."
-            />
-          </ScrollReveal>
-          <ScrollReveal delay={0.15}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
-              <PoolCounter availability={groepslessen} />
-              <PoolCounter availability={allAccess} />
+            <div className="max-w-3xl mx-auto text-center">
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+                Early Member
+              </span>
+              {/* COPY: confirm met Marlon */}
+              <h1 className="font-[family-name:var(--font-playfair)] font-normal text-text text-[2.5rem] leading-[1.1] tracking-[-0.01em] md:text-6xl lg:text-7xl">
+                De voorwaarden waarmee we{" "}
+                <em className="not-italic text-accent font-normal">
+                  nooit meer
+                </em>{" "}
+                openen.
+              </h1>
+              {hasOpened ? (
+                // COPY: confirm met Marlon
+                <p className="text-text-muted text-lg mt-7 max-w-2xl mx-auto leading-relaxed">
+                  The Movement Club is open in Loosdrecht. Wie nu instapt,
+                  traint zonder inschrijfkosten, zonder jaarcontract en met
+                  een All Access-tarief dat daarna verdwijnt.
+                </p>
+              ) : (
+                // COPY: confirm met Marlon
+                <p className="text-text-muted text-lg mt-7 max-w-2xl mx-auto leading-relaxed">
+                  Medio augustus opent The Movement Club in Loosdrecht. Wie nu
+                  instapt, traint zonder inschrijfkosten, zonder
+                  jaarcontract en met een All Access-tarief dat daarna
+                  verdwijnt.
+                </p>
+              )}
             </div>
-            {!availability && (
-              // COPY: confirm met Marlon
-              <p className="text-text-muted text-center text-sm mt-2 uppercase tracking-[0.18em]">
-                Voor een beperkte periode beschikbaar
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.15}>
+            <div className="max-w-2xl mx-auto mt-12 md:mt-16">
+              <Countdown deadline={deadline} />
+              {/* COPY: confirm met Marlon */}
+              <p className="text-text-muted text-center text-sm mt-6">
+                Early Member is beschikbaar tot{" "}
+                <strong className="text-text font-medium">
+                  {deadlineLabel}
+                </strong>
+                . Daarna gelden de reguliere voorwaarden.
               </p>
-            )}
-            {/* COPY: confirm met Marlon */}
-            <p className="text-text-muted text-center text-sm mt-8">
-              Geldig t/m 1 oktober 2026.
-            </p>
+            </div>
           </ScrollReveal>
-        </Container>
-      </Section>
 
-      {/* Feature grid */}
-      <Section>
-        <Container>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
-            {FEATURES.map((feature, i) => {
-              const Icon = feature.icon;
-              return (
-                <ScrollReveal key={feature.title} delay={i * 0.1}>
-                  <div className="text-center md:text-left">
-                    <Icon className="text-accent mb-4 mx-auto md:mx-0" size={28} strokeWidth={1.5} />
-                    <h3 className="font-[family-name:var(--font-playfair)] text-lg md:text-xl text-text mb-2">
-                      {feature.title}
-                    </h3>
-                    <p className="text-text-muted text-sm leading-relaxed">
-                      {feature.text}
-                    </p>
-                  </div>
-                </ScrollReveal>
-              );
-            })}
-          </div>
-        </Container>
-      </Section>
-
-      {/* Kies je vorm */}
-      <Section bg="elevated">
-        <Container className="max-w-3xl">
-          <ScrollReveal>
-            {/* COPY: confirm met Marlon */}
-            <SectionHeading
-              label="Kies je vorm"
-              heading="Twee manieren om te starten"
-              subtext="Allebei met hetzelfde Early Member-voordeel: geen inschrijfkosten en direct maandelijks opzegbaar, in plaats van het gebruikelijke jaar-commitment."
-            />
-          </ScrollReveal>
-        </Container>
-        <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <ScrollReveal>
-              <div className="border border-text-muted/15 bg-bg p-8 md:p-10 h-full flex flex-col">
-                {/* COPY: confirm met Marlon */}
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                  Groepslessen
-                </span>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-6">
-                  Yoga, mobility en kettlebell
-                </h3>
-                <ul className="divide-y divide-bg-subtle border-y border-bg-subtle mb-6 text-sm">
-                  <li className="flex items-center justify-between py-3">
-                    <span className="text-text-muted">2x per week</span>
-                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.twoX)}
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between py-3">
-                    <span className="text-text-muted">3x per week</span>
-                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.threeX)}
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between py-3">
-                    <span className="text-text-muted">Onbeperkt</span>
-                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.unl)}
-                    </span>
-                  </li>
-                </ul>
-                <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    {/* COPY: confirm met Marlon */}
-                    Geen inschrijfkosten (t.w.v. €39)
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Direct maandelijks opzegbaar
-                  </li>
-                </ul>
-                <Button href="/app/abonnement/nieuw" className="w-full">
-                  {groepslessenOpen ? "Kies Groepslessen" : "Bekijk het reguliere abonnement"}
-                </Button>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal delay={0.15}>
-              <div className="border border-accent/30 bg-bg p-8 md:p-10 h-full flex flex-col">
-                {/* COPY: confirm met Marlon */}
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
-                  Meest gekozen
-                </span>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
-                  All Access
-                </h3>
-                <div className="mb-1">
-                  <span className="text-text-muted text-lg line-through mr-2">
-                    {formatPriceEuro(pricing.allAccessUnlCents)}
-                  </span>
-                  <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
-                    {formatPriceEuro(allAccessEarlyMemberCents)}
-                  </span>
-                  <span className="text-text-muted text-sm ml-2">
-                    / 4 weken
-                  </span>
-                </div>
-                {/* COPY: confirm met Marlon. Bedrag live uit de catalogus
-                    min EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS, zelfde
-                    berekening als startSignup gebruikt voor deze pool, dus
-                    dit blijft kloppen met wat de checkout daadwerkelijk
-                    afschrijft. */}
-                <p className="text-accent text-sm mb-6">
-                  Bespaar {formatPriceEuro(EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS)} per
-                  4 weken, blijvend
-                </p>
-                <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
-                  {/* COPY: confirm met Marlon */}
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Onbeperkt groepslessen: yoga, mobility en kettlebell
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Onbeperkt vrij trainen
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Geen inschrijfkosten (t.w.v. €39)
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Korte intake / movement check
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    {/* Lock-in-semantiek: vast zolang het lidmaatschap
-                        onafgebroken doorloopt (lock_in_active vervalt bij
-                        opzegging, zie de expire-on-cancel-trigger). */}
-                    Tarief blijft gelden zolang je lid blijft
-                  </li>
-                </ul>
-                <Button href="/app/abonnement/nieuw" className="w-full">
-                  {allAccessOpen ? "Word Early Member" : "Bekijk het reguliere abonnement"}
-                </Button>
-              </div>
-            </ScrollReveal>
-          </div>
-          {/* COPY: confirm met Marlon. Link naar /prijzen (nog niet
-              gemerged op moment van schrijven, zie PR-beschrijving voor de
-              merge-afhankelijkheid) i.p.v. /aanbod: die pagina heeft geen
-              enkele prijs, /prijzen is de daadwerkelijke prijslijst. */}
-          <p className="text-text-muted text-xs text-center mt-8">
-            Liever alleen vrij trainen, zonder lessen? Dat kan los, vanaf{" "}
-            {formatPriceEuro(pricing.vrijTrainenTwoXCents)} per 4 weken.{" "}
-            <a href="/prijzen" className="text-accent underline underline-offset-2">
-              Bekijk alle prijzen
-            </a>
-            .
-          </p>
-        </Container>
-      </Section>
-
-      {/* 12-weken programma's */}
-      <Section>
-        <Container className="max-w-3xl text-center">
-          <ScrollReveal>
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Ook zonder membership
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Start je een 12-weken programma?
-            </h2>
-            {/* COPY: confirm met Marlon */}
-            <p className="text-text-muted text-lg leading-relaxed mb-12 max-w-2xl mx-auto">
-              Vaste prijs per programma, voor iedereen gelijk. Start je
-              tijdens de Early Member-periode, dan train je er gratis bij.
-            </p>
-          </ScrollReveal>
-        </Container>
-        <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <ScrollReveal>
-              <div className="border border-text-muted/15 bg-bg-elevated p-8 md:p-10 h-full flex flex-col">
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                  In de studio
-                </span>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-2">
-                  12 Weken Transformatieprogramma
-                </h3>
-                <p className="font-[family-name:var(--font-playfair)] text-3xl text-text mb-6">
-                  {/* COPY: confirm met Marlon */}
-                  €2.400
-                </p>
-                <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
-                  {/* COPY: confirm met Marlon
-                      Wat zit er in het 12-weken programma (Studio) */}
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Uitgebreide Intake
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    12 Punts Huidplooimeting
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Volledig Hormonaal Profiel
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Twee Personal Training sessies per week
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Persoonlijk Voedingsadvies
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Persoonlijk Supplementenadvies
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Deelname motiverende groepsles
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Optimalisatie voeding d.m.v. Maagzuurtest
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Dagelijkse begeleiding
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Duurzame leefstijl begeleiding
-                  </li>
-                  <li className="flex gap-3 border-t border-text-muted/15 pt-4 mt-2">
-                    <span className="text-accent">—</span>
-                    {/* COPY: confirm met Marlon */}
-                    Early Member bonus: onbeperkt groepslessen tijdens je
-                    programma.
-                  </li>
-                </ul>
-                <Button href="/contact" variant="secondary" className="w-full">
-                  Vraag het programma aan
-                </Button>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal delay={0.15}>
-              <div className="border border-text-muted/15 bg-bg-elevated p-8 md:p-10 h-full flex flex-col">
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                  Online
-                </span>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-2">
-                  12 Weken Online Programma
-                </h3>
-                <p className="font-[family-name:var(--font-playfair)] text-3xl text-text mb-6">
-                  {/* COPY: confirm met Marlon */}
-                  €1.250
-                </p>
-                <ul className="space-y-4 text-text-muted leading-relaxed mb-8 flex-1">
-                  {/* COPY: confirm met Marlon */}
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Uitgebreide intake en volledig hormonaal profiel
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Trainingsschema op maat, persoonlijk voedings- en
-                    supplementenadvies
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Voedingsoptimalisatie d.m.v. maagzuurtest
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-accent">—</span>
-                    Wekelijkse online check-in
-                  </li>
-                  <li className="flex gap-3 border-t border-text-muted/15 pt-4 mt-2">
-                    <span className="text-accent">—</span>
-                    {/* COPY: confirm met Marlon */}
-                    Early Member bonus: 2x vrij trainen + 1x kettlebell per
-                    week.
-                  </li>
-                </ul>
-                <Button href="/contact" variant="secondary" className="w-full">
-                  Vraag het programma aan
-                </Button>
-              </div>
-            </ScrollReveal>
-          </div>
-          {/* COPY: confirm met Marlon */}
-          <p className="text-text-muted text-sm text-center mt-8">
-            Deze bonus is niet plek-gelimiteerd.
-          </p>
-          <div className="text-center mt-8">
-            <Button href="/aanbod" variant="secondary">
-              Bekijk het volledige aanbod
-            </Button>
-          </div>
-        </Container>
-      </Section>
-
-      {/* Overstapaanbod, hetzelfde Groepslessen Early Member-aanbod
-          (zie de kaart hierboven), voor wie nu al op losse basis traint.
-          Copy hier volgt daarom groepslessenOpen: het is dezelfde pool. */}
-      <Section bg="elevated">
-        <Container className="max-w-3xl text-center">
-          <ScrollReveal>
-            {/* COPY: confirm met Marlon */}
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Voor bestaande klanten
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Train je al mee met Marlon?
-            </h2>
-            {/* COPY: confirm met Marlon. Instaptarief hergebruikt
-                pricing.groepslessen.twoX (dezelfde catalogusprijs als de
-                Groepslessen-kaart hierboven), zodat dit bedrag niet los
-                kan raken van de rest van de pagina. */}
-            <p className="text-text-muted text-lg leading-relaxed mb-8 max-w-xl mx-auto">
-              {groepslessenOpen
-                ? `Wie nu op losse basis traint, kan overstappen naar een abonnement zonder inschrijfkosten en zonder het gebruikelijke jaar-commitment: direct maandelijks opzegbaar, tegen hetzelfde instaptarief van ${formatPriceEuro(pricing.groepslessen.twoX)} per 4 weken.`
-                : "Wie nu op losse basis traint, kan altijd overstappen naar een regulier abonnement. De Early Member-voorwaarden hierboven zijn niet meer beschikbaar voor Groepslessen."}
-            </p>
-            <Button href="/app/abonnement/nieuw">
-              {groepslessenOpen
-                ? "Vraag het overstapaanbod aan"
-                : "Bekijk het reguliere abonnement"}
-            </Button>
-          </ScrollReveal>
-        </Container>
-      </Section>
-
-      {/* Hoe het werkt */}
-      <Section bg="elevated">
-        <Container>
-          <ScrollReveal>
-            <SectionHeading
-              label="Zo werkt het"
-              heading="Drie stappen, dan staat je plek vast"
-            />
-          </ScrollReveal>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-4xl mx-auto">
-            {[
-              {
-                step: "01",
-                title: "Kies je membership",
-                text: "Groepslessen of All Access — elk met een eigen pool van 40 Early Member-plekken.",
-              },
-              {
-                step: "02",
-                title: "Reserveer je plek",
-                text: "Tijdens je aanmelding staat je plek drie kwartier voor je vast. Rond je 'm af, dan is hij van jou.",
-              },
-              {
-                step: "03",
-                title: "Train vanaf de opening",
-                text: "Alle voordelen gaan in op 1 augustus 2026, zodra de studio opent.",
-              },
-            ].map((item, i) => (
-              <ScrollReveal key={item.step} delay={i * 0.1}>
-                <div className="text-center md:text-left">
-                  <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
-                    {item.step}
-                  </span>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-xl md:text-2xl text-text mb-3">
-                    {item.title}
-                  </h3>
-                  <p className="text-text-muted leading-relaxed">{item.text}</p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </Container>
-      </Section>
-
-      {/* Slot CTA */}
-      <Section>
-        <Container className="max-w-3xl text-center">
-          <ScrollReveal>
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Eerst kennismaken?
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Kom eerst een keer proeven
-            </h2>
-            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
-              Boek een gratis proefles of stel je vraag — Marlon denkt graag met
-              je mee welke vorm bij je past.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button href="/proefles">Boek een proefles</Button>
-              <Button href="/contact" variant="secondary">
-                Stel je vraag
+          <ScrollReveal delay={0.25}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
+              <Button href="#aanbod">Word Early Member</Button>
+              <Button href="#programmas" variant="secondary">
+                Bekijk de programma&apos;s
               </Button>
             </div>
           </ScrollReveal>
         </Container>
       </Section>
 
-      {/* E-mail opt-in */}
+      {/* 2. Aanbod (licht) */}
+      <Section bg="stone" id="aanbod">
+        <Container>
+          <ScrollReveal>
+            <div className="max-w-2xl mx-auto text-center mb-14 md:mb-16">
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                Het aanbod
+              </span>
+              {/* COPY: confirm met Marlon */}
+              <h2 className="font-[family-name:var(--font-playfair)] text-on-light text-3xl md:text-4xl lg:text-5xl mb-4 leading-[1.05] tracking-[-0.02em]">
+                Twee lidmaatschappen. Eén moment.
+              </h2>
+              {/* COPY: confirm met Marlon */}
+              <p className="text-on-light-muted text-lg">
+                Alle prijzen per 4 weken. Als Early Member vervalt het
+                inschrijfgeld van €39 en ben je vanaf dag één maandelijks
+                opzegbaar.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* All Access — dark feature card op de lichte sectie, zelfde
+                patroon als TwaalfWekenProgrammaContent.tsx's Studio-kaart. */}
+            <ScrollReveal>
+              <div className="bg-bg text-text border border-bg p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                  Early Member voordeel
+                </span>
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl mt-3.5 mb-4">
+                  All Access
+                </h3>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-text-muted text-sm mb-6">
+                  Alle groepslessen plus onbeperkt vrij trainen, ongeacht je
+                  lesfrequentie.
+                </p>
+                <div className="mb-6">
+                  <span className="text-text-muted text-lg line-through mr-2">
+                    {formatPriceEuro(pricing.allAccessUnlCents)}
+                  </span>
+                  <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
+                    {formatPriceEuro(allAccessEarlyMemberCents)}
+                  </span>
+                  {/* COPY: confirm met Marlon */}
+                  <span className="block text-text-muted text-xs mt-1">
+                    per 4 weken, onbeperkt, blijvend tarief
+                  </span>
+                </div>
+                <ul className="divide-y divide-bg-subtle border-y border-bg-subtle mb-6 text-sm">
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">2x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                      {formatPriceEuro(pricing.allAccessTwoXCents)}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">3x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                      {formatPriceEuro(pricing.allAccessThreeXCents)}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-text-muted">
+                      Onbeperkt{" "}
+                      <span className="text-accent text-[10px] uppercase tracking-[0.14em] ml-1">
+                        Early Member
+                      </span>
+                    </span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-accent">
+                      {formatPriceEuro(allAccessEarlyMemberCents)}
+                    </span>
+                  </li>
+                </ul>
+                <ul className="space-y-3 text-text-muted leading-relaxed mb-8 flex-1 text-sm">
+                  {/* COPY: confirm met Marlon */}
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Yoga, mobility en kettlebell
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Altijd onbeperkt vrij trainen inbegrepen
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Geen inschrijfkosten, direct maandelijks opzegbaar
+                  </li>
+                </ul>
+                <Button href="/app/abonnement/nieuw" className="w-full">
+                  Word Early Member
+                </Button>
+              </div>
+            </ScrollReveal>
+
+            {/* Groepslessen — plain light kaart */}
+            <ScrollReveal delay={0.1}>
+              <div className="bg-surface-light text-on-light border border-border-on-light p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                  Early Member voordeel
+                </span>
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl mt-3.5 mb-4">
+                  Groepslessen
+                </h3>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-on-light-muted text-sm mb-6">
+                  Yoga, mobility en kettlebell in kleine groepen, onder
+                  begeleiding van Marlon.
+                </p>
+                <ul className="divide-y divide-border-on-light border-y border-border-on-light mb-6 text-sm">
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-on-light-muted">2x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-on-light">
+                      {formatPriceEuro(pricing.groepslessen.twoX)}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-on-light-muted">3x per week</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-on-light">
+                      {formatPriceEuro(pricing.groepslessen.threeX)}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-3">
+                    <span className="text-on-light-muted">Onbeperkt</span>
+                    <span className="font-[family-name:var(--font-playfair)] text-lg text-on-light">
+                      {formatPriceEuro(pricing.groepslessen.unl)}
+                    </span>
+                  </li>
+                </ul>
+                <ul className="space-y-3 text-on-light-muted leading-relaxed mb-8 flex-1 text-sm">
+                  {/* COPY: confirm met Marlon */}
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Geen inschrijfkosten (€39)
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Direct maandelijks opzegbaar, geen jaarcontract
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-accent">—</span>
+                    Vrij trainen toevoegen kan altijd, voor{" "}
+                    {formatPriceEuro(vrijTrainenAddOnCents)} per 4 weken
+                  </li>
+                </ul>
+                <Link href="/app/abonnement/nieuw" className={ghostOnLightClasses}>
+                  Word Early Member
+                </Link>
+              </div>
+            </ScrollReveal>
+          </div>
+        </Container>
+      </Section>
+
+      {/* 3. Waarom nu (donker) */}
+      <Section>
+        <Container className="max-w-3xl">
+          <ScrollReveal>
+            <div className="mb-12 md:mb-14">
+              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                Waarom nu
+              </span>
+              {/* COPY: confirm met Marlon */}
+              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text leading-[1.05] tracking-[-0.02em]">
+                Dit aanbod komt niet terug.
+              </h2>
+            </div>
+            <div className="divide-y divide-bg-subtle border-y border-bg-subtle">
+              {/* COPY: confirm met Marlon */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                <span className="text-text-muted">€39 inschrijfkosten</span>
+                <span aria-hidden className="text-accent hidden sm:inline">
+                  →
+                </span>
+                <span className="text-text font-medium">
+                  Geen inschrijfkosten
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                <span className="text-text-muted">
+                  Eerste jaar vast, daarna per 4 weken opzegbaar
+                </span>
+                <span aria-hidden className="text-accent hidden sm:inline">
+                  →
+                </span>
+                <span className="text-text font-medium">
+                  Vanaf dag één maandelijks opzegbaar
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                <span className="text-text-muted">
+                  All Access onbeperkt {formatPriceEuro(pricing.allAccessUnlCents)}{" "}
+                  per 4 weken
+                </span>
+                <span aria-hidden className="text-accent hidden sm:inline">
+                  →
+                </span>
+                <span className="text-text font-medium">
+                  {formatPriceEuro(allAccessEarlyMemberCents)} per 4 weken,
+                  blijvend
+                </span>
+              </div>
+            </div>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted leading-relaxed mt-10 max-w-2xl">
+              Na de Early Member-periode gelden voor iedereen de reguliere
+              voorwaarden. Wie nu instapt, houdt deze voorwaarden zolang het
+              lidmaatschap doorloopt.
+            </p>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
+      {/* 4. Programma's (licht) */}
+      <Section bg="stone" id="programmas">
+        <Container className="max-w-3xl text-center">
+          <ScrollReveal>
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              Liever een traject
+            </span>
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-on-light text-3xl md:text-4xl lg:text-5xl mb-4 leading-[1.05] tracking-[-0.02em]">
+              De 12-weken programma&apos;s
+            </h2>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-on-light-muted text-lg max-w-2xl mx-auto mb-14 md:mb-16">
+              Ook zonder lidmaatschap te volgen. De prijs is voor iedereen
+              gelijk; Early Members krijgen er tijdens het programma extra
+              training bij.
+            </p>
+          </ScrollReveal>
+        </Container>
+        <Container>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <ScrollReveal>
+              <div className="bg-surface-light text-on-light border border-border-on-light p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                  In de studio
+                </span>
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl mt-3.5 mb-2">
+                  12 weken met Marlon
+                </h3>
+                <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
+                  €2.400{" "}
+                  <span className="font-sans text-base text-on-light-muted align-top">
+                    eenmalig
+                  </span>
+                </p>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-on-light-muted text-sm leading-relaxed mb-6">
+                  Uitgebreide intake, 2x personal training per week met
+                  Marlon, voedings- en supplementenadvies en dagelijkse
+                  leefstijlbegeleiding.
+                </p>
+                <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
+                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
+                    Early Member bonus
+                  </span>
+                  {/* COPY: confirm met Marlon */}
+                  <span className="text-on-light text-[15px] font-medium leading-snug">
+                    Onbeperkt groepslessen tijdens het hele programma
+                  </span>
+                </div>
+                <Link
+                  href="/12-weken-programma"
+                  className={`${ghostOnLightClasses} mt-auto`}
+                >
+                  Meer over dit programma
+                </Link>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={0.1}>
+              <div className="bg-surface-light text-on-light border border-border-on-light p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                  Online
+                </span>
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl mt-3.5 mb-2">
+                  12 weken online coaching
+                </h3>
+                <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
+                  €1.250{" "}
+                  <span className="font-sans text-base text-on-light-muted align-top">
+                    eenmalig
+                  </span>
+                </p>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-on-light-muted text-sm leading-relaxed mb-6">
+                  Volledig begeleid trainings- en voedingstraject op
+                  afstand, met wekelijkse check-ins.
+                </p>
+                <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
+                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
+                    Early Member bonus
+                  </span>
+                  {/* COPY: confirm met Marlon */}
+                  <span className="text-on-light text-[15px] font-medium leading-snug">
+                    2x per week vrij trainen en 1x per week kettlebell,
+                    tijdens het programma
+                  </span>
+                </div>
+                <Link
+                  href="/12-weken-programma"
+                  className={`${ghostOnLightClasses} mt-auto`}
+                >
+                  Meer over dit programma
+                </Link>
+              </div>
+            </ScrollReveal>
+          </div>
+        </Container>
+      </Section>
+
+      {/* 5. Overstap + proefles (donker) */}
+      <Section>
+        <Container className="max-w-3xl text-center">
+          <ScrollReveal>
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+              Nog niet zeker
+            </span>
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-4 leading-[1.05] tracking-[-0.02em]">
+              Twee andere manieren om in te stappen.
+            </h2>
+          </ScrollReveal>
+        </Container>
+        <Container>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mt-12">
+            <ScrollReveal>
+              <div className="border border-text-muted/15 bg-bg-elevated p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl md:text-2xl text-text mb-4">
+                  Je traint nu ergens anders
+                </h3>
+                <p className="text-text-muted leading-relaxed mb-8 flex-1">
+                  Stap over en betaal geen inschrijfkosten. We denken mee
+                  over de overgang vanaf je huidige abonnement, zodat je
+                  nergens dubbel voor betaalt.
+                </p>
+                <Button
+                  href="/app/abonnement/nieuw"
+                  variant="secondary"
+                  className="w-full"
+                >
+                  Bekijk het overstapaanbod
+                </Button>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={0.1}>
+              <div className="border border-text-muted/15 bg-bg-elevated p-8 md:p-10 h-full flex flex-col">
+                {/* COPY: confirm met Marlon */}
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl md:text-2xl text-text mb-4">
+                  Eerst een keer meedoen
+                </h3>
+                <p className="text-text-muted leading-relaxed mb-8 flex-1">
+                  Boek een proefles en ervaar hoe we trainen. Daarna beslis
+                  je pas; het Early Member-voordeel blijft tot de einddatum
+                  beschikbaar.
+                </p>
+                <Button href="/proefles" variant="secondary" className="w-full">
+                  Boek een proefles
+                </Button>
+              </div>
+            </ScrollReveal>
+          </div>
+        </Container>
+      </Section>
+
+      {/* 6. E-mail capture. Bewust bg="elevated" (donker) i.p.v. de lichte
+          sectie uit de mockup: EarlyMemberOptInForm hergebruikt Field /
+          fieldInputClasses, die tekstkleuren voor een donkere achtergrond
+          hardcoden (text-text = bijna-wit). Op een lichte "stone"-sectie
+          zou het invoerveld en label vrijwel onleesbaar worden zonder het
+          formulier zelf te herbouwen — buiten scope van deze rebuild. */}
       <Section bg="elevated">
         <Container className="max-w-3xl text-center">
           <ScrollReveal>
             {/* COPY: confirm met Marlon */}
             <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Nog niet klaar om te starten?
+              Nog even nadenken
             </span>
             {/* COPY: confirm met Marlon */}
             <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Laat je e-mailadres achter, dan houden we je persoonlijk op de
-              hoogte.
+              Blijf op de hoogte
             </h2>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted text-lg mb-10 max-w-xl mx-auto">
+              Laat je e-mailadres achter en ontvang alle informatie over
+              Early Member, de opening en het rooster.
+            </p>
             <EarlyMemberOptInForm />
           </ScrollReveal>
         </Container>
@@ -556,13 +525,11 @@ export function EarlyMemberContent({ availability, pricing }: EarlyMemberContent
       {/* Juridische afsluitregel, alleen op deze pagina. Niet in de
           site-brede Footer, want dat zou de regel op elke pagina tonen. */}
       <Container className="max-w-3xl pb-12">
-        {/* COPY: confirm met Marlon. Restitutiezin verwijderd: er is geen
-            refund-mechaniek gebouwd en er is geen restitutiebeleid
-            vastgesteld, dus een publieke claim die restitutie ontkent is
-            niet onderbouwd. Zie PR-beschrijving. */}
+        {/* COPY: confirm met Marlon. Slot-taal ("voor de eerste 40 leden")
+            vervangen door de live deadline, geen plek-telling meer. */}
         <p className="text-text-muted text-xs text-center leading-relaxed">
-          Early Member tarieven gelden t/m september 2026 voor de eerste 40
-          leden, daarna gelden de reguliere tarieven.
+          Early Member tarieven gelden tot {deadlineLabel}, daarna gelden de
+          reguliere tarieven.
         </p>
       </Container>
     </>

@@ -22,6 +22,13 @@ export const SITE_URL = resolveSiteUrl();
 // membership.ts.
 export const EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS = 1000;
 
+// PLACEHOLDER: bevestig de daadwerkelijke openingsdatum met Marlon. Bepaalt
+// de copy-fase op /early-member ("binnenkort open" vs. "we zijn open") en is
+// bewust losgekoppeld van de Early Member-deadline (closes_at, uit
+// get_early_member_availability): de opening kan verschuiven zonder dat de
+// Early Member-actie zelf verandert.
+export const STUDIO_OPENING_DATE = new Date("2026-08-15T00:00:00+02:00");
+
 export const SITE = {
   name: "The Movement Club",
   tagline: "Where Strength Meets Movement",

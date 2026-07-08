@@ -4,6 +4,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatDateLong } from "@/lib/format-date";
 import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { PlanChooser } from "./PlanChooser";
 import { AddressGate } from "./AddressGate";
@@ -52,6 +53,7 @@ interface EarlyMemberAvailability {
   pool: string;
   cap: number;
   remaining: number;
+  closes_at: string;
   is_open: boolean;
 }
 
@@ -267,8 +269,12 @@ export default async function AbonnementNieuwPage() {
                             <span className="text-[10px] uppercase tracking-[0.2em] text-accent">
                               Early Member
                             </span>
+                            {/* COPY: confirm met Marlon. Geen plek-telling
+                                meer ("nog X van Y"): Early Member is puur
+                                deadline-gebaseerd, zie
+                                20260712000000_early_member_time_only_gate.sql. */}
                             <span className="text-[10px] uppercase tracking-[0.15em] text-text-muted">
-                              nog {em!.remaining} van {em!.cap}
+                              Nog beschikbaar tot {formatDateLong(new Date(em!.closes_at))}
                             </span>
                           </div>
                           <ul className="space-y-1 text-xs text-text-muted">

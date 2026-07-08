@@ -84,14 +84,12 @@ export const GROUPS = {
   // Zet in .env.local als MAILERLITE_MEMBERS_GROUP_ID. Leeg = DB-only
   // toggle zonder MailerLite sync.
   MEMBERS: process.env.MAILERLITE_MEMBERS_GROUP_ID ?? "",
-  // Opt-in vanaf /early-member voor wie nog niet klaar is om te starten.
-  // Zet in .env.local als MAILERLITE_EARLY_MEMBER_GROUP_ID. Leeg = geen
-  // MailerLite sync (formulier blijft wel werken, alleen zonder sync).
-  EARLY_MEMBER_INTERESTED:
-    process.env.MAILERLITE_EARLY_MEMBER_GROUP_ID ?? "",
   // Generieke "blijf op de hoogte" opt-in vanuit de slide-in banner op de
-  // marketingpagina's. Maak de group aan in MailerLite Studio en zet het ID
-  // in .env.local en Vercel als MAILERLITE_INFO_GROUP_ID. Leeg = formulier
-  // blijft werken en vangt de lead, alleen (nog) zonder MailerLite group sync.
+  // marketingpagina's (InfoOptInBanner / /api/leads/info). Ook hergebruikt
+  // door /api/leads/early-member (de opt-in onderaan /early-member): beide
+  // formulieren delen dezelfde MailerLite-groep "Early Member Interested",
+  // dus één env-gebonden constante i.p.v. twee. Zet in .env.local en Vercel
+  // als MAILERLITE_INFO_GROUP_ID. Leeg = formulieren blijven werken en
+  // vangen de lead, alleen (nog) zonder MailerLite group sync.
   INFO_INTERESTED: process.env.MAILERLITE_INFO_GROUP_ID ?? "",
 } as const;
