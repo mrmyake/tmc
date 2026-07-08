@@ -22,9 +22,13 @@ export async function POST(request: Request) {
       addSubscriber({
         email,
         fields: utmToMailerliteFields(utm, signupPath),
-        groups: GROUPS.EARLY_MEMBER_INTERESTED
-          ? [GROUPS.EARLY_MEMBER_INTERESTED]
-          : [],
+        // Gedeelde groep met de site-brede "blijf op de hoogte"-opt-in
+        // (InfoOptInBanner / /api/leads/info): dezelfde MailerLite-groep
+        // "Early Member Interested" (id 192312426174088430) had eerder een
+        // eigen, nooit-geconfigureerde env-gebonden groep-constante in
+        // mailerlite.ts. Die is verwijderd, zie PR-beschrijving voor de
+        // consolidatie.
+        groups: GROUPS.INFO_INTERESTED ? [GROUPS.INFO_INTERESTED] : [],
       }),
       sendNotification(
         "Early Member interesse",
