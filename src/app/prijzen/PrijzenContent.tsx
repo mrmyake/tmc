@@ -4,10 +4,35 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
+import { calculatePtPriceCents, formatPriceEuro } from "@/lib/member/pt-pricing";
 
 // Copy hieronder is een eerste voorstel voor een evergreen prijspagina,
 // zonder actietaal of einddatum. Elke klantgerichte string draagt een
 // eigen COPY-markering voor Marlon.
+
+// PT/duo-prijzen komen uit de echte pricing engine (src/lib/member/pt-pricing.ts,
+// ook gebruikt door de /app/pt boekingsflow) zodat deze pagina nooit meer los
+// kan raken van wat leden daadwerkelijk betalen. Statisch berekend op
+// module-niveau: geen ledenkorting of dynamische member-state meer op deze
+// publieke pagina.
+const PT_SINGLE_CENTS = calculatePtPriceCents({
+  format: "one_on_one",
+  purchaseType: "single",
+});
+const PT_TEN_CENTS = calculatePtPriceCents({
+  format: "one_on_one",
+  purchaseType: "ten",
+});
+const PT_TEN_PER_SESSION_CENTS = Math.round(PT_TEN_CENTS / 10);
+const DUO_SINGLE_CENTS = calculatePtPriceCents({
+  format: "duo",
+  purchaseType: "single",
+});
+const DUO_TEN_CENTS = calculatePtPriceCents({
+  format: "duo",
+  purchaseType: "ten",
+});
+
 export function PrijzenContent() {
   return (
     <>
@@ -222,9 +247,6 @@ export function PrijzenContent() {
                     <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
                       10-rittenkaart
                     </th>
-                    <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
-                      20-rittenkaart
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,22 +255,14 @@ export function PrijzenContent() {
                       1-op-1
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €90
+                      {formatPriceEuro(PT_SINGLE_CENTS)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle">
                       <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        €800
+                        {formatPriceEuro(PT_TEN_CENTS)}
                       </span>
                       <span className="block text-text-muted text-xs mt-0.5">
-                        €80/sessie
-                      </span>
-                    </td>
-                    <td className="text-center py-5 border-b border-bg-subtle">
-                      <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        €1.500
-                      </span>
-                      <span className="block text-text-muted text-xs mt-0.5">
-                        €75/sessie
+                        {formatPriceEuro(PT_TEN_PER_SESSION_CENTS)}/sessie
                       </span>
                     </td>
                   </tr>
@@ -258,25 +272,15 @@ export function PrijzenContent() {
                       Duo (totaal)
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €110
+                      {formatPriceEuro(DUO_SINGLE_CENTS)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €1.000
-                    </td>
-                    <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €1.800
+                      {formatPriceEuro(DUO_TEN_CENTS)}
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-
-            {/* COPY: confirm met Marlon */}
-            <p className="text-text-muted text-xs mt-6">
-              Weekendtoeslag: +€15 op losse 1-op-1 sessies. 10%
-              ledenkorting op PT-rittenkaarten voor actieve
-              abonnementhouders.
-            </p>
           </ScrollReveal>
         </Container>
       </Section>

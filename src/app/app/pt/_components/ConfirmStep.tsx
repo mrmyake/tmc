@@ -10,7 +10,6 @@ interface ConfirmStepProps {
   slotEnd: string;
   paymentMethod: PtPaymentMethod;
   priceCents: number;
-  isIntakeDiscount: boolean;
   creditsRemaining: number | null;
   pending: boolean;
   error: string | null;
@@ -24,7 +23,6 @@ export function ConfirmStep({
   slotEnd,
   paymentMethod,
   priceCents,
-  isIntakeDiscount,
   creditsRemaining,
   pending,
   error,
@@ -65,15 +63,7 @@ export function ConfirmStep({
               value={`Uit je PT-pakket · ${creditsRemaining ?? 0} credits over`}
             />
           ) : (
-            <Row
-              label="Totaal"
-              value={
-                isIntakeDiscount
-                  ? `${formatPriceEuro(priceCents)} · Intake-korting toegepast`
-                  : formatPriceEuro(priceCents)
-              }
-              accent
-            />
+            <Row label="Totaal" value={formatPriceEuro(priceCents)} accent />
           )}
         </dl>
       </div>

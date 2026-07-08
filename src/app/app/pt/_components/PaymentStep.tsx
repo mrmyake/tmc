@@ -57,9 +57,10 @@ export function PaymentStep({
       </div>
 
       {!hasCredits && (
+        // COPY: confirm met Marlon
         <p className="mt-6 text-text-muted text-xs max-w-md">
-          Koop je vaker PT? Een 10-sessies pakket levert 10% lidkorting op —
-          dat regel je via Abonnement.
+          Koop je vaker PT? Een 10-sessies pakket is voordeliger per
+          sessie, dat regel je via Abonnement.
         </p>
       )}
     </section>

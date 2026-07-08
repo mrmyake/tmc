@@ -197,14 +197,6 @@ export function SettingsForm({ initial }: SettingsFormProps) {
           value={values.ptIntakeDiscountCents}
           onChange={(v) => setField("ptIntakeDiscountCents", v)}
         />
-        <IntField
-          label="Korting voor leden (%)"
-          hint="Percentage op standaard PT-tarief."
-          value={values.memberPtDiscountPercent}
-          onChange={(v) => setField("memberPtDiscountPercent", v)}
-          min={0}
-          max={100}
-        />
       </Section>
 
       <section>
