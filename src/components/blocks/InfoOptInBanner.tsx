@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 
-export function LeadMagnetBanner() {
+export function InfoOptInBanner() {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const tracked = useRef(false);
-  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export function LeadMagnetBanner() {
 
   const handleFocus = () => {
     if (!tracked.current) {
-      trackFormStart("banner_beweeg_beter");
+      trackFormStart("banner_info_optin");
       tracked.current = true;
     }
   };
@@ -63,7 +63,7 @@ export function LeadMagnetBanner() {
     };
 
     try {
-      await fetch("/api/leads/beweeg-beter", {
+      await fetch("/api/leads/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -72,9 +72,9 @@ export function LeadMagnetBanner() {
       /* continue */
     }
 
-    trackLead("pdf_beweeg_beter", 1);
-    setVisible(false);
-    router.push("/beweeg-beter/bedankt");
+    trackLead("info_optin", 1);
+    setLoading(false);
+    setSubmitted(true);
   };
 
   return (
@@ -99,42 +99,54 @@ export function LeadMagnetBanner() {
             >
               <X size={18} strokeWidth={1.5} />
             </button>
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
-              Gratis guide
-            </span>
-            <p className="text-text text-base font-medium mb-5 tracking-[-0.01em] pr-6">
-              5 oefeningen voor betere mobiliteit
-            </p>
-            <form
-              onSubmit={handleSubmit}
-              onFocus={handleFocus}
-              className="space-y-5"
-            >
-              <Field label="Voornaam">
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  autoComplete="given-name"
-                  className={fieldInputClasses}
-                />
-              </Field>
-              <Field label="E-mailadres">
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                  className={fieldInputClasses}
-                />
-              </Field>
-              <Button
-                type="submit"
-                className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
-              >
-                {loading ? "Versturen" : "Download gratis"}
-              </Button>
-            </form>
+            {submitted ? (
+              // COPY: confirm met Marlon
+              <p className="text-text text-base font-medium tracking-[-0.01em] pr-6">
+                Bedankt, we houden je op de hoogte.
+              </p>
+            ) : (
+              <>
+                {/* COPY: confirm met Marlon */}
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+                  Blijf op de hoogte
+                </span>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-text text-base font-medium mb-5 tracking-[-0.01em] pr-6">
+                  Laat je e-mailadres achter en we houden je op de hoogte.
+                </p>
+                <form
+                  onSubmit={handleSubmit}
+                  onFocus={handleFocus}
+                  className="space-y-5"
+                >
+                  <Field label="Voornaam">
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      autoComplete="given-name"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Field label="E-mailadres">
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      autoComplete="email"
+                      className={fieldInputClasses}
+                    />
+                  </Field>
+                  <Button
+                    type="submit"
+                    className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {loading ? "Versturen" : "Aanmelden"}
+                  </Button>
+                </form>
+              </>
+            )}
           </div>
         </motion.div>
       )}

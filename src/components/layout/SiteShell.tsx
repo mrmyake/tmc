@@ -12,10 +12,10 @@ import type { SanitySettings } from "../../../sanity/lib/fetch";
 // Below-the-fold + interaction-triggered. Both ship framer-motion.
 // Dynamic import with ssr:false keeps that weight out of the critical
 // bundle — they stream in after the page is interactive.
-const LeadMagnetBanner = dynamic(
+const InfoOptInBanner = dynamic(
   () =>
-    import("@/components/blocks/LeadMagnetBanner").then(
-      (m) => m.LeadMagnetBanner,
+    import("@/components/blocks/InfoOptInBanner").then(
+      (m) => m.InfoOptInBanner,
     ),
   { ssr: false },
 );
@@ -58,7 +58,7 @@ export function SiteShell({ children, settings }: SiteShellProps) {
       </main>
       <FooterCTA />
       <Footer settings={settings} />
-      <LeadMagnetBanner />
+      <InfoOptInBanner />
       <CookieConsent />
       <UtmTracker />
     </>
