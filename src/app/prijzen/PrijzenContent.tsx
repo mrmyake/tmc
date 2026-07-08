@@ -33,7 +33,34 @@ const DUO_TEN_CENTS = calculatePtPriceCents({
   purchaseType: "ten",
 });
 
-export function PrijzenContent() {
+export interface PrijzenPricing {
+  groepslessen: { twoX: number; threeX: number; unl: number };
+  allAccess: { twoX: number; threeX: number; unl: number };
+  vrijTrainen: { twoX: number; threeX: number; unl: number };
+  dropInCents: number;
+  tenRideCardCents: number;
+}
+
+interface PrijzenContentProps {
+  pricing: PrijzenPricing;
+}
+
+export function PrijzenContent({ pricing }: PrijzenContentProps) {
+  // Live uit tmc.membership_plan_catalogue (server component in page.tsx),
+  // niet meer hardcoded. De "+ toevoegen"-rij is het verschil tussen All
+  // Access en Groepslessen per kolom, zodat dit automatisch klopt als de
+  // onderliggende prijzen ooit niet meer een vlak bedrag uit elkaar liggen.
+  const addOnDiffs = {
+    twoX: pricing.allAccess.twoX - pricing.groepslessen.twoX,
+    threeX: pricing.allAccess.threeX - pricing.groepslessen.threeX,
+    unl: pricing.allAccess.unl - pricing.groepslessen.unl,
+  };
+  const flatAddOn =
+    addOnDiffs.twoX === addOnDiffs.threeX && addOnDiffs.threeX === addOnDiffs.unl
+      ? addOnDiffs.twoX
+      : null;
+  const tenRidePerSessionCents = Math.round(pricing.tenRideCardCents / 10);
+
   return (
     <>
       {/* Hero. Losse h1 (niet SectionHeading, die rendert altijd h2) om
@@ -108,13 +135,13 @@ export function PrijzenContent() {
                       </span>
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €79
+                      {formatPriceEuro(pricing.groepslessen.twoX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €99
+                      {formatPriceEuro(pricing.groepslessen.threeX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      €119
+                      {formatPriceEuro(pricing.groepslessen.unl)}
                     </td>
                   </tr>
                   <tr>
@@ -125,13 +152,13 @@ export function PrijzenContent() {
                       </span>
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +€30
+                      +{formatPriceEuro(addOnDiffs.twoX)}
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +€30
+                      +{formatPriceEuro(addOnDiffs.threeX)}
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +€30
+                      +{formatPriceEuro(addOnDiffs.unl)}
                     </td>
                   </tr>
                   <tr className="bg-accent/5">
@@ -145,13 +172,13 @@ export function PrijzenContent() {
                       </span>
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      €109
+                      {formatPriceEuro(pricing.allAccess.twoX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      €129
+                      {formatPriceEuro(pricing.allAccess.threeX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      €149
+                      {formatPriceEuro(pricing.allAccess.unl)}
                     </td>
                   </tr>
                 </tbody>
@@ -165,10 +192,22 @@ export function PrijzenContent() {
             <div className="border border-accent/20 bg-bg px-5 py-4 mt-6">
               {/* COPY: confirm met Marlon */}
               <p className="text-text-muted text-sm leading-relaxed">
-                De toevoeging geeft altijd onbeperkt vrij trainen, ongeacht
-                of Groepslessen op 2x, 3x of onbeperkt staat. Bij 2x
-                Groepslessen betaal je dus €30 voor onbeperkt vrij trainen
-                erbij, niet voor 2x vrij trainen.
+                {flatAddOn !== null ? (
+                  <>
+                    De toevoeging geeft altijd onbeperkt vrij trainen,
+                    ongeacht of Groepslessen op 2x, 3x of onbeperkt staat.
+                    Bij 2x Groepslessen betaal je dus{" "}
+                    {formatPriceEuro(flatAddOn)} voor onbeperkt vrij trainen
+                    erbij, niet voor 2x vrij trainen.
+                  </>
+                ) : (
+                  <>
+                    De toevoeging geeft altijd onbeperkt vrij trainen,
+                    ongeacht of Groepslessen op 2x, 3x of onbeperkt staat.
+                    De meerprijs verschilt momenteel per kolom, zie de
+                    tabel hierboven voor het exacte bedrag per niveau.
+                  </>
+                )}
               </p>
             </div>
 
@@ -190,7 +229,7 @@ export function PrijzenContent() {
                     2x / week
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    €49
+                    {formatPriceEuro(pricing.vrijTrainen.twoX)}
                   </p>
                 </div>
                 <div className="text-center">
@@ -198,7 +237,7 @@ export function PrijzenContent() {
                     3x / week
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    €59
+                    {formatPriceEuro(pricing.vrijTrainen.threeX)}
                   </p>
                 </div>
                 <div className="text-center">
@@ -206,15 +245,26 @@ export function PrijzenContent() {
                     Onbeperkt
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    €69
+                    {formatPriceEuro(pricing.vrijTrainen.unl)}
                   </p>
                 </div>
               </div>
               {/* COPY: confirm met Marlon */}
               <p className="text-text-muted text-xs leading-relaxed">
-                Dit is een ander tarief dan de €30-toevoeging hierboven.
-                Die toevoeging is een meerprijs voor wie al Groepslessen
-                heeft; dit is de prijs voor wie alleen vrij wil trainen.
+                {flatAddOn !== null ? (
+                  <>
+                    Dit is een ander tarief dan de{" "}
+                    {formatPriceEuro(flatAddOn)}-toevoeging hierboven. Die
+                    toevoeging is een meerprijs voor wie al Groepslessen
+                    heeft; dit is de prijs voor wie alleen vrij wil trainen.
+                  </>
+                ) : (
+                  <>
+                    Dit is een ander tarief dan de toevoeging hierboven. Die
+                    toevoeging is een meerprijs voor wie al Groepslessen
+                    heeft; dit is de prijs voor wie alleen vrij wil trainen.
+                  </>
+                )}
               </p>
             </div>
           </ScrollReveal>
@@ -356,7 +406,7 @@ export function PrijzenContent() {
                 {/* COPY: confirm met Marlon */}
                 <span className="text-text">Losse les (drop-in)</span>
                 <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                  €17
+                  {formatPriceEuro(pricing.dropInCents)}
                 </span>
               </li>
               <li className="flex items-center justify-between py-4">
@@ -369,10 +419,10 @@ export function PrijzenContent() {
                 </span>
                 <span className="text-right">
                   <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    €150
+                    {formatPriceEuro(pricing.tenRideCardCents)}
                   </span>
                   <span className="block text-text-muted text-xs mt-0.5">
-                    €15 per les
+                    {formatPriceEuro(tenRidePerSessionCents)} per les
                   </span>
                 </span>
               </li>
