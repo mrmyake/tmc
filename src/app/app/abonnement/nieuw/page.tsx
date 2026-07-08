@@ -17,7 +17,8 @@ const PLAN_TYPE_LABELS: Record<string, string> = {
   vrij_trainen: "Vrij Trainen",
   // COPY: confirm met Marlon
   groepslessen: "Groepslessen",
-  all_inclusive: "All Inclusive",
+  // COPY: confirm met Marlon
+  all_inclusive: "All Access",
   kids: "Kids",
   senior: "Senior 65+",
 };
@@ -245,7 +246,10 @@ export default async function AbonnementNieuwPage() {
                               <span>{item}</span>
                             </li>
                           ))}
-                          {plan.plan_type === "all_inclusive" && (
+                          {/* Alleen All Access Onbeperkt heeft verlengde
+                              toegang gratis inbegrepen; op 2x/3x is het een
+                              betaalde add-on via de checkbox hieronder. */}
+                          {plan.plan_variant === "all_inclusive_unl" && (
                             <li className="flex items-start gap-2 text-sm text-text">
                               <Check
                                 className="text-accent flex-shrink-0 mt-0.5"
@@ -289,7 +293,9 @@ export default async function AbonnementNieuwPage() {
                         label={`Kies ${plan.display_name}`}
                         earlyMember={emOpen}
                         extendedAccessPriceCents={
-                          plan.plan_type === "vrij_trainen"
+                          plan.plan_type === "vrij_trainen" ||
+                          (plan.plan_type === "all_inclusive" &&
+                            plan.plan_variant !== "all_inclusive_unl")
                             ? extendedAccessPrice
                             : undefined
                         }

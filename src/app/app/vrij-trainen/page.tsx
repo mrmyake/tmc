@@ -384,8 +384,9 @@ function NotEligibleView({ hasMembership }: { hasMembership: boolean }) {
             ? "Jouw abbo dekt vrij trainen nog niet."
             : "Kies een abonnement met vrij trainen."}
         </h2>
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-base leading-relaxed mb-8 max-w-md">
-          De open studio is inbegrepen bij Vrij Trainen- en All Inclusive-
+          De open studio is inbegrepen bij Vrij Trainen- en All Access-
           plannen. Upgrade of kies een plan en je kunt direct binnenlopen.
         </p>
         <Button href="/app/abonnement">Bekijk abonnementen</Button>

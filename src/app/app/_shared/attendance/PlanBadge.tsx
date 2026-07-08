@@ -6,7 +6,7 @@ const PLAN_LABEL: Record<string, string> = {
   kettlebell: "Kettlebell",
   // COPY: confirm met Marlon
   groepslessen: "Groepslessen",
-  all_inclusive: "All-inclusive",
+  all_inclusive: "All Access",
   kids: "Kids",
   senior: "Senior",
   ten_ride_card: "10-rittenkaart",

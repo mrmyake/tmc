@@ -410,8 +410,9 @@ export function PrijzenContent() {
                 <span className="text-text-muted text-sm">
                   24 maanden commitment
                 </span>
+                {/* COPY: confirm met Marlon */}
                 <span className="text-text text-sm font-medium sm:text-right sm:max-w-[60%]">
-                  10% korting op de abonnementsprijs
+                  8% korting op de abonnementsprijs
                 </span>
               </li>
               <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
