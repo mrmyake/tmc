@@ -20,8 +20,10 @@ export interface StartSignupOptions {
    */
   earlyMember?: boolean;
   /**
-   * Verlengde toegang (06:00-23:00) als 10-euro-add-on. Alleen kiesbaar op
-   * vrij_trainen-plannen; all_inclusive heeft het gratis inbegrepen.
+   * Verlengde toegang (06:00-23:00) als 10-euro-add-on. Kiesbaar op
+   * vrij_trainen-plannen en op All Access 2x/3x (all_inclusive_2x/3x);
+   * alleen All Access Onbeperkt (all_inclusive_unl) heeft het gratis
+   * inbegrepen.
    */
   extendedAccess?: boolean;
 }
@@ -152,23 +154,30 @@ export async function startSignup(
       .eq("id", "singleton")
       .single();
 
-    // Verlengde toegang: gratis inbegrepen bij all_inclusive, betaalde
-    // add-on op vrij_trainen. Andere plan-types hebben geen vrij-trainen-
-    // entitlement eronder, dus daar bestaat de add-on niet.
-    const includesExtendedAccess = plan.plan_type === "all_inclusive";
+    // Verlengde toegang: alleen gratis inbegrepen bij All Access Onbeperkt
+    // (all_inclusive_unl). Op vrij_trainen en All Access 2x/3x is het een
+    // betaalde add-on. Andere plan-types (o.a. groepslessen) hebben geen
+    // vrij-trainen-entitlement eronder, dus daar bestaat de add-on niet.
+    // Voor all_inclusive_unl met options.extendedAccess is dit bewust een
+    // no-op: al inbegrepen, dus nooit dubbel in rekening brengen.
+    const includesExtendedAccess = plan.plan_variant === "all_inclusive_unl";
     let extendedAccessPriceCents = 0;
     if (options?.extendedAccess && !includesExtendedAccess) {
-      if (plan.plan_type !== "vrij_trainen") {
+      const addOnEligible =
+        plan.plan_type === "vrij_trainen" ||
+        plan.plan_type === "all_inclusive";
+      if (!addOnEligible) {
         return {
           ok: false,
-          error: "Verlengde toegang is alleen beschikbaar bij Vrij Trainen.",
+          // COPY: confirm met Marlon
+          error:
+            "Verlengde toegang is alleen beschikbaar bij Vrij Trainen en All Access.",
         };
       }
       extendedAccessPriceCents = settings?.extended_access_price_cents ?? 1000;
     }
     const extendedAccess =
-      includesExtendedAccess ||
-      (options?.extendedAccess === true && plan.plan_type === "vrij_trainen");
+      includesExtendedAccess || extendedAccessPriceCents > 0;
 
     // Early Member: atomaire slot-reservering vóór de betaal-flow. De RPC
     // lockt de pool-rij en is idempotent per profiel-per-pool, dus een

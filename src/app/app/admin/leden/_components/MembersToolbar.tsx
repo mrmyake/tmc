@@ -33,7 +33,7 @@ const PLAN_LABEL: Record<string, string> = {
   groepslessen: "Groepslessen",
   yoga_mobility: "Yoga & mobility",
   kettlebell: "Kettlebell",
-  all_inclusive: "All-inclusive",
+  all_inclusive: "All Access",
   ten_ride_card: "10-rittenkaart",
   pt_package: "PT-pakket",
   twelve_week_program: "12-weken programma",
