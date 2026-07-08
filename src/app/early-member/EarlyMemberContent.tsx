@@ -397,8 +397,8 @@ export function EarlyMemberContent({ availability }: EarlyMemberContentProps) {
                   <li className="flex gap-3 border-t border-text-muted/15 pt-4 mt-2">
                     <span className="text-accent">—</span>
                     {/* COPY: confirm met Marlon */}
-                    Early Member bonus: onbeperkt groepslessen tijdens je
-                    programma.
+                    Early Member bonus: 2x vrij trainen + 1x kettlebell per
+                    week.
                   </li>
                 </ul>
                 <Button href="/contact" variant="secondary" className="w-full">
