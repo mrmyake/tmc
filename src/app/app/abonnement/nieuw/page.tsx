@@ -68,6 +68,7 @@ export default async function AbonnementNieuwPage() {
   // niet afwijken van wat create_order() daadwerkelijk toepast.
   const emActive = getCampaignPhase(new Date(campaignDeadlineIso)) === "open-em";
   const extendedAccessAddon = catalogue.get("extended_access");
+  const signupFee = catalogue.get("signup_fee");
 
   const plansByFamily = new Map<string, CatalogueRow[]>();
   for (const row of catalogue.values()) {
@@ -173,6 +174,18 @@ export default async function AbonnementNieuwPage() {
                           / {plan.billing_cycle_weeks}wk
                         </span>
                       </div>
+
+                      {/* Inschrijfkosten expliciet tonen vóór de keuze, niet
+                          pas als totaalbedrag op het Mollie-scherm. Alleen
+                          bij Early Member al gedekt door de "Geen
+                          inschrijfkosten"-regel hieronder. */}
+                      {!emOpen && signupFee && signupFee.price_cents > 0 && (
+                        <p className="text-text-muted text-xs mb-4">
+                          {/* COPY: confirm met Marlon */}
+                          + {formatEuro(Math.round(signupFee.price_cents / 100))}{" "}
+                          inschrijfkosten, eenmalig bij de eerste betaling
+                        </p>
+                      )}
 
                       {plan.extended_access_mode === "included" && (
                         <ul className="space-y-2 mb-6 flex-1">
