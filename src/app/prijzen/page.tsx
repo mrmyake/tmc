@@ -35,9 +35,11 @@ const FALLBACK_PRICING: PrijzenPricing = {
   dropInCents: 1700,
   tenRideCardCents: 15000,
   ptSingleCents: 9500,
-  ptTwelveCents: 90000,
+  ptCardCents: 90000,
+  ptCardCredits: 10,
   duoSingleCents: 12000,
-  duoTwelveCents: 110000,
+  duoCardCents: 110000,
+  duoCardCredits: 10,
   programStudioCents: 240000,
   programOnlineCents: 125000,
   earlyMember: {
@@ -64,6 +66,8 @@ async function getPricing(): Promise<PrijzenPricing> {
 
   const allAccessUnl = catalogue.get("all_inclusive_unl");
   const signupFee = catalogue.get("signup_fee");
+  const ptCard = catalogue.get("pt_10");
+  const duoCard = catalogue.get("duo_10");
 
   return {
     groepslessen: {
@@ -89,9 +93,11 @@ async function getPricing(): Promise<PrijzenPricing> {
     dropInCents: price("drop_in", FALLBACK_PRICING.dropInCents),
     tenRideCardCents: price("ten_ride_card", FALLBACK_PRICING.tenRideCardCents),
     ptSingleCents: price("pt_single", FALLBACK_PRICING.ptSingleCents),
-    ptTwelveCents: price("pt_12", FALLBACK_PRICING.ptTwelveCents),
+    ptCardCents: ptCard?.price_cents ?? FALLBACK_PRICING.ptCardCents,
+    ptCardCredits: ptCard?.credits ?? FALLBACK_PRICING.ptCardCredits,
     duoSingleCents: price("duo_single", FALLBACK_PRICING.duoSingleCents),
-    duoTwelveCents: price("duo_12", FALLBACK_PRICING.duoTwelveCents),
+    duoCardCents: duoCard?.price_cents ?? FALLBACK_PRICING.duoCardCents,
+    duoCardCredits: duoCard?.credits ?? FALLBACK_PRICING.duoCardCredits,
     // Lead items (purchasable=false): a missing row renders "op aanvraag"
     // rather than a stale fallback price, since these are display-and-lead
     // only, never a charge source.

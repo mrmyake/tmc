@@ -20,9 +20,11 @@ export interface PrijzenPricing {
   dropInCents: number;
   tenRideCardCents: number;
   ptSingleCents: number;
-  ptTwelveCents: number;
+  ptCardCents: number;
+  ptCardCredits: number;
   duoSingleCents: number;
-  duoTwelveCents: number;
+  duoCardCents: number;
+  duoCardCredits: number;
   // Lead items (purchasable=false in tmc.catalogue): null renders "op
   // aanvraag" instead of a stale fallback price.
   programStudioCents: number | null;
@@ -55,8 +57,11 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
       : null;
   // 10-rittenkaart (losse lessen) is echt 10 ritten, blijft delen door 10.
   const tenRidePerSessionCents = Math.round(pricing.tenRideCardCents / 10);
-  // PT-kaart is een 12-rittenkaart: delen door 12, niet door 10.
-  const ptTwelvePerSessionCents = Math.round(pricing.ptTwelveCents / 12);
+  // Aantal ritten komt uit de catalogus (ptCardCredits/duoCardCredits),
+  // nooit een vast getal: als het aantal ooit weer wijzigt, kloppen deze
+  // berekeningen vanzelf mee.
+  const ptCardPerSessionCents = Math.round(pricing.ptCardCents / pricing.ptCardCredits);
+  const duoCardPerSessionCents = Math.round(pricing.duoCardCents / pricing.duoCardCredits);
 
   return (
     <>
@@ -369,7 +374,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     </th>
                     {/* COPY: confirm met Marlon */}
                     <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
-                      12-rittenkaart
+                      {pricing.ptCardCredits}-rittenkaart
                     </th>
                   </tr>
                 </thead>
@@ -383,10 +388,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle">
                       <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        {formatPriceEuro(pricing.ptTwelveCents)}
+                        {formatPriceEuro(pricing.ptCardCents)}
                       </span>
                       <span className="block text-text-muted text-xs mt-0.5">
-                        {formatPriceEuro(ptTwelvePerSessionCents)}/sessie
+                        {formatPriceEuro(ptCardPerSessionCents)}/sessie
                       </span>
                     </td>
                   </tr>
@@ -398,8 +403,13 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
                       {formatPriceEuro(pricing.duoSingleCents)}
                     </td>
-                    <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.duoTwelveCents)}
+                    <td className="text-center py-5 border-b border-bg-subtle">
+                      <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                        {formatPriceEuro(pricing.duoCardCents)}
+                      </span>
+                      <span className="block text-text-muted text-xs mt-0.5">
+                        {formatPriceEuro(duoCardPerSessionCents)}/sessie
+                      </span>
                     </td>
                   </tr>
                 </tbody>
