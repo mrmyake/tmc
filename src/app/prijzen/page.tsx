@@ -19,35 +19,16 @@ export const metadata: Metadata = {
 // site-breed, en Next.js gebruikt het strengste interval binnen een route
 // (layout + page), dus deze pagina revalidatet sowieso elke minuut. De
 // catalogus-fetch zelf is los getagd + 1u gecached (zie lib/catalogue.ts).
-
-// Noodgreep, alleen gebruikt als de Supabase-fetch faalt (geen env vars,
-// netwerkfout, etc). Moet gelijk blijven aan de huidige live catalogus-
-// waarden, maar is bewust NIET de bron van waarheid: bij een prijswijziging
-// in de catalogus hoeft dit blok niet aangepast te worden, de live fetch
-// wint altijd als die slaagt.
-const FALLBACK_PRICING: PrijzenPricing = {
-  groepslessen: { twoX: 7900, threeX: 9900, unl: 11900 },
-  allAccess: { twoX: 10900, threeX: 12900, unl: 14900 },
-  vrijTrainen: { twoX: 4900, threeX: 5900, unl: 6900 },
-  extendedAccessCents: 1000,
-  signupFeeCents: 3900,
-  commit24mDiscountPercent: 8,
-  dropInCents: 1700,
-  tenRideCardCents: 15000,
-  ptSingleCents: 9500,
-  ptCardCents: 90000,
-  ptCardCredits: 10,
-  duoSingleCents: 12000,
-  duoCardCents: 110000,
-  duoCardCredits: 10,
-  programStudioCents: 240000,
-  programOnlineCents: 125000,
-  earlyMember: {
-    active: false,
-    allAccessUnlCents: 13900,
-    signupFeeWaived: true,
-  },
-};
+//
+// Geen FALLBACK_PRICING meer: tmc.catalogue is de enige prijsbron. Faalt de
+// fetch volledig (catalogue.size === 0), dan gooien we in plaats van een
+// verzonnen prijzenblok terug te geven -- Next.js' ISR houdt bij een
+// gefaalde revalidate dan gewoon de laatst goede statische versie aan,
+// precies het "last-good"-gedrag dat we willen in plaats van een tweede,
+// drift-gevoelige prijsbron. Mist er individueel een verwachte rij (de
+// fetch als geheel lukt wel), dan wordt dat veld null en toont
+// PrijzenContent een neutrale lege staat voor precies dat item, nooit een
+// verzonnen bedrag.
 
 async function getPricing(): Promise<PrijzenPricing> {
   const [catalogue, campaignDeadlineIso] = await Promise.all([
@@ -55,14 +36,14 @@ async function getPricing(): Promise<PrijzenPricing> {
     getCampaignDeadline(),
   ]);
 
-  if (catalogue.size === 0) return FALLBACK_PRICING;
+  if (catalogue.size === 0) {
+    throw new Error("[prijzen] catalogue fetch returned no rows");
+  }
 
   const phase = getCampaignPhase(new Date(campaignDeadlineIso));
   const emActive = phase === "open-em";
 
-  const price = (slug: string, fallback: number) =>
-    catalogue.get(slug)?.price_cents ?? fallback;
-  const priceOrNull = (slug: string) => catalogue.get(slug)?.price_cents ?? null;
+  const price = (slug: string): number | null => catalogue.get(slug)?.price_cents ?? null;
 
   const allAccessUnl = catalogue.get("all_inclusive_unl");
   const signupFee = catalogue.get("signup_fee");
@@ -71,38 +52,36 @@ async function getPricing(): Promise<PrijzenPricing> {
 
   return {
     groepslessen: {
-      twoX: price("groepslessen_2x", FALLBACK_PRICING.groepslessen.twoX),
-      threeX: price("groepslessen_3x", FALLBACK_PRICING.groepslessen.threeX),
-      unl: price("groepslessen_unl", FALLBACK_PRICING.groepslessen.unl),
+      twoX: price("groepslessen_2x"),
+      threeX: price("groepslessen_3x"),
+      unl: price("groepslessen_unl"),
     },
     allAccess: {
-      twoX: price("all_inclusive_2x", FALLBACK_PRICING.allAccess.twoX),
-      threeX: price("all_inclusive_3x", FALLBACK_PRICING.allAccess.threeX),
-      unl: price("all_inclusive_unl", FALLBACK_PRICING.allAccess.unl),
+      twoX: price("all_inclusive_2x"),
+      threeX: price("all_inclusive_3x"),
+      unl: price("all_inclusive_unl"),
     },
     vrijTrainen: {
-      twoX: price("vrij_trainen_2x", FALLBACK_PRICING.vrijTrainen.twoX),
-      threeX: price("vrij_trainen_3x", FALLBACK_PRICING.vrijTrainen.threeX),
-      unl: price("vrij_trainen_unl", FALLBACK_PRICING.vrijTrainen.unl),
+      twoX: price("vrij_trainen_2x"),
+      threeX: price("vrij_trainen_3x"),
+      unl: price("vrij_trainen_unl"),
     },
-    extendedAccessCents: price("extended_access", FALLBACK_PRICING.extendedAccessCents),
-    signupFeeCents: price("signup_fee", FALLBACK_PRICING.signupFeeCents),
-    commit24mDiscountPercent:
-      commit24mDiscountPercent(catalogue.get("groepslessen_2x")) ??
-      FALLBACK_PRICING.commit24mDiscountPercent,
-    dropInCents: price("drop_in", FALLBACK_PRICING.dropInCents),
-    tenRideCardCents: price("ten_ride_card", FALLBACK_PRICING.tenRideCardCents),
-    ptSingleCents: price("pt_single", FALLBACK_PRICING.ptSingleCents),
-    ptCardCents: ptCard?.price_cents ?? FALLBACK_PRICING.ptCardCents,
-    ptCardCredits: ptCard?.credits ?? FALLBACK_PRICING.ptCardCredits,
-    duoSingleCents: price("duo_single", FALLBACK_PRICING.duoSingleCents),
-    duoCardCents: duoCard?.price_cents ?? FALLBACK_PRICING.duoCardCents,
-    duoCardCredits: duoCard?.credits ?? FALLBACK_PRICING.duoCardCredits,
+    extendedAccessCents: price("extended_access"),
+    signupFeeCents: price("signup_fee"),
+    commit24mDiscountPercent: commit24mDiscountPercent(catalogue.get("groepslessen_2x")),
+    dropInCents: price("drop_in"),
+    tenRideCardCents: price("ten_ride_card"),
+    ptSingleCents: price("pt_single"),
+    ptCardCents: ptCard?.price_cents ?? null,
+    ptCardCredits: ptCard?.credits ?? null,
+    duoSingleCents: price("duo_single"),
+    duoCardCents: duoCard?.price_cents ?? null,
+    duoCardCredits: duoCard?.credits ?? null,
     // Lead items (purchasable=false): a missing row renders "op aanvraag"
     // rather than a stale fallback price, since these are display-and-lead
     // only, never a charge source.
-    programStudioCents: priceOrNull("program_studio_12w"),
-    programOnlineCents: priceOrNull("program_online_12w"),
+    programStudioCents: price("program_studio_12w"),
+    programOnlineCents: price("program_online_12w"),
     earlyMember: {
       active: emActive,
       allAccessUnlCents: emActive ? (allAccessUnl?.early_member_price_cents ?? null) : null,
