@@ -5,7 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
-import { getCampaignPhase } from "@/lib/campaign";
+import { getCampaignDeadline, getCampaignPhase } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
@@ -128,9 +128,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getSiteSettings();
-  // Pure datum-rekenkunde (src/lib/campaign.ts), geen Supabase-call: houdt
-  // de root layout binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
-  const campaignPhase = getCampaignPhase();
+  // getCampaignDeadline() is getagd + 300s-gecached (src/lib/campaign.ts),
+  // dus dit voegt geen per-request DB-call toe: de root layout blijft
+  // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
+  const campaignDeadlineIso = await getCampaignDeadline();
+  const campaignPhase = getCampaignPhase(new Date(campaignDeadlineIso));
 
   return (
     <html
@@ -168,7 +170,11 @@ export default async function RootLayout({
             __html: JSON.stringify(getWebsiteSchema()),
           }}
         />
-        <SiteShell settings={settings} campaignPhase={campaignPhase}>
+        <SiteShell
+          settings={settings}
+          campaignPhase={campaignPhase}
+          campaignDeadline={campaignDeadlineIso}
+        >
           {children}
         </SiteShell>
         {/* Verbergt het native Capacitor-launchscherm zodra déze pagina

@@ -26,6 +26,9 @@ export type EventType =
   | "attendance.no_show_marked"
   // Credits
   | "credits.adjusted"
+  // Order pipeline (subscription and product orders, WS-2)
+  | "order.created"
+  | "order.activated"
   // Membership lifecycle
   | "membership.signup_started"
   | "membership.activated"
@@ -77,6 +80,7 @@ export type ActorType =
 
 export type SubjectType =
   | "profile"
+  | "order"
   | "membership"
   | "session"
   | "schedule_template"

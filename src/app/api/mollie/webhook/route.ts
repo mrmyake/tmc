@@ -57,11 +57,15 @@ async function notifyMemberPaymentFailed(args: {
  * eigen flow heeft.
  *
  * Handled:
- *  - payment.paid + sequenceType=first   → activeer membership + Mollie
- *    subscription aanmaken voor recurring
- *  - payment.paid + sequenceType=recurring → log payment
- *  - payment.failed/expired/canceled     → status='payment_failed',
- *    ntfy admin
+ *  - payment.paid + sequenceType=first + metadata.type='order' → de order
+ *    pipeline (WS-2): tmc.activate_order() (service-role only, idempotent
+ *    onder een rijlock) activeert de order, daarna bij een subscription-
+ *    order de Mollie-subscription voor recurring.
+ *  - payment.paid + sequenceType=recurring → log payment, reactiveer bij
+ *    een eerder mislukte incasso
+ *  - payment.failed/expired/canceled op recurring → status='payment_failed',
+ *    ntfy + e-mail naar het lid
+ *  - metadata.type='pt_booking' → ongewijzigd (nog niet op de order-pipeline)
  *
  * Altijd 2xx terug richting Mollie, ook bij onbekende payloads — anders
  * blijft Mollie retrying en spammen we onszelf.
@@ -87,6 +91,8 @@ export async function POST(request: Request) {
       typeof meta.membershipId === "string" ? meta.membershipId : undefined;
     const ptBookingId =
       typeof meta.ptBookingId === "string" ? meta.ptBookingId : undefined;
+    const orderId =
+      typeof meta.orderId === "string" ? meta.orderId : undefined;
     const profileId =
       typeof meta.profileId === "string" ? meta.profileId : undefined;
     const type = typeof meta.type === "string" ? meta.type : undefined;
@@ -97,6 +103,7 @@ export async function POST(request: Request) {
         mollie_payment_id: payment.id,
         membership_id: membershipId ?? null,
         pt_booking_id: ptBookingId ?? null,
+        order_id: orderId ?? null,
         profile_id: profileId ?? null,
         amount_cents: Math.round(parseFloat(payment.amount.value) * 100),
         status: payment.status,
@@ -124,6 +131,7 @@ export async function POST(request: Request) {
           profile_id: profileId ?? null,
           membership_id: membershipId ?? null,
           pt_booking_id: ptBookingId ?? null,
+          order_id: orderId ?? null,
           amount_cents: amountCents,
           sequence: payment.sequenceType ?? null,
         },
@@ -140,6 +148,7 @@ export async function POST(request: Request) {
           profile_id: profileId ?? null,
           membership_id: membershipId ?? null,
           pt_booking_id: ptBookingId ?? null,
+          order_id: orderId ?? null,
           amount_cents: amountCents,
           status: payment.status,
           sequence: payment.sequenceType ?? null,
@@ -210,188 +219,134 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // First payment → activeer membership + maak subscription
+    // Order pipeline: first payment → activate_order (service-role only,
+    // idempotent onder een rijlock in tmc.activate_order()). Alleen
+    // aangeroepen op status 'paid': op failed/expired/canceled blijft de
+    // order gewoon 'pending' staan (opnieuw betaalbaar tot expires_at,
+    // zie ws2-order-pipeline-design.md §4), geen statuswijziging nodig.
     if (
       payment.sequenceType === SequenceType.first &&
-      type === "first_payment" &&
-      membershipId
+      type === "order" &&
+      orderId
     ) {
-      const emReservationId =
-        typeof meta.earlyMemberReservationId === "string"
-          ? meta.earlyMemberReservationId
-          : undefined;
-
-      const { data: membership } = await supabase
-        .from("memberships")
-        .select(
-          "id,status,price_per_cycle_cents,extended_access_price_cents,billing_cycle_weeks,plan_variant,mollie_customer_id,mollie_subscription_id"
-        )
-        .eq("id", membershipId)
-        .maybeSingle();
-
-      if (!membership) {
-        console.warn("[mollie/webhook] membership not found", membershipId);
+      if (payment.status !== "paid") {
+        await sendNotification(
+          "Eerste betaling niet gelukt",
+          `Order ${orderId} — eerste betaling ${payment.status}. Blijft openstaand tot de order verloopt; de klant kan het opnieuw proberen.`,
+          "warning"
+        );
         return NextResponse.json({ ok: true });
       }
 
-      // Status bijwerken bij elke transitie
-      if (payment.status === "paid") {
-        if (membership.status !== "active") {
-          const startDate = new Date().toISOString().split("T")[0];
-          await supabase
-            .from("memberships")
-            .update({
-              status: "active",
-              start_date: startDate,
-              registration_fee_paid: true,
-            })
-            .eq("id", membership.id);
+      const { data: activation, error: activateErr } = await supabase.rpc(
+        "activate_order",
+        { p_order_id: orderId, p_mollie_payment_id: payment.id }
+      );
 
-          // Maak Mollie subscription: plan-prijs + eventuele verlengde-
-          // toegang-add-on, zonder inschrijfkosten.
-          if (!membership.mollie_subscription_id && membership.mollie_customer_id) {
-            try {
-              const subStart = new Date();
-              subStart.setDate(
-                subStart.getDate() + membership.billing_cycle_weeks * 7
-              );
-              const startDateISO = subStart.toISOString().split("T")[0];
-
-              const siteUrl =
-                process.env.NEXT_PUBLIC_SITE_URL ||
-                "https://www.themovementclub.nl";
-
-              const recurringCents =
-                membership.price_per_cycle_cents +
-                (membership.extended_access_price_cents ?? 0);
-              const subscription = await mollie.customerSubscriptions.create({
-                customerId: membership.mollie_customer_id,
-                amount: {
-                  currency: "EUR",
-                  value: (recurringCents / 100).toFixed(2),
-                },
-                interval: "28 days",
-                description: `TMC ${membership.plan_variant}`,
-                startDate: startDateISO,
-                webhookUrl: `${siteUrl}/api/mollie/webhook`,
-                metadata: {
-                  membershipId: membership.id,
-                  type: "recurring",
-                },
-              });
-
-              await supabase
-                .from("memberships")
-                .update({ mollie_subscription_id: subscription.id })
-                .eq("id", membership.id);
-            } catch (e) {
-              console.error(
-                "[mollie/webhook] subscription create failed",
-                e
-              );
-              // Membership is active, maar subscription mislukt — admin moet
-              // handmatig afronden. ntfy hieronder.
-            }
-          }
-
-          await sendNotification(
-            "Nieuw abonnement!",
-            `Membership ${membership.id} (${membership.plan_variant}) geactiveerd. €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)} ontvangen.`,
-            "tada,moneybag"
-          );
-          await emitEvent({
-            type: "membership.activated",
-            actorType: "system",
-            subjectType: "membership",
-            subjectId: membership.id,
-            payload: {
-              profile_id: profileId ?? null,
-              membership_id: membership.id,
-              plan_variant: membership.plan_variant,
-              payment_id: payment.id,
-            },
-          });
-        }
-
-        // Early Member: claim de gereserveerde pool-plek. Bewust búiten de
-        // status-guard, zodat een webhook-retry een eerder mislukte claim
-        // alsnog afrondt — de RPC zelf is idempotent (already_claimed no-op).
-        if (emReservationId) {
-          const { data: claim, error: claimErr } = await supabase.rpc(
-            "claim_early_member_slot",
-            {
-              p_reservation_id: emReservationId,
-              p_membership_id: membership.id,
-              p_mollie_payment_id: payment.id,
-            }
-          );
-          if (claimErr || !claim) {
-            console.error("[mollie/webhook] claim slot failed", claimErr);
-            await sendNotification(
-              "Early Member claim gefaald",
-              `Membership ${membership.id}: reservering ${emReservationId} kon niet geclaimd worden — handmatig naklopen.`,
-              "warning"
-            );
-          } else if (!claim.ok) {
-            // profile_already_claimed = dubbele betaling voor dezelfde pool;
-            // cancelled = plek was al teruggegeven. Beide vragen om een mens.
-            await sendNotification(
-              "Early Member claim geweigerd",
-              `Membership ${membership.id}: reservering ${emReservationId} → ${claim.reason}. Refund/opvolging nodig.`,
-              "warning"
-            );
-          } else if (claim.was_expired) {
-            // Betaling kwam binnen na het hold-window; de claim is gehonoreerd
-            // maar de pool kan daardoor één boven de cap zitten.
-            await sendNotification(
-              "Early Member claim na verlopen hold",
-              `Membership ${membership.id}: reservering ${emReservationId} was verlopen maar is gehonoreerd. Check de pool-telling.`,
-              "warning"
-            );
-          }
-        }
-      } else if (
-        ["failed", "expired", "canceled"].includes(payment.status) &&
-        membership.status === "pending"
-      ) {
-        await supabase
-          .from("memberships")
-          .update({ status: "payment_failed" })
-          .eq("id", membership.id);
-
-        // Early Member: geef de pool-plek direct terug i.p.v. te wachten
-        // tot het hold-window verloopt. Idempotent.
-        if (emReservationId) {
-          const { error: cancelErr } = await supabase.rpc(
-            "cancel_early_member_reservation",
-            { p_reservation_id: emReservationId }
-          );
-          if (cancelErr) {
-            console.error(
-              "[mollie/webhook] release reservation failed",
-              cancelErr
-            );
-          }
-        }
-
+      if (activateErr || !activation) {
+        console.error("[mollie/webhook] activate_order failed", activateErr);
         await sendNotification(
-          "Aanmelding gefaald",
-          `Membership ${membership.id} (${membership.plan_variant}) — eerste betaling ${payment.status}.`,
+          "Order-activatie gefaald",
+          `Order ${orderId}: activate_order gaf een fout terug. Betaling is binnen — handmatig naklopen.`,
           "warning"
         );
+        return NextResponse.json({ ok: true });
+      }
+
+      if (!activation.ok) {
+        // blocked_duplicate_membership = conditie 2: geld binnen, geen
+        // membership aangemaakt omdat het profiel er via een andere order
+        // al één heeft. orders.blocked_reason markeert de rij persistent
+        // (ops kan hem terugvinden); deze alert is het directe signaal —
+        // geen stille 'paid'-rij. order_not_found / payment_order_mismatch
+        // / invalid_status zijn onverwacht en vragen ook om een mens.
+        const isDuplicate = activation.reason === "blocked_duplicate_membership";
+        await sendNotification(
+          isDuplicate ? "Order betaald maar geblokkeerd" : "Order-activatie geweigerd",
+          `Order ${orderId} → ${activation.reason}.${
+            isDuplicate
+              ? " Betaling is binnen zonder nieuw membership — refund of tegoed regelen."
+              : " Handmatig naklopen."
+          }`,
+          "warning"
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      if (activation.late_payment) {
+        await sendNotification(
+          "Order geactiveerd na verlopen deadline",
+          `Order ${orderId}: betaling kwam binnen na expires_at maar is gehonoreerd.`,
+          "warning"
+        );
+      }
+
+      if (!activation.already_activated) {
+        await sendNotification(
+          "Nieuw abonnement!",
+          `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
+          "tada,moneybag"
+        );
         await emitEvent({
-          type: "membership.payment_failed",
+          type: "order.activated",
           actorType: "system",
-          subjectType: "membership",
-          subjectId: membership.id,
+          subjectType: "order",
+          subjectId: orderId,
           payload: {
             profile_id: profileId ?? null,
-            membership_id: membership.id,
+            order_id: orderId,
+            membership_id: activation.membership_id,
             payment_id: payment.id,
-            sequence: "first",
           },
         });
       }
+
+      // Subscription-order: maak de Mollie-subscription één cyclus na de
+      // eerste betaling. idempotencyKey + de unique constraint op
+      // memberships.mollie_subscription_id voorkomen een dubbele
+      // subscription bij een webhook-retry; needs_subscription is ook
+      // true op een already_activated-retry waarvan het eerdere
+      // subscription-aanmaken mislukte, dus dit is meteen het herstelpad.
+      if (activation.needs_subscription && activation.mollie_customer_id) {
+        try {
+          const subStart = new Date();
+          subStart.setDate(
+            subStart.getDate() + activation.billing_cycle_weeks * 7
+          );
+          const startDateISO = subStart.toISOString().split("T")[0];
+
+          const subscription = await mollie.customerSubscriptions.create({
+            customerId: activation.mollie_customer_id,
+            amount: {
+              currency: "EUR",
+              value: (activation.recurring_cents / 100).toFixed(2),
+            },
+            interval: "28 days",
+            description: `TMC order ${orderId}`,
+            startDate: startDateISO,
+            webhookUrl: `${siteUrl()}/api/mollie/webhook`,
+            metadata: {
+              membershipId: activation.membership_id,
+              type: "recurring",
+            },
+            idempotencyKey: `order-${orderId}-sub`,
+          });
+
+          await supabase
+            .from("memberships")
+            .update({ mollie_subscription_id: subscription.id })
+            .eq("id", activation.membership_id)
+            .is("mollie_subscription_id", null);
+        } catch (e) {
+          console.error("[mollie/webhook] subscription create failed", e);
+          await sendNotification(
+            "Subscription aanmaken mislukt",
+            `Membership ${activation.membership_id} is actief, maar de Mollie-subscription kon niet aangemaakt worden. De volgende webhook-retry probeert dit opnieuw; anders handmatig afronden.`,
+            "warning"
+          );
+        }
+      }
+
       return NextResponse.json({ ok: true });
     }
 

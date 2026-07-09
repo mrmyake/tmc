@@ -29,9 +29,15 @@ interface SiteShellProps {
   children: React.ReactNode;
   settings: SanitySettings;
   campaignPhase: CampaignPhase;
+  campaignDeadline: string;
 }
 
-export function SiteShell({ children, settings, campaignPhase }: SiteShellProps) {
+export function SiteShell({
+  children,
+  settings,
+  campaignPhase,
+  campaignDeadline,
+}: SiteShellProps) {
   const pathname = usePathname();
   const isStudio = pathname.startsWith("/studio");
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
@@ -54,7 +60,7 @@ export function SiteShell({ children, settings, campaignPhase }: SiteShellProps)
 
   return (
     <>
-      <Navbar campaignPhase={campaignPhase} />
+      <Navbar campaignPhase={campaignPhase} campaignDeadline={campaignDeadline} />
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>

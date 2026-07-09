@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
-import { getPricingItems } from "@/lib/pricing-items";
+import { getCatalogue } from "@/lib/catalogue";
 import { PtBookingFlow } from "./PtBookingFlow";
 import type { TrainerOption } from "./_components/TrainerStep";
 import type { SlotOption } from "./_components/SlotStep";
 
-// Noodgreep, alleen gebruikt als de pricing_items-fetch faalt. Moet gelijk
-// blijven aan de live catalogus, maar is bewust niet de bron van waarheid.
+// Noodgreep, alleen gebruikt als de catalogus-fetch faalt. Moet gelijk
+// blijven aan de live catalogus (slug pt_single), maar is bewust niet de
+// bron van waarheid.
 const FALLBACK_PT_SINGLE_CENTS = 9500;
 
 export const metadata = {
@@ -48,7 +49,7 @@ export default async function PtPage() {
   const now = new Date();
   const horizon = new Date(now.getTime() + SLOT_HORIZON_DAYS * 86400000);
 
-  const [trainersRes, sessionsRes, ptMembershipRes, existingBookingsRes, pricingItems] =
+  const [trainersRes, sessionsRes, ptMembershipRes, existingBookingsRes, catalogue] =
     await Promise.all([
       supabase
         .from("trainers")
@@ -81,12 +82,11 @@ export default async function PtPage() {
         .select("pt_session_id")
         .eq("profile_id", user.id)
         .in("status", ["booked"]),
-      getPricingItems(["pt_one_on_one_single"]),
+      getCatalogue(),
     ]);
 
   const priceCents =
-    pricingItems.get("pt_one_on_one_single")?.price_cents ??
-    FALLBACK_PT_SINGLE_CENTS;
+    catalogue.get("pt_single")?.price_cents ?? FALLBACK_PT_SINGLE_CENTS;
 
   const trainers: TrainerOption[] = (trainersRes.data ?? []).map((t) => ({
     id: t.id,

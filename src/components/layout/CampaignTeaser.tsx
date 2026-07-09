@@ -3,32 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
-import {
-  EARLY_MEMBER_DEADLINE,
-  formatCampaignDeadline,
-  type CampaignPhase,
-} from "@/lib/campaign";
-
-// COPY: confirm met Marlon voor alle teksten, inclusief de mobile-variant.
-// De volledige zin wrapt op smalle schermen naar 2 regels, wat de vaste
-// header (teaser + nav samen, zie Navbar.tsx) hoger maakt dan de
-// hero-padding op elke pagina toelaat — daarom een kortere variant onder
-// het sm-breakpoint (zie de sm:hidden / hidden sm:inline split hieronder).
-const TEASER_TEXT: Record<Exclude<CampaignPhase, "closed">, string> = {
-  "pre-open":
-    "Binnenkort open in Loosdrecht. Word Early Member en profiteer als eerste mee.",
-  "open-em": `We zijn open. Early Member nog beschikbaar tot ${formatCampaignDeadline(
-    EARLY_MEMBER_DEADLINE
-  )}.`,
-};
-
-const TEASER_TEXT_COMPACT: Record<Exclude<CampaignPhase, "closed">, string> = {
-  "pre-open": "Binnenkort open in Loosdrecht.",
-  "open-em": `Early Member nog tot ${formatCampaignDeadline(EARLY_MEMBER_DEADLINE)}.`,
-};
+import { formatCampaignDeadline, type CampaignPhase } from "@/lib/campaign";
 
 interface CampaignTeaserProps {
   phase: CampaignPhase;
+  /** ISO deadline, uit getCampaignDeadline() (src/lib/campaign.ts). */
+  deadline: string;
 }
 
 /**
@@ -39,7 +19,7 @@ interface CampaignTeaserProps {
  * bezoekers die 'm al wegklikten — zelfde afweging als de auth-swap in
  * Navbar.tsx.
  */
-export function CampaignTeaser({ phase }: CampaignTeaserProps) {
+export function CampaignTeaser({ phase, deadline }: CampaignTeaserProps) {
   const [dismissed, setDismissed] = useState(false);
   const storageKey = `tmc_teaser_dismissed_${phase}`;
 
@@ -55,6 +35,22 @@ export function CampaignTeaser({ phase }: CampaignTeaserProps) {
 
   if (phase === "closed" || dismissed) return null;
 
+  // COPY: confirm met Marlon voor alle teksten, inclusief de mobile-variant.
+  // De volledige zin wrapt op smalle schermen naar 2 regels, wat de vaste
+  // header (teaser + nav samen, zie Navbar.tsx) hoger maakt dan de
+  // hero-padding op elke pagina toelaat — daarom een kortere variant onder
+  // het sm-breakpoint (zie de sm:hidden / hidden sm:inline split hieronder).
+  const deadlineLabel = formatCampaignDeadline(new Date(deadline));
+  const teaserText: Record<Exclude<CampaignPhase, "closed">, string> = {
+    "pre-open":
+      "Binnenkort open in Loosdrecht. Word Early Member en profiteer als eerste mee.",
+    "open-em": `We zijn open. Early Member nog beschikbaar tot ${deadlineLabel}.`,
+  };
+  const teaserTextCompact: Record<Exclude<CampaignPhase, "closed">, string> = {
+    "pre-open": "Binnenkort open in Loosdrecht.",
+    "open-em": `Early Member nog tot ${deadlineLabel}.`,
+  };
+
   const handleDismiss = () => {
     setDismissed(true);
     try {
@@ -67,8 +63,8 @@ export function CampaignTeaser({ phase }: CampaignTeaserProps) {
   return (
     <div className="relative bg-accent text-bg tmc-fade-up">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-8 py-2.5 text-center text-[13px] font-medium tracking-[0.01em] sm:px-10">
-        <span className="sm:hidden">{TEASER_TEXT_COMPACT[phase]}</span>
-        <span className="hidden sm:inline">{TEASER_TEXT[phase]}</span>
+        <span className="sm:hidden">{teaserTextCompact[phase]}</span>
+        <span className="hidden sm:inline">{teaserText[phase]}</span>
         <Link
           href="/early-member"
           className="underline underline-offset-2 hover:no-underline"

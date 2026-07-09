@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { startSignup } from "@/lib/actions/membership";
+import { createOrderAndCheckout } from "@/lib/orders/create-order";
 import { trackPaymentStart } from "@/lib/analytics";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 
@@ -9,11 +9,14 @@ interface Props {
   planVariant: string;
   label?: string;
   highlighted?: boolean;
-  /** Start de signup als Early Member (pool-plek wordt gereserveerd). */
+  /**
+   * Intent, niet autoritatief: create_order() past Early Member alleen toe
+   * als de catalogusrij eligible is EN de campagnefase open is.
+   */
   earlyMember?: boolean;
   /**
-   * Toon de verlengde-toegang-opt-in (alleen vrij_trainen); het bedrag is
-   * de add-on-prijs per 4 weken uit booking_settings.
+   * Toon de verlengde-toegang-opt-in; het bedrag is de add-on-prijs per 4
+   * weken uit tmc.catalogue (slug extended_access).
    */
   extendedAccessPriceCents?: number;
 }
@@ -32,7 +35,8 @@ export function PlanChooser({
   function handleClick() {
     setError(null);
     startTransition(async () => {
-      const res = await startSignup(planVariant, {
+      const res = await createOrderAndCheckout({
+        slug: planVariant,
         earlyMember,
         extendedAccess,
       });

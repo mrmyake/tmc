@@ -14,11 +14,15 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+// order.status -> copy. 'pending' en 'paid' delen dezelfde "we wachten
+// nog"-copy: 'paid' is de conditie-2 duplicaat-blokkade (geld binnen, geen
+// membership), een interne ops-zaak (zie orders.blocked_reason en de ntfy-
+// alert in de webhook), niet iets om de klant hier over uit te leggen.
 const STATUS_COPY: Record<
   string,
   { title: string; body: string; showConfetti: boolean }
 > = {
-  active: {
+  activated: {
     title: "Welkom bij The Movement Club.",
     body: "Je aanmelding is rond, de eerste betaling is binnen. Je kunt nu lessen boeken in het rooster.",
     showConfetti: true,
@@ -28,9 +32,19 @@ const STATUS_COPY: Record<
     body: "Zodra Mollie je betaling bevestigt, wordt je abonnement automatisch actief. Dat duurt meestal een paar minuten — je hoeft niets te doen.",
     showConfetti: false,
   },
-  payment_failed: {
+  paid: {
+    title: "We ronden je aanmelding af.",
+    body: "Je betaling is binnen. We handelen dit voor je af en nemen contact op als er iets nodig is.",
+    showConfetti: false,
+  },
+  expired: {
     title: "Betaling niet geslaagd.",
-    body: "Je betaling is geannuleerd of afgewezen. Probeer opnieuw via 'Kies abonnement' of neem contact op.",
+    body: "Je betaling is geannuleerd, afgewezen of verlopen. Probeer opnieuw via 'Kies abonnement' of neem contact op.",
+    showConfetti: false,
+  },
+  cancelled: {
+    title: "Betaling niet geslaagd.",
+    body: "Je betaling is geannuleerd, afgewezen of verlopen. Probeer opnieuw via 'Kies abonnement' of neem contact op.",
     showConfetti: false,
   },
 };
@@ -38,10 +52,10 @@ const STATUS_COPY: Record<
 export default async function BedanktPage({
   searchParams,
 }: {
-  searchParams: Promise<{ membership?: string }>;
+  searchParams: Promise<{ order?: string }>;
 }) {
   const params = await searchParams;
-  const membershipId = params.membership;
+  const orderId = params.order;
 
   const supabase = await createClient();
   const {
@@ -49,45 +63,43 @@ export default async function BedanktPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = membershipId
+  const { data: order } = orderId
     ? await supabase
-        .from("memberships")
-        .select(
-          "id,plan_variant,status,price_per_cycle_cents,billing_cycle_weeks"
-        )
-        .eq("id", membershipId)
+        .from("orders")
+        .select("id,catalogue_slug,status,base_price_cents,billing_cycle_weeks")
+        .eq("id", orderId)
         .eq("profile_id", user.id)
         .maybeSingle()
     : { data: null };
 
-  const status = membership?.status ?? "pending";
+  const status = order?.status ?? "pending";
   const copy = STATUS_COPY[status] ?? STATUS_COPY.pending;
 
   let planName: string | null = null;
-  if (membership) {
+  if (order) {
     const { data: plan } = await supabase
-      .from("membership_plan_catalogue")
+      .from("catalogue")
       .select("display_name")
-      .eq("plan_variant", membership.plan_variant)
+      .eq("slug", order.catalogue_slug)
       .maybeSingle();
-    planName = plan?.display_name ?? membership.plan_variant;
+    planName = plan?.display_name ?? order.catalogue_slug;
   }
 
   return (
     <>
       {copy.showConfetti && <Confetti />}
-      {membership && (
+      {order && (
         <PaymentTracker
           status={status}
-          amount={Math.round(membership.price_per_cycle_cents / 100)}
-          transactionId={membership.id}
+          amount={Math.round(order.base_price_cents / 100)}
+          transactionId={order.id}
         />
       )}
       <Container className="py-20 max-w-2xl text-center">
         <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-4">
-          {status === "active"
+          {status === "activated"
             ? "Je abonnement loopt"
-            : status === "payment_failed"
+            : status === "expired" || status === "cancelled"
             ? "Betaling mislukt"
             : "Bijna klaar"}
         </span>
@@ -98,7 +110,7 @@ export default async function BedanktPage({
           {copy.body}
         </p>
 
-        {membership && (
+        {order && (
           <div className="inline-block bg-bg-elevated border border-bg-subtle px-8 py-6 mb-10 text-left">
             <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-2">
               Jouw plan
@@ -107,17 +119,15 @@ export default async function BedanktPage({
               {planName}
             </div>
             <div className="text-accent mt-1">
-              {formatEuro(
-                Math.round(membership.price_per_cycle_cents / 100)
-              )}{" "}
-              / {membership.billing_cycle_weeks}wk
+              {formatEuro(Math.round(order.base_price_cents / 100))}{" "}
+              {order.billing_cycle_weeks ? `/ ${order.billing_cycle_weeks}wk` : ""}
             </div>
           </div>
         )}
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button href="/app">Naar dashboard</Button>
-          {status === "active" && (
+          {status === "activated" && (
             <Link
               href="/app/rooster"
               className="text-xs uppercase tracking-[0.25em] text-text-muted hover:text-accent transition-colors"
@@ -125,7 +135,7 @@ export default async function BedanktPage({
               Bekijk het rooster →
             </Link>
           )}
-          {status === "payment_failed" && (
+          {(status === "expired" || status === "cancelled") && (
             <Link
               href="/app/abonnement/nieuw"
               className="text-xs uppercase tracking-[0.25em] text-text-muted hover:text-accent transition-colors"

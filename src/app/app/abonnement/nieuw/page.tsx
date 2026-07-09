@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { Check, ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
+import { getCampaignDeadline, getCampaignPhase } from "@/lib/campaign";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
-import { formatDateLong } from "@/lib/format-date";
 import { PlanChooser } from "./PlanChooser";
 import { AddressGate } from "./AddressGate";
 
@@ -13,49 +14,15 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const PLAN_TYPE_LABELS: Record<string, string> = {
+const FAMILY_LABELS: Record<string, string> = {
   vrij_trainen: "Vrij Trainen",
   // COPY: confirm met Marlon
   groepslessen: "Groepslessen",
   // COPY: confirm met Marlon
   all_inclusive: "All Access",
-  kids: "Kids",
-  senior: "Senior 65+",
 };
 
-const PLAN_TYPE_ORDER = [
-  "vrij_trainen",
-  "groepslessen",
-  "all_inclusive",
-  "kids",
-  "senior",
-];
-
-interface PlanRow {
-  id: string;
-  plan_type: string;
-  plan_variant: string;
-  display_name: string;
-  frequency_cap: number | null;
-  age_category: string;
-  price_per_cycle_cents: number;
-  billing_cycle_weeks: number;
-  commit_months: number;
-  covered_pillars: string[];
-  includes: string[];
-  is_highlighted: boolean;
-  display_order: number;
-  early_member_pool: string | null;
-  early_member_price_cents: number | null;
-}
-
-interface EarlyMemberAvailability {
-  pool: string;
-  cap: number;
-  remaining: number;
-  closes_at: string;
-  is_open: boolean;
-}
+const FAMILY_ORDER = ["vrij_trainen", "groepslessen", "all_inclusive"];
 
 export default async function AbonnementNieuwPage() {
   const supabase = await createClient();
@@ -78,34 +45,16 @@ export default async function AbonnementNieuwPage() {
     .maybeSingle();
   if (existing) redirect("/app/abonnement");
 
-  // Vier onafhankelijke reads — parallel.
-  const [
-    { data: profileAddress },
-    { data: plans },
-    { data: settings },
-    // Early Member-beschikbaarheid per pool. Bij een fout gewoon zonder
-    // Early Member-aanbod renderen; startSignup valideert sowieso atomair.
-    { data: emRows },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("street_address, postal_code, city")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("membership_plan_catalogue")
-      .select(
-        "id,plan_type,plan_variant,display_name,frequency_cap,age_category,price_per_cycle_cents,billing_cycle_weeks,commit_months,covered_pillars,includes,is_highlighted,display_order,early_member_pool,early_member_price_cents"
-      )
-      .eq("is_active", true)
-      .order("display_order", { ascending: true }),
-    supabase
-      .from("booking_settings")
-      .select("registration_fee_cents, extended_access_price_cents")
-      .eq("id", "singleton")
-      .maybeSingle(),
-    supabase.rpc("get_early_member_availability"),
-  ]);
+  const [{ data: profileAddress }, catalogue, campaignDeadlineIso] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("street_address, postal_code, city")
+        .eq("id", user.id)
+        .maybeSingle(),
+      getCatalogue(),
+      getCampaignDeadline(),
+    ]);
 
   const addressComplete = Boolean(
     profileAddress?.street_address?.trim() &&
@@ -113,21 +62,24 @@ export default async function AbonnementNieuwPage() {
       profileAddress?.city?.trim(),
   );
 
-  const regFee = settings?.registration_fee_cents ?? 3900;
-  const extendedAccessPrice = settings?.extended_access_price_cents ?? 1000;
-  const emByPool = new Map<string, EarlyMemberAvailability>(
-    ((emRows ?? []) as EarlyMemberAvailability[]).map((r) => [r.pool, r])
-  );
+  // Eén fasebron (src/lib/campaign.ts): Early Member is alleen actief
+  // terwijl de campagne open is EN de catalogusrij zelf eligible is. Zelfde
+  // gate als tmc._compute_order_price(), dus wat hier getoond wordt kan
+  // niet afwijken van wat create_order() daadwerkelijk toepast.
+  const emActive = getCampaignPhase(new Date(campaignDeadlineIso)) === "open-em";
+  const extendedAccessAddon = catalogue.get("extended_access");
 
-  const plansByType = (plans ?? []).reduce<Record<string, PlanRow[]>>(
-    (acc, p) => {
-      const key = p.plan_type;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(p);
-      return acc;
-    },
-    {}
-  );
+  const plansByFamily = new Map<string, CatalogueRow[]>();
+  for (const row of catalogue.values()) {
+    if (row.kind !== "plan" || !row.family) continue;
+    const list = plansByFamily.get(row.family) ?? [];
+    list.push(row);
+    plansByFamily.set(row.family, list);
+  }
+  for (const list of plansByFamily.values()) {
+    // Onbeperkt (frequency_cap null) laatst.
+    list.sort((a, b) => (a.frequency_cap ?? Infinity) - (b.frequency_cap ?? Infinity));
+  }
 
   return (
     <Container className="py-12">
@@ -146,9 +98,8 @@ export default async function AbonnementNieuwPage() {
         Welk abonnement past bij jou?
       </h1>
       <p className="text-text-muted mb-4 max-w-xl">
-        Alle prijzen zijn per 4 weken. Eenmalige inschrijfkosten van{" "}
-        {formatEuro(regFee / 100)} worden bij de eerste betaling bijgeteld —
-        als Early Member vervallen die.
+        Alle prijzen zijn per 4 weken. Eenmalige inschrijfkosten worden bij de
+        eerste betaling bijgeteld — als Early Member vervallen die.
       </p>
       <p className="text-xs text-text-muted mb-12 max-w-xl">
         Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische
@@ -170,56 +121,42 @@ export default async function AbonnementNieuwPage() {
         className={`space-y-14 ${!addressComplete ? "opacity-40 pointer-events-none" : ""}`}
         aria-disabled={!addressComplete}
       >
-        {PLAN_TYPE_ORDER.map((type) => {
-          const typePlans = plansByType[type];
-          if (!typePlans || typePlans.length === 0) return null;
+        {FAMILY_ORDER.map((family) => {
+          const familyPlans = plansByFamily.get(family);
+          if (!familyPlans || familyPlans.length === 0) return null;
 
           return (
-            <section key={type}>
+            <section key={family}>
               <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-6">
-                {PLAN_TYPE_LABELS[type] ?? type}
+                {FAMILY_LABELS[family] ?? family}
               </h2>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {typePlans.map((plan) => {
-                  const em = plan.early_member_pool
-                    ? emByPool.get(plan.early_member_pool)
-                    : undefined;
-                  const emOpen = em?.is_open === true;
-                  // Toon dezelfde korting als startSignup daadwerkelijk
-                  // rekent, anders klopt de kaart niet met wat er bij
-                  // Mollie wordt afgeschreven.
-                  const isAllAccessEm = emOpen && plan.plan_type === "all_inclusive";
-                  // Alleen All Access Onbeperkt heeft een Early Member-prijs
-                  // (early_member_price_cents); 2x/3x hebben die kolom leeg,
-                  // dus daar is geen korting te tonen.
+                {familyPlans.map((plan) => {
+                  const emOpen = emActive && plan.early_member_eligible;
+                  // Zelfde coalesce als tmc._compute_order_price(): alleen
+                  // een strikethrough tonen als de EM-prijs echt afwijkt
+                  // (bv. all_inclusive_unl); Groepslessen heeft geen eigen
+                  // EM-prijs, alleen de fee-waiver en commit 0 hieronder.
                   const hasEmDiscount =
-                    isAllAccessEm &&
+                    emOpen &&
                     plan.early_member_price_cents !== null &&
-                    plan.early_member_price_cents !== plan.price_per_cycle_cents;
+                    plan.early_member_price_cents !== plan.price_cents;
                   const signupPriceCents = hasEmDiscount
                     ? plan.early_member_price_cents!
-                    : plan.price_per_cycle_cents;
+                    : plan.price_cents;
                   const priceEuro = formatEuro(
-                    Math.round(signupPriceCents / 100)
+                    Math.round(signupPriceCents / 100),
                   );
                   const catalogueEuro = hasEmDiscount
-                    ? formatEuro(Math.round(plan.price_per_cycle_cents / 100))
+                    ? formatEuro(Math.round(plan.price_cents / 100))
                     : null;
+
                   return (
                     <div
-                      key={plan.id}
-                      className={`border p-6 md:p-7 flex flex-col h-full ${
-                        plan.is_highlighted
-                          ? "border-accent bg-bg-elevated shadow-[0_0_40px_-12px_var(--color-accent)]"
-                          : "border-bg-subtle bg-bg-elevated"
-                      }`}
+                      key={plan.slug}
+                      className="border border-bg-subtle bg-bg-elevated p-6 md:p-7 flex flex-col h-full"
                     >
-                      {plan.is_highlighted && (
-                        <span className="inline-block self-start text-[10px] uppercase tracking-[0.2em] bg-accent text-bg px-2 py-1 mb-4">
-                          Populair
-                        </span>
-                      )}
                       <h3 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-2">
                         {plan.display_name}
                       </h3>
@@ -237,53 +174,29 @@ export default async function AbonnementNieuwPage() {
                         </span>
                       </div>
 
-                      {plan.includes && plan.includes.length > 0 && (
+                      {plan.extended_access_mode === "included" && (
                         <ul className="space-y-2 mb-6 flex-1">
-                          {plan.includes.map((item, i) => (
-                            <li
-                              key={i}
-                              className="flex items-start gap-2 text-sm text-text"
-                            >
-                              <Check
-                                className="text-accent flex-shrink-0 mt-0.5"
-                                size={14}
-                              />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                          {/* Alleen All Access Onbeperkt heeft verlengde
-                              toegang gratis inbegrepen; op 2x/3x is het een
-                              betaalde add-on via de checkbox hieronder. */}
-                          {plan.plan_variant === "all_inclusive_unl" && (
-                            <li className="flex items-start gap-2 text-sm text-text">
-                              <Check
-                                className="text-accent flex-shrink-0 mt-0.5"
-                                size={14}
-                              />
-                              <span>Verlengde toegang 06:00–23:00</span>
-                            </li>
-                          )}
+                          <li className="flex items-start gap-2 text-sm text-text">
+                            <Check
+                              className="text-accent flex-shrink-0 mt-0.5"
+                              size={14}
+                            />
+                            {/* COPY: confirm met Marlon */}
+                            <span>Verlengde toegang 06:00-23:00</span>
+                          </li>
                         </ul>
                       )}
 
                       {emOpen && (
                         <div className="border border-accent/30 bg-bg px-4 py-3 mb-4">
-                          <div className="flex items-baseline justify-between gap-2 mb-2">
-                            <span className="text-[10px] uppercase tracking-[0.2em] text-accent">
-                              Early Member
-                            </span>
-                            {/* COPY: confirm met Marlon. Geen plek-telling
-                                meer ("nog X van Y"): Early Member is puur
-                                deadline-gebaseerd, zie
-                                20260712000000_early_member_time_only_gate.sql. */}
-                            <span className="text-[10px] uppercase tracking-[0.15em] text-text-muted">
-                              Nog beschikbaar tot {formatDateLong(new Date(em!.closes_at))}
-                            </span>
-                          </div>
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-accent block mb-2">
+                            Early Member
+                          </span>
                           <ul className="space-y-1 text-xs text-text-muted">
+                            {/* COPY: confirm met Marlon */}
                             <li>Geen inschrijfkosten</li>
                             <li>Per 4 weken opzegbaar — geen jaarcommitment</li>
-                            {plan.plan_type === "all_inclusive" && (
+                            {hasEmDiscount && (
                               <li>Jouw tarief blijft vast zolang je lid bent</li>
                             )}
                           </ul>
@@ -297,15 +210,12 @@ export default async function AbonnementNieuwPage() {
                       </div>
 
                       <PlanChooser
-                        planVariant={plan.plan_variant}
-                        highlighted={plan.is_highlighted}
+                        planVariant={plan.slug}
                         label={`Kies ${plan.display_name}`}
                         earlyMember={emOpen}
                         extendedAccessPriceCents={
-                          plan.plan_type === "vrij_trainen" ||
-                          (plan.plan_type === "all_inclusive" &&
-                            plan.plan_variant !== "all_inclusive_unl")
-                            ? extendedAccessPrice
+                          plan.extended_access_mode === "addon"
+                            ? extendedAccessAddon?.price_cents
                             : undefined
                         }
                       />
