@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
-import { siteUrl } from "@/lib/site-url";
+import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
 
 export type CreateOrderAndCheckoutResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -151,7 +151,7 @@ export async function createOrderAndCheckout(
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,
       redirectUrl: `${siteUrl()}/app/abonnement/bedankt?order=${orderId}`,
-      webhookUrl: `${siteUrl()}/api/mollie/webhook`,
+      webhookUrl: mollieWebhookUrl(),
       customerId: mollieCustomerId,
       ...(isSubscription ? { sequenceType: SequenceType.first } : {}),
       metadata: {

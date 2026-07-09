@@ -8,7 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import PaymentFailed from "@/emails/payment_failed";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
-import { siteUrl } from "@/lib/site-url";
+import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
 
 /** Fire-and-forget payment-failed email. Never throws. */
 async function notifyMemberPaymentFailed(args: {
@@ -321,7 +321,7 @@ export async function POST(request: Request) {
             interval: "28 days",
             description: `TMC order ${orderId}`,
             startDate: startDateISO,
-            webhookUrl: `${siteUrl()}/api/mollie/webhook`,
+            webhookUrl: mollieWebhookUrl(),
             metadata: {
               membershipId: activation.membership_id,
               type: "recurring",
