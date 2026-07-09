@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
+import { siteUrl } from "@/lib/site-url";
 
 export type CreateOrderAndCheckoutResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -126,8 +127,6 @@ export async function createOrderAndCheckout(
       await abandonOrder();
       return { ok: false, error: "Betalingsprovider niet geconfigureerd." };
     }
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://www.themovementclub.nl";
 
     // Eén Mollie-klant per profiel (profiles.mollie_customer_id), niet
     // meer afgeleid uit de laatste membership-rij.
@@ -151,8 +150,8 @@ export async function createOrderAndCheckout(
     const payment = await mollie.payments.create({
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,
-      redirectUrl: `${siteUrl}/app/abonnement/bedankt?order=${orderId}`,
-      webhookUrl: `${siteUrl}/api/mollie/webhook`,
+      redirectUrl: `${siteUrl()}/app/abonnement/bedankt?order=${orderId}`,
+      webhookUrl: `${siteUrl()}/api/mollie/webhook`,
       customerId: mollieCustomerId,
       ...(isSubscription ? { sequenceType: SequenceType.first } : {}),
       metadata: {

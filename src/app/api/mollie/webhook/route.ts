@@ -8,10 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import PaymentFailed from "@/emails/payment_failed";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
-}
+import { siteUrl } from "@/lib/site-url";
 
 /** Fire-and-forget payment-failed email. Never throws. */
 async function notifyMemberPaymentFailed(args: {
