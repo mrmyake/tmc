@@ -44,6 +44,10 @@
     {
       "path": "/api/cron/release-early-member-holds",
       "schedule": "25 4 * * *"
+    },
+    {
+      "path": "/api/cron/expire-orders",
+      "schedule": "45 4 * * *"
     }
   ]
 }

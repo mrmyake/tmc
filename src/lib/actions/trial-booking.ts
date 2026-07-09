@@ -3,34 +3,29 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
+import { getCatalogue } from "@/lib/catalogue";
 
 export type StartTrialBookingResult =
   | { ok: true; checkoutUrl: string }
   | { ok: false; error: string };
 
 /**
- * Prijs per pillar, uit booking_settings (geen apart proefles-tarief,
- * besluit spec-community-growth.md §1). vrij_trainen heeft bewust geen
- * drop-in-prijs en is dus niet boekbaar als proefles.
+ * Catalogusslug per pillar (geen apart proefles-tarief, besluit
+ * spec-community-growth.md §1: de proefles betaalt gewoon het drop-in-
+ * tarief). yoga_mobility en kettlebell delen dezelfde 'drop_in'-rij (die
+ * twee tarieven zijn altijd gelijk geweest, zie tmc.catalogue-seed).
+ * vrij_trainen heeft bewust geen drop-in-slug en is dus niet boekbaar als
+ * proefles.
  */
-function dropInPriceCentsForPillar(
-  pillar: string,
-  settings: {
-    drop_in_yoga_cents: number;
-    drop_in_kettlebell_cents: number;
-    drop_in_kids_cents: number;
-    drop_in_senior_cents: number;
-  },
-): number | null {
+function dropInSlugForPillar(pillar: string): string | null {
   switch (pillar) {
     case "yoga_mobility":
-      return settings.drop_in_yoga_cents;
     case "kettlebell":
-      return settings.drop_in_kettlebell_cents;
+      return "drop_in";
     case "kids":
-      return settings.drop_in_kids_cents;
+      return "drop_in_kids";
     case "senior":
-      return settings.drop_in_senior_cents;
+      return "drop_in_senior";
     default:
       return null;
   }
@@ -86,17 +81,9 @@ export async function startTrialBooking(
     return { ok: false, error: "Deze sessie is al voorbij." };
   }
 
-  const { data: settings } = await admin
-    .from("booking_settings")
-    .select(
-      "drop_in_yoga_cents, drop_in_kettlebell_cents, drop_in_kids_cents, drop_in_senior_cents",
-    )
-    .limit(1)
-    .maybeSingle();
-
-  const priceCents = settings
-    ? dropInPriceCentsForPillar(session.pillar, settings)
-    : null;
+  const catalogue = await getCatalogue();
+  const dropInSlug = dropInSlugForPillar(session.pillar);
+  const priceCents = dropInSlug ? (catalogue.get(dropInSlug)?.price_cents ?? null) : null;
   if (priceCents === null) {
     return {
       ok: false,

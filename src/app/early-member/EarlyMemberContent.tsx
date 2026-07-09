@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Countdown } from "@/components/ui/Countdown";
 import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
+import type { CampaignPhase } from "@/lib/campaign";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 
 export interface EarlyMemberPricing {
@@ -16,18 +17,19 @@ export interface EarlyMemberPricing {
   allAccessThreeXCents: number;
   allAccessUnlCents: number;
   allAccessUnlEarlyMemberCents: number;
-  vrijTrainenTwoXCents: number;
   signupFeeCents: number;
-  programStudioCents: number;
-  programOnlineCents: number;
+  // Lead items (purchasable=false in tmc.catalogue): null renders "op
+  // aanvraag" instead of a stale fallback price.
+  programStudioCents: number | null;
+  programOnlineCents: number | null;
 }
 
 interface EarlyMemberContentProps {
-  /** ISO deadline, uit EARLY_MEMBER_DEADLINE (src/lib/campaign.ts). */
+  /** ISO deadline, uit getCampaignDeadline() (src/lib/campaign.ts). */
   deadline: string;
   pricing: EarlyMemberPricing;
-  /** true als STUDIO_OPENING_DATE al gepasseerd is, bepaalt de hero-framing. */
-  hasOpened: boolean;
+  /** Eén fasebron (src/lib/campaign.ts), zelfde als de root layout en /prijzen. */
+  campaignPhase: CampaignPhase;
 }
 
 // Ghost-button op een lichte ("stone") sectie. Button's "secondary"-variant
@@ -44,12 +46,21 @@ const ghostOnLightClasses =
 export function EarlyMemberContent({
   deadline,
   pricing,
-  hasOpened,
+  campaignPhase,
 }: EarlyMemberContentProps) {
   const deadlineLabel = formatDateLong(new Date(deadline));
+  // hasOpened bepaalt alleen de hero-framing (voor/na de studio-opening);
+  // emActive bepaalt of de Early Member voordelen getoond worden (voor/na
+  // de campagnedeadline). Beide komen uit dezelfde getCampaignPhase()-fase,
+  // dus er is nog maar één datumbron voor de hele pagina.
+  const hasOpened = campaignPhase !== "pre-open";
+  const emActive = campaignPhase === "open-em";
 
-  // Live uit tmc.membership_plan_catalogue.early_member_price_cents, zelfde
-  // kolom als de daadwerkelijke checkout (startSignup) leest voor deze pool.
+  // Live uit tmc.catalogue.early_member_price_cents (met coalesce naar de
+  // reguliere prijs), zelfde kolom en dezelfde fallback als de RPC die de
+  // daadwerkelijke checkout draait (tmc._compute_order_price /
+  // create_order). Alleen getoond terwijl emActive; buiten de campagnefase
+  // is dit bedrag niet van toepassing.
   const allAccessEarlyMemberCents = pricing.allAccessUnlEarlyMemberCents;
 
   // Meerprijs om vrij trainen aan Groepslessen toe te voegen (= het verschil
@@ -138,9 +149,15 @@ export function EarlyMemberContent({
               </h2>
               {/* COPY: confirm met Marlon */}
               <p className="text-on-light-muted text-lg">
-                Alle prijzen per 4 weken. Als Early Member vervalt het
-                inschrijfgeld van {formatPriceEuro(pricing.signupFeeCents)} en
-                ben je vanaf dag één maandelijks opzegbaar.
+                {emActive ? (
+                  <>
+                    Alle prijzen per 4 weken. Als Early Member vervalt het
+                    inschrijfgeld van {formatPriceEuro(pricing.signupFeeCents)}{" "}
+                    en ben je vanaf dag één maandelijks opzegbaar.
+                  </>
+                ) : (
+                  "Alle prijzen per 4 weken."
+                )}
               </p>
             </div>
           </ScrollReveal>
@@ -151,9 +168,11 @@ export function EarlyMemberContent({
             <ScrollReveal>
               <div className="bg-bg text-text border border-bg p-8 md:p-10 h-full flex flex-col">
                 {/* COPY: confirm met Marlon */}
-                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
-                  Early Member voordeel
-                </span>
+                {emActive && (
+                  <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                    Early Member voordeel
+                  </span>
+                )}
                 <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl mt-3.5 mb-4">
                   All Access
                 </h3>
@@ -163,16 +182,30 @@ export function EarlyMemberContent({
                   lesfrequentie.
                 </p>
                 <div className="mb-6">
-                  <span className="text-text-muted text-lg line-through mr-2">
-                    {formatPriceEuro(pricing.allAccessUnlCents)}
-                  </span>
-                  <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
-                    {formatPriceEuro(allAccessEarlyMemberCents)}
-                  </span>
-                  {/* COPY: confirm met Marlon */}
-                  <span className="block text-text-muted text-xs mt-1">
-                    per 4 weken, onbeperkt, blijvend tarief
-                  </span>
+                  {emActive ? (
+                    <>
+                      <span className="text-text-muted text-lg line-through mr-2">
+                        {formatPriceEuro(pricing.allAccessUnlCents)}
+                      </span>
+                      <span className="font-[family-name:var(--font-playfair)] text-3xl text-accent">
+                        {formatPriceEuro(allAccessEarlyMemberCents)}
+                      </span>
+                      {/* COPY: confirm met Marlon */}
+                      <span className="block text-text-muted text-xs mt-1">
+                        per 4 weken, onbeperkt, blijvend tarief
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-[family-name:var(--font-playfair)] text-3xl text-text">
+                        {formatPriceEuro(pricing.allAccessUnlCents)}
+                      </span>
+                      {/* COPY: confirm met Marlon */}
+                      <span className="block text-text-muted text-xs mt-1">
+                        per 4 weken, onbeperkt
+                      </span>
+                    </>
+                  )}
                 </div>
                 <ul className="divide-y divide-bg-subtle border-y border-bg-subtle mb-6 text-sm">
                   <li className="flex items-center justify-between py-3">
@@ -189,13 +222,19 @@ export function EarlyMemberContent({
                   </li>
                   <li className="flex items-center justify-between py-3">
                     <span className="text-text-muted">
-                      Onbeperkt{" "}
-                      <span className="text-accent text-[10px] uppercase tracking-[0.14em] ml-1">
-                        Early Member
-                      </span>
+                      Onbeperkt
+                      {emActive && (
+                        <span className="text-accent text-[10px] uppercase tracking-[0.14em] ml-1">
+                          Early Member
+                        </span>
+                      )}
                     </span>
-                    <span className="font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      {formatPriceEuro(allAccessEarlyMemberCents)}
+                    <span
+                      className={`font-[family-name:var(--font-playfair)] text-lg ${emActive ? "text-accent" : "text-text"}`}
+                    >
+                      {formatPriceEuro(
+                        emActive ? allAccessEarlyMemberCents : pricing.allAccessUnlCents,
+                      )}
                     </span>
                   </li>
                 </ul>
@@ -211,11 +250,13 @@ export function EarlyMemberContent({
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Geen inschrijfkosten, direct maandelijks opzegbaar
+                    {emActive
+                      ? "Geen inschrijfkosten, direct maandelijks opzegbaar"
+                      : "1 jaar commitment, daarna maandelijks opzegbaar"}
                   </li>
                 </ul>
-                <Button href="/app/abonnement/nieuw" className="w-full">
-                  Word Early Member
+                <Button href="/abonnement" className="w-full">
+                  {emActive ? "Word Early Member" : "Boek je abonnement"}
                 </Button>
               </div>
             </ScrollReveal>
@@ -224,9 +265,11 @@ export function EarlyMemberContent({
             <ScrollReveal delay={0.1}>
               <div className="bg-surface-light text-on-light border border-border-on-light p-8 md:p-10 h-full flex flex-col">
                 {/* COPY: confirm met Marlon */}
-                <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
-                  Early Member voordeel
-                </span>
+                {emActive && (
+                  <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
+                    Early Member voordeel
+                  </span>
+                )}
                 <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl mt-3.5 mb-4">
                   Groepslessen
                 </h3>
@@ -259,11 +302,17 @@ export function EarlyMemberContent({
                   {/* COPY: confirm met Marlon */}
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Geen inschrijfkosten ({formatPriceEuro(pricing.signupFeeCents)})
+                    {emActive ? (
+                      <>Geen inschrijfkosten ({formatPriceEuro(pricing.signupFeeCents)})</>
+                    ) : (
+                      <>Inschrijfkosten: {formatPriceEuro(pricing.signupFeeCents)} eenmalig</>
+                    )}
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Direct maandelijks opzegbaar, geen jaarcontract
+                    {emActive
+                      ? "Direct maandelijks opzegbaar, geen jaarcontract"
+                      : "1 jaar commitment, daarna maandelijks opzegbaar"}
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
@@ -271,8 +320,8 @@ export function EarlyMemberContent({
                     {formatPriceEuro(vrijTrainenAddOnCents)} per 4 weken
                   </li>
                 </ul>
-                <Link href="/app/abonnement/nieuw" className={ghostOnLightClasses}>
-                  Word Early Member
+                <Link href="/abonnement" className={ghostOnLightClasses}>
+                  {emActive ? "Word Early Member" : "Boek je abonnement"}
                 </Link>
               </div>
             </ScrollReveal>
@@ -280,66 +329,71 @@ export function EarlyMemberContent({
         </Container>
       </Section>
 
-      {/* 3. Waarom nu (donker) */}
-      <Section>
-        <Container className="max-w-3xl">
-          <ScrollReveal>
-            <div className="mb-12 md:mb-14">
-              <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                Waarom nu
-              </span>
+      {/* 3. Waarom nu (donker). Alleen zichtbaar terwijl emActive: deze hele
+          sectie is de voor/na-vergelijking met de Early Member-voorwaarden,
+          die na de campagnedeadline niet meer van toepassing is. Verdwijnt
+          vanzelf zodra de fase omslaat, zonder codewijziging. */}
+      {emActive && (
+        <Section>
+          <Container className="max-w-3xl">
+            <ScrollReveal>
+              <div className="mb-12 md:mb-14">
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+                  Waarom nu
+                </span>
+                {/* COPY: confirm met Marlon */}
+                <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text leading-[1.05] tracking-[-0.02em]">
+                  Dit aanbod komt niet terug.
+                </h2>
+              </div>
+              <div className="divide-y divide-bg-subtle border-y border-bg-subtle">
+                {/* COPY: confirm met Marlon */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                  <span className="text-text-muted">
+                    {formatPriceEuro(pricing.signupFeeCents)} inschrijfkosten
+                  </span>
+                  <span aria-hidden className="text-accent hidden sm:inline">
+                    →
+                  </span>
+                  <span className="text-text font-medium">
+                    Geen inschrijfkosten
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                  <span className="text-text-muted">
+                    Eerste jaar vast, daarna per 4 weken opzegbaar
+                  </span>
+                  <span aria-hidden className="text-accent hidden sm:inline">
+                    →
+                  </span>
+                  <span className="text-text font-medium">
+                    Vanaf dag één maandelijks opzegbaar
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
+                  <span className="text-text-muted">
+                    All Access onbeperkt {formatPriceEuro(pricing.allAccessUnlCents)}{" "}
+                    per 4 weken
+                  </span>
+                  <span aria-hidden className="text-accent hidden sm:inline">
+                    →
+                  </span>
+                  <span className="text-text font-medium">
+                    {formatPriceEuro(allAccessEarlyMemberCents)} per 4 weken,
+                    blijvend
+                  </span>
+                </div>
+              </div>
               {/* COPY: confirm met Marlon */}
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text leading-[1.05] tracking-[-0.02em]">
-                Dit aanbod komt niet terug.
-              </h2>
-            </div>
-            <div className="divide-y divide-bg-subtle border-y border-bg-subtle">
-              {/* COPY: confirm met Marlon */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
-                <span className="text-text-muted">
-                  {formatPriceEuro(pricing.signupFeeCents)} inschrijfkosten
-                </span>
-                <span aria-hidden className="text-accent hidden sm:inline">
-                  →
-                </span>
-                <span className="text-text font-medium">
-                  Geen inschrijfkosten
-                </span>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
-                <span className="text-text-muted">
-                  Eerste jaar vast, daarna per 4 weken opzegbaar
-                </span>
-                <span aria-hidden className="text-accent hidden sm:inline">
-                  →
-                </span>
-                <span className="text-text font-medium">
-                  Vanaf dag één maandelijks opzegbaar
-                </span>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
-                <span className="text-text-muted">
-                  All Access onbeperkt {formatPriceEuro(pricing.allAccessUnlCents)}{" "}
-                  per 4 weken
-                </span>
-                <span aria-hidden className="text-accent hidden sm:inline">
-                  →
-                </span>
-                <span className="text-text font-medium">
-                  {formatPriceEuro(allAccessEarlyMemberCents)} per 4 weken,
-                  blijvend
-                </span>
-              </div>
-            </div>
-            {/* COPY: confirm met Marlon */}
-            <p className="text-text-muted leading-relaxed mt-10 max-w-2xl">
-              Na de Early Member-periode gelden voor iedereen de reguliere
-              voorwaarden. Wie nu instapt, houdt deze voorwaarden zolang het
-              lidmaatschap doorloopt.
-            </p>
-          </ScrollReveal>
-        </Container>
-      </Section>
+              <p className="text-text-muted leading-relaxed mt-10 max-w-2xl">
+                Na de Early Member-periode gelden voor iedereen de reguliere
+                voorwaarden. Wie nu instapt, houdt deze voorwaarden zolang het
+                lidmaatschap doorloopt.
+              </p>
+            </ScrollReveal>
+          </Container>
+        </Section>
+      )}
 
       {/* 4. Programma's (licht) */}
       <Section bg="stone" id="programmas">
@@ -372,10 +426,16 @@ export function EarlyMemberContent({
                   12 weken met Marlon
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
-                  {formatPriceEuro(pricing.programStudioCents)}{" "}
-                  <span className="font-sans text-base text-on-light-muted align-top">
-                    eenmalig
-                  </span>
+                  {pricing.programStudioCents !== null ? (
+                    <>
+                      {formatPriceEuro(pricing.programStudioCents)}{" "}
+                      <span className="font-sans text-base text-on-light-muted align-top">
+                        eenmalig
+                      </span>
+                    </>
+                  ) : (
+                    /* COPY: confirm met Marlon */ "Op aanvraag"
+                  )}
                 </p>
                 {/* COPY: confirm met Marlon */}
                 <p className="text-on-light-muted text-sm leading-relaxed mb-6">
@@ -383,15 +443,17 @@ export function EarlyMemberContent({
                   Marlon, voedings- en supplementenadvies en dagelijkse
                   leefstijlbegeleiding.
                 </p>
-                <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  {/* COPY: confirm met Marlon */}
-                  <span className="text-on-light text-[15px] font-medium leading-snug">
-                    Onbeperkt groepslessen tijdens het hele programma
-                  </span>
-                </div>
+                {emActive && (
+                  <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
+                    <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
+                      Early Member bonus
+                    </span>
+                    {/* COPY: confirm met Marlon */}
+                    <span className="text-on-light text-[15px] font-medium leading-snug">
+                      Onbeperkt groepslessen tijdens het hele programma
+                    </span>
+                  </div>
+                )}
                 <Link
                   href="/12-weken-programma"
                   className={`${ghostOnLightClasses} mt-auto`}
@@ -410,26 +472,34 @@ export function EarlyMemberContent({
                   12 weken online coaching
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
-                  {formatPriceEuro(pricing.programOnlineCents)}{" "}
-                  <span className="font-sans text-base text-on-light-muted align-top">
-                    eenmalig
-                  </span>
+                  {pricing.programOnlineCents !== null ? (
+                    <>
+                      {formatPriceEuro(pricing.programOnlineCents)}{" "}
+                      <span className="font-sans text-base text-on-light-muted align-top">
+                        eenmalig
+                      </span>
+                    </>
+                  ) : (
+                    /* COPY: confirm met Marlon */ "Op aanvraag"
+                  )}
                 </p>
                 {/* COPY: confirm met Marlon */}
                 <p className="text-on-light-muted text-sm leading-relaxed mb-6">
                   Volledig begeleid trainings- en voedingstraject op
                   afstand, met wekelijkse check-ins.
                 </p>
-                <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  {/* COPY: confirm met Marlon */}
-                  <span className="text-on-light text-[15px] font-medium leading-snug">
-                    2x per week vrij trainen en 1x per week kettlebell,
-                    tijdens het programma
-                  </span>
-                </div>
+                {emActive && (
+                  <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
+                    <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
+                      Early Member bonus
+                    </span>
+                    {/* COPY: confirm met Marlon */}
+                    <span className="text-on-light text-[15px] font-medium leading-snug">
+                      2x per week vrij trainen en 1x per week kettlebell,
+                      tijdens het programma
+                    </span>
+                  </div>
+                )}
                 <Link
                   href="/12-weken-programma"
                   className={`${ghostOnLightClasses} mt-auto`}
@@ -468,11 +538,7 @@ export function EarlyMemberContent({
                   over de overgang vanaf je huidige abonnement, zodat je
                   nergens dubbel voor betaalt.
                 </p>
-                <Button
-                  href="/app/abonnement/nieuw"
-                  variant="secondary"
-                  className="w-full"
-                >
+                <Button href="/abonnement" variant="secondary" className="w-full">
                   Bekijk het overstapaanbod
                 </Button>
               </div>

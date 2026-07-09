@@ -18,20 +18,20 @@ export function PaymentTracker({ status, amount, transactionId }: Props) {
   useEffect(() => {
     const key = `tmc_payment_fired_${transactionId}`;
     if (sessionStorage.getItem(key)) return;
-    if (status === "active") {
+    if (status === "activated") {
       trackPaymentSuccess({
         amount,
         context: "first_membership",
         transactionId,
       });
-    } else if (status === "payment_failed") {
+    } else if (status === "expired" || status === "cancelled") {
       trackPaymentFailed({
         amount,
         context: "first_membership",
         reason: "mollie_failed",
       });
     } else {
-      return; // pending — niks vuren
+      return; // pending/paid — niks vuren
     }
     try {
       sessionStorage.setItem(key, "1");

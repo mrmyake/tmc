@@ -14,14 +14,24 @@ export interface PrijzenPricing {
   groepslessen: { twoX: number; threeX: number; unl: number };
   allAccess: { twoX: number; threeX: number; unl: number };
   vrijTrainen: { twoX: number; threeX: number; unl: number };
+  extendedAccessCents: number;
+  signupFeeCents: number;
+  commit24mDiscountPercent: number | null;
   dropInCents: number;
   tenRideCardCents: number;
   ptSingleCents: number;
   ptTwelveCents: number;
   duoSingleCents: number;
   duoTwelveCents: number;
-  programStudioCents: number;
-  programOnlineCents: number;
+  // Lead items (purchasable=false in tmc.catalogue): null renders "op
+  // aanvraag" instead of a stale fallback price.
+  programStudioCents: number | null;
+  programOnlineCents: number | null;
+  earlyMember: {
+    active: boolean;
+    allAccessUnlCents: number | null;
+    signupFeeWaived: boolean;
+  };
 }
 
 interface PrijzenContentProps {
@@ -29,8 +39,8 @@ interface PrijzenContentProps {
 }
 
 export function PrijzenContent({ pricing }: PrijzenContentProps) {
-  // Live uit tmc.membership_plan_catalogue + tmc.pricing_items (server
-  // component in page.tsx), niet meer hardcoded. De "+ toevoegen"-rij is
+  // Live uit tmc.catalogue (server component in page.tsx), niet meer
+  // hardcoded. De "+ toevoegen"-rij is
   // het verschil tussen All Access en Groepslessen per kolom, zodat dit
   // automatisch klopt als de onderliggende prijzen ooit niet meer een vlak
   // bedrag uit elkaar liggen.
@@ -69,10 +79,60 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 Kleine groepen, persoonlijke aandacht. Van een losse les tot
                 onbeperkt trainen, alles op een rij.
               </p>
+              <div className="mt-8">
+                <Button href="/abonnement">Boek je abonnement</Button>
+              </div>
             </div>
           </ScrollReveal>
         </Container>
       </Section>
+
+      {/* Early Member callout, alleen zichtbaar terwijl de campagnefase
+          open is. Alle waarden komen uit de catalogus (pricing.earlyMember,
+          server-side samengesteld in page.tsx uit tmc.catalogue +
+          getCampaignPhase); bij een gesloten fase verdwijnt dit blok
+          vanzelf, zonder codewijziging. */}
+      {pricing.earlyMember.active && (
+        <Section>
+          <Container className="max-w-3xl">
+            <ScrollReveal>
+              <div className="border border-accent/30 bg-bg-elevated p-8 md:p-10">
+                {/* COPY: confirm met Marlon */}
+                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+                  Early Member actie loopt nu
+                </span>
+                {/* COPY: confirm met Marlon */}
+                <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+                  Nu lid worden, blijvend voordeel
+                </h2>
+                <ul className="text-text-muted text-sm leading-relaxed space-y-2 mb-6">
+                  {pricing.earlyMember.signupFeeWaived && (
+                    // COPY: confirm met Marlon
+                    <li>Geen inschrijfkosten op Groepslessen en All Access.</li>
+                  )}
+                  {pricing.earlyMember.allAccessUnlCents !== null && (
+                    <li>
+                      {/* COPY: confirm met Marlon */}
+                      All Access Onbeperkt voor{" "}
+                      <span className="text-accent font-medium">
+                        {formatPriceEuro(pricing.earlyMember.allAccessUnlCents)}
+                      </span>{" "}
+                      per 4 weken in plaats van{" "}
+                      {formatPriceEuro(pricing.allAccess.unl)}, blijvend
+                      vastgezet zolang je lid blijft.
+                    </li>
+                  )}
+                  {/* COPY: confirm met Marlon */}
+                  <li>Per 4 weken opzegbaar in plaats van 1 jaar commitment.</li>
+                </ul>
+                <Button href="/early-member" variant="secondary">
+                  Naar de Early Member actie
+                </Button>
+              </div>
+            </ScrollReveal>
+          </Container>
+        </Section>
+      )}
 
       {/* Lidmaatschappen. id="groepslessen" is het landingspunt vanuit de
           Aanbod-hub in de nav (AANBOD_DROPDOWN); scroll-margin via de
@@ -259,6 +319,27 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 )}
               </p>
             </div>
+
+            {/* Verlengde toegang. Prijs uit de catalogus (addon-rij
+                extended_access); de inbegrepen-vs-betaald-regel staat al
+                hierboven per kolom (All Access Onbeperkt heeft het gratis
+                inbegrepen, op elke andere kolom is het deze meerprijs). */}
+            <div className="border border-text-muted/15 bg-bg px-5 py-4 mt-6">
+              {/* COPY: confirm met Marlon */}
+              <p className="text-text-muted text-sm leading-relaxed">
+                <span className="text-text font-medium">
+                  Verlengde toegang (06:00-23:00)
+                </span>{" "}
+                is {formatPriceEuro(pricing.extendedAccessCents)} per 4 weken
+                extra op All Access 2x/3x en op Vrij Trainen, en gratis
+                inbegrepen bij All Access Onbeperkt. Niet beschikbaar op
+                Groepslessen-only.
+              </p>
+            </div>
+
+            <div className="mt-8">
+              <Button href="/abonnement">Kies je abonnement</Button>
+            </div>
           </ScrollReveal>
         </Container>
       </Section>
@@ -324,6 +405,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 </tbody>
               </table>
             </div>
+
+            <div className="mt-8">
+              <Button href="/abonnement">Boek personal training</Button>
+            </div>
           </ScrollReveal>
         </Container>
       </Section>
@@ -345,35 +430,49 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
           </ScrollReveal>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ScrollReveal>
-              <div className="border border-text-muted/15 bg-bg p-6 md:p-7 h-full">
+              <div className="border border-text-muted/15 bg-bg p-6 md:p-7 h-full flex flex-col">
                 {/* COPY: confirm met Marlon */}
                 <h3 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-2">
                   12 weken transformatie
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-4">
-                  {formatPriceEuro(pricing.programStudioCents)}
+                  {pricing.programStudioCents !== null
+                    ? formatPriceEuro(pricing.programStudioCents)
+                    : /* COPY: confirm met Marlon */ "Op aanvraag"}
                 </p>
                 {/* COPY: confirm met Marlon */}
-                <p className="text-text-muted text-sm leading-relaxed">
+                <p className="text-text-muted text-sm leading-relaxed mb-6">
                   Persoonlijke training, meting en trainingsprotocol, plus
                   voedings-, supplementen- en maagzuuradvies.
                 </p>
+                <div className="mt-auto">
+                  <Button href="/12-weken-programma/intake" variant="secondary">
+                    Plan je intake
+                  </Button>
+                </div>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={0.1}>
-              <div className="border border-text-muted/15 bg-bg p-6 md:p-7 h-full">
+              <div className="border border-text-muted/15 bg-bg p-6 md:p-7 h-full flex flex-col">
                 {/* COPY: confirm met Marlon */}
                 <h3 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-2">
                   12 weken online
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-4">
-                  {formatPriceEuro(pricing.programOnlineCents)}
+                  {pricing.programOnlineCents !== null
+                    ? formatPriceEuro(pricing.programOnlineCents)
+                    : /* COPY: confirm met Marlon */ "Op aanvraag"}
                 </p>
                 {/* COPY: confirm met Marlon */}
-                <p className="text-text-muted text-sm leading-relaxed">
+                <p className="text-text-muted text-sm leading-relaxed mb-6">
                   Hormonaal profiel, trainingsschema op maat, voedings- en
                   supplementenadvies, wekelijkse check-in.
                 </p>
+                <div className="mt-auto">
+                  <Button href="/12-weken-programma/intake" variant="secondary">
+                    Plan je intake
+                  </Button>
+                </div>
               </div>
             </ScrollReveal>
           </div>
@@ -420,6 +519,9 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 </span>
               </li>
             </ul>
+            <div className="mt-8">
+              <Button href="/abonnement">Koop een rittenkaart</Button>
+            </div>
           </ScrollReveal>
         </Container>
       </Section>
@@ -448,23 +550,27 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   1 jaar, daarna maandelijks (per 4 weken) opzegbaar
                 </span>
               </li>
-              <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
-                {/* COPY: confirm met Marlon */}
-                <span className="text-text-muted text-sm">
-                  24 maanden commitment
-                </span>
-                {/* COPY: confirm met Marlon */}
-                <span className="text-text text-sm font-medium sm:text-right sm:max-w-[60%]">
-                  8% korting op de abonnementsprijs
-                </span>
-              </li>
+              {pricing.commit24mDiscountPercent !== null && (
+                <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
+                  {/* COPY: confirm met Marlon */}
+                  <span className="text-text-muted text-sm">
+                    24 maanden commitment
+                  </span>
+                  {/* COPY: confirm met Marlon */}
+                  <span className="text-text text-sm font-medium sm:text-right sm:max-w-[60%]">
+                    {pricing.commit24mDiscountPercent}% korting op de
+                    abonnementsprijs
+                  </span>
+                </li>
+              )}
               <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
                 {/* COPY: confirm met Marlon */}
                 <span className="text-text-muted text-sm">
                   Inschrijfkosten
                 </span>
                 <span className="text-text text-sm font-medium sm:text-right sm:max-w-[60%]">
-                  €39 eenmalig bij nieuwe inschrijving
+                  {formatPriceEuro(pricing.signupFeeCents)} eenmalig bij
+                  nieuwe inschrijving
                 </span>
               </li>
             </ul>

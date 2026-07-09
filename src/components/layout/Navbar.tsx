@@ -12,6 +12,7 @@ import { CampaignTeaser } from "./CampaignTeaser";
 
 interface NavbarProps {
   campaignPhase: CampaignPhase;
+  campaignDeadline: string;
 }
 
 type AuthState = "unknown" | "out" | "in";
@@ -22,7 +23,7 @@ type AuthState = "unknown" | "out" | "in";
  * collapsed container's natural height without JS. Menu items fade +
  * slide via `.tmc-fade-up` with staggered inline delays.
  */
-export function Navbar({ campaignPhase }: NavbarProps) {
+export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aanbodOpen, setAanbodOpen] = useState(false);
@@ -114,7 +115,7 @@ export function Navbar({ campaignPhase }: NavbarProps) {
           : "bg-transparent border-b border-transparent"
       }`}
     >
-      <CampaignTeaser phase={campaignPhase} />
+      <CampaignTeaser phase={campaignPhase} deadline={campaignDeadline} />
       <nav className="mx-auto max-w-7xl px-6 lg:px-8 flex items-center justify-between h-20">
         <Link
           href="/"
