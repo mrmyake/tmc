@@ -10,21 +10,25 @@ import { formatPriceEuro } from "@/lib/member/pt-pricing";
 // zonder actietaal of einddatum. Elke klantgerichte string draagt een
 // eigen COPY-markering voor Marlon.
 
+// Elk prijsveld is number | null: null betekent dat tmc.catalogue deze rij
+// niet had toen de pagina rendere (de fetch als geheel lukte wel, anders
+// gooit page.tsx en houdt ISR de laatst goede versie aan). Render dan een
+// neutrale lege staat voor precies dat item, nooit een verzonnen bedrag.
 export interface PrijzenPricing {
-  groepslessen: { twoX: number; threeX: number; unl: number };
-  allAccess: { twoX: number; threeX: number; unl: number };
-  vrijTrainen: { twoX: number; threeX: number; unl: number };
-  extendedAccessCents: number;
-  signupFeeCents: number;
+  groepslessen: { twoX: number | null; threeX: number | null; unl: number | null };
+  allAccess: { twoX: number | null; threeX: number | null; unl: number | null };
+  vrijTrainen: { twoX: number | null; threeX: number | null; unl: number | null };
+  extendedAccessCents: number | null;
+  signupFeeCents: number | null;
   commit24mDiscountPercent: number | null;
-  dropInCents: number;
-  tenRideCardCents: number;
-  ptSingleCents: number;
-  ptCardCents: number;
-  ptCardCredits: number;
-  duoSingleCents: number;
-  duoCardCents: number;
-  duoCardCredits: number;
+  dropInCents: number | null;
+  tenRideCardCents: number | null;
+  ptSingleCents: number | null;
+  ptCardCents: number | null;
+  ptCardCredits: number | null;
+  duoSingleCents: number | null;
+  duoCardCents: number | null;
+  duoCardCredits: number | null;
   // Lead items (purchasable=false in tmc.catalogue): null renders "op
   // aanvraag" instead of a stale fallback price.
   programStudioCents: number | null;
@@ -41,27 +45,47 @@ interface PrijzenContentProps {
 }
 
 export function PrijzenContent({ pricing }: PrijzenContentProps) {
+  // Enige prijsbron is tmc.catalogue; een ontbrekend veld is null, nooit
+  // een verzonnen bedrag. fmt() is de standaard weergave daarvoor overal
+  // op deze pagina.
+  const fmt = (cents: number | null): string =>
+    cents !== null ? formatPriceEuro(cents) : /* COPY: confirm met Marlon */ "Op aanvraag";
+
   // Live uit tmc.catalogue (server component in page.tsx), niet meer
   // hardcoded. De "+ toevoegen"-rij is
   // het verschil tussen All Access en Groepslessen per kolom, zodat dit
   // automatisch klopt als de onderliggende prijzen ooit niet meer een vlak
-  // bedrag uit elkaar liggen.
+  // bedrag uit elkaar liggen. Bij een ontbrekend veld aan een van beide
+  // kanten is het verschil ook niet te bepalen: null, niet een half
+  // berekend bedrag.
+  const diff = (a: number | null, b: number | null): number | null =>
+    a !== null && b !== null ? a - b : null;
   const addOnDiffs = {
-    twoX: pricing.allAccess.twoX - pricing.groepslessen.twoX,
-    threeX: pricing.allAccess.threeX - pricing.groepslessen.threeX,
-    unl: pricing.allAccess.unl - pricing.groepslessen.unl,
+    twoX: diff(pricing.allAccess.twoX, pricing.groepslessen.twoX),
+    threeX: diff(pricing.allAccess.threeX, pricing.groepslessen.threeX),
+    unl: diff(pricing.allAccess.unl, pricing.groepslessen.unl),
   };
   const flatAddOn =
-    addOnDiffs.twoX === addOnDiffs.threeX && addOnDiffs.threeX === addOnDiffs.unl
+    addOnDiffs.twoX !== null &&
+    addOnDiffs.twoX === addOnDiffs.threeX &&
+    addOnDiffs.threeX === addOnDiffs.unl
       ? addOnDiffs.twoX
       : null;
   // 10-rittenkaart (losse lessen) is echt 10 ritten, blijft delen door 10.
-  const tenRidePerSessionCents = Math.round(pricing.tenRideCardCents / 10);
+  const tenRidePerSessionCents =
+    pricing.tenRideCardCents !== null ? Math.round(pricing.tenRideCardCents / 10) : null;
   // Aantal ritten komt uit de catalogus (ptCardCredits/duoCardCredits),
   // nooit een vast getal: als het aantal ooit weer wijzigt, kloppen deze
-  // berekeningen vanzelf mee.
-  const ptCardPerSessionCents = Math.round(pricing.ptCardCents / pricing.ptCardCredits);
-  const duoCardPerSessionCents = Math.round(pricing.duoCardCents / pricing.duoCardCredits);
+  // berekeningen vanzelf mee. Beide kanten moeten aanwezig zijn, anders is
+  // de per-sessie-prijs niet te bepalen.
+  const ptCardPerSessionCents =
+    pricing.ptCardCents !== null && pricing.ptCardCredits !== null
+      ? Math.round(pricing.ptCardCents / pricing.ptCardCredits)
+      : null;
+  const duoCardPerSessionCents =
+    pricing.duoCardCents !== null && pricing.duoCardCredits !== null
+      ? Math.round(pricing.duoCardCents / pricing.duoCardCredits)
+      : null;
 
   return (
     <>
@@ -123,7 +147,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                         {formatPriceEuro(pricing.earlyMember.allAccessUnlCents)}
                       </span>{" "}
                       per 4 weken in plaats van{" "}
-                      {formatPriceEuro(pricing.allAccess.unl)}, blijvend
+                      {fmt(pricing.allAccess.unl)}, blijvend
                       vastgezet zolang je lid blijft.
                     </li>
                   )}
@@ -189,13 +213,13 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       </span>
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.twoX)}
+                      {fmt(pricing.groepslessen.twoX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.threeX)}
+                      {fmt(pricing.groepslessen.threeX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.groepslessen.unl)}
+                      {fmt(pricing.groepslessen.unl)}
                     </td>
                   </tr>
                   <tr>
@@ -206,13 +230,13 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       </span>
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +{formatPriceEuro(addOnDiffs.twoX)}
+                      {addOnDiffs.twoX !== null ? `+${formatPriceEuro(addOnDiffs.twoX)}` : fmt(null)}
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +{formatPriceEuro(addOnDiffs.threeX)}
+                      {addOnDiffs.threeX !== null ? `+${formatPriceEuro(addOnDiffs.threeX)}` : fmt(null)}
                     </td>
                     <td className="text-center py-4 border-b border-bg-subtle italic text-text-muted text-xs">
-                      +{formatPriceEuro(addOnDiffs.unl)}
+                      {addOnDiffs.unl !== null ? `+${formatPriceEuro(addOnDiffs.unl)}` : fmt(null)}
                     </td>
                   </tr>
                   <tr id="all-access" className="bg-accent/5 scroll-mt-36">
@@ -226,13 +250,13 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       </span>
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      {formatPriceEuro(pricing.allAccess.twoX)}
+                      {fmt(pricing.allAccess.twoX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      {formatPriceEuro(pricing.allAccess.threeX)}
+                      {fmt(pricing.allAccess.threeX)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-accent">
-                      {formatPriceEuro(pricing.allAccess.unl)}
+                      {fmt(pricing.allAccess.unl)}
                     </td>
                   </tr>
                 </tbody>
@@ -286,7 +310,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     2x / week
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    {formatPriceEuro(pricing.vrijTrainen.twoX)}
+                    {fmt(pricing.vrijTrainen.twoX)}
                   </p>
                 </div>
                 <div className="text-center">
@@ -294,7 +318,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     3x / week
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    {formatPriceEuro(pricing.vrijTrainen.threeX)}
+                    {fmt(pricing.vrijTrainen.threeX)}
                   </p>
                 </div>
                 <div className="text-center">
@@ -302,7 +326,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     Onbeperkt
                   </p>
                   <p className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    {formatPriceEuro(pricing.vrijTrainen.unl)}
+                    {fmt(pricing.vrijTrainen.unl)}
                   </p>
                 </div>
               </div>
@@ -335,7 +359,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 <span className="text-text font-medium">
                   Verlengde toegang (06:00-23:00)
                 </span>{" "}
-                is {formatPriceEuro(pricing.extendedAccessCents)} per 4 weken
+                is {fmt(pricing.extendedAccessCents)} per 4 weken
                 extra op All Access 2x/3x en op Vrij Trainen, en gratis
                 inbegrepen bij All Access Onbeperkt. Niet beschikbaar op
                 Groepslessen-only.
@@ -374,7 +398,9 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     </th>
                     {/* COPY: confirm met Marlon */}
                     <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
-                      {pricing.ptCardCredits}-rittenkaart
+                      {pricing.ptCardCredits !== null
+                        ? `${pricing.ptCardCredits}-rittenkaart`
+                        : /* COPY: confirm met Marlon */ "Rittenkaart"}
                     </th>
                   </tr>
                 </thead>
@@ -384,15 +410,17 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       1-op-1
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.ptSingleCents)}
+                      {fmt(pricing.ptSingleCents)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle">
                       <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        {formatPriceEuro(pricing.ptCardCents)}
+                        {fmt(pricing.ptCardCents)}
                       </span>
-                      <span className="block text-text-muted text-xs mt-0.5">
-                        {formatPriceEuro(ptCardPerSessionCents)}/sessie
-                      </span>
+                      {ptCardPerSessionCents !== null && (
+                        <span className="block text-text-muted text-xs mt-0.5">
+                          {formatPriceEuro(ptCardPerSessionCents)}/sessie
+                        </span>
+                      )}
                     </td>
                   </tr>
                   <tr>
@@ -401,15 +429,17 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       Duo (totaal)
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(pricing.duoSingleCents)}
+                      {fmt(pricing.duoSingleCents)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle">
                       <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        {formatPriceEuro(pricing.duoCardCents)}
+                        {fmt(pricing.duoCardCents)}
                       </span>
-                      <span className="block text-text-muted text-xs mt-0.5">
-                        {formatPriceEuro(duoCardPerSessionCents)}/sessie
-                      </span>
+                      {duoCardPerSessionCents !== null && (
+                        <span className="block text-text-muted text-xs mt-0.5">
+                          {formatPriceEuro(duoCardPerSessionCents)}/sessie
+                        </span>
+                      )}
                     </td>
                   </tr>
                 </tbody>
@@ -508,7 +538,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 {/* COPY: confirm met Marlon */}
                 <span className="text-text">Losse les (drop-in)</span>
                 <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                  {formatPriceEuro(pricing.dropInCents)}
+                  {fmt(pricing.dropInCents)}
                 </span>
               </li>
               <li className="flex items-center justify-between py-4">
@@ -521,11 +551,13 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 </span>
                 <span className="text-right">
                   <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                    {formatPriceEuro(pricing.tenRideCardCents)}
+                    {fmt(pricing.tenRideCardCents)}
                   </span>
-                  <span className="block text-text-muted text-xs mt-0.5">
-                    {formatPriceEuro(tenRidePerSessionCents)} per les
-                  </span>
+                  {tenRidePerSessionCents !== null && (
+                    <span className="block text-text-muted text-xs mt-0.5">
+                      {formatPriceEuro(tenRidePerSessionCents)} per les
+                    </span>
+                  )}
                 </span>
               </li>
             </ul>
@@ -579,7 +611,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   Inschrijfkosten
                 </span>
                 <span className="text-text text-sm font-medium sm:text-right sm:max-w-[60%]">
-                  {formatPriceEuro(pricing.signupFeeCents)} eenmalig bij
+                  {fmt(pricing.signupFeeCents)} eenmalig bij
                   nieuwe inschrijving
                 </span>
               </li>
