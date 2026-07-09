@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+import { getCatalogue } from "@/lib/catalogue";
 import { TrialBookingList, type TrialSessionOption } from "./TrialBookingList";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 // vrij_trainen heeft geen drop-in-prijs, dus geen proefles-optie (zie
-// dropInPriceCentsForPillar in src/lib/actions/trial-booking.ts).
+// dropInSlugForPillar in src/lib/actions/trial-booking.ts).
 const TRIAL_ELIGIBLE_PILLARS = ["yoga_mobility", "kettlebell", "kids", "senior"];
 const HORIZON_DAYS = 14;
 
@@ -35,19 +36,15 @@ export default async function TrialBookingPage() {
     const now = new Date();
     const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * 86400000);
 
-    const { data: settings } = await admin
-      .from("booking_settings")
-      .select(
-        "drop_in_yoga_cents, drop_in_kettlebell_cents, drop_in_kids_cents, drop_in_senior_cents",
-      )
-      .limit(1)
-      .maybeSingle();
-
+    // yoga_mobility en kettlebell delen dezelfde 'drop_in'-rij (die twee
+    // tarieven zijn altijd gelijk geweest, zie tmc.catalogue-seed en het
+    // zelfde patroon in src/lib/actions/trial-booking.ts).
+    const catalogue = await getCatalogue();
     const priceByPillar: Record<string, number> = {
-      yoga_mobility: settings?.drop_in_yoga_cents ?? 0,
-      kettlebell: settings?.drop_in_kettlebell_cents ?? 0,
-      kids: settings?.drop_in_kids_cents ?? 0,
-      senior: settings?.drop_in_senior_cents ?? 0,
+      yoga_mobility: catalogue.get("drop_in")?.price_cents ?? 0,
+      kettlebell: catalogue.get("drop_in")?.price_cents ?? 0,
+      kids: catalogue.get("drop_in_kids")?.price_cents ?? 0,
+      senior: catalogue.get("drop_in_senior")?.price_cents ?? 0,
     };
 
     const { data: sessions, error } = await admin
