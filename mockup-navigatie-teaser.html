@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TMC mockup, navigatie + teaser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --warm-black:#0E0C0B;
+    --stone:#F4EFE6;
+    --champagne:#B9986A;
+    --champagne-soft:rgba(185,152,106,.16);
+    --stone-dim:rgba(244,239,230,.62);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:var(--stone);color:var(--warm-black);-webkit-font-smoothing:antialiased}
+
+  /* ---- teaser bar ---- */
+  .teaser{
+    background:var(--champagne);
+    color:var(--warm-black);
+    display:flex;align-items:center;justify-content:center;gap:.9rem;
+    padding:.62rem 1.25rem;
+    font-size:.8rem;letter-spacing:.03em;font-weight:500;
+    position:relative;
+  }
+  .teaser a{color:var(--warm-black);text-decoration:none;border-bottom:1px solid rgba(14,12,11,.45);padding-bottom:1px}
+  .teaser .arrow{transition:transform .2s ease}
+  .teaser a:hover .arrow{transform:translateX(3px)}
+  .teaser .dismiss{
+    position:absolute;right:1.1rem;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--warm-black);font-size:1.05rem;cursor:pointer;opacity:.55;line-height:1
+  }
+  .teaser .dismiss:hover{opacity:1}
+  .teaser.hidden{display:none}
+
+  /* ---- nav over dark hero ---- */
+  .hero{
+    background:var(--warm-black);
+    color:var(--stone);
+    padding:1.6rem 2.4rem 6rem;
+    position:relative;
+    background-image:radial-gradient(120% 90% at 50% -10%, rgba(185,152,106,.16), transparent 60%);
+  }
+  nav{display:flex;align-items:center;justify-content:space-between;gap:2rem}
+  .brand{display:flex;align-items:center;gap:.85rem}
+  .brand .mark{
+    border:1px solid var(--champagne);color:var(--champagne);
+    font-family:'Fraunces',serif;font-size:.8rem;letter-spacing:.14em;
+    padding:.42rem .5rem;line-height:1
+  }
+  .brand .name{
+    font-family:'Fraunces',serif;font-weight:500;font-size:.92rem;letter-spacing:.22em;
+    line-height:1.35;color:var(--stone)
+  }
+  .primary{display:flex;align-items:center;gap:2rem;list-style:none}
+  .primary > li{position:relative}
+  .primary a{
+    color:var(--stone);text-decoration:none;font-size:.94rem;letter-spacing:.01em;
+    padding:.4rem 0;display:inline-flex;align-items:center;gap:.35rem;transition:color .18s
+  }
+  .primary a:hover{color:var(--champagne)}
+  .primary .caret{width:7px;height:7px;border-right:1.4px solid currentColor;border-bottom:1.4px solid currentColor;transform:rotate(45deg);margin-top:-3px;opacity:.7}
+  .em-slot a{color:var(--champagne);font-weight:500}
+
+  .utility{display:flex;align-items:center;gap:1.4rem}
+  .utility .login{color:var(--stone-dim);text-decoration:none;font-size:.9rem;letter-spacing:.02em}
+  .utility .login:hover{color:var(--stone)}
+  .cta{
+    background:var(--champagne);color:var(--warm-black);
+    text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+    padding:.85rem 1.35rem;line-height:1.2;display:inline-block
+  }
+  .cta:hover{filter:brightness(1.06)}
+
+  /* ---- Aanbod dropdown (shown open) ---- */
+  .dropdown{
+    position:absolute;top:calc(100% + .6rem);left:-1.1rem;
+    background:var(--stone);color:var(--warm-black);
+    min-width:270px;padding:.5rem;
+    box-shadow:0 24px 60px rgba(0,0,0,.35);
+    border-top:2px solid var(--champagne)
+  }
+  .dropdown a{display:block;color:var(--warm-black);padding:.7rem .85rem;font-size:.9rem;letter-spacing:0}
+  .dropdown a:hover{background:var(--champagne-soft);color:var(--warm-black)}
+  .dropdown a .sub{display:block;font-size:.74rem;color:rgba(14,12,11,.55);margin-top:.15rem;letter-spacing:.01em}
+  .dropdown .flag{
+    display:block;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--champagne);padding:.55rem .85rem .3rem
+  }
+
+  .hero-tag{
+    text-align:center;margin-top:4.5rem;color:var(--champagne);
+    font-size:.78rem;letter-spacing:.34em;text-transform:uppercase
+  }
+  .hero-tag .rule{display:inline-block;width:46px;height:1px;background:var(--champagne);vertical-align:middle;margin:0 1rem;opacity:.6}
+
+  /* ---- annotation / controls (NOT part of the site) ---- */
+  .panel{max-width:960px;margin:2.4rem auto 3rem;padding:0 1.6rem}
+  .panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:1.15rem;margin-bottom:.2rem}
+  .panel .lead{color:rgba(14,12,11,.62);font-size:.9rem;margin-bottom:1.3rem}
+  .controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1.4rem}
+  .controls span{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:rgba(14,12,11,.5);margin-right:.3rem}
+  .pill{
+    border:1px solid rgba(14,12,11,.2);background:transparent;color:var(--warm-black);
+    font-family:'Inter',sans-serif;font-size:.82rem;padding:.5rem .9rem;cursor:pointer;transition:all .15s
+  }
+  .pill:hover{border-color:var(--champagne)}
+  .pill.active{background:var(--warm-black);color:var(--stone);border-color:var(--warm-black)}
+  .notes{border-left:2px solid var(--champagne);padding:.2rem 0 .2rem 1.1rem}
+  .notes p{font-size:.86rem;color:rgba(14,12,11,.72);margin-bottom:.6rem;line-height:1.5}
+  .notes b{color:var(--warm-black);font-weight:600}
+  .footnote{max-width:960px;margin:0 auto;padding:1.4rem 1.6rem 3rem;color:rgba(14,12,11,.45);font-size:.78rem;letter-spacing:.02em}
+</style>
+</head>
+<body>
+
+  <!-- TEASER BAR (fase-gestuurd) -->
+  <div class="teaser" id="teaser">
+    <span id="teaser-text"><!-- gevuld door JS --></span>
+    <a href="#" id="teaser-link">Word Early Member <span class="arrow">&rarr;</span></a>
+    <button class="dismiss" id="teaser-dismiss" aria-label="Sluiten">&times;</button>
+  </div>
+
+  <!-- NAV over dark hero -->
+  <header class="hero">
+    <nav>
+      <div class="brand">
+        <div class="mark">TMC</div>
+        <div class="name">THE MOVEMENT<br>CLUB</div>
+      </div>
+
+      <ul class="primary">
+        <li><a href="#">Home</a></li>
+        <li>
+          <a href="#">Aanbod <span class="caret"></span></a>
+          <!-- dropdown getoond in open-staat ter illustratie -->
+          <div class="dropdown">
+            <span class="flag">Groepslessen</span>
+            <a href="#">Groepslessen<span class="sub">yoga, mobility, kettlebell</span></a>
+            <a href="#">Yoga<span class="sub">eigen pagina, /yoga</span></a>
+            <a href="#">Vrij trainen</a>
+            <a href="#">All Access</a>
+            <a href="#">Personal Training &amp; Duo</a>
+            <a href="#">12-weken programma<span class="sub">/programma</span></a>
+          </div>
+        </li>
+        <li><a href="#">Prijzen</a></li>
+        <li class="em-slot"><a href="#" id="em-slot">Early Member</a></li>
+        <li><a href="#">Over ons</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+
+      <div class="utility">
+        <a href="#" class="login" id="login-link">Inloggen</a>
+        <a href="#" class="cta">Plan je proefles</a>
+      </div>
+    </nav>
+
+    <div class="hero-tag"><span class="rule"></span>Boutique training studio &middot; Loosdrecht<span class="rule"></span></div>
+  </header>
+
+  <!-- ANNOTATIE / REVIEW-CONTROLS (geen onderdeel van de site) -->
+  <section class="panel">
+    <h2>Wat je hier ziet</h2>
+    <p class="lead">De teaser-bar en nav zoals ze in de site komen. De knoppen hieronder horen niet bij de site; ze zijn er zodat je de drie campagne-fases en de ingelogd-staat kunt bekijken.</p>
+
+    <div class="controls">
+      <span>Campagne-fase</span>
+      <button class="pill active" data-phase="pre-open">Vóór opening</button>
+      <button class="pill" data-phase="open-em">Open, EM loopt</button>
+      <button class="pill" data-phase="closed">Na deadline</button>
+    </div>
+    <div class="controls">
+      <span>Bezoeker</span>
+      <button class="pill active" data-auth="out">Niet ingelogd</button>
+      <button class="pill" data-auth="in">Ingelogd lid</button>
+    </div>
+
+    <div class="notes">
+      <p><b>Eén datum-config stuurt alles.</b> Teaser, het Early Member-menuslot en de afteller op /early-member lezen van dezelfde bron. Fase 3 laat de teaser verdwijnen en verandert het menuslot naar "Word lid".</p>
+      <p><b>Aanbod is een hub.</b> Yoga staat niet meer top-level maar onder Groepslessen, met behoud van /yoga. 12-weken programma linkt naar /programma.</p>
+      <p><b>Utility los van de verkoopreis.</b> "Inloggen" wordt "Ga naar app" voor een ingelogd lid.</p>
+    </div>
+  </section>
+
+  <div class="footnote">Mockup, visuele referentie. Alle copy is placeholder: COPY: confirm met Marlon. Datums (medio aug 2026, 1 okt 2026) zijn placeholders.</div>
+
+<script>
+  var DEADLINE_LABEL = '1 oktober'; // placeholder, COPY: confirm met Marlon
+  var texts = {
+    'pre-open': 'Binnenkort open in Loosdrecht. Word Early Member en profiteer als eerste mee.',
+    'open-em': 'We zijn open. Early Member nog beschikbaar tot ' + DEADLINE_LABEL + '.',
+    'closed': ''
+  };
+  var teaser = document.getElementById('teaser');
+  var teaserText = document.getElementById('teaser-text');
+  var emSlot = document.getElementById('em-slot');
+  var loginLink = document.getElementById('login-link');
+
+  function setPhase(phase){
+    if(phase === 'closed'){
+      teaser.classList.add('hidden');
+      emSlot.textContent = 'Word lid'; // COPY: confirm met Marlon
+    } else {
+      teaser.classList.remove('hidden');
+      teaserText.textContent = texts[phase] + ' ';
+      emSlot.textContent = 'Early Member';
+    }
+  }
+  function setAuth(state){
+    loginLink.textContent = state === 'in' ? 'Ga naar app' : 'Inloggen';
+  }
+
+  document.querySelectorAll('[data-phase]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('[data-phase]').forEach(function(b){b.classList.remove('active')});
+      btn.classList.add('active');
+      setPhase(btn.dataset.phase);
+    });
+  });
+  document.querySelectorAll('[data-auth]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('[data-auth]').forEach(function(b){b.classList.remove('active')});
+      btn.classList.add('active');
+      setAuth(btn.dataset.auth);
+    });
+  });
+  document.getElementById('teaser-dismiss').addEventListener('click', function(){
+    teaser.classList.add('hidden');
+  });
+
+  setPhase('pre-open');
+  setAuth('out');
+</script>
+</body>
+</html>

@@ -87,8 +87,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
         </Container>
       </Section>
 
-      {/* Lidmaatschappen */}
-      <Section bg="elevated">
+      {/* Lidmaatschappen. id="groepslessen" is het landingspunt vanuit de
+          Aanbod-hub in de nav (AANBOD_DROPDOWN); scroll-margin via de
+          globale `section[id]`-regel in globals.css. */}
+      <Section id="groepslessen" bg="elevated">
         <Container className="max-w-3xl">
           <ScrollReveal>
             <div className="mb-10">
@@ -161,7 +163,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       +{formatPriceEuro(addOnDiffs.unl)}
                     </td>
                   </tr>
-                  <tr className="bg-accent/5">
+                  <tr id="all-access" className="bg-accent/5 scroll-mt-36">
                     <td className="py-5 border-b border-bg-subtle pl-2">
                       {/* COPY: confirm met Marlon */}
                       <span className="font-medium text-accent">
@@ -218,7 +220,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
             </p>
 
             {/* Los Vrij Trainen, zonder Groepslessen */}
-            <div className="border border-text-muted/15 bg-bg p-6 md:p-7 mt-10">
+            <div
+              id="vrij-trainen"
+              className="border border-text-muted/15 bg-bg p-6 md:p-7 mt-10 scroll-mt-36"
+            >
               {/* COPY: confirm met Marlon */}
               <span className="tmc-eyebrow block mb-3">
                 Los vrij trainen

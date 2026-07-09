@@ -20,7 +20,7 @@ export interface EarlyMemberPricing {
 }
 
 interface EarlyMemberContentProps {
-  /** ISO closes_at, live uit get_early_member_availability() (of fallback). */
+  /** ISO deadline, uit EARLY_MEMBER_DEADLINE (src/lib/campaign.ts). */
   deadline: string;
   pricing: EarlyMemberPricing;
   /** true als STUDIO_OPENING_DATE al gepasseerd is, bepaalt de hero-framing. */
