@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getPublicClient } from "@/lib/supabase";
+import { getPricingItems } from "@/lib/pricing-items";
 import { PrijzenContent, type PrijzenPricing } from "./PrijzenContent";
 
 export const metadata: Metadata = {
@@ -29,6 +30,12 @@ const FALLBACK_PRICING: PrijzenPricing = {
   vrijTrainen: { twoX: 4900, threeX: 5900, unl: 6900 },
   dropInCents: 1700,
   tenRideCardCents: 15000,
+  ptSingleCents: 9500,
+  ptTwelveCents: 90000,
+  duoSingleCents: 12000,
+  duoTwelveCents: 110000,
+  programStudioCents: 240000,
+  programOnlineCents: 125000,
 };
 
 interface CatalogueRow {
@@ -36,23 +43,36 @@ interface CatalogueRow {
   price_per_cycle_cents: number;
 }
 
+const PRICING_ITEM_SLUGS = [
+  "pt_one_on_one_single",
+  "pt_one_on_one_12",
+  "duo_single",
+  "duo_12",
+  "program_studio_12w",
+  "program_online_12w",
+];
+
 async function getPricing(): Promise<PrijzenPricing> {
   const supabase = getPublicClient();
   if (!supabase) return FALLBACK_PRICING;
 
-  const [{ data: plans, error: plansError }, { data: settings, error: settingsError }] =
-    await Promise.all([
-      supabase
-        .from("membership_plan_catalogue")
-        .select("plan_variant,price_per_cycle_cents")
-        .eq("is_active", true)
-        .in("plan_type", ["groepslessen", "all_inclusive", "vrij_trainen"]),
-      supabase
-        .from("booking_settings")
-        .select("drop_in_yoga_cents,drop_in_kettlebell_cents,ten_ride_card_cents")
-        .eq("id", "singleton")
-        .maybeSingle(),
-    ]);
+  const [
+    { data: plans, error: plansError },
+    { data: settings, error: settingsError },
+    pricingItems,
+  ] = await Promise.all([
+    supabase
+      .from("membership_plan_catalogue")
+      .select("plan_variant,price_per_cycle_cents")
+      .eq("is_active", true)
+      .in("plan_type", ["groepslessen", "all_inclusive", "vrij_trainen"]),
+    supabase
+      .from("booking_settings")
+      .select("drop_in_yoga_cents,drop_in_kettlebell_cents,ten_ride_card_cents")
+      .eq("id", "singleton")
+      .maybeSingle(),
+    getPricingItems(PRICING_ITEM_SLUGS),
+  ]);
 
   if (plansError) console.error("[prijzen] catalogue fetch failed:", plansError);
   if (settingsError) console.error("[prijzen] booking_settings fetch failed:", settingsError);
@@ -93,6 +113,23 @@ async function getPricing(): Promise<PrijzenPricing> {
     },
     dropInCents: settings?.drop_in_yoga_cents ?? FALLBACK_PRICING.dropInCents,
     tenRideCardCents: settings?.ten_ride_card_cents ?? FALLBACK_PRICING.tenRideCardCents,
+    ptSingleCents:
+      pricingItems.get("pt_one_on_one_single")?.price_cents ??
+      FALLBACK_PRICING.ptSingleCents,
+    ptTwelveCents:
+      pricingItems.get("pt_one_on_one_12")?.price_cents ??
+      FALLBACK_PRICING.ptTwelveCents,
+    duoSingleCents:
+      pricingItems.get("duo_single")?.price_cents ??
+      FALLBACK_PRICING.duoSingleCents,
+    duoTwelveCents:
+      pricingItems.get("duo_12")?.price_cents ?? FALLBACK_PRICING.duoTwelveCents,
+    programStudioCents:
+      pricingItems.get("program_studio_12w")?.price_cents ??
+      FALLBACK_PRICING.programStudioCents,
+    programOnlineCents:
+      pricingItems.get("program_online_12w")?.price_cents ??
+      FALLBACK_PRICING.programOnlineCents,
   };
 }
 

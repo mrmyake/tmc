@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
-import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
+import { getPricingItems } from "@/lib/pricing-items";
 
 export type StartSignupResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -153,6 +153,8 @@ export async function startSignup(
       .select("registration_fee_cents, extended_access_price_cents")
       .eq("id", "singleton")
       .single();
+    // Early Member-inschrijfkosten (0) uit tmc.pricing_items, niet hardcoded.
+    const pricingItems = await getPricingItems(["signup_fee"]);
 
     // Verlengde toegang: alleen gratis inbegrepen bij All Access Onbeperkt
     // (all_inclusive_unl). Op vrij_trainen en All Access 2x/3x is het een
@@ -210,24 +212,19 @@ export async function startSignup(
       emReservationId = String(reservation.reservation_id);
     }
 
-    // Early Member All Access: EUR 10/4wk korting op de catalogusprijs,
-    // blijvend (verwerkt in price_per_cycle_cents en lock_in_price_cents
-    // hieronder, dus ook de latere Mollie-subscription in de webhook
-    // gebruikt automatisch dit bedrag).
+    // Early Member All Access: catalogus-prijs vervangen door
+    // early_member_price_cents, blijvend (verwerkt in price_per_cycle_cents
+    // en lock_in_price_cents hieronder, dus ook de latere Mollie-subscription
+    // in de webhook gebruikt automatisch dit bedrag). Valt terug op de
+    // reguliere prijs als de kolom leeg staat (plan doet niet mee aan EM-korting).
     const isAllAccessEm = earlyMember && emPool === "all_access";
-    // Ondergrens op 0: de catalogus heeft geen kolom-check op een minimale
-    // prijs voor de all_access-pool, dus een toekomstige goedkope variant
-    // mag nooit een negatief bedrag naar Mollie sturen.
     const signupPriceCents = isAllAccessEm
-      ? Math.max(
-          0,
-          plan.price_per_cycle_cents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
-        )
+      ? (plan.early_member_price_cents ?? plan.price_per_cycle_cents)
       : plan.price_per_cycle_cents;
 
-    // Early Member: geen inschrijfkosten.
+    // Early Member: geen inschrijfkosten (pricing_items.signup_fee.early_member_price_cents).
     const registrationFeeCents: number = earlyMember
-      ? 0
+      ? (pricingItems.get("signup_fee")?.early_member_price_cents ?? 0)
       : (settings?.registration_fee_cents ?? 3900);
     const totalCents: number =
       signupPriceCents + extendedAccessPriceCents + registrationFeeCents;

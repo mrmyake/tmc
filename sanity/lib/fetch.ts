@@ -4,7 +4,6 @@ import {
   openingHoursQuery,
   trainersQuery,
   offeringsQuery,
-  pricingQuery,
   faqsByPageQuery,
   siteImagesQuery,
   crowdfundingSettingsQuery,
@@ -15,12 +14,7 @@ import {
   yogaTeacherBySlugQuery,
   yogaTeacherSlugsQuery,
 } from "./queries";
-import {
-  SITE,
-  PILLARS,
-  OFFERINGS,
-  PRICING_TIERS,
-} from "@/lib/constants";
+import { SITE, PILLARS, OFFERINGS } from "@/lib/constants";
 
 // Types
 export interface SanitySettings {
@@ -68,17 +62,6 @@ export interface SanityOffering {
   targetAudience: string;
   features: string[];
   frequency: string;
-}
-
-export interface SanityPricingTier {
-  _id: string;
-  name: string;
-  subtitle: string;
-  features: string[];
-  price?: string;
-  ctaText: string;
-  ctaLink: string;
-  highlighted: boolean;
 }
 
 export interface SanityFaq {
@@ -160,20 +143,6 @@ export async function getOfferings(): Promise<SanityOffering[]> {
     targetAudience: "",
     features: [],
     frequency: "",
-  }));
-}
-
-export async function getPricing(): Promise<SanityPricingTier[]> {
-  const data = await safeFetch<SanityPricingTier[]>(pricingQuery);
-  if (data && data.length > 0) return data;
-  return PRICING_TIERS.map((t, i) => ({
-    _id: `fallback-${i}`,
-    name: t.name,
-    subtitle: t.description,
-    features: [...t.features],
-    ctaText: t.cta,
-    ctaLink: "/contact",
-    highlighted: t.popular,
   }));
 }
 

@@ -5,7 +5,6 @@ import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { formatDateLong } from "@/lib/format-date";
-import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { PlanChooser } from "./PlanChooser";
 import { AddressGate } from "./AddressGate";
 
@@ -47,6 +46,7 @@ interface PlanRow {
   is_highlighted: boolean;
   display_order: number;
   early_member_pool: string | null;
+  early_member_price_cents: number | null;
 }
 
 interface EarlyMemberAvailability {
@@ -95,7 +95,7 @@ export default async function AbonnementNieuwPage() {
     supabase
       .from("membership_plan_catalogue")
       .select(
-        "id,plan_type,plan_variant,display_name,frequency_cap,age_category,price_per_cycle_cents,billing_cycle_weeks,commit_months,covered_pillars,includes,is_highlighted,display_order,early_member_pool"
+        "id,plan_type,plan_variant,display_name,frequency_cap,age_category,price_per_cycle_cents,billing_cycle_weeks,commit_months,covered_pillars,includes,is_highlighted,display_order,early_member_pool,early_member_price_cents"
       )
       .eq("is_active", true)
       .order("display_order", { ascending: true }),
@@ -190,17 +190,20 @@ export default async function AbonnementNieuwPage() {
                   // rekent, anders klopt de kaart niet met wat er bij
                   // Mollie wordt afgeschreven.
                   const isAllAccessEm = emOpen && plan.plan_type === "all_inclusive";
-                  const signupPriceCents = isAllAccessEm
-                    ? Math.max(
-                        0,
-                        plan.price_per_cycle_cents -
-                          EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
-                      )
+                  // Alleen All Access Onbeperkt heeft een Early Member-prijs
+                  // (early_member_price_cents); 2x/3x hebben die kolom leeg,
+                  // dus daar is geen korting te tonen.
+                  const hasEmDiscount =
+                    isAllAccessEm &&
+                    plan.early_member_price_cents !== null &&
+                    plan.early_member_price_cents !== plan.price_per_cycle_cents;
+                  const signupPriceCents = hasEmDiscount
+                    ? plan.early_member_price_cents!
                     : plan.price_per_cycle_cents;
                   const priceEuro = formatEuro(
                     Math.round(signupPriceCents / 100)
                   );
-                  const catalogueEuro = isAllAccessEm
+                  const catalogueEuro = hasEmDiscount
                     ? formatEuro(Math.round(plan.price_per_cycle_cents / 100))
                     : null;
                   return (

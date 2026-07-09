@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { Countdown } from "@/components/ui/Countdown";
 import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
-import { EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS } from "@/lib/constants";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 
 export interface EarlyMemberPricing {
@@ -16,7 +15,11 @@ export interface EarlyMemberPricing {
   allAccessTwoXCents: number;
   allAccessThreeXCents: number;
   allAccessUnlCents: number;
+  allAccessUnlEarlyMemberCents: number;
   vrijTrainenTwoXCents: number;
+  signupFeeCents: number;
+  programStudioCents: number;
+  programOnlineCents: number;
 }
 
 interface EarlyMemberContentProps {
@@ -45,12 +48,9 @@ export function EarlyMemberContent({
 }: EarlyMemberContentProps) {
   const deadlineLabel = formatDateLong(new Date(deadline));
 
-  // Live uit tmc.membership_plan_catalogue, zelfde korting-constante als de
-  // daadwerkelijke checkout (startSignup) gebruikt voor deze pool.
-  const allAccessEarlyMemberCents = Math.max(
-    0,
-    pricing.allAccessUnlCents - EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS
-  );
+  // Live uit tmc.membership_plan_catalogue.early_member_price_cents, zelfde
+  // kolom als de daadwerkelijke checkout (startSignup) leest voor deze pool.
+  const allAccessEarlyMemberCents = pricing.allAccessUnlEarlyMemberCents;
 
   // Meerprijs om vrij trainen aan Groepslessen toe te voegen (= het verschil
   // tussen All Access en Groepslessen op de Onbeperkt-kolom). Live afgeleid
@@ -139,8 +139,8 @@ export function EarlyMemberContent({
               {/* COPY: confirm met Marlon */}
               <p className="text-on-light-muted text-lg">
                 Alle prijzen per 4 weken. Als Early Member vervalt het
-                inschrijfgeld van €39 en ben je vanaf dag één maandelijks
-                opzegbaar.
+                inschrijfgeld van {formatPriceEuro(pricing.signupFeeCents)} en
+                ben je vanaf dag één maandelijks opzegbaar.
               </p>
             </div>
           </ScrollReveal>
@@ -259,7 +259,7 @@ export function EarlyMemberContent({
                   {/* COPY: confirm met Marlon */}
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
-                    Geen inschrijfkosten (€39)
+                    Geen inschrijfkosten ({formatPriceEuro(pricing.signupFeeCents)})
                   </li>
                   <li className="flex gap-3">
                     <span className="text-accent">—</span>
@@ -296,7 +296,9 @@ export function EarlyMemberContent({
             <div className="divide-y divide-bg-subtle border-y border-bg-subtle">
               {/* COPY: confirm met Marlon */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-5">
-                <span className="text-text-muted">€39 inschrijfkosten</span>
+                <span className="text-text-muted">
+                  {formatPriceEuro(pricing.signupFeeCents)} inschrijfkosten
+                </span>
                 <span aria-hidden className="text-accent hidden sm:inline">
                   →
                 </span>
@@ -370,7 +372,7 @@ export function EarlyMemberContent({
                   12 weken met Marlon
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
-                  €2.400{" "}
+                  {formatPriceEuro(pricing.programStudioCents)}{" "}
                   <span className="font-sans text-base text-on-light-muted align-top">
                     eenmalig
                   </span>
@@ -408,7 +410,7 @@ export function EarlyMemberContent({
                   12 weken online coaching
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-3xl mb-4">
-                  €1.250{" "}
+                  {formatPriceEuro(pricing.programOnlineCents)}{" "}
                   <span className="font-sans text-base text-on-light-muted align-top">
                     eenmalig
                   </span>

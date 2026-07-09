@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { getPricingItems } from "@/lib/pricing-items";
 import { PtBookingFlow } from "./PtBookingFlow";
 import type { TrainerOption } from "./_components/TrainerStep";
 import type { SlotOption } from "./_components/SlotStep";
+
+// Noodgreep, alleen gebruikt als de pricing_items-fetch faalt. Moet gelijk
+// blijven aan de live catalogus, maar is bewust niet de bron van waarheid.
+const FALLBACK_PT_SINGLE_CENTS = 9500;
 
 export const metadata = {
   title: "PT boeken | The Movement Club",
@@ -43,7 +48,7 @@ export default async function PtPage() {
   const now = new Date();
   const horizon = new Date(now.getTime() + SLOT_HORIZON_DAYS * 86400000);
 
-  const [trainersRes, sessionsRes, ptMembershipRes, existingBookingsRes] =
+  const [trainersRes, sessionsRes, ptMembershipRes, existingBookingsRes, pricingItems] =
     await Promise.all([
       supabase
         .from("trainers")
@@ -76,7 +81,12 @@ export default async function PtPage() {
         .select("pt_session_id")
         .eq("profile_id", user.id)
         .in("status", ["booked"]),
+      getPricingItems(["pt_one_on_one_single"]),
     ]);
+
+  const priceCents =
+    pricingItems.get("pt_one_on_one_single")?.price_cents ??
+    FALLBACK_PT_SINGLE_CENTS;
 
   const trainers: TrainerOption[] = (trainersRes.data ?? []).map((t) => ({
     id: t.id,
@@ -130,6 +140,7 @@ export default async function PtPage() {
           trainers={trainers}
           slots={slots}
           creditsRemaining={creditsRemaining}
+          priceCents={priceCents}
         />
       )}
     </Container>

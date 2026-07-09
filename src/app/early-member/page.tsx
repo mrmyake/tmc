@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getPublicClient } from "@/lib/supabase";
+import { getPricingItems } from "@/lib/pricing-items";
 import { OPENING_DATE, EARLY_MEMBER_DEADLINE } from "@/lib/campaign";
 import { EarlyMemberContent, type EarlyMemberPricing } from "./EarlyMemberContent";
 
@@ -25,12 +26,17 @@ const FALLBACK_PRICING: EarlyMemberPricing = {
   allAccessTwoXCents: 10900,
   allAccessThreeXCents: 12900,
   allAccessUnlCents: 14900,
+  allAccessUnlEarlyMemberCents: 13900,
   vrijTrainenTwoXCents: 4900,
+  signupFeeCents: 3900,
+  programStudioCents: 240000,
+  programOnlineCents: 125000,
 };
 
 interface CatalogueRow {
   plan_variant: string;
   price_per_cycle_cents: number;
+  early_member_price_cents: number | null;
 }
 
 async function getPricing(
@@ -38,32 +44,59 @@ async function getPricing(
 ): Promise<EarlyMemberPricing> {
   if (!supabase) return FALLBACK_PRICING;
 
-  const { data: plans, error } = await supabase
-    .from("membership_plan_catalogue")
-    .select("plan_variant,price_per_cycle_cents")
-    .eq("is_active", true)
-    .in("plan_type", ["groepslessen", "all_inclusive", "vrij_trainen"]);
+  const [{ data: plans, error }, pricingItems] = await Promise.all([
+    supabase
+      .from("membership_plan_catalogue")
+      .select("plan_variant,price_per_cycle_cents,early_member_price_cents")
+      .eq("is_active", true)
+      .in("plan_type", ["groepslessen", "all_inclusive", "vrij_trainen"]),
+    getPricingItems(["signup_fee", "program_studio_12w", "program_online_12w"]),
+  ]);
 
   if (error) console.error("[early-member] catalogue fetch failed:", error);
 
-  const byVariant = new Map<string, number>(
-    ((plans ?? []) as CatalogueRow[]).map((p) => [p.plan_variant, p.price_per_cycle_cents])
+  const byVariant = new Map<string, CatalogueRow>(
+    ((plans ?? []) as CatalogueRow[]).map((p) => [p.plan_variant, p])
   );
 
   return {
     groepslessen: {
-      twoX: byVariant.get("groepslessen_2x") ?? FALLBACK_PRICING.groepslessen.twoX,
-      threeX: byVariant.get("groepslessen_3x") ?? FALLBACK_PRICING.groepslessen.threeX,
-      unl: byVariant.get("groepslessen_unl") ?? FALLBACK_PRICING.groepslessen.unl,
+      twoX:
+        byVariant.get("groepslessen_2x")?.price_per_cycle_cents ??
+        FALLBACK_PRICING.groepslessen.twoX,
+      threeX:
+        byVariant.get("groepslessen_3x")?.price_per_cycle_cents ??
+        FALLBACK_PRICING.groepslessen.threeX,
+      unl:
+        byVariant.get("groepslessen_unl")?.price_per_cycle_cents ??
+        FALLBACK_PRICING.groepslessen.unl,
     },
     allAccessTwoXCents:
-      byVariant.get("all_inclusive_2x") ?? FALLBACK_PRICING.allAccessTwoXCents,
+      byVariant.get("all_inclusive_2x")?.price_per_cycle_cents ??
+      FALLBACK_PRICING.allAccessTwoXCents,
     allAccessThreeXCents:
-      byVariant.get("all_inclusive_3x") ?? FALLBACK_PRICING.allAccessThreeXCents,
+      byVariant.get("all_inclusive_3x")?.price_per_cycle_cents ??
+      FALLBACK_PRICING.allAccessThreeXCents,
     allAccessUnlCents:
-      byVariant.get("all_inclusive_unl") ?? FALLBACK_PRICING.allAccessUnlCents,
+      byVariant.get("all_inclusive_unl")?.price_per_cycle_cents ??
+      FALLBACK_PRICING.allAccessUnlCents,
+    allAccessUnlEarlyMemberCents:
+      byVariant.get("all_inclusive_unl")?.early_member_price_cents ??
+      FALLBACK_PRICING.allAccessUnlEarlyMemberCents,
     vrijTrainenTwoXCents:
-      byVariant.get("vrij_trainen_2x") ?? FALLBACK_PRICING.vrijTrainenTwoXCents,
+      byVariant.get("vrij_trainen_2x")?.price_per_cycle_cents ??
+      FALLBACK_PRICING.vrijTrainenTwoXCents,
+    // Reguliere inschrijfkosten (het bedrag dat een Early Member juist NIET
+    // betaalt) — niet de early_member_price_cents-kolom, die is hier 0.
+    signupFeeCents:
+      pricingItems.get("signup_fee")?.price_cents ??
+      FALLBACK_PRICING.signupFeeCents,
+    programStudioCents:
+      pricingItems.get("program_studio_12w")?.price_cents ??
+      FALLBACK_PRICING.programStudioCents,
+    programOnlineCents:
+      pricingItems.get("program_online_12w")?.price_cents ??
+      FALLBACK_PRICING.programOnlineCents,
   };
 }
 

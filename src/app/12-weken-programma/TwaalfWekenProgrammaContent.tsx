@@ -4,6 +4,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { CalibrationTicks } from "@/components/ui/CalibrationTicks";
+import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { ProgrammaEyebrow } from "./_components/ProgrammaEyebrow";
 import {
   ProgrammaFaqAccordion,
@@ -119,7 +120,15 @@ const faqs: ProgrammaFaqItem[] = [
   },
 ];
 
-export function TwaalfWekenProgrammaContent() {
+interface TwaalfWekenProgrammaContentProps {
+  studioPriceCents: number;
+  onlinePriceCents: number;
+}
+
+export function TwaalfWekenProgrammaContent({
+  studioPriceCents,
+  onlinePriceCents,
+}: TwaalfWekenProgrammaContentProps) {
   return (
     <>
       {/* Hero. Losse h1 (niet SectionHeading, die rendert altijd h2) zodat
@@ -384,7 +393,7 @@ export function TwaalfWekenProgrammaContent() {
                   Volledig begeleid, in Loosdrecht
                 </p>
                 <p className="font-[family-name:var(--font-playfair)] text-[3.25rem] leading-none mt-7 tracking-[-0.01em]">
-                  €2.400{" "}
+                  {formatPriceEuro(studioPriceCents)}{" "}
                   <small className="font-sans text-base text-text-muted align-top">
                     totaal
                   </small>
@@ -434,7 +443,7 @@ export function TwaalfWekenProgrammaContent() {
                   Zelfde methode, op afstand begeleid
                 </p>
                 <p className="font-[family-name:var(--font-playfair)] text-[3.25rem] leading-none mt-7 tracking-[-0.01em]">
-                  €1.250{" "}
+                  {formatPriceEuro(onlinePriceCents)}{" "}
                   <small className="font-sans text-base text-on-light-muted align-top">
                     totaal
                   </small>
