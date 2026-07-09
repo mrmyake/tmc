@@ -26,9 +26,9 @@ async function fetchCampaignDeadline(): Promise<string> {
 /**
  * Single source of truth voor de campagne-deadline: tmc.early_member_pools
  * .closes_at, via de get_campaign_deadline() RPC (WS-1). De echte
- * checkout-poort blijft server-side tmc.reserve_early_member_slot, die
- * tegen dezelfde closes_at checkt, dus weergave en handhaving kunnen niet
- * meer uiteenlopen.
+ * checkout-poort is server-side tmc.create_order, dat via
+ * _compute_order_price tegen dezelfde closes_at checkt, dus weergave en
+ * handhaving kunnen niet uiteenlopen.
  *
  * Getagd + met een 300s-venster gecached zodat de root layout (ISR,
  * revalidate=60) geen per-request DB-call krijgt: deze call gebeurt hooguit

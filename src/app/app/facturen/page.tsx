@@ -94,10 +94,13 @@ export default async function FacturenPage(props: {
 
   let planName: string | null = null;
   if (membership?.plan_variant) {
+    // Naam uit tmc.catalogue (slug = plan_variant). Een inactieve of
+    // verdwenen catalogusrij valt terug op de ruwe variant-string, zelfde
+    // gedrag als voorheen met membership_plan_catalogue.
     const { data: plan } = await supabase
-      .from("membership_plan_catalogue")
+      .from("catalogue")
       .select("display_name")
-      .eq("plan_variant", membership.plan_variant)
+      .eq("slug", membership.plan_variant)
       .maybeSingle();
     planName = plan?.display_name ?? membership.plan_variant;
   }

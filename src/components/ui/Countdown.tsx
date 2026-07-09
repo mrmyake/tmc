@@ -40,8 +40,8 @@ const UNITS: { key: keyof TimeLeft; label: string }[] = [
 /**
  * Client-side ticking countdown to the Early Member deadline. Purely a
  * visual scarcity signal — the real gate is server-side and deadline-only
- * (tmc.reserve_early_member_slot checks closes_at, see
- * 20260712000000_early_member_time_only_gate.sql). Nothing here blocks
+ * (tmc._compute_order_price checks now() against get_campaign_deadline()
+ * inside the create_order transaction). Nothing here blocks
  * checkout if the tab has been open past the deadline; a stale countdown
  * showing 00:00:00:00 is cosmetic only.
  */

@@ -12,6 +12,9 @@ export type SettingsActionResult =
   | { ok: true; message: string }
   | { ok: false; message: string };
 
+// Prijsvelden bestaan hier niet meer: prijzen leven uitsluitend in
+// tmc.catalogue en wijzigen per migratie (Migratie B dropte de
+// booking_settings-prijskolommen en daarmee de admin-prijseditor).
 export interface BookingSettingsInput {
   cancellationWindowHours: number;
   vrijTrainenCancelWindowMinutes: number;
@@ -21,16 +24,6 @@ export interface BookingSettingsInput {
   noShowStrikeWindowDays: number;
   noShowStrikeThreshold: number;
   noShowBlockDays: number;
-  registrationFeeCents: number;
-  dropInYogaCents: number;
-  dropInKettlebellCents: number;
-  dropInKidsCents: number;
-  dropInSeniorCents: number;
-  tenRideCardCents: number;
-  kidsTenRideCardCents: number;
-  seniorTenRideCardCents: number;
-  tenRideCardValidityMonths: number;
-  ptIntakeDiscountCents: number;
   checkInEnabled: boolean;
   checkInPillars: CheckInPillar[];
   noShowReleaseMinutes: number;
@@ -57,16 +50,6 @@ export async function saveBookingSettings(
     ["noShowStrikeWindowDays", 1, 365],
     ["noShowStrikeThreshold", 1, 10],
     ["noShowBlockDays", 0, 90],
-    ["registrationFeeCents", 0, 100_000],
-    ["dropInYogaCents", 0, 100_000],
-    ["dropInKettlebellCents", 0, 100_000],
-    ["dropInKidsCents", 0, 100_000],
-    ["dropInSeniorCents", 0, 100_000],
-    ["tenRideCardCents", 0, 1_000_000],
-    ["kidsTenRideCardCents", 0, 1_000_000],
-    ["seniorTenRideCardCents", 0, 1_000_000],
-    ["tenRideCardValidityMonths", 1, 24],
-    ["ptIntakeDiscountCents", 0, 100_000],
     ["noShowReleaseMinutes", 0, 120],
   ];
   for (const [key, min, max] of checks) {
@@ -103,16 +86,6 @@ export async function saveBookingSettings(
     no_show_strike_window_days: input.noShowStrikeWindowDays,
     no_show_strike_threshold: input.noShowStrikeThreshold,
     no_show_block_days: input.noShowBlockDays,
-    registration_fee_cents: input.registrationFeeCents,
-    drop_in_yoga_cents: input.dropInYogaCents,
-    drop_in_kettlebell_cents: input.dropInKettlebellCents,
-    drop_in_kids_cents: input.dropInKidsCents,
-    drop_in_senior_cents: input.dropInSeniorCents,
-    ten_ride_card_cents: input.tenRideCardCents,
-    kids_ten_ride_card_cents: input.kidsTenRideCardCents,
-    senior_ten_ride_card_cents: input.seniorTenRideCardCents,
-    ten_ride_card_validity_months: input.tenRideCardValidityMonths,
-    pt_intake_discount_cents: input.ptIntakeDiscountCents,
     check_in_enabled: input.checkInEnabled,
     check_in_pillars: dedupedPillars,
     no_show_release_minutes: input.noShowReleaseMinutes,
