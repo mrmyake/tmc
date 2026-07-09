@@ -21,17 +21,6 @@ interface SettingsFormProps {
   initial: BookingSettingsInput;
 }
 
-function centsToEuro(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function euroToCents(euro: string): number {
-  const normalized = euro.replace(",", ".").trim();
-  const n = Number(normalized);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
-}
-
 export function SettingsForm({ initial }: SettingsFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -137,68 +126,8 @@ export function SettingsForm({ initial }: SettingsFormProps) {
         />
       </Section>
 
-      <Section title="Prijzen (alleen nieuwe klanten)">
-        <EuroField
-          label="Inschrijfkosten"
-          value={values.registrationFeeCents}
-          onChange={(v) => setField("registrationFeeCents", v)}
-        />
-        <EuroField
-          label="Drop-in yoga"
-          value={values.dropInYogaCents}
-          onChange={(v) => setField("dropInYogaCents", v)}
-        />
-        <EuroField
-          label="Drop-in kettlebell"
-          value={values.dropInKettlebellCents}
-          onChange={(v) => setField("dropInKettlebellCents", v)}
-        />
-        <EuroField
-          label="Drop-in kids"
-          value={values.dropInKidsCents}
-          onChange={(v) => setField("dropInKidsCents", v)}
-        />
-        <EuroField
-          label="Drop-in senior"
-          value={values.dropInSeniorCents}
-          onChange={(v) => setField("dropInSeniorCents", v)}
-        />
-      </Section>
-
-      <Section title="Rittenkaarten">
-        <EuroField
-          label="10-rittenkaart adult"
-          value={values.tenRideCardCents}
-          onChange={(v) => setField("tenRideCardCents", v)}
-        />
-        <EuroField
-          label="10-rittenkaart kids"
-          value={values.kidsTenRideCardCents}
-          onChange={(v) => setField("kidsTenRideCardCents", v)}
-        />
-        <EuroField
-          label="10-rittenkaart senior"
-          value={values.seniorTenRideCardCents}
-          onChange={(v) => setField("seniorTenRideCardCents", v)}
-        />
-        <IntField
-          label="Geldigheidsduur (maanden)"
-          hint="Rittenkaart verloopt na deze periode."
-          value={values.tenRideCardValidityMonths}
-          onChange={(v) => setField("tenRideCardValidityMonths", v)}
-          min={1}
-          max={24}
-        />
-      </Section>
-
-      <Section title="Personal training">
-        <EuroField
-          label="Intake-kennismakings korting"
-          value={values.ptIntakeDiscountCents}
-          onChange={(v) => setField("ptIntakeDiscountCents", v)}
-        />
-      </Section>
-
+      {/* Geen prijs-secties meer: prijzen leven uitsluitend in tmc.catalogue
+          en wijzigen per migratie (Migratie B). */}
       <section>
         <header className="mb-5">
           <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
@@ -356,43 +285,3 @@ function IntField({
   );
 }
 
-function EuroField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (cents: number) => void;
-}) {
-  const [local, setLocal] = useState(centsToEuro(value));
-
-  // If the canonical value (cents) drifts, re-sync local. Only happens on
-  // form reset.
-  if (euroToCents(local) !== value && local !== centsToEuro(value)) {
-    setLocal(centsToEuro(value));
-  }
-
-  return (
-    <AdminField label={label}>
-      <div className="relative">
-        <span
-          aria-hidden
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-sm z-10"
-        >
-          &euro;
-        </span>
-        <AdminInput
-          type="text"
-          inputMode="decimal"
-          value={local}
-          onChange={(e) => {
-            setLocal(e.target.value);
-            onChange(euroToCents(e.target.value));
-          }}
-          className="w-full pl-8 tabular-nums"
-        />
-      </div>
-    </AdminField>
-  );
-}

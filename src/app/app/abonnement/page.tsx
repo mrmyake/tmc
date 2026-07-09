@@ -34,6 +34,48 @@ const HISTORY_STATUSES = ["cancelled", "expired"];
 
 const PLANS_WITH_CREDITS = new Set(["ten_ride_card", "pt_package"]);
 
+// Plan-voordelen als lokale marketing-copy, per catalogus-slug. Voorheen
+// membership_plan_catalogue.includes; die tabel is gedropt in Migratie B
+// en tmc.catalogue draagt bewust geen marketing-bullets (prijsdata only).
+// Zelfde teksten als de oude kolom bevatte.
+// COPY: confirm met Marlon
+const PLAN_BENEFITS: Record<string, string[]> = {
+  groepslessen_2x: [
+    "2× per week groepsles",
+    "Yoga, mobility en kettlebell, mix zoals jij wilt",
+  ],
+  groepslessen_3x: [
+    "3× per week groepsles",
+    "Yoga, mobility en kettlebell, mix zoals jij wilt",
+  ],
+  groepslessen_unl: [
+    "Onbeperkt groepslessen",
+    "Yoga, mobility en kettlebell, mix zoals jij wilt",
+  ],
+  vrij_trainen_2x: ["2× per week vrij trainen", "Toegang tot alle equipment"],
+  vrij_trainen_3x: ["3× per week vrij trainen", "Toegang tot alle equipment"],
+  vrij_trainen_unl: ["Onbeperkt vrij trainen", "Toegang tot alle equipment"],
+  all_inclusive_2x: [
+    "2× per week toegang tot alle lessen",
+    "Vrij trainen inbegrepen",
+  ],
+  all_inclusive_3x: [
+    "3× per week toegang tot alle lessen",
+    "Vrij trainen inbegrepen",
+  ],
+  all_inclusive_unl: [
+    "Onbeperkt alle lessen",
+    "Vrij trainen inbegrepen",
+    "Yoga, mobility, kettlebell",
+  ],
+  kids_1x: ["1× per week kids-les"],
+  kids_2x: ["2× per week kids-les"],
+  kids_unl: ["Onbeperkt kids-lessen (max 4×/wk)"],
+  senior_1x: ["1× per week senior circuit"],
+  senior_2x: ["2× per week senior circuit"],
+  senior_unl: ["Onbeperkt senior circuit (max 5×/wk)"],
+};
+
 function logIfError(tag: string, error: { message: string } | null) {
   if (error) {
     console.error(`[/app/abonnement] ${tag} query failed:`, error.message);
@@ -99,22 +141,25 @@ export default async function AbonnementPage() {
     if (row.plan_variant) variants.add(row.plan_variant);
   }
 
+  // Namen uit tmc.catalogue (slug = plan_variant); bullets uit de lokale
+  // PLAN_BENEFITS-copy hierboven. Een inactieve of verdwenen catalogusrij
+  // valt terug op de ruwe variant-string, zelfde gedrag als voorheen.
   const planCatalogue =
     variants.size === 0
-      ? { data: [] as { plan_variant: string; display_name: string; includes: string[] }[] }
+      ? { data: [] as { slug: string; display_name: string }[] }
       : await supabase
-          .from("membership_plan_catalogue")
-          .select("plan_variant, display_name, includes")
-          .in("plan_variant", Array.from(variants));
+          .from("catalogue")
+          .select("slug, display_name")
+          .in("slug", Array.from(variants));
 
   const planByVariant = new Map<
     string,
     { display_name: string; includes: string[] }
   >();
   for (const p of planCatalogue.data ?? []) {
-    planByVariant.set(p.plan_variant, {
+    planByVariant.set(p.slug, {
       display_name: p.display_name,
-      includes: p.includes ?? [],
+      includes: PLAN_BENEFITS[p.slug] ?? [],
     });
   }
 

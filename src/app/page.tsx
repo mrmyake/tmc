@@ -9,7 +9,7 @@ import { OfferingCards } from "@/components/blocks/OfferingCards";
 import { YogaTeaser } from "@/components/blocks/YogaTeaser";
 import { PricingTable, type HomePricingTier } from "@/components/blocks/PricingTable";
 import { ContactSection } from "@/components/blocks/ContactSection";
-import { getPublicClient } from "@/lib/supabase";
+import { getCatalogue } from "@/lib/catalogue";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import {
   getSiteSettings,
@@ -19,14 +19,12 @@ import {
   getSiteImages,
 } from "../../sanity/lib/fetch";
 
-// Drie representatieve "Onbeperkt"-varianten uit de catalogus, in deze
-// volgorde. Noodgreep hieronder is bewust niet de bron van waarheid.
-const HOME_TIER_VARIANTS = [
-  "groepslessen_unl",
-  "vrij_trainen_unl",
-  "all_inclusive_unl",
-] as const;
-
+// Drie representatieve "Onbeperkt"-tiers. Prijs en naam komen live uit
+// tmc.catalogue (de _id is de catalogus-slug); de features-bullets zijn
+// lokale marketing-copy (voorheen membership_plan_catalogue.includes, die
+// tabel is gedropt in Migratie B) en de prijs-strings hieronder zijn de
+// noodgreep als de catalogus-fetch faalt, bewust niet de bron van waarheid.
+// COPY: confirm met Marlon
 const FALLBACK_TIERS: HomePricingTier[] = [
   {
     _id: "groepslessen_unl",
@@ -60,45 +58,17 @@ const FALLBACK_TIERS: HomePricingTier[] = [
   },
 ];
 
-interface CatalogueTierRow {
-  plan_variant: string;
-  display_name: string;
-  price_per_cycle_cents: number;
-  includes: string[];
-}
-
 async function getPricing(): Promise<HomePricingTier[]> {
-  const supabase = getPublicClient();
-  if (!supabase) return FALLBACK_TIERS;
+  const catalogue = await getCatalogue();
+  if (catalogue.size === 0) return FALLBACK_TIERS;
 
-  const { data, error } = await supabase
-    .from("membership_plan_catalogue")
-    .select("plan_variant,display_name,price_per_cycle_cents,includes")
-    .eq("is_active", true)
-    .in("plan_variant", HOME_TIER_VARIANTS);
-
-  if (error) {
-    console.error("[home] catalogue fetch failed:", error);
-    return FALLBACK_TIERS;
-  }
-
-  const byVariant = new Map<string, CatalogueTierRow>(
-    ((data ?? []) as CatalogueTierRow[]).map((r) => [r.plan_variant, r])
-  );
-
-  return HOME_TIER_VARIANTS.map((variant) => {
-    const row = byVariant.get(variant);
-    const fallback = FALLBACK_TIERS.find((t) => t._id === variant)!;
-    if (!row) return fallback;
+  return FALLBACK_TIERS.map((tier) => {
+    const row = catalogue.get(tier._id);
+    if (!row) return tier;
     return {
-      _id: variant,
+      ...tier,
       name: row.display_name,
-      subtitle: "",
-      price: `${formatPriceEuro(row.price_per_cycle_cents)} / 4 weken`,
-      features: row.includes,
-      ctaText: "Bekijk alle tarieven",
-      ctaLink: "/prijzen",
-      highlighted: variant === "all_inclusive_unl",
+      price: `${formatPriceEuro(row.price_cents)} / 4 weken`,
     };
   });
 }
