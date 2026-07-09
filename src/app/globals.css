@@ -70,6 +70,14 @@ body {
 
 html { scroll-behavior: smooth; }
 
+/* Compenseert de fixed Navbar (+ optionele CampaignTeaser erboven) bij
+   hash-navigatie (bijv. /aanbod#groepslessen, /prijzen#all-access). Zonder
+   dit scrollt de browser de sectie-top exact onder de vaste header.
+   Ruim genoeg voor nav (h-20 = 80px) + teaser op twee regels op mobiel. */
+section[id] {
+  scroll-margin-top: 9rem;
+}
+
 ::selection {
   background-color: var(--accent);
   color: var(--ink-900);

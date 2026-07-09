@@ -221,6 +221,74 @@ export function AanbodContent({ images }: AanbodContentProps) {
         );
       })}
 
+      {/* Groepslessen, Vrij trainen, All Access — lichte placeholder-secties
+          voor de Aanbod-hub in de nav (AANBOD_DROPDOWN, src/lib/constants.ts).
+          De volledige prijsdetails staan op /prijzen; deze secties zijn
+          alleen het landingspunt vanuit het menu, met een crosslink naar de
+          bijbehorende anchor daar. */}
+      <Section id="groepslessen" bg="elevated">
+        <Container className="max-w-3xl">
+          <ScrollReveal>
+            {/* COPY: confirm met Marlon */}
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+              Groepslessen
+            </span>
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+              Yoga, mobility en kettlebell
+            </h2>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted text-sm leading-relaxed mb-6 max-w-lg">
+              Kleine groepen, vaste tijden door de week. Van rustige yoga tot
+              stevige kettlebell-sessies.
+            </p>
+            <QuietLink href="/prijzen#groepslessen">Bekijk prijzen</QuietLink>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
+      <Section id="vrij-trainen">
+        <Container className="max-w-3xl">
+          <ScrollReveal>
+            {/* COPY: confirm met Marlon */}
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+              Vrij trainen
+            </span>
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+              Train op je eigen moment
+            </h2>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted text-sm leading-relaxed mb-6 max-w-lg">
+              Toegang tot de studio buiten de groepslessen om, zonder vaste
+              tijden.
+            </p>
+            <QuietLink href="/prijzen#vrij-trainen">Bekijk prijzen</QuietLink>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
+      <Section id="all-access" bg="elevated">
+        <Container className="max-w-3xl">
+          <ScrollReveal>
+            {/* COPY: confirm met Marlon */}
+            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+              All Access
+            </span>
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
+              Groepslessen en vrij trainen samen
+            </h2>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted text-sm leading-relaxed mb-6 max-w-lg">
+              Onbeperkt combineren van groepslessen en vrij trainen, voor een
+              vast bedrag extra op elk niveau.
+            </p>
+            <QuietLink href="/prijzen#all-access">Bekijk prijzen</QuietLink>
+          </ScrollReveal>
+        </Container>
+      </Section>
+
       {/* Mobility Reset CTA */}
       <Section bg="elevated">
         <Container className="max-w-3xl text-center">

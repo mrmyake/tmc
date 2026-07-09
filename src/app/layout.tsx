@@ -5,6 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
+import { getCampaignPhase } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
@@ -127,6 +128,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getSiteSettings();
+  // Pure datum-rekenkunde (src/lib/campaign.ts), geen Supabase-call: houdt
+  // de root layout binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
+  const campaignPhase = getCampaignPhase();
 
   return (
     <html
@@ -164,7 +168,9 @@ export default async function RootLayout({
             __html: JSON.stringify(getWebsiteSchema()),
           }}
         />
-        <SiteShell settings={settings}>{children}</SiteShell>
+        <SiteShell settings={settings} campaignPhase={campaignPhase}>
+          {children}
+        </SiteShell>
         {/* Verbergt het native Capacitor-launchscherm zodra déze pagina
             client-side mount — no-op in de browser-PWA
             (Capacitor.isNativePlatform()-guard). In de root layout, niet

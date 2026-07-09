@@ -55,14 +55,41 @@ export const SITE = {
   hormoonprofiel: "https://hormoonprofiel.com",
 } as const;
 
+// Primaire navigatie, zes items. Labels zijn user-facing NL-copy // COPY:
+// confirm met Marlon, ook al zijn de meeste al bestaande labels. Het
+// "Early Member"-label wordt in de Navbar zelf vervangen door "Word lid"
+// zodra getCampaignPhase() (src/lib/campaign.ts) 'closed' teruggeeft; de
+// href blijft ongewijzigd. Footer.tsx rendert deze lijst ook, als platte
+// sitemap-kolom (geen dropdown/fase-logica daar).
 export const NAV_LINKS = [
-  { label: "Home", href: "/" },
-  { label: "Over ons", href: "/over" },
-  { label: "Aanbod", href: "/aanbod" },
-  { label: "Prijzen", href: "/prijzen" },
-  { label: "Early Member", href: "/early-member" },
-  { label: "Yoga", href: "/yoga" },
-  { label: "Contact", href: "/contact" },
+  { label: "Home", href: "/" }, // COPY: confirm met Marlon
+  { label: "Aanbod", href: "/aanbod" }, // COPY: confirm met Marlon
+  { label: "Prijzen", href: "/prijzen" }, // COPY: confirm met Marlon
+  { label: "Early Member", href: "/early-member" }, // COPY: confirm met Marlon
+  { label: "Over ons", href: "/over" }, // COPY: confirm met Marlon
+  { label: "Contact", href: "/contact" }, // COPY: confirm met Marlon
+] as const;
+
+// Aanbod-hub dropdown (desktop) / uitklap (mobiel). Yoga staat hier apart
+// van Groepslessen: eigen pagina op /yoga (SEO + Marlons yoga-merk), maar
+// visueel gegroepeerd onder Groepslessen in de Navbar-render. Groepslessen,
+// Vrij trainen en All Access linken naar nieuwe placeholder-secties op
+// /aanbod (AanbodContent.tsx) — zie die secties voor de "Bekijk
+// prijzen"-crosslink naar de bijbehorende anchor op /prijzen.
+export const AANBOD_DROPDOWN = [
+  {
+    label: "Groepslessen", // COPY: confirm met Marlon
+    href: "/aanbod#groepslessen",
+    sub: "yoga, mobility, kettlebell", // COPY: confirm met Marlon
+  },
+  { label: "Yoga", href: "/yoga" }, // COPY: confirm met Marlon
+  { label: "Vrij trainen", href: "/aanbod#vrij-trainen" }, // COPY: confirm met Marlon
+  { label: "All Access", href: "/aanbod#all-access" }, // COPY: confirm met Marlon
+  {
+    label: "Personal Training & Duo", // COPY: confirm met Marlon
+    href: "/aanbod#personal-training",
+  },
+  { label: "12-weken programma", href: "/12-weken-programma" }, // COPY: confirm met Marlon
 ] as const;
 
 export const PILLARS = [
