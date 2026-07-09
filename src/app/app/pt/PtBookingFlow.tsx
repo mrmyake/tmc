@@ -7,7 +7,6 @@ import {
   createPtBookingFromCredits,
   createPtBookingWithPayment,
 } from "@/lib/member/pt-booking-actions";
-import { calculatePtPriceCents } from "@/lib/member/pt-pricing";
 import { PtStepper } from "./_components/PtStepper";
 import {
   TrainerStep,
@@ -28,6 +27,7 @@ interface PtBookingFlowProps {
   trainers: TrainerOption[];
   slots: Slot[];
   creditsRemaining: number | null;
+  priceCents: number;
 }
 
 const STEPS = [
@@ -41,6 +41,7 @@ export function PtBookingFlow({
   trainers,
   slots,
   creditsRemaining,
+  priceCents,
 }: PtBookingFlowProps) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
@@ -63,13 +64,6 @@ export function PtBookingFlow({
     () => slots.find((s) => s.id === slotId) ?? null,
     [slots, slotId],
   );
-
-  const priceCents = selectedTrainer
-    ? calculatePtPriceCents({
-        format: "one_on_one",
-        purchaseType: "single",
-      })
-    : 0;
 
   function goNext() {
     setError(null);
@@ -130,6 +124,7 @@ export function PtBookingFlow({
             trainers={trainers}
             selectedId={trainerId}
             onSelect={handleTrainerSelect}
+            priceCents={priceCents}
           />
         )}
         {stepIndex === 1 && selectedTrainer && (

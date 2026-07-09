@@ -1,6 +1,6 @@
 "use client";
 
-import { calculatePtPriceCents, formatPriceEuro } from "@/lib/member/pt-pricing";
+import { formatPriceEuro } from "@/lib/member/pt-pricing";
 
 export interface TrainerOption {
   id: string;
@@ -14,18 +14,15 @@ interface TrainerStepProps {
   trainers: TrainerOption[];
   selectedId: string | null;
   onSelect: (trainerId: string) => void;
+  priceCents: number;
 }
 
 export function TrainerStep({
   trainers,
   selectedId,
   onSelect,
+  priceCents,
 }: TrainerStepProps) {
-  const price = calculatePtPriceCents({
-    format: "one_on_one",
-    purchaseType: "single",
-  });
-
   return (
     <section aria-labelledby="trainer-step-title">
       <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
@@ -72,7 +69,7 @@ export function TrainerStep({
               )}
               <div className="pt-4 border-t border-[color:var(--ink-500)]/60 flex items-baseline gap-3">
                 <span className="font-[family-name:var(--font-playfair)] text-2xl text-text tracking-[-0.02em]">
-                  {formatPriceEuro(price)}
+                  {formatPriceEuro(priceCents)}
                 </span>
                 <span className="text-xs text-text-muted">
                   · 1-op-1 sessie

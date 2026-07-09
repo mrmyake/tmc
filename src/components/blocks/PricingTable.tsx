@@ -7,10 +7,20 @@ import { Card } from "@/components/ui/Card";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Check } from "lucide-react";
-import type { SanityPricingTier } from "../../../sanity/lib/fetch";
+
+export interface HomePricingTier {
+  _id: string;
+  name: string;
+  subtitle: string;
+  price: string;
+  features: string[];
+  ctaText: string;
+  ctaLink: string;
+  highlighted: boolean;
+}
 
 interface PricingTableProps {
-  tiers: SanityPricingTier[];
+  tiers: HomePricingTier[];
 }
 
 export function PricingTable({ tiers }: PricingTableProps) {
@@ -43,7 +53,9 @@ export function PricingTable({ tiers }: PricingTableProps) {
                   <h3 className="text-2xl font-medium text-text mb-2 tracking-[-0.01em]">
                     {tier.name}
                   </h3>
-                  <p className="text-text-muted text-sm">{tier.subtitle}</p>
+                  {tier.subtitle && (
+                    <p className="text-text-muted text-sm">{tier.subtitle}</p>
+                  )}
                   {tier.price && (
                     <p className="font-[family-name:var(--font-playfair)] text-accent text-4xl mt-3 tracking-[-0.02em]">
                       {tier.price}

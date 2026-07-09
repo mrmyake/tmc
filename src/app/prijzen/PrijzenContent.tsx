@@ -4,34 +4,11 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
-import { calculatePtPriceCents, formatPriceEuro } from "@/lib/member/pt-pricing";
+import { formatPriceEuro } from "@/lib/member/pt-pricing";
 
 // Copy hieronder is een eerste voorstel voor een evergreen prijspagina,
 // zonder actietaal of einddatum. Elke klantgerichte string draagt een
 // eigen COPY-markering voor Marlon.
-
-// PT/duo-prijzen komen uit de echte pricing engine (src/lib/member/pt-pricing.ts,
-// ook gebruikt door de /app/pt boekingsflow) zodat deze pagina nooit meer los
-// kan raken van wat leden daadwerkelijk betalen. Statisch berekend op
-// module-niveau: geen ledenkorting of dynamische member-state meer op deze
-// publieke pagina.
-const PT_SINGLE_CENTS = calculatePtPriceCents({
-  format: "one_on_one",
-  purchaseType: "single",
-});
-const PT_TEN_CENTS = calculatePtPriceCents({
-  format: "one_on_one",
-  purchaseType: "ten",
-});
-const PT_TEN_PER_SESSION_CENTS = Math.round(PT_TEN_CENTS / 10);
-const DUO_SINGLE_CENTS = calculatePtPriceCents({
-  format: "duo",
-  purchaseType: "single",
-});
-const DUO_TEN_CENTS = calculatePtPriceCents({
-  format: "duo",
-  purchaseType: "ten",
-});
 
 export interface PrijzenPricing {
   groepslessen: { twoX: number; threeX: number; unl: number };
@@ -39,6 +16,12 @@ export interface PrijzenPricing {
   vrijTrainen: { twoX: number; threeX: number; unl: number };
   dropInCents: number;
   tenRideCardCents: number;
+  ptSingleCents: number;
+  ptTwelveCents: number;
+  duoSingleCents: number;
+  duoTwelveCents: number;
+  programStudioCents: number;
+  programOnlineCents: number;
 }
 
 interface PrijzenContentProps {
@@ -46,10 +29,11 @@ interface PrijzenContentProps {
 }
 
 export function PrijzenContent({ pricing }: PrijzenContentProps) {
-  // Live uit tmc.membership_plan_catalogue (server component in page.tsx),
-  // niet meer hardcoded. De "+ toevoegen"-rij is het verschil tussen All
-  // Access en Groepslessen per kolom, zodat dit automatisch klopt als de
-  // onderliggende prijzen ooit niet meer een vlak bedrag uit elkaar liggen.
+  // Live uit tmc.membership_plan_catalogue + tmc.pricing_items (server
+  // component in page.tsx), niet meer hardcoded. De "+ toevoegen"-rij is
+  // het verschil tussen All Access en Groepslessen per kolom, zodat dit
+  // automatisch klopt als de onderliggende prijzen ooit niet meer een vlak
+  // bedrag uit elkaar liggen.
   const addOnDiffs = {
     twoX: pricing.allAccess.twoX - pricing.groepslessen.twoX,
     threeX: pricing.allAccess.threeX - pricing.groepslessen.threeX,
@@ -59,7 +43,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
     addOnDiffs.twoX === addOnDiffs.threeX && addOnDiffs.threeX === addOnDiffs.unl
       ? addOnDiffs.twoX
       : null;
+  // 10-rittenkaart (losse lessen) is echt 10 ritten, blijft delen door 10.
   const tenRidePerSessionCents = Math.round(pricing.tenRideCardCents / 10);
+  // PT-kaart is een 12-rittenkaart: delen door 12, niet door 10.
+  const ptTwelvePerSessionCents = Math.round(pricing.ptTwelveCents / 12);
 
   return (
     <>
@@ -299,8 +286,9 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                     <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
                       Losse sessie
                     </th>
+                    {/* COPY: confirm met Marlon */}
                     <th className="text-center font-medium text-xs uppercase tracking-[0.1em] text-text-muted pb-4 border-b border-bg-subtle">
-                      10-rittenkaart
+                      12-rittenkaart
                     </th>
                   </tr>
                 </thead>
@@ -310,14 +298,14 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       1-op-1
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(PT_SINGLE_CENTS)}
+                      {formatPriceEuro(pricing.ptSingleCents)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle">
                       <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                        {formatPriceEuro(PT_TEN_CENTS)}
+                        {formatPriceEuro(pricing.ptTwelveCents)}
                       </span>
                       <span className="block text-text-muted text-xs mt-0.5">
-                        {formatPriceEuro(PT_TEN_PER_SESSION_CENTS)}/sessie
+                        {formatPriceEuro(ptTwelvePerSessionCents)}/sessie
                       </span>
                     </td>
                   </tr>
@@ -327,10 +315,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                       Duo (totaal)
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(DUO_SINGLE_CENTS)}
+                      {formatPriceEuro(pricing.duoSingleCents)}
                     </td>
                     <td className="text-center py-5 border-b border-bg-subtle font-[family-name:var(--font-playfair)] text-lg text-text">
-                      {formatPriceEuro(DUO_TEN_CENTS)}
+                      {formatPriceEuro(pricing.duoTwelveCents)}
                     </td>
                   </tr>
                 </tbody>
@@ -363,7 +351,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   12 weken transformatie
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-4">
-                  €2.400
+                  {formatPriceEuro(pricing.programStudioCents)}
                 </p>
                 {/* COPY: confirm met Marlon */}
                 <p className="text-text-muted text-sm leading-relaxed">
@@ -379,7 +367,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   12 weken online
                 </h3>
                 <p className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-4">
-                  €1.250
+                  {formatPriceEuro(pricing.programOnlineCents)}
                 </p>
                 {/* COPY: confirm met Marlon */}
                 <p className="text-text-muted text-sm leading-relaxed">

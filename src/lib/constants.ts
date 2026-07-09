@@ -14,14 +14,6 @@ function resolveSiteUrl(): string {
 
 export const SITE_URL = resolveSiteUrl();
 
-// Early Member All Access: EUR 10 per 4 weken korting, blijvend zolang het
-// lidmaatschap doorloopt. Gedeeld tussen de checkout-actie (die het bedrag
-// afschrijft) en de plan-kiespagina (die de korting moet tonen); één bron
-// voorkomt dat de twee ooit uit elkaar lopen. Geen "use server"-bestand
-// mag naast async functions een const exporteren, vandaar hier i.p.v. in
-// membership.ts.
-export const EARLY_MEMBER_ALL_ACCESS_DISCOUNT_CENTS = 1000;
-
 // PLACEHOLDER: bevestig de daadwerkelijke openingsdatum met Marlon. Bepaalt
 // de copy-fase op /early-member ("binnenkort open" vs. "we zijn open") en is
 // bewust losgekoppeld van de Early Member-deadline (closes_at, uit
@@ -134,45 +126,6 @@ export const OFFERINGS = [
     description:
       "Gestructureerde krachtprogramma's voor duurzame progressie en resultaat.",
     href: "/aanbod#strength",
-  },
-] as const;
-
-export const PRICING_TIERS = [
-  {
-    name: "Essentials",
-    description: "2x per week groepstraining",
-    features: [
-      "2 groepstrainingen per week",
-      "Toegang tot de studio",
-      "Trainingsschema op maat",
-    ],
-    cta: "Vraag tarieven aan",
-    popular: false,
-  },
-  {
-    name: "Premium",
-    description: "Onbeperkt groep + 1x PT per maand",
-    features: [
-      "Onbeperkt groepstrainingen",
-      "1x personal training per maand",
-      "Voedingsadvies op maat",
-      "Prioriteit bij boekingen",
-    ],
-    cta: "Vraag tarieven aan",
-    popular: true,
-  },
-  {
-    name: "Private",
-    description: "Volledig PT-traject op maat",
-    features: [
-      "Wekelijkse personal training",
-      "Volledig gepersonaliseerd programma",
-      "Voedings- en herstelplan",
-      "Direct contact met Marlon",
-      "Flexibele planning",
-    ],
-    cta: "Plan een kennismaking",
-    popular: false,
   },
 ] as const;
 

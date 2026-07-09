@@ -2,7 +2,6 @@ import siteSettings from "./siteSettings";
 import openingHours from "./openingHours";
 import trainer from "./trainer";
 import offering from "./offering";
-import pricingTier from "./pricingTier";
 import faq from "./faq";
 import siteImages from "./siteImages";
 import yogaStyle from "./yogaStyle";
@@ -20,6 +19,9 @@ import yogaTeacher from "./yogaTeacher";
 // - crowdfundingSettings, crowdfundingTier — campagne vervangen door Early
 //   Member (/early-member); documenten blijven in de dataset voor de legacy
 //   checkout/webhook-routes, maar zijn niet meer bewerkbaar in Studio
+// - pricingTier  — alle prijzen komen nu uit tmc.membership_plan_catalogue
+//   en tmc.pricing_items (Supabase); documenten blijven in de dataset,
+//   opschonen is een aparte PR
 
 export const schemaTypes = [
   siteSettings,
@@ -27,7 +29,6 @@ export const schemaTypes = [
   openingHours,
   trainer,
   offering,
-  pricingTier,
   faq,
   yogaStyle,
   yogaTeacher,
