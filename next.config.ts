@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
         destination: "/early-member",
         permanent: true,
       },
+      {
+        // WS-4: /app/abonnement/nieuw is vervangen door de publieke
+        // /abonnement-configurator. Permanente redirect zodat oude links
+        // (bedankt-pagina, bookmarks) blijven werken; een ingelogd lid
+        // komt op /abonnement uit met identify overgeslagen.
+        source: "/app/abonnement/nieuw",
+        destination: "/abonnement",
+        permanent: true,
+      },
     ];
   },
   images: {

@@ -137,7 +137,7 @@ export default async function BedanktPage({
           )}
           {(status === "expired" || status === "cancelled") && (
             <Link
-              href="/app/abonnement/nieuw"
+              href="/abonnement"
               className="text-xs uppercase tracking-[0.25em] text-text-muted hover:text-accent transition-colors"
             >
               Opnieuw proberen →

@@ -191,7 +191,7 @@ export default async function AbonnementPage() {
             Zodra je een abonnement hebt lopen, vind je hier je plan, cycle en
             volgende incasso.
           </p>
-          <Button href="/app/abonnement/nieuw">Bekijk abonnementen</Button>
+          <Button href="/abonnement">Bekijk abonnementen</Button>
         </section>
         <div className="mt-14">
           <MembershipHistory items={historyItems} />

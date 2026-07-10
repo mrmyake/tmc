@@ -10,6 +10,7 @@ import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import type { CampaignPhase } from "@/lib/campaign";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
+import { OverstapLeadForm } from "./OverstapLeadForm";
 
 export interface EarlyMemberPricing {
   groepslessen: { twoX: number; threeX: number; unl: number };
@@ -538,9 +539,7 @@ export function EarlyMemberContent({
                   over de overgang vanaf je huidige abonnement, zodat je
                   nergens dubbel voor betaalt.
                 </p>
-                <Button href="/abonnement" variant="secondary" className="w-full">
-                  Bekijk het overstapaanbod
-                </Button>
+                <OverstapLeadForm />
               </div>
             </ScrollReveal>
             <ScrollReveal delay={0.1}>

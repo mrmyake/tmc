@@ -92,4 +92,10 @@ export const GROUPS = {
   // als MAILERLITE_INFO_GROUP_ID. Leeg = formulieren blijven werken en
   // vangen de lead, alleen (nog) zonder MailerLite group sync.
   INFO_INTERESTED: process.env.MAILERLITE_INFO_GROUP_ID ?? "",
+  // Overstap-aanvraag vanuit de /early-member overstapkaart. Admin-mediated
+  // (de inschrijfkosten-waiver leeft alleen in admin_create_order), dus dit
+  // is een lead, geen self-service /abonnement-checkout. Zet in .env.local
+  // en Vercel als MAILERLITE_OVERSTAP_GROUP_ID. Leeg = lead wordt nog
+  // steeds gevangen (ntfy-alert), alleen zonder MailerLite group sync.
+  OVERSTAP: process.env.MAILERLITE_OVERSTAP_GROUP_ID ?? "",
 } as const;
