@@ -184,6 +184,8 @@ export function ConfigureStage({
         </p>
       )}
 
+      {/* Hidden while EM is open by design: mutual exclusivity plus
+          pre-launch flexibility-first, returns after the EM deadline. */}
       {breakdown.commit24mAvailable && breakdown.commit24mDiscountPercent && (
         <label className="flex items-start gap-2.5 mb-6 text-sm text-text cursor-pointer select-none">
           <input

@@ -71,6 +71,9 @@ export function computeBreakdown(params: {
     plan.early_member_price_cents !== null &&
     plan.early_member_price_cents !== plan.price_cents;
 
+  // 24m is deliberately unavailable while EM is open (mutual exclusivity
+  // plus pre-launch flexibility-first); it returns once the EM deadline
+  // passes and emActive flips false. Not a bug, do not "fix" this.
   const commit24mAvailable = !emOpen && plan.price_cents_24m_computed !== null;
   const applyCommit24m = commit24m && commit24mAvailable;
 
