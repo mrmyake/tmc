@@ -645,7 +645,7 @@ async function checkInForProfile(input: {
     const { data: memberships } = await admin
       .from("memberships")
       .select(
-        "covered_pillars, status, plan_type, credits_remaining, frequency_cap",
+        "covered_pillars, status, plan_type, credits_remaining, credits_expires_at, frequency_cap",
       )
       .eq("profile_id", input.profileId)
       // cancellation_requested = opgezegd maar nog binnen de opzegtermijn:
@@ -659,10 +659,14 @@ async function checkInForProfile(input: {
       accessType = "membership";
       coveringFrequencyCap = covers.frequency_cap ?? null;
     } else {
+      // Kaart moet op het check-in-moment geldig zijn (expiry-besluit
+      // 2026-07-10); zelfde UTC-datum als current_date op de DB.
+      const todayUtc = new Date().toISOString().slice(0, 10);
       const credit = (memberships ?? []).find(
         (m) =>
           m.plan_type === "ten_ride_card" &&
-          (m.credits_remaining ?? 0) > 0,
+          (m.credits_remaining ?? 0) > 0 &&
+          (!m.credits_expires_at || m.credits_expires_at >= todayUtc),
       );
       accessType = credit ? "credit" : "drop_in";
     }
@@ -769,6 +773,7 @@ async function decrementCredit(
   actorId: string | null,
 ): Promise<void> {
   const admin = createAdminClient();
+  const todayUtc = new Date().toISOString().slice(0, 10);
   const { data } = await admin
     .from("memberships")
     .select("id")
@@ -776,6 +781,8 @@ async function decrementCredit(
     .eq("plan_type", "ten_ride_card")
     .eq("status", "active")
     .gt("credits_remaining", 0)
+    // Zelfde expiry-regel als de accessType-resolutie en de RPC-debit-tak.
+    .or(`credits_expires_at.is.null,credits_expires_at.gte.${todayUtc}`)
     .limit(1)
     .maybeSingle();
   if (!data) {

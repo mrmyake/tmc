@@ -15,6 +15,8 @@ export interface CanBookMembership {
   plan_type: string;
   frequency_cap: number | null;
   credits_remaining: number | null;
+  /** Optioneel voor bestaande callers; ontbreekt = geen vervaldatum. */
+  credits_expires_at?: string | null;
 }
 
 export interface CanBookProfile {
@@ -184,10 +186,15 @@ export function canBook(params: {
     };
   }
 
+  // Parity met book_class_session: kaart moet op het boekmoment geldig
+  // zijn (expiry-besluit 2026-07-10); zelfde UTC-datum als current_date
+  // op de DB.
+  const todayUtc = new Date().toISOString().slice(0, 10);
   const tenRideCard = memberships.find(
     (m) =>
       (m.plan_type satisfies string as PlanType) === "ten_ride_card" &&
       (m.credits_remaining ?? 0) > 0 &&
+      (!m.credits_expires_at || m.credits_expires_at >= todayUtc) &&
       planCovers("ten_ride_card", session.pillar),
   );
   if (tenRideCard) {
