@@ -164,7 +164,7 @@ export async function addCredits(
 
   const { data: membership } = await admin
     .from("memberships")
-    .select("id, profile_id, credits_remaining")
+    .select("id, profile_id")
     .eq("id", input.membershipId)
     .maybeSingle();
 
@@ -173,16 +173,31 @@ export async function addCredits(
     return { ok: false, message: "Abonnement hoort niet bij dit lid." };
   }
 
-  const previous = membership.credits_remaining ?? 0;
-  const next = Math.max(0, previous + input.delta);
+  // Mutatie via de RPC-laag onder row lock; die schrijft zelf het
+  // credits.adjusted-event in dezelfde transactie. Geen stille clamp
+  // meer: te veel aftrekken wordt geweigerd i.p.v. op 0 afgekapt.
+  const { data: result, error } = await admin.rpc("adjust_membership_credits", {
+    p_membership_id: input.membershipId,
+    p_delta: input.delta,
+    p_reason: input.reason.trim(),
+    p_source: "manual",
+    p_actor_type: "admin",
+    p_actor_id: auth.userId,
+  });
 
-  const { error } = await admin
-    .from("memberships")
-    .update({ credits_remaining: next })
-    .eq("id", input.membershipId);
+  const adjusted = result as {
+    ok?: boolean;
+    reason?: string;
+    previous_balance?: number;
+    new_balance?: number;
+  } | null;
 
-  if (error) {
-    console.error("[addCredits] update failed", error);
+  if (error || !adjusted?.ok) {
+    if (adjusted?.reason === "insufficient_credits") {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Onvoldoende saldo voor deze aftrek." };
+    }
+    console.error("[addCredits] adjust_membership_credits", error ?? adjusted);
     return { ok: false, message: "Credits aanpassen lukte niet." };
   }
 
@@ -194,32 +209,16 @@ export async function addCredits(
     details: {
       membership_id: input.membershipId,
       delta: input.delta,
-      previous_balance: previous,
-      new_balance: next,
+      previous_balance: adjusted.previous_balance,
+      new_balance: adjusted.new_balance,
       reason: input.reason.trim(),
-    },
-  });
-
-  await emitEvent({
-    type: "credits.adjusted",
-    actorType: "admin",
-    actorId: auth.userId,
-    subjectType: "membership",
-    subjectId: input.membershipId,
-    payload: {
-      profile_id: input.profileId,
-      membership_id: input.membershipId,
-      delta: input.delta,
-      previous_balance: previous,
-      new_balance: next,
-      source: "manual",
     },
   });
 
   revalidateDetail(input.profileId);
   return {
     ok: true,
-    message: `Credits aangepast. Nieuw saldo: ${next}.`,
+    message: `Credits aangepast. Nieuw saldo: ${adjusted.new_balance}.`,
   };
 }
 

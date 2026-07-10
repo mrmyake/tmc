@@ -371,13 +371,50 @@ export async function undoCheckIn(checkInId: string): Promise<
     return { ok: false, message: FAIL_COPY.unauthorized };
   }
   const admin = createAdminClient();
-  // Lees profile/session vóór de delete zodat de event-payload de member- en
-  // sessie-filter blijft bedienen.
+  // Lees profile/session/access_type vóór de delete zodat de event-payload
+  // de member- en sessie-filter blijft bedienen én een credit-check-in zijn
+  // rit terugkrijgt.
   const { data: ci } = await admin
     .from("check_ins")
-    .select("profile_id, session_id")
+    .select("profile_id, session_id, access_type")
     .eq("id", checkInId)
     .maybeSingle();
+
+  // Credit-check-in: eerst de rit terugboeken via de RPC-laag, dan pas de
+  // rij verwijderen. Faalt de refund, dan blijft de check-in staan zodat
+  // saldo en registratie nooit uiteenlopen.
+  if (ci?.access_type === "credit" && ci.profile_id) {
+    const { data: card } = await admin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", ci.profile_id)
+      .eq("plan_type", "ten_ride_card")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!card) {
+      console.error("[undoCheckIn] geen rittenkaart om op terug te boeken", {
+        checkInId,
+      });
+      return { ok: false, message: FAIL_COPY.db_error };
+    }
+    const { data: refund, error: refundErr } = await admin.rpc(
+      "adjust_membership_credits",
+      {
+        p_membership_id: card.id,
+        p_delta: 1,
+        p_reason: "Check-in ongedaan gemaakt", // COPY: confirm met Marlon
+        p_source: "refund",
+        p_actor_type: authCheck.userId ? "admin" : "tablet",
+        p_actor_id: authCheck.userId,
+      },
+    );
+    if (refundErr || !(refund as { ok?: boolean } | null)?.ok) {
+      console.error("[undoCheckIn] credit-refund faalde", refundErr ?? refund);
+      return { ok: false, message: FAIL_COPY.db_error };
+    }
+  }
+
   const { error } = await admin.from("check_ins").delete().eq("id", checkInId);
   if (error) {
     console.error("[undoCheckIn] delete", error);
@@ -675,11 +712,6 @@ async function checkInForProfile(input: {
     return fail("db_error");
   }
 
-  // Credit-decrement voor ten-ride-kaart
-  if (accessType === "credit") {
-    await decrementCredit(input.profileId);
-  }
-
   // Actor: self-tablet = het lid zelf; admin_tablet = kiosk (PIN); admin_web =
   // ingelogde staff. Precieze provenance staat op de check_ins-rij zelf.
   const actorType: ActorType =
@@ -692,6 +724,14 @@ async function checkInForProfile(input: {
     input.method === "self_tablet"
       ? input.profileId
       : (input.checkedInByProfileId ?? null);
+
+  // Credit-decrement voor ten-ride-kaart, via de RPC-laag onder row lock
+  // (adjust_membership_credits). De RPC schrijft zelf het
+  // credits.adjusted-event in dezelfde transactie.
+  if (accessType === "credit") {
+    await decrementCredit(input.profileId, actorType, actorId);
+  }
+
   await emitEvent({
     type: "checkin.recorded",
     actorType,
@@ -723,22 +763,43 @@ async function checkInForProfile(input: {
   };
 }
 
-async function decrementCredit(profileId: string): Promise<void> {
+async function decrementCredit(
+  profileId: string,
+  actorType: ActorType,
+  actorId: string | null,
+): Promise<void> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("memberships")
-    .select("id, credits_remaining")
+    .select("id")
     .eq("profile_id", profileId)
     .eq("plan_type", "ten_ride_card")
     .eq("status", "active")
     .gt("credits_remaining", 0)
     .limit(1)
     .maybeSingle();
-  if (!data) return;
-  await admin
-    .from("memberships")
-    .update({ credits_remaining: (data.credits_remaining ?? 1) - 1 })
-    .eq("id", data.id);
+  if (!data) {
+    // De check-in-rij is al met access_type 'credit' weggeschreven;
+    // zonder kaart om af te boeken lopen saldo en registratie uiteen.
+    console.error("[decrementCredit] geen actieve rittenkaart met saldo", {
+      profileId,
+    });
+    return;
+  }
+  // De RPC lockt de rij en weigert bij onvoldoende saldo; de race waarin
+  // een andere transactie de kaart net leegtrok verliest hier dus hooguit
+  // met een nette reason, nooit met een lost update.
+  const { data: result, error } = await admin.rpc("adjust_membership_credits", {
+    p_membership_id: data.id,
+    p_delta: -1,
+    p_reason: "Check-in rittenkaart",
+    p_source: "check_in",
+    p_actor_type: actorType,
+    p_actor_id: actorId,
+  });
+  if (error || !(result as { ok?: boolean } | null)?.ok) {
+    console.error("[decrementCredit] adjust_membership_credits", error ?? result);
+  }
 }
 
 /**
