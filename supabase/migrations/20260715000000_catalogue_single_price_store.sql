@@ -28,6 +28,63 @@
 begin;
 
 -- ---------------------------------------------------------------------------
+-- 0. Replay-reconstructie van de runtime-bronnen (edit 2026-07-10, na de
+--    oorspronkelijke toepassing; zie onder waarom dit veilig is).
+--
+--    De booking_settings-singleton en het merendeel van de mpc-rijen
+--    (vrij_trainen, kids, senior, all_inclusive_3x/unl) zijn destijds op de
+--    remote via de app/admin aangemaakt, nooit door een migratie. Op elke
+--    database waar deze migratie al draaide bestaan die rijen, en zijn de
+--    inserts hieronder no-ops (ON CONFLICT DO NOTHING): de uitkomst van deze
+--    migratie verandert daar met geen byte. Op een verse from-scratch replay
+--    (shadow database voor db diff, lokale stack) bestonden ze niet, waardoor
+--    de pre-seed asserts afketsten en de seeds hieronder lege bronnen lazen.
+--    Dit blok reconstrueert exact de bronstaat die deze migratie op
+--    2026-07-15 op productie aantrof (waarden 1:1 verifieerbaar tegen de
+--    live tmc.catalogue, die eruit geseed is), zodat de asserts hun volle
+--    beschermende werking houden en de keten weer from-scratch afspeelbaar
+--    is t/m de huidige kop.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "tmc"."booking_settings" (
+  "id", "registration_fee_cents", "drop_in_yoga_cents", "drop_in_kids_cents",
+  "drop_in_senior_cents", "ten_ride_card_cents", "kids_ten_ride_card_cents",
+  "senior_ten_ride_card_cents", "ten_ride_card_validity_months",
+  "extended_access_price_cents"
+)
+VALUES ('singleton', 3900, 1700, 1300, 1300, 15000, 11000, 11000, 4, 1000)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "tmc"."membership_plan_catalogue"
+  ("plan_type", "plan_variant", "display_name", "frequency_cap", "age_category",
+   "price_per_cycle_cents", "billing_cycle_weeks", "commit_months",
+   "covered_pillars", "display_order", "early_member_price_cents", "is_active")
+VALUES
+  ('vrij_trainen', 'vrij_trainen_2x', 'Vrij Trainen 2×/wk', 2, 'adult',
+   4900, 4, 12, ARRAY['vrij_trainen'], 10, NULL, true),
+  ('vrij_trainen', 'vrij_trainen_3x', 'Vrij Trainen 3×/wk', 3, 'adult',
+   5900, 4, 12, ARRAY['vrij_trainen'], 11, NULL, true),
+  ('vrij_trainen', 'vrij_trainen_unl', 'Vrij Trainen Onbeperkt', NULL, 'adult',
+   6900, 4, 12, ARRAY['vrij_trainen'], 12, NULL, true),
+  ('all_inclusive', 'all_inclusive_3x', 'All Access 3×/wk', 3, 'adult',
+   12900, 4, 12, ARRAY['vrij_trainen', 'yoga_mobility', 'kettlebell'], 40, NULL, true),
+  ('all_inclusive', 'all_inclusive_unl', 'All Access Onbeperkt', NULL, 'adult',
+   14900, 4, 12, ARRAY['vrij_trainen', 'yoga_mobility', 'kettlebell'], 41, 13900, true),
+  ('kids', 'kids_1x', 'Kids 1×/wk', 1, 'kids',
+   4500, 4, 12, ARRAY['kids'], 50, NULL, true),
+  ('kids', 'kids_2x', 'Kids 2×/wk', 2, 'kids',
+   7500, 4, 12, ARRAY['kids'], 51, NULL, true),
+  ('kids', 'kids_unl', 'Kids Onbeperkt (4×)', NULL, 'kids',
+   9500, 4, 12, ARRAY['kids'], 52, NULL, true),
+  ('senior', 'senior_1x', 'Senior 1×/wk', 1, 'senior',
+   4500, 4, 12, ARRAY['senior'], 60, NULL, true),
+  ('senior', 'senior_2x', 'Senior 2×/wk', 2, 'senior',
+   7500, 4, 12, ARRAY['senior'], 61, NULL, true),
+  ('senior', 'senior_unl', 'Senior Onbeperkt (5×)', NULL, 'senior',
+   9900, 4, 12, ARRAY['senior'], 62, NULL, true)
+ON CONFLICT ("plan_variant") DO NOTHING;
+
+-- ---------------------------------------------------------------------------
 -- 1. tmc.catalogue
 -- ---------------------------------------------------------------------------
 
