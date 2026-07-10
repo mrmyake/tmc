@@ -13,7 +13,7 @@
 // Cache-versionering: handmatig, geen build-time manifest. Bump
 // CACHE_VERSION bij elke materiële wijziging aan de caching-logica; oude
 // caches worden in `activate` opgeruimd.
-const CACHE_VERSION = "tmc-pwa-v2";
+const CACHE_VERSION = "tmc-pwa-v3";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;

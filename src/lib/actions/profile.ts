@@ -90,7 +90,6 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
 
     revalidatePath("/app/profiel");
     revalidatePath("/app");
-    revalidatePath("/app/abonnement/nieuw");
     return { ok: true };
   } catch (e) {
     console.error("[updateProfile]", e);
@@ -99,29 +98,35 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
 }
 
 /**
- * Dedicated action for the sign-up flow — requires all three address fields.
- * Used by /app/abonnement/nieuw before plan selection unlocks.
+ * Dedicated action for the /abonnement Stage 2 identify step: requires
+ * name, phone and address together (SEPA + createOrderAndCheckout need
+ * first_name/last_name; address is required as a set, same validation
+ * shape the old /nieuw AddressGate used for address alone).
  */
-export async function saveRegistrationAddress(
-  data: FormData,
-): Promise<ActionResult> {
+export async function saveIdentityDetails(data: FormData): Promise<ActionResult> {
   try {
     const { userId, supabase } = await getUserIdOrThrow();
 
+    const first = String(data.get("first_name") ?? "").trim();
+    const last = String(data.get("last_name") ?? "").trim();
+    const phone = String(data.get("phone") ?? "").trim();
     const street = String(data.get("street_address") ?? "").trim();
     const postal = String(data.get("postal_code") ?? "").trim();
     const city = String(data.get("city") ?? "").trim();
 
-    if (!street || !postal || !city) {
+    if (!first || !last || !phone || !street || !postal || !city) {
       return {
         ok: false,
-        error: "Vul straat, postcode en plaats in om door te gaan.",
+        error: "Vul je naam, telefoon en adres in om door te gaan.",
       };
     }
 
     const { error } = await supabase
       .from("profiles")
       .update({
+        first_name: first,
+        last_name: last,
+        phone,
         street_address: street,
         postal_code: postal,
         city,
@@ -129,15 +134,14 @@ export async function saveRegistrationAddress(
       .eq("id", userId);
 
     if (error) {
-      console.error("[saveRegistrationAddress]", error);
+      console.error("[saveIdentityDetails]", error);
       return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
     }
 
-    revalidatePath("/app/abonnement/nieuw");
     revalidatePath("/app/profiel");
     return { ok: true };
   } catch (e) {
-    console.error("[saveRegistrationAddress]", e);
+    console.error("[saveIdentityDetails]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }
