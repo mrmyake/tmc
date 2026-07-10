@@ -33,7 +33,9 @@ const PT_REASON_COPY: Record<string, string> = {
   session_unavailable: "Deze sessie is niet meer beschikbaar.",
   session_in_past: "Deze sessie is al voorbij.",
   profile_not_found: "Profiel niet gevonden.",
-  no_credits: "Geen PT-pakket met beschikbare credits gevonden.",
+  no_credits: "Geen passend PT-pakket met beschikbare credits gevonden.",
+  format_not_supported:
+    "Deze sessie kan niet met een rittenkaart geboekt worden.", // COPY: confirm met Marlon
   already_booked: "Je hebt deze sessie al geboekt.",
 };
 

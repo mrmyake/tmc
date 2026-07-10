@@ -39,6 +39,8 @@ const REASON_COPY: Record<string, string> = {
   extended_access_not_available:
     "Verlengde toegang is niet beschikbaar op dit abonnement.",
   invalid_product_options: "Deze opties zijn niet geldig voor dit product.",
+  product_not_supported:
+    "Dit product is niet online te koop. Neem contact met ons op.", // COPY: confirm met Marlon
   existing_membership: "Je hebt al een actief abonnement.",
   existing_open_order:
     "Je hebt al een openstaande aanmelding. Rond die eerst af.",

@@ -54,10 +54,12 @@ async function notifyMemberPaymentFailed(args: {
  * eigen flow heeft.
  *
  * Handled:
- *  - payment.paid + sequenceType=first + metadata.type='order' → de order
- *    pipeline (WS-2): tmc.activate_order() (service-role only, idempotent
- *    onder een rijlock) activeert de order, daarna bij een subscription-
- *    order de Mollie-subscription voor recurring.
+ *  - payment.paid + sequenceType=first|oneoff + metadata.type='order' → de
+ *    order pipeline (WS-2): tmc.activate_order() (service-role only,
+ *    idempotent onder een rijlock) activeert de order, daarna bij een
+ *    subscription-order de Mollie-subscription voor recurring; een
+ *    product-order (oneoff, geen mandaat) crediteert de rittenkaart/het
+ *    PT-pakket.
  *  - payment.paid + sequenceType=recurring → log payment, reactiveer bij
  *    een eerder mislukte incasso
  *  - payment.failed/expired/canceled op recurring → status='payment_failed',
@@ -216,13 +218,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Order pipeline: first payment → activate_order (service-role only,
-    // idempotent onder een rijlock in tmc.activate_order()). Alleen
-    // aangeroepen op status 'paid': op failed/expired/canceled blijft de
-    // order gewoon 'pending' staan (opnieuw betaalbaar tot expires_at,
-    // zie ws2-order-pipeline-design.md §4), geen statuswijziging nodig.
+    // Order pipeline: first payment (subscription, sequenceType=first) of
+    // product-betaling (oneoff, geen mandaat) → activate_order
+    // (service-role only, idempotent onder een rijlock in
+    // tmc.activate_order()). Alleen aangeroepen op status 'paid': op
+    // failed/expired/canceled blijft de order gewoon 'pending' staan
+    // (opnieuw betaalbaar tot expires_at, zie ws2-order-pipeline-design.md
+    // §4), geen statuswijziging nodig.
     if (
-      payment.sequenceType === SequenceType.first &&
+      (payment.sequenceType === SequenceType.first ||
+        payment.sequenceType === SequenceType.oneoff) &&
       type === "order" &&
       orderId
     ) {
@@ -280,7 +285,7 @@ export async function POST(request: Request) {
 
       if (!activation.already_activated) {
         await sendNotification(
-          "Nieuw abonnement!",
+          activation.needs_subscription ? "Nieuw abonnement!" : "Product verkocht!",
           `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
           "tada,moneybag"
         );
