@@ -197,6 +197,10 @@ export async function addCredits(
       // COPY: confirm met Marlon
       return { ok: false, message: "Onvoldoende saldo voor deze aftrek." };
     }
+    if (adjusted?.reason === "credits_expired") {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Deze kaart is verlopen." };
+    }
     console.error("[addCredits] adjust_membership_credits", error ?? adjusted);
     return { ok: false, message: "Credits aanpassen lukte niet." };
   }
