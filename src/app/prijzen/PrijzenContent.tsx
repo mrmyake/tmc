@@ -592,7 +592,11 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   1 jaar, daarna maandelijks (per 4 weken) opzegbaar
                 </span>
               </li>
-              {pricing.commit24mDiscountPercent !== null && (
+              {/* Verborgen tijdens een open EM-fase: zelfde regel als
+                  /abonnement (EM en 24m zijn mutually exclusive), komt
+                  terug zodra pricing.earlyMember.active false is. */}
+              {pricing.commit24mDiscountPercent !== null &&
+                !pricing.earlyMember.active && (
                 <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
                   {/* COPY: confirm met Marlon */}
                   <span className="text-text-muted text-sm">
