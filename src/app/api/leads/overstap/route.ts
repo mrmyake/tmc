@@ -17,7 +17,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    await Promise.all([
+    // allSettled, niet all: de ntfy-staffalert is de gegarandeerde weg (een
+    // mens die het ziet), MailerLite-grouping is best-effort. Met
+    // Promise.all zou een afgewezen addSubscriber() de hele request
+    // 500'en en, in een serverless runtime, de functie kunnen bevriezen
+    // vóórdat de ntfy-fetch klaar is, waardoor de staff-alert alsnog
+    // verloren gaat.
+    const [mailerliteResult, ntfyResult] = await Promise.allSettled([
       addSubscriber({
         email: data.email,
         name: data.name,
@@ -33,6 +39,14 @@ export async function POST(request: Request) {
         "arrows_counterclockwise",
       ),
     ]);
+
+    if (mailerliteResult.status === "rejected") {
+      console.error("[API /leads/overstap] mailerlite", mailerliteResult.reason);
+    }
+    if (ntfyResult.status === "rejected") {
+      console.error("[API /leads/overstap] ntfy", ntfyResult.reason);
+      return NextResponse.json({ error: "Server error" }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (e) {
