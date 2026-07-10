@@ -671,36 +671,43 @@ export async function refundCredit(
     };
   }
 
-  const { data: membership } = await admin
-    .from("memberships")
-    .select("id, credits_remaining")
-    .eq("id", booking.membership_id)
-    .maybeSingle();
+  // Refund via de RPC-laag: lockt membership én boeking, zet
+  // bookings.credits_used atomair op 0 (dubbel-refund geeft
+  // already_refunded) en schrijft het credits.adjusted-event in
+  // dezelfde transactie.
+  const { data: result, error: rpcErr } = await admin.rpc(
+    "adjust_membership_credits",
+    {
+      p_membership_id: booking.membership_id,
+      p_delta: booking.credits_used,
+      p_reason: trimmed,
+      p_source: "refund",
+      p_actor_type: "admin",
+      p_actor_id: user.id,
+      p_booking_id: booking.id,
+    },
+  );
 
-  if (!membership) {
-    return { ok: false, message: "Abonnement niet gevonden." };
-  }
+  const adjusted = result as {
+    ok?: boolean;
+    reason?: string;
+    previous_balance?: number;
+    new_balance?: number;
+  } | null;
 
-  const newBalance =
-    (membership.credits_remaining ?? 0) + booking.credits_used;
-
-  const { error: mErr } = await admin
-    .from("memberships")
-    .update({ credits_remaining: newBalance })
-    .eq("id", membership.id);
-
-  if (mErr) {
-    console.error("[refundCredit] membership update failed", mErr);
+  if (rpcErr || !adjusted?.ok) {
+    if (adjusted?.reason === "already_refunded") {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Deze boeking is al terugbetaald." };
+    }
+    if (adjusted?.reason === "not_found") {
+      return { ok: false, message: "Abonnement niet gevonden." };
+    }
+    console.error(
+      "[refundCredit] adjust_membership_credits",
+      rpcErr ?? adjusted,
+    );
     return { ok: false, message: "Credit terugzetten lukte niet." };
-  }
-
-  // Mark the credit as no longer attributed to this booking — refund is final.
-  const { error: bErr } = await admin
-    .from("bookings")
-    .update({ credits_used: 0 })
-    .eq("id", booking.id);
-  if (bErr) {
-    console.error("[refundCredit] booking update failed", bErr);
   }
 
   const { error: logErr } = await admin.from("admin_audit_log").insert({
@@ -711,31 +718,14 @@ export async function refundCredit(
     details: {
       reason: trimmed,
       credits: booking.credits_used,
-      membership_id: membership.id,
-      previous_balance: membership.credits_remaining,
-      new_balance: newBalance,
+      membership_id: booking.membership_id,
+      previous_balance: adjusted.previous_balance,
+      new_balance: adjusted.new_balance,
     },
   });
   if (logErr) {
     console.error("[refundCredit] audit log failed", logErr);
   }
-
-  await emitEvent({
-    type: "credits.adjusted",
-    actorType: "admin",
-    actorId: user.id,
-    subjectType: "membership",
-    subjectId: membership.id,
-    payload: {
-      profile_id: booking.profile_id,
-      membership_id: membership.id,
-      delta: booking.credits_used,
-      previous_balance: membership.credits_remaining,
-      new_balance: newBalance,
-      source: "refund",
-      booking_id: bookingId,
-    },
-  });
 
   if (booking.session_id) {
     revalidatePath(`/app/admin/sessies/${booking.session_id}`);
@@ -743,6 +733,6 @@ export async function refundCredit(
 
   return {
     ok: true,
-    message: `Credit teruggezet. Nieuw saldo: ${newBalance}.`,
+    message: `Credit teruggezet. Nieuw saldo: ${adjusted.new_balance}.`,
   };
 }

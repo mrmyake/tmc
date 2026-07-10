@@ -178,21 +178,32 @@ export async function adminCancelSession(
 
   const affected = bookings ?? [];
 
-  // Refund credits for any bookings that used them.
+  // Refund credits for any bookings that used them, per boeking via de
+  // RPC-laag: lockt membership plus boeking, zet credits_used atomair op
+  // 0 (een retry van deze actie geeft already_refunded en refundt dus
+  // nooit dubbel) en schrijft het credits.adjusted-event mee. Eén
+  // mislukte refund blokkeert de annulering van de sessie niet.
   for (const b of affected) {
     if (!b.membership_id || !b.credits_used || b.credits_used <= 0) continue;
-    const { data: m } = await admin
-      .from("memberships")
-      .select("credits_remaining")
-      .eq("id", b.membership_id)
-      .maybeSingle();
-    if (!m) continue;
-    await admin
-      .from("memberships")
-      .update({
-        credits_remaining: (m.credits_remaining ?? 0) + b.credits_used,
-      })
-      .eq("id", b.membership_id);
+    const { data: result, error } = await admin.rpc(
+      "adjust_membership_credits",
+      {
+        p_membership_id: b.membership_id,
+        p_delta: b.credits_used,
+        p_reason: `Sessie geannuleerd: ${reason}`,
+        p_source: "session_cancelled",
+        p_actor_type: "admin",
+        p_actor_id: auth.userId,
+        p_booking_id: b.id,
+      },
+    );
+    if (error || !(result as { ok?: boolean } | null)?.ok) {
+      console.error(
+        "[adminCancelSession] credit-refund faalde",
+        b.id,
+        error ?? result,
+      );
+    }
   }
 
   const nowIso = new Date().toISOString();
