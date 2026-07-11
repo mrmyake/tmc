@@ -149,10 +149,18 @@ export async function createOrderAndCheckout(
     // Subscription: sequenceType 'first' captureert het SEPA-mandaat samen
     // met de eerste betaling. Product: gewone oneoff-betaling, geen mandaat.
     const amountValue = (firstChargeCents / 100).toFixed(2);
+    // Redirect na Mollie-checkout: subscriptions blijven op de bestaande
+    // bedankt-pagina (ongewijzigd gedrag); een product-order landt op Mijn
+    // tegoed, waar het nieuwe saldo verschijnt zodra de webhook
+    // activate_order heeft laten lopen. isSubscription is al hierboven
+    // berekend uit orderResult.recurring_cents (WS-2), geen nieuw veld.
+    const redirectUrl = isSubscription
+      ? `${siteUrl()}/app/abonnement/bedankt?order=${orderId}`
+      : `${siteUrl()}/app/producten?tab=tegoed`;
     const payment = await mollie.payments.create({
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,
-      redirectUrl: `${siteUrl()}/app/abonnement/bedankt?order=${orderId}`,
+      redirectUrl,
       webhookUrl: mollieWebhookUrl(),
       customerId: mollieCustomerId,
       ...(isSubscription ? { sequenceType: SequenceType.first } : {}),
