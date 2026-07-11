@@ -37,32 +37,54 @@ Keep this current as workstreams land. The whole effort is not done until the fi
 
 **Trigger, not a memory:** after each workstream that repoints a reader, re-run the grep. When it returns zero, Migration B is unblocked. That is the measurable signal to push B; nothing here relies on remembering.
 
-### Git and deploy ledger (derived from session reports, verify in the repo)
+### WS-ledger (huidige staat)
 
-This is a convenience record built from what each session reports; it is **not** ground truth. The authoritative sources are the repo (`git log`, `gh pr list`) and `supabase migration list --linked`. The Migration B gate is the grep, not this ledger.
+Bijgewerkt 2026-07-11, geverifieerd tegen de live git-staat (`gh pr list`, `git log`). Regel: elke PR werkt deze ledger bij als onderdeel van zijn definition of done, geverifieerd tegen git. De authoritative bronnen blijven de repo en `supabase migration list --linked`; deze ledger is het overzicht, niet de waarheid.
 
-Confirmed state (stap 1, verified 2026-07-09 against the repo):
-- `main` = `5e91c6f`, PR #68. Everything through #68 is merged: the catalogue single source (#68), `/prijzen` and `/early-member` on the catalogue (#65), the Early Member rebuild (#66), nav and deadline wiring (#67), groepslessen consolidation (#61), PT single-tier (#62), 12-weken (#63), all-access rename (#64). So the WS-1, WS-3, and `/early-member` work is all on `main`, not floating uncommitted.
-- PR #69 (`feat/order-pipeline-cutover`) is MERGED to `main` (`710870e`): the WS-2 cutover (startSignup deletion, webhook to `activate_order`, `trial-booking.ts` repoint, bedankt page to `?order=`, expire-orders cron, `orders.blocked_reason`). Money-test result not yet confirmed to Claude, see stap 2.
-- Migrations `20260503` and `20260706000000` through `20260718000000` are all local equals remote. #69's migration (`20260718`) is already applied to the remote, so the DB is ahead of `main`'s code, the expected additive state.
-- **`spec-membership-flow.md` and `ws0-reconciliation-report.md` are UNTRACKED in the working tree.** The plan is not in git. Commit them so the effort survives a working-tree clean. The iOS project change and the mockup HTML files are separate untracked clutter, Ilja's call.
+#### Fasering (afgesproken 2026-07-10)
 
-Honest note on this ledger: the repo history is richer than the earlier linear WS-narrative implied (66 PRs, feature-branch names like `feat/groepslessen-plan-consolidation` rather than WS-labels), and some earlier ledger details (specific migration filenames) were reconstructions from session reports, the migration list shows only timestamps. This confirmed block plus the repo and `supabase migration list --linked` are the ground truth; the WS-labels are a planning overlay.
+- **Fase 1**: prijzen, abonnementen, credits en regels overal uniform en werkend met de standaard boek- en koop-pagina's. Early Member NERGENS actief toegepast (de bestaande phase-gating blijft wel staan en klapt vanzelf aan bij opening).
+- **Fase 2**: Early Member als laag erbovenop, pas nadat fase 1 getest is.
+- Klantbeheer (adres bijwerken, pauzeren, stopzetten) is een APARTE admin-workstream na WS-5, met eigen discovery en eigen Fable-stukken (mandaat-wijziging). Niet in WS-5.
 
-Pending / not yet done:
-- PR #69 test cleanup: IN PROGRESS (Sonnet prompt issued) to remove the test order/membership/payment rows from the production Supabase, with an identify-and-stop before any delete. Separately, Ilja re-enables Deployment Protection in Vercel (his action, not CC's), and clears any test-only Mollie subscription/customer in the Mollie test dashboard.
-Pending / not yet done (price-consolidation track is COMPLETE; these are what remains around and after it):
-- PR #69 test cleanup: confirm the test order/membership/payment rows are removed from the production Supabase, Deployment Protection is re-enabled, and any test-only Mollie subscription/customer is cleared.
-- Overstap CTA integrity (open item, WS-4/WS-5): the `/early-member` overstap card promises "geen inschrijfkosten" but only `admin_create_order` applies the waiver, so self-service would charge it. Route overstap through Marlon (card CTA becomes aanvraag/contact) or add a verified self-service overstap path.
-- The customer-facing booking experience on top of the now-live pipeline: `/abonnement` public booking page and the configurator (WS-4) are not built yet, and `/app/abonnement/nieuw` still lives as the old checkout page to be replaced. Admin Nieuw-lid wizard UI (WS-5) sits on `admin_create_order` and the MailerSend link, both already built in the pipeline.
+#### Gereed / gemerged
 
-Migration B (stap 5) is live: `20260720000000_migration_b_drop_legacy_price_stores.sql`, merge `61f51c8`, production serving it, homepage and `/prijzen` rendering catalogue prices.
+- **WS-0 t/m WS-3**: gereed (auth/OTP, check-in hard cap + release cron, class-types via admin cockpit, schema-baseline PR #49).
+- **WS-2 (order-pijplijn)**: gemerged (PR #69, merge `710870e`). create_order / createOrderAndCheckout / activate_order zijn de spine; single-order-path DB-afgedwongen. De volledige Mollie-round-trip is end-to-end geverifieerd op een preview met live env; de testdata is daarna uit productie verwijderd.
+- **Prijs-consolidatie**: LIVE. PT/Duo naar 10 ritten (PR #70, `c9862b0`, migratie `20260719`), /prijzen-fallback weg (PR #71, `ab6c0bf`), Migratie B (PR #72, merge `61f51c8`, migratie `20260720`): pricing_items / membership_plan_catalogue / booking_settings-prijskolommen gedropt; tmc.catalogue is de enige prijsbron. Display-equals-charge is structureel.
+- **WS-4 (publieke /abonnement boekflow)**: gemerged (PR #73, merge `b2112ae`). Configure / Identify / Pay. Oude /app/abonnement/nieuw verwijderd + 308-redirect naar /abonnement. Product-RPC-reparaties in PR #74 (`d892f66`).
+- **WS-4 configurator-ombouw naar toggle-mockup**: gemerged (PR #78, merge `b78b667`). Plus-30 als zichtbare toggle (rij-wissel naar all_inclusive_*), All Access als eigen uitgelichte kaart, 7 kaarten in grid, globale 12/24-toggle. Phase-gate en EM-logica woordelijk ongemoeid (computeBreakdown, "Not a bug, do not fix this").
+- **Credit-integriteit (fundament onder WS-6)**: gemerged.
+  - PR #75 (`a60c77c`): adjust_membership_credits RPC onder row lock + credits.adjusted-audit; alle vier de TS-schrijvers (check-in, admin-saldo, attendance-refund, sessie-annulering-cascade) erdoorheen; undoCheckIn refundt-eerst-dan-delete; constraint credits_remaining >= 0.
+  - PR #76 (`89366a6`): replay-fix (20260715 sectie-0 reconstrueert de bronstaat met ON CONFLICT DO NOTHING; keten weer from-scratch afspeelbaar; db diff werkt weer).
+  - PR #77 (`c4f3cba`): expiry-handhaving (20260723) over alle vijf debit-paden; debit weigert credits_expired; refunds mogen op een verlopen kaart; vervaldag telt als geldig.
+- **WS-5 PR A (betaallink-fundament)**: GEMERGED (PR #80, merge `ebee074`, commit `bd93724`, branch feat/ws5-betaallink) en END-TO-END GEVERIFIEERD op de preview tegen de Mollie-test-API: product-oneoff (pt_single) en abonnement-first-payment (groepslessen_2x) beide betaald, mandaat onder de klant-Mollie-customer, subscription door de bestaande webhook aangemaakt, en het retry-na-expiry-pad live bewezen (verlopen script-payments, verse mint bij klik). Levert: publieke /betaal/[token]-route (service-role lookup, noindex, kale 404 bij onbekend token), lazy Mollie-payment-creatie met dubbele-betaling-invariant in drie lagen (open-payment-hergebruik, deterministische idempotencyKey per poging, statusguard; bewijs in scripts/test-payment-link-invariant.ts), createPaymentRequest-server-action (requireAdmin) boven het ongewijzigde admin_create_order, en de MailerSend-mail payment_request.tsx. De testdata (2 orders, 2 memberships, 4 payments) is uit productie verwijderd en de Mollie-test-subscription geannuleerd; alle klant-copy wacht op Marlon (// COPY: confirm met Marlon). Correctie op een eerdere ledger-regel die beweerde dat de MailerSend-betaallink al bestond: die bestond niet vóór PR #80; alleen admin_create_order en de expire-orders cron waren er al.
 
-Note: `/prijzen` fallback cleanup done in PR #71 (`ab6c0bf`). PT/Duo correction migration `20260719000000` merged (`c9862b0`).
+#### In uitvoering / open
 
-**Action, commit the spec:** `git add spec-membership-flow.md ws0-reconciliation-report.md` and commit, so the canonical plan lives in the repo, not only on Ilja's disk.
+- **WS-6 (losse producten + tegoed)**: gebouwd, PR #79 (feat/producten-tab) staat OPEN. /app/producten met Kopen + Mijn tegoed, URL-tabs ?tab=kopen|tegoed (patroon /app/boekingen), op bestaande paden. Kopen verkoopt ten_ride_card, pt_single, pt_10, duo_single, duo_10 via de bestaande pijplijn (geen drop-in, die blijft publiek). Mijn tegoed toont saldi en inline aankoophistorie uit tmc.payments (geen facturen). Enige pijplijn-wijziging: conditionele redirectUrl op isSubscription in create-order.ts.
+  - OPENSTAAND: MemberNav-ingang voor /app/producten bewust UITGESTELD naar het aparte navigatie-project (mobiele bottom-tab-bar zit vol op 7 items). Moet vóór opening vindbaar worden.
+- **WS-5 (admin betaalverzoek-systeem)**: mockup goedgekeurd (Nieuw-betaalverzoek-wizard: klant zoeken/aanmaken, catalogus-product, betaallink per e-mail + kopieerbare link). Restant na PR A:
+  - **PR B (Fable) on-behalf klant-aanmaak**: nog niet gestart. Nodig voor het aanmaken van een profiel namens een nieuwe klant in de wizard (bestaande klanten zoeken kan zonder). Security-kritisch: pad dat namens iemand anders een profiel aanmaakt; achter requireAdmin, echte e-mail verplicht.
+  - **PR C (Sonnet) wizard-UI**: nog niet gestart. Doelbeeld = de goedgekeurde mockup. Consumeert PR A en B. Meenemen: besluit of /betaal het volledige site-chrome (navbar/footer met Early Member-banner) houdt of een kalere pagina wordt.
+  - **PR D (custom bedrag / factuur)**: GEPARKEERD, bewust uit scope. Custom bedragen doorbreken de catalogus-single-source en leveren zonder BTW-registratie geen kloppende factuur op. Waarschijnlijke richting: extern boekhoudpakket met sync. Wacht op het facturatie-besluit met Marlons accountant.
 
-**Action 2 (end-to-end money test):** the full Mollie round-trip (`create_order` to Mollie checkout to webhook to `activate_order` to subscription) is untested, there was no env in the sandbox. Run one real test payment on a preview or staging with env before merging #69, before production, and before Migration B.
+#### Nog te doen (na WS-5)
+
+- **Klantbeheer-workstream**: adres bijwerken, abonnement pauzeren/stopzetten. Eigen discovery; pauzeren/stoppen is Fable (mandaat-wijziging).
+- **Navigatie-herziening**: mobiele bottom-tab-bar opnieuw indelen (nu vol op 7), inclusief de MemberNav-ingang voor /app/producten. Met Marlons blik op welke items primair zijn.
+- **Fase 2 Early Member**: EM-prijs (139 All Access), waived inschrijfkosten, Groepslessen direct opzegbaar, campagnefase-afhandeling, en de server-ondergrens op de openingsdatum in _compute_order_price (nu alleen een bovengrens op closes_at). Klapt bij opening vanzelf aan tenzij expliciet tegengehouden.
+- **Facturatie-besluit**: bepaalt PR D en de custom-bedrag-route. Afstemmen met Marlons accountant (boekhoudpakket, factuurnummers, BTW).
+
+#### Bekende losse eindjes (buiten de membership-flow, uit eerdere audits)
+
+- Footer KvK/BTW zijn placeholders (00000000 / NL000000000B01); blokkeren productie-facturatie.
+- /aanbod mist een H1.
+- Geen ptloosdrecht.nl naar themovementclub redirect.
+- Mollie-navigatie op de mobiele wrapper draait nog op de allowNavigation-stopgap; @capacitor/browser-migratie is een aparte latere PR.
+- Geen CI (.github/workflows).
+- vw_admin_kpis: no_show_rate_30d staat permanent op 0 (gebouwd op booking-statussen die de check-constraint niet toestaat); aparte beslissing, geen simpele bugfix.
+- Firebase-project tmc-member-app bestaat niet; alle push is stil no-op tot FIREBASE_SERVICE_ACCOUNT_KEY bestaat.
 
 ### Cutover checklist (each step stays UNCONFIRMED until its output is reported back)
 
