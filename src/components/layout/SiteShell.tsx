@@ -43,6 +43,13 @@ export function SiteShell({
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
   const isLogin = pathname === "/login";
   const isCheckin = pathname === "/checkin" || pathname.startsWith("/checkin/");
+  // WS-5 PR C: een betaallink-ontvanger heeft nog nooit ingelogd en komt
+  // hier vaak rechtstreeks vanuit een mail of WhatsApp-bericht binnen. De
+  // pagina zelf (src/app/betaal/[token]/page.tsx) is al zelfstandig
+  // (eigen <main> + gecentreerde Container), dus alleen de marketing-
+  // navbar/footer/EM-banner eromheen uitsluiten is genoeg voor een kale,
+  // gefocuste betaalpagina. Geen wijziging aan de betaal-logica zelf.
+  const isBetaal = pathname.startsWith("/betaal/");
   // /12-weken-programma heeft een eigen topbar (merk + één CTA, transparant
   // over de donkere hero) en eigen footer (merk, adres, disclaimer, geen
   // 3-koloms nav-footer) — zie src/app/12-weken-programma/layout.tsx. Beide
@@ -52,7 +59,7 @@ export function SiteShell({
   // is — niet hier herhalen).
   const isProgramma = pathname.startsWith("/12-weken-programma");
 
-  if (isStudio || isApp || isLogin || isCheckin || isProgramma) {
+  if (isStudio || isApp || isLogin || isCheckin || isProgramma || isBetaal) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
     return <>{children}</>;

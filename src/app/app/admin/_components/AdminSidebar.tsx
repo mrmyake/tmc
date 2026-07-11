@@ -13,6 +13,7 @@ import {
   Dumbbell,
   Tags,
   ExternalLink,
+  CreditCard,
 } from "lucide-react";
 
 type IconType = typeof LayoutDashboard;
@@ -46,6 +47,11 @@ const DAILY: NavItem[] = [
 ];
 
 const SECONDARY: NavItem[] = [
+  {
+    href: "/app/admin/betaalverzoeken",
+    label: "Betaalverzoeken",
+    icon: CreditCard,
+  },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
   {
     href: "/app/admin/aankondigingen",
