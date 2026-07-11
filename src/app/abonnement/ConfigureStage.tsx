@@ -169,7 +169,10 @@ export function ConfigureStage({
       const nextVt = !current.vt;
       // Uitzetten van de plus-30 reset ook de plus-10: zonder vt-toggle
       // heeft de kaart geen addon-modus meer, dus geen stale ext-state.
-      return { ...prev, [id]: { vt: nextVt, ext: nextVt ? current.ext : false } };
+      return {
+        ...prev,
+        [id]: { vt: nextVt, ext: nextVt ? current.ext : false },
+      };
     });
   }
 
@@ -232,7 +235,9 @@ export function ConfigureStage({
             cardToggles[selectedCardId] ?? DEFAULT_TOGGLE,
           );
     const frequency: FrequencyKey =
-      selectedCardId === "all-access" ? "unl" : CARD_META[selectedCardId].frequency;
+      selectedCardId === "all-access"
+        ? "unl"
+        : CARD_META[selectedCardId].frequency;
     trackCTA("Ga verder", "/abonnement");
     onContinue({
       family,
@@ -441,7 +446,10 @@ export function ConfigureStage({
     );
   }
 
-  if (!allAccessPlan && GROEPSLESSEN_CARDS.every((id) => !planForSelection(id))) {
+  if (
+    !allAccessPlan &&
+    GROEPSLESSEN_CARDS.every((id) => !planForSelection(id))
+  ) {
     return (
       // COPY: confirm met Marlon
       <p className="text-text-muted">
@@ -452,137 +460,152 @@ export function ConfigureStage({
 
   return (
     <div className={selectedPlan ? "pb-28" : ""}>
-      <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-        Stap 01 · Kies je abonnement
-      </span>
-      {/* COPY: confirm met Marlon */}
-      <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-3">
-        Stel je abonnement samen.
-      </h1>
-      {/* COPY: confirm met Marlon */}
-      <p className="text-text-muted mb-8 max-w-xl">
-        Alle prijzen zijn per 4 weken.
-      </p>
+      {/* Stage-eigen breakout: alleen de configure-stap wordt breder dan de
+          gedeelde max-w-2xl Container in AbonnementConfigurator.tsx (die
+          blijft ongewijzigd voor Identify/Pay, smalle formulieren). Klassiek
+          full-bleed-recentreer-patroon (ml-50%/-translate-x-1/2/w-screen):
+          werkt onafhankelijk van de breedte van de ouder. max-w-5xl (~1024px)
+          benadert de mockup (~1080px) en gebruikt hetzelfde
+          Container+override-patroon als /prijzen (max-w-3xl daar). */}
+      <div className="w-screen ml-[50%] -translate-x-1/2">
+        <div className="max-w-5xl mx-auto px-6 lg:px-8">
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
+            Stap 01 · Kies je abonnement
+          </span>
+          {/* COPY: confirm met Marlon */}
+          <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-3">
+            Stel je abonnement samen.
+          </h1>
+          {/* COPY: confirm met Marlon */}
+          <p className="text-text-muted mb-8 max-w-xl">
+            Alle prijzen zijn per 4 weken.
+          </p>
 
-      <div className="mb-10 flex items-center gap-4">
-        {/* COPY: confirm met Marlon */}
-        <span className="text-xs uppercase tracking-[0.14em] text-text-muted">
-          Looptijd
-        </span>
-        <div className="inline-flex border border-text-muted/25">
-          <button
-            type="button"
-            onClick={() => setCommit24m(false)}
-            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 ${
-              !commit24m
-                ? "bg-bg-elevated text-text"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
+          <div className="mb-10 flex items-center gap-4">
             {/* COPY: confirm met Marlon */}
-            12 maanden
-          </button>
-          <button
-            type="button"
-            onClick={() => setCommit24m(true)}
-            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 flex items-center gap-2 ${
-              commit24m
-                ? "bg-bg-elevated text-text"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            {/* COPY: confirm met Marlon */}
-            24 maanden
-            <span className="text-accent border border-accent/40 px-1.5 py-0.5 text-[10px]">
-              8%
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {renderFeaturedCard()}
-
-      <div className="mb-10">
-        {/* COPY: confirm met Marlon */}
-        <div className="flex items-baseline gap-3 mb-5">
-          <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text">
-            Groepslessen
-          </h2>
-          <span className="flex-1 h-px bg-text-muted/15" />
-          <span className="text-text-muted text-xs">Yoga, mobility en kettlebell</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {GROEPSLESSEN_CARDS.map(renderBasisCard)}
-        </div>
-      </div>
-
-      <div className="mb-10">
-        {/* COPY: confirm met Marlon */}
-        <div className="flex items-baseline gap-3 mb-5">
-          <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text">
-            Vrij Trainen
-          </h2>
-          <span className="flex-1 h-px bg-text-muted/15" />
-          <span className="text-text-muted text-xs">Op je eigen moment de studio in</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {VRIJ_TRAINEN_CARDS.map(renderBasisCard)}
-        </div>
-      </div>
-
-      <section className="border border-text-muted/15 bg-bg-elevated p-6 sm:p-8 mb-10">
-        {/* COPY: confirm met Marlon */}
-        <h2 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-6">
-          Kosten en voorwaarden
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
-              {/* COPY: confirm met Marlon */}
-              Inschrijfkosten
-            </div>
-            {/* COPY: confirm met Marlon */}
-            <p className="text-text">
-              Eenmalig{" "}
-              {signupFee
-                ? formatEuro(Math.round(signupFee.price_cents / 100))
-                : "€39"}{" "}
-              bij je eerste betaling.
-            </p>
-            <p className="text-text-muted text-xs mt-1">
-              Vervalt als je Early Member wordt of overstapt.
-            </p>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
-              {/* COPY: confirm met Marlon */}
+            <span className="text-xs uppercase tracking-[0.14em] text-text-muted">
               Looptijd
+            </span>
+            <div className="inline-flex border border-text-muted/25">
+              <button
+                type="button"
+                onClick={() => setCommit24m(false)}
+                className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 ${
+                  !commit24m
+                    ? "bg-bg-elevated text-text"
+                    : "text-text-muted hover:text-text"
+                }`}
+              >
+                {/* COPY: confirm met Marlon */}
+                12 maanden
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommit24m(true)}
+                className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 flex items-center gap-2 ${
+                  commit24m
+                    ? "bg-bg-elevated text-text"
+                    : "text-text-muted hover:text-text"
+                }`}
+              >
+                {/* COPY: confirm met Marlon */}
+                24 maanden
+                <span className="text-accent border border-accent/40 px-1.5 py-0.5 text-[10px]">
+                  8%
+                </span>
+              </button>
             </div>
-            <p className="text-text">
-              {/* COPY: confirm met Marlon */}
-              {commit24m
-                ? "24 maanden, met 8% korting."
-                : "12 maanden, daarna per 4 weken opzegbaar."}
-            </p>
-            <p className="text-text-muted text-xs mt-1">
-              {commit24m
-                ? "Niet-restitueerbaar bij tussentijds stoppen."
-                : "Kies 24 maanden voor 8% korting."}
-            </p>
           </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
-              {/* COPY: confirm met Marlon */}
-              Betaling
-            </div>
+
+          {renderFeaturedCard()}
+
+          <div className="mb-10">
             {/* COPY: confirm met Marlon */}
-            <p className="text-text">Automatische incasso per 4 weken.</p>
-            <p className="text-text-muted text-xs mt-1">
-              Je geeft hiervoor een doorlopende SEPA-machtiging.
-            </p>
+            <div className="flex items-baseline gap-3 mb-5">
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text">
+                Groepslessen
+              </h2>
+              <span className="flex-1 h-px bg-text-muted/15" />
+              <span className="text-text-muted text-xs">
+                Yoga, mobility en kettlebell
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {GROEPSLESSEN_CARDS.map(renderBasisCard)}
+            </div>
           </div>
+
+          <div className="mb-10">
+            {/* COPY: confirm met Marlon */}
+            <div className="flex items-baseline gap-3 mb-5">
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text">
+                Vrij Trainen
+              </h2>
+              <span className="flex-1 h-px bg-text-muted/15" />
+              <span className="text-text-muted text-xs">
+                Op je eigen moment de studio in
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {VRIJ_TRAINEN_CARDS.map(renderBasisCard)}
+            </div>
+          </div>
+
+          <section className="border border-text-muted/15 bg-bg-elevated p-6 sm:p-8 mb-10">
+            {/* COPY: confirm met Marlon */}
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-text mb-6">
+              Kosten en voorwaarden
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
+                  {/* COPY: confirm met Marlon */}
+                  Inschrijfkosten
+                </div>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-text">
+                  Eenmalig{" "}
+                  {signupFee
+                    ? formatEuro(Math.round(signupFee.price_cents / 100))
+                    : "€39"}{" "}
+                  bij je eerste betaling.
+                </p>
+                <p className="text-text-muted text-xs mt-1">
+                  Vervalt als je Early Member wordt of overstapt.
+                </p>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
+                  {/* COPY: confirm met Marlon */}
+                  Looptijd
+                </div>
+                <p className="text-text">
+                  {/* COPY: confirm met Marlon */}
+                  {commit24m
+                    ? "24 maanden, met 8% korting."
+                    : "12 maanden, daarna per 4 weken opzegbaar."}
+                </p>
+                <p className="text-text-muted text-xs mt-1">
+                  {commit24m
+                    ? "Niet-restitueerbaar bij tussentijds stoppen."
+                    : "Kies 24 maanden voor 8% korting."}
+                </p>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-accent mb-2">
+                  {/* COPY: confirm met Marlon */}
+                  Betaling
+                </div>
+                {/* COPY: confirm met Marlon */}
+                <p className="text-text">Automatische incasso per 4 weken.</p>
+                <p className="text-text-muted text-xs mt-1">
+                  Je geeft hiervoor een doorlopende SEPA-machtiging.
+                </p>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
 
       {selectedPlan && selectedBreakdown && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-bg-elevated/95 backdrop-blur-sm border-t border-text-muted/20 safe-bottom">
@@ -593,7 +616,9 @@ export function ConfigureStage({
               </div>
               <div className="text-text-muted text-xs mt-0.5">
                 {/* COPY: confirm met Marlon */}
-                {formatEuro(Math.round(selectedBreakdown.recurringTotalCents / 100))}
+                {formatEuro(
+                  Math.round(selectedBreakdown.recurringTotalCents / 100),
+                )}
                 /4wk ·{" "}
                 {selectedBreakdown.emOpen
                   ? "per 4 weken opzegbaar"
