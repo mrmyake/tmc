@@ -29,6 +29,7 @@ export type EventType =
   // Order pipeline (subscription and product orders, WS-2)
   | "order.created"
   | "order.activated"
+  | "order.cancelled"
   // Membership lifecycle
   | "membership.signup_started"
   | "membership.activated"

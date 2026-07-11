@@ -276,9 +276,11 @@ export async function POST(request: Request) {
       }
 
       if (activation.late_payment) {
+        // late_payment dekt sinds migratie 20260724 ook een gehonoreerde
+        // betaling op een geannuleerd betaalverzoek (betaling wint altijd).
         await sendNotification(
-          "Order geactiveerd na verlopen deadline",
-          `Order ${orderId}: betaling kwam binnen na expires_at maar is gehonoreerd.`,
+          "Order geactiveerd na verlopen deadline of annulering",
+          `Order ${orderId}: betaling kwam binnen nadat de link verlopen of geannuleerd was, en is gehonoreerd.`,
           "warning"
         );
       }
