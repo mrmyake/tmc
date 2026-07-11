@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 import type { PaymentRequestRow } from "@/lib/admin/payment-requests-query";
 import { resendPaymentRequest } from "@/lib/admin/payment-request-resend-actions";
+import { cancelPaymentRequest } from "@/lib/admin/payment-request-cancel-actions";
 import { AvatarBubble } from "@/app/app/_shared/attendance/AvatarBubble";
+import { Dialog, DialogFooter } from "@/components/ui/Dialog";
 import { PaymentRequestStatusBadge } from "./PaymentRequestStatusBadge";
 import { formatEuro } from "@/lib/crowdfunding-helpers";
 import { formatShortDateWithYear } from "@/lib/format-date";
@@ -37,9 +40,15 @@ function AmountCell({ row }: { row: PaymentRequestRow }) {
 }
 
 function RowActions({ row }: { row: PaymentRequestRow }) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
   const [resendResult, setResendResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelResult, setCancelResult] = useState<{
     ok: boolean;
     message: string;
   } | null>(null);
@@ -72,8 +81,30 @@ function RowActions({ row }: { row: PaymentRequestRow }) {
     });
   }
 
+  function confirmCancel() {
+    setCancelResult(null);
+    startTransition(async () => {
+      const res = await cancelPaymentRequest(row.orderId);
+      if (res.ok) {
+        setCancelResult({
+          ok: true,
+          // COPY: confirm met Marlon
+          message:
+            "Het verzoek is geannuleerd. De betaallink werkt niet meer voor een nieuwe betaling.",
+        });
+        // Lijst verversen zodat de rij als geannuleerd verschijnt; de
+        // dialoog blijft open met het resultaat en de nieuw-verzoek-link.
+        router.refresh();
+      } else {
+        // Nette weigering, bv. net betaald: de RPC verliest de race bewust.
+        setCancelResult({ ok: false, message: res.error });
+      }
+    });
+  }
+
   const canCopy = row.displayStatus !== "geannuleerd";
   const canResend = row.displayStatus === "wacht_op_betaling";
+  const canCancel = row.displayStatus === "wacht_op_betaling";
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -100,6 +131,20 @@ function RowActions({ row }: { row: PaymentRequestRow }) {
             {pending ? "Bezig..." : "Opnieuw versturen"}
           </button>
         )}
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => {
+              setCancelResult(null);
+              setCancelOpen(true);
+            }}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 border border-[color:var(--danger)]/50 text-[color:var(--danger)] text-[11px] font-medium uppercase tracking-[0.14em] px-3 py-2 hover:bg-[color:var(--danger)]/10 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {/* COPY: confirm met Marlon */}
+            Annuleer
+          </button>
+        )}
       </div>
       {resendResult && (
         <span
@@ -113,6 +158,70 @@ function RowActions({ row }: { row: PaymentRequestRow }) {
           {resendResult.message}
         </span>
       )}
+
+      <Dialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        // COPY: confirm met Marlon
+        title="Betaalverzoek annuleren?"
+        eyebrow="Betaalverzoeken"
+        tone="danger"
+        size="narrow"
+      >
+        {/* COPY: confirm met Marlon */}
+        <p className="text-text-muted text-sm mb-3">
+          Je annuleert het verzoek voor {row.firstName} {row.lastName} (
+          {row.productLabel},{" "}
+          {formatEuro(Math.round(row.firstChargeCents / 100))}). De klant kan
+          er daarna niet meer mee betalen.
+        </p>
+        {/* COPY: confirm met Marlon */}
+        <p className="text-text-muted text-xs mb-5">
+          Al gestarte betalingen blijven geldig: komt er alsnog een betaling
+          binnen, dan gaat die voor en wordt het verzoek gewoon geactiveerd.
+        </p>
+        {cancelResult?.ok ? (
+          <>
+            <div
+              role="status"
+              className="text-sm p-4 border mb-5 border-[color:var(--success)]/40 text-[color:var(--success)]"
+            >
+              {cancelResult.message}
+            </div>
+            <div className="flex justify-between items-center gap-3">
+              {/* Annuleer-plus-nieuw: hetzelfde verzoek voor een ANDERE
+                  klant loopt via een nieuw verzoek in de wizard, nooit via
+                  een adreswissel op deze order. */}
+              <Link
+                href="/app/admin/betaalverzoeken"
+                className="inline-flex items-center justify-center px-5 py-3 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover transition-colors"
+              >
+                {/* COPY: confirm met Marlon */}
+                Nieuw verzoek maken
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCancelOpen(false)}
+                className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors px-5 py-3 cursor-pointer"
+              >
+                {/* COPY: confirm met Marlon */}
+                Sluiten
+              </button>
+            </div>
+          </>
+        ) : (
+          <DialogFooter
+            result={cancelResult}
+            onClose={() => setCancelOpen(false)}
+            onConfirm={confirmCancel}
+            // COPY: confirm met Marlon
+            cancelLabel="Terug"
+            confirmLabel={pending ? "Bezig..." : "Annuleer verzoek"}
+            confirmDisabled={pending}
+            confirmTone="danger"
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
