@@ -34,6 +34,10 @@
       "schedule": "35 3 * * *"
     },
     {
+      "path": "/api/cron/process-change-requests",
+      "schedule": "25 3 * * *"
+    },
+    {
       "path": "/api/cron/flag-dropoff",
       "schedule": "10 4 * * *"
     },
