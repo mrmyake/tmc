@@ -47,10 +47,14 @@ ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
   Binnen een jaar-commitment kan sowieso niet naar flex gewisseld worden (bestaande regel). Overgang
   loopt via `membership_change_requests` op de volgende factuurdatum, geen proratie. Leeft op de
   Lidmaatschap-pagina.
-- **Opzeggen / pauzeren (lid-facing)** — NIEUW (app-laag). Pauze-flow bestaat in admin; het lid-
-  facing pad nog niet. Gevoeligste moment van de hele omgeving (jaar-commitment, geen restitutie bij
-  24 maanden). Geblokkeerd tot de lifecycle-fix live is (status naar `cancelled` + Mollie-stop).
-  Hoort op de Lidmaatschap-pagina, met dezelfde zorg als de koop-flow.
+- **Opzeggen / pauzeren (lid-facing)** — NIEUW (app-laag). Gevoeligste moment van de hele omgeving
+  (jaar-commitment, geen restitutie bij 24 maanden). UPDATE 2026-07-12: de gedeelde
+  lifecycle-primitieven-laag (Stap 3-fundament) is live (PR #88, merge `688b5ba`): pauze/hervat-
+  RPC's met Mollie-stop op cyclus-einde en mandaat-check bij hervatten; lid-opzeggen
+  (`request_membership_cancellation` + process-cancellations cron) was al live. De blokkade uit
+  §5.8 is daarmee opgeheven; de lid-voorkant bouwt als dunne aanroeper op deze RPC-laag. Pauze
+  blijft beleidsmatig admin-only (het lid doet een aanvraag). Hoort op de Lidmaatschap-pagina,
+  met dezelfde zorg als de koop-flow.
 
 ### 1.3 Training en voortgang
 - **Trainingsschema** (`/app/schema` of onder een schema-route) — SCHEMA-LIVE. Volledige
@@ -130,7 +134,7 @@ geen eigen chrome mee.
 - Vrij Trainen — zichtbaar bij vrij_trainen-entitlement.
 - Schema — zichtbaar zodra lid ooit een protocol had en nog lid is. BESLOTEN.
 
-### 3.3 BESLOTEN: het "overzicht" wordt de uitgebreide Lidmaatschap-pagina (optie A)
+### 3.3 BESLOTEN, maar HEROPEND (zie §8 punt 1): het "overzicht" wordt de uitgebreide Lidmaatschap-pagina (optie A)
 Rooster blijft de landing. Het overzicht (tegoed + status + entitlements + schema-teaser) is geen
 dagelijkse actie maar een "hoe sta ik ervoor"-laag, en wordt daarom de uitgebreide Lidmaatschap-
 pagina (`/app/abonnement`): abbo + status + tegoed + entitlements + schema-teaser + facturen-subpagina.
@@ -158,7 +162,7 @@ nav op 4 vaste items.
 6. **Entitlement-weergave:** actief + maximaal 1 relevante upsell (Duo), rest in Kopen. Geen volle
    locked-lijst. Typografische lijst, geen iconen.
 7. **Nav-landing (optie A):** overzicht wordt de uitgebreide Lidmaatschap-pagina, geen vijfde
-   nav-item. Rooster blijft landing.
+   nav-item. Rooster blijft landing. HEROPEND bij de mockup-review van 2026-07-12 (zie §8 punt 1).
 
 ---
 
@@ -223,3 +227,34 @@ Detectie mag eerder gebouwd, maar produceert stil niets tot het project bestaat.
 2. Inventarisatie (§1) aangevuld met onboarding, abonnement-wisselen (alleen upgrade, geen
    downgrade) en opzeggen/pauzeren lid-facing. Notificatie-voorkeuren en referral als "bekend, niet
    nu" (§1.7). Nog te bevestigen of dit nu compleet is.
+
+---
+
+## 8. Open UI-besluiten (te behandelen voor de lid-facing Stap 2 bouw)
+
+Verzameld bij de mockup-review (2026-07-12); lijst is nog OPEN en kan groeien bij de UI-doorloop.
+
+1. **Landing vs Lidmaatschap-pagina (heropent §3.3):** is het overzicht (begroeting, eerstvolgende
+   les, tegoed, schema-teaser, entitlements) de uitgebreide Lidmaatschap-pagina onder
+   `/app/abonnement` (huidig besluit optie A, Rooster blijft landing), of wordt het een
+   home-dashboard als nieuwe landing? De mockup toont overzicht-inhoud met Rooster als actief
+   nav-item, wat A tegenspreekt. Keuze raakt de nav-highlight en mogelijk de nav-structuur.
+2. **Entitlement-model in "In jouw lidmaatschap":** tonen we PT en Trainingsschema als
+   entitlement-regel ("Actief"), of eruit conform de kernregel §2 (schema hangt aan een actief
+   protocol, PT loopt via credits, geen van beide is een abonnementsrecht)? PT staat in de mockup
+   dubbel: als tegoed-blok en als entitlement-regel.
+3. **Nav mobiele cap:** 4 vaste items + 2 conditionele (Vrij Trainen EN Schema) = 6, over de 5-cap
+   in de bottom tab bar. Hoort bij het uitgestelde navigatie-project. De overzichtspagina blijft
+   binnen de bestaande shell en behandelt de nav als out-of-scope; geen stil vijfde/zesde item
+   toevoegen.
+4. **Kleiner:** tijd-van-dag-dynamische begroeting; avatar-initialen afgeleid van de echte naam
+   (mockup toont MJ bij Mila).
+
+Uit de lifecycle-primitieven (fase 1, PR #88 merge `688b5ba`), mee te nemen in de UI-fase:
+
+5. **Pauze terugdraaien voor ingang:** geannuleerde venster-boekingen komen niet automatisch terug,
+   het lid moet opnieuw boeken. Vereist een expliciete waarschuwing op het admin-scherm. Geen
+   backend-werk.
+6. **Geen hervat-cron (per beleid handmatig):** een open pauze blijft staan tot admin hervat. Later
+   een admin-overzicht "gepauzeerde leden en sinds wanneer" zodat langlopende, niet-incasserende
+   pauzes zichtbaar worden. Parkeren, niet nu bouwen.
