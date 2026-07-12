@@ -365,6 +365,99 @@ export async function cancelMembershipCore(
   };
 }
 
+interface UndoCancellationRpcResult {
+  ok: boolean;
+  reason?: string;
+  restored_status?: string;
+  undone_effective_date?: string;
+  already_active?: boolean;
+  end_date?: string;
+  cancellation_source?: string | null;
+  cancellation_prior_status?: string | null;
+}
+
+/**
+ * Undo van een GEPLANDE lid-opzegging (fase 2C). Bewust GEEN Mollie-actie:
+ * de RPC staat undo alleen toe op een opzegging met lokale provenance
+ * cancellation_source = 'member' en cancellation_prior_status = 'active',
+ * en precies in dat geval is de Mollie-subscription gegarandeerd nooit
+ * geraakt. Het lid-opzegpad cancelt Mollie niet (dat doet pas de
+ * process-cancellations cron op de ingangsdatum, en de RPC weigert due
+ * rijen met 'effectuation_due'), en elke route die Mollie WEL cancelt
+ * (admin-stop, ook de already_scheduled-tak) markeert de rij als 'admin'
+ * waarna de RPC 'not_safely_undoable' teruggeeft. De detectie is dus
+ * lokaal en fail-dicht; er valt hier niets bij Mollie te herstellen of te
+ * controleren.
+ */
+export async function undoMembershipCancellation(params: {
+  membershipId: string;
+}): Promise<LifecycleResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_undo_cancellation", {
+    p_membership_id: params.membershipId,
+  });
+
+  if (error) {
+    console.error("[undoMembershipCancellation] rpc failed", error);
+    return {
+      ok: false,
+      reason: "rpc_failed",
+      // COPY: confirm met Marlon
+      message: "Het terugdraaien lukte niet. Probeer het opnieuw.",
+    };
+  }
+
+  const result = data as UndoCancellationRpcResult | null;
+  if (!result?.ok) {
+    if (result?.reason === "not_safely_undoable") {
+      return {
+        ok: false,
+        reason: result.reason,
+        // COPY: confirm met Marlon
+        message:
+          "Deze opzegging is niet veilig terug te draaien: de incasso is al gestopt of de eerdere staat was niet actief. Gebruik hervatten of een nieuw abonnement.",
+      };
+    }
+    if (result?.reason === "already_cancelled") {
+      return {
+        ok: false,
+        reason: result.reason,
+        // COPY: confirm met Marlon
+        message:
+          "Dit abonnement is al definitief stopgezet en kan niet worden teruggedraaid.",
+      };
+    }
+    if (result?.reason === "effectuation_due") {
+      return {
+        ok: false,
+        reason: result.reason,
+        // COPY: confirm met Marlon
+        message:
+          "De einddatum van deze opzegging is bereikt; de afronding loopt al en kan niet meer worden teruggedraaid.",
+      };
+    }
+    return {
+      ok: false,
+      reason: result?.reason,
+      // COPY: confirm met Marlon
+      message: `Het terugdraaien is geweigerd (${result?.reason ?? "onbekende reden"}).`,
+    };
+  }
+
+  if (result.already_active) {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Dit abonnement is al actief." };
+  }
+
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message:
+      "De opzegging is teruggedraaid; het abonnement loopt gewoon door en de incasso was nooit gestopt.",
+    effectiveDate: result.undone_effective_date,
+  };
+}
+
 interface ChangeRequestParams {
   membershipId: string;
   targetSlug: string;

@@ -9,7 +9,8 @@ UPDATE 2026-07-12: de GEDEELDE LIFECYCLE-PRIMITIEVEN-LAAG IS COMPLEET (klantbehe
 discovery `discovery-klantbeheer-lifecycle.md`): fase 1 pauze/hervat (PR #88, `688b5ba`), fase 2A
 admin-stop (PR #89, `893106f`) en fase 2B change-requests plus e-mailcorrectie (PR #90, `b708e7f`). Alle beleid leeft in SECURITY DEFINER RPC's
 (`admin_pause_membership`, `admin_resume_membership`, `admin_cancel_membership`,
-`request_membership_change`, `cancel_membership_change_request`, `admin_correct_customer_email`)
+`admin_undo_cancellation` (fase 2C), `request_membership_change`,
+`cancel_membership_change_request`, `admin_correct_customer_email`)
 met TS-orkestratie in `src/lib/admin/membership-lifecycle.ts`. De latere Sonnet-voorkanten
 (admin-UI en de lid-facing Stap 2 hieronder) zijn dunne aanroepers van die laag en nemen zelf
 geen lifecycle-beslissingen.
@@ -65,7 +66,12 @@ ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
   (`request_membership_cancellation` + process-cancellations cron) was al live. De blokkade uit
   §5.8 is daarmee opgeheven; de lid-voorkant bouwt als dunne aanroeper op deze RPC-laag. Pauze
   blijft beleidsmatig admin-only (het lid doet een aanvraag). Hoort op de Lidmaatschap-pagina,
-  met dezelfde zorg als de koop-flow.
+  met dezelfde zorg als de koop-flow. UPDATE 2026-07-12 (fase 2C): een admin kan een GEPLANDE
+  lid-opzegging volledig terugdraaien via `admin_undo_cancellation` /
+  `undoMembershipCancellation` zolang de cron nog niet geeffectueerd heeft; een admin-geplande
+  stop en een hard-stop blijven terminaal (Mollie daar al gecanceld, fail-dicht geweigerd op de
+  provenance-marker `cancellation_source`). De admin-knop hiervoor is een mockup-kandidaat voor
+  de klantbeheer-voorkant; er is in fase 2C bewust geen UI gebouwd.
 
 ### 1.3 Training en voortgang
 - **Trainingsschema** (`/app/schema` of onder een schema-route) — SCHEMA-LIVE. Volledige
