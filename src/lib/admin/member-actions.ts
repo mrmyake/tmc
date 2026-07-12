@@ -7,6 +7,7 @@ import { emitEvent } from "@/lib/events/emit";
 import { cancelMollieSubscription } from "@/lib/mollie";
 import { sendNotification } from "@/lib/ntfy";
 import {
+  cancelMembershipCore,
   pauseMembershipCore,
   resumeMembershipCore,
 } from "./membership-lifecycle";
@@ -148,6 +149,61 @@ export async function resumeMembership(
       membership_id: input.membershipId,
       resumed_from: result.effectiveDate ?? null,
       shift_days: result.shiftDays ?? 0,
+    },
+  });
+
+  revalidateDetail(input.profileId);
+  return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// Cancel a membership on admin authority (terminal; default completes the
+// paid cycle, hardStop is the marked coulance/geschil branch)
+// ----------------------------------------------------------------------------
+
+interface CancelMembershipInput {
+  profileId: string;
+  membershipId: string;
+  reason: string;
+  hardStop?: boolean;
+}
+
+export async function cancelMembership(
+  input: CancelMembershipInput,
+): Promise<MemberActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("id, profile_id")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (!membership) return { ok: false, message: "Abonnement niet gevonden." };
+  if (membership.profile_id !== input.profileId) {
+    return { ok: false, message: "Abonnement hoort niet bij dit lid." };
+  }
+
+  const result = await cancelMembershipCore({
+    membershipId: input.membershipId,
+    reason: input.reason,
+    hardStop: input.hardStop ?? false,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "membership_cancelled",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      membership_id: input.membershipId,
+      reason: input.reason,
+      hard_stop: input.hardStop ?? false,
+      effective_date: result.effectiveDate ?? null,
+      cancelled_bookings: result.cancelledBookings ?? 0,
     },
   });
 
