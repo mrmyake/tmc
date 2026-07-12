@@ -122,3 +122,38 @@ export async function loadActiveProgramForMember(): Promise<MemberActiveProgram 
     days,
   };
 }
+
+export interface MemberProgramProgress {
+  /** Meest recente completed_at over alle dagen van dit programma, of null als er nog niks gelogd is. */
+  lastLoggedAt: string | null;
+  /** day_id van die meest recente logging, voor het bepalen van de eerstvolgende dag. */
+  lastLoggedDayId: string | null;
+}
+
+/**
+ * Laatste gelogde workout-sessie voor het actieve programma. Zelfde
+ * RLS-scoped tabel (workout_sessions) als training-history-query.ts, hier
+ * geaggregeerd op programmaniveau i.p.v. per oefening — voor de
+ * schema-teaser ("volgende workout" + "laatst gelogd").
+ */
+export async function loadProgramProgressForMember(
+  programId: string,
+): Promise<MemberProgramProgress> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("day_id, completed_at")
+    .eq("program_id", programId)
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error("[loadProgramProgressForMember] query failed", error);
+    return { lastLoggedAt: null, lastLoggedDayId: null };
+  }
+
+  return { lastLoggedAt: data.completed_at, lastLoggedDayId: data.day_id };
+}

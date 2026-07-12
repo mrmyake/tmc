@@ -159,6 +159,20 @@ export function formatRelativeWhen(date: Date, now: Date = new Date()): string {
   return `${prefix} · ${time}`;
 }
 
+/** "vandaag" / "gisteren" / "3 dagen geleden" / "wo 22 apr" (ouder dan 7 dagen). */
+export function formatDaysAgo(date: Date, now: Date = new Date()): string {
+  const target = amsterdamParts(date);
+  const today = amsterdamParts(now);
+  const targetUtc = Date.UTC(target.year, target.month - 1, target.day);
+  const todayUtc = Date.UTC(today.year, today.month - 1, today.day);
+  const dayDiff = Math.round((todayUtc - targetUtc) / 86400000);
+
+  if (dayDiff <= 0) return "vandaag";
+  if (dayDiff === 1) return "gisteren";
+  if (dayDiff < 7) return `${dayDiff} dagen geleden`;
+  return formatShortDate(date);
+}
+
 export function durationMinutes(start: Date, end: Date): number {
   return Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
 }
