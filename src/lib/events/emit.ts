@@ -38,6 +38,11 @@ export type EventType =
   | "membership.pause_requested"
   | "membership.pause_granted"
   | "membership.pause_rejected"
+  // Lifecycle-primitieven (RPC-side inserts; hier voor het volledige domein)
+  | "membership.pause_planned"
+  | "membership.paused"
+  | "membership.resumed"
+  | "membership.resume_blocked"
   | "membership.cancellation_requested"
   | "membership.cancelled"
   // Payments
