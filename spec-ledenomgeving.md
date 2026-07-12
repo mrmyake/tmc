@@ -136,7 +136,9 @@ items plus 1 conditioneel (Vrij Trainen). Elke pagina hieronder leeft BINNEN dez
 geen eigen chrome mee.
 
 ### 3.1 Vaste items
-- Rooster (`/app/rooster`) — landing. BESLOTEN: Rooster blijft de landing.
+- Rooster (`/app/rooster`) — niet langer de landing (zie §3.3); landing wordt het home-dashboard.
+  Rooster blijft bestaan en bereikbaar binnen de bestaande shell. Nav-plek valt onder het
+  geparkeerde navigatie-project.
 - Mijn lessen (`/app/boekingen`)
 - Lidmaatschap (`/app/abonnement`)
 - Profiel (`/app/profiel`)
