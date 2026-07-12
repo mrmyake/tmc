@@ -7,6 +7,7 @@ import {
   getMollieSubscriptionInfo,
   hasValidMollieMandate,
   isMollieConfigured,
+  updateMollieSubscriptionAmount,
 } from "@/lib/mollie";
 import { mollieWebhookUrl } from "@/lib/site-url";
 import { sendNotification } from "@/lib/ntfy";
@@ -362,6 +363,239 @@ export async function cancelMembershipCore(
     effectiveDate: result.effective_date,
     cancelledBookings: result.cancelled_bookings,
   };
+}
+
+interface ChangeRequestParams {
+  membershipId: string;
+  targetSlug: string;
+  extendedAccess?: boolean;
+}
+
+interface ChangeRpcResult {
+  ok: boolean;
+  reason?: string;
+  request_id?: string;
+  effective_date?: string;
+  current_recurring_cents?: number;
+  new_recurring_cents?: number;
+  mollie_subscription_id?: string;
+  mollie_customer_id?: string;
+  already_pending?: boolean;
+}
+
+/**
+ * Alleen-upgrade wijzigingsverzoek, effectief op de volgende factuurdatum,
+ * geen proratie. Volgorde: (1) volgende factuurdatum uit Mollie
+ * (nextPaymentDate) met een SEPA-aanloop-guard, (2) de definer-RPC legt het
+ * verzoek vast met de catalogus-snapshot, (3) daarna pas het Mollie-bedrag
+ * omhoog naar exact dat snapshot-bedrag. Faalt stap 3, dan wordt het
+ * verzoek direct geannuleerd zodat bedrag en rechten nooit uiteenlopen.
+ * De RPC accepteert eigenaar OF admin; deze core wordt door beide
+ * voorkanten gedeeld.
+ */
+export async function requestMembershipChangeCore(
+  params: ChangeRequestParams,
+): Promise<LifecycleResult> {
+  const admin = createAdminClient();
+  const { data: m } = await admin
+    .from("memberships")
+    .select(
+      "id, profile_id, status, billing_cycle_weeks, mollie_customer_id, mollie_subscription_id, pause_effective_date",
+    )
+    .eq("id", params.membershipId)
+    .maybeSingle();
+
+  if (!m) return { ok: false, message: "Abonnement niet gevonden." };
+  if (!m.mollie_subscription_id) {
+    return {
+      ok: false,
+      reason: "no_active_subscription",
+      // COPY: confirm met Marlon
+      message:
+        "Er loopt nog geen incasso op dit abonnement; wijzigen kan pas als de eerste cyclus rond is.",
+    };
+  }
+
+  const info = await getMollieSubscriptionInfo(
+    m.mollie_customer_id,
+    m.mollie_subscription_id,
+  );
+  if (!info) {
+    return {
+      ok: false,
+      reason: "mollie_unreachable",
+      // COPY: confirm met Marlon
+      message:
+        "Mollie is niet bereikbaar; de wijziging is niet doorgevoerd. Probeer het opnieuw.",
+    };
+  }
+  if (info.status !== "active" || !info.nextPaymentDate) {
+    return {
+      ok: false,
+      reason: "no_active_subscription",
+      // COPY: confirm met Marlon
+      message:
+        "De incasso van dit abonnement loopt niet; wijzigen kan alleen op een lopende incasso.",
+    };
+  }
+
+  // SEPA-aanloop-guard: ligt de volgende incasso te dichtbij, dan kan het
+  // bedrag daarvoor al bij de bank klaargezet zijn. Het verzoek schuift dan
+  // een hele cyclus op: bedrag EN rechten wisselen samen, een cyclus later.
+  const today = isoDate(new Date());
+  const sepaLeadGuard = isoDate(new Date(Date.now() + 2 * 86400000));
+  let effectiveDate = info.nextPaymentDate;
+  if (effectiveDate <= sepaLeadGuard) {
+    const cycleMs = (m.billing_cycle_weeks || 4) * 7 * 86400000;
+    effectiveDate = isoDate(
+      new Date(new Date(`${effectiveDate}T00:00:00Z`).getTime() + cycleMs),
+    );
+  }
+  if (effectiveDate <= today) {
+    return { ok: false, reason: "invalid_effective_date", message: "Ongeldige factuurdatum." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("request_membership_change", {
+    p_membership_id: params.membershipId,
+    p_target_slug: params.targetSlug,
+    p_extended_access: params.extendedAccess ?? false,
+    p_effective_date: effectiveDate,
+  });
+
+  if (error) {
+    console.error("[requestMembershipChangeCore] rpc failed", error);
+    return {
+      ok: false,
+      reason: "rpc_failed",
+      // COPY: confirm met Marlon
+      message: "De wijziging kon niet worden vastgelegd. Probeer het opnieuw.",
+    };
+  }
+  const result = data as ChangeRpcResult | null;
+  if (!result?.ok) {
+    return {
+      ok: false,
+      reason: result?.reason,
+      // COPY: confirm met Marlon
+      message: `De wijziging is geweigerd (${result?.reason ?? "onbekende reden"}).`,
+    };
+  }
+  if (result.already_pending) {
+    return {
+      ok: true,
+      // COPY: confirm met Marlon
+      message: `Deze wijziging stond al gepland per ${result.effective_date}.`,
+      effectiveDate: result.effective_date,
+    };
+  }
+
+  // Mollie-bedrag omhoog naar exact het snapshot-bedrag. Faalt dit, dan
+  // wordt het verzoek teruggedraaid: nooit een pending wijziging waarvan
+  // de eerstvolgende incasso het oude bedrag zou zijn.
+  const raised = await updateMollieSubscriptionAmount(
+    result.mollie_customer_id ?? m.mollie_customer_id,
+    result.mollie_subscription_id ?? m.mollie_subscription_id,
+    result.new_recurring_cents ?? 0,
+  );
+  if (!raised) {
+    const { error: cancelErr } = await supabase.rpc(
+      "cancel_membership_change_request",
+      { p_request_id: result.request_id },
+    );
+    if (cancelErr) {
+      console.error("[requestMembershipChangeCore] rollback failed", cancelErr);
+      await sendNotification(
+        "Wijzigingsverzoek inconsistent",
+        `Membership ${params.membershipId}: het Mollie-bedrag kon niet verhoogd worden EN het terugdraaien van verzoek ${result.request_id} faalde ook. Handmatig controleren.`,
+        "warning",
+      );
+    }
+    return {
+      ok: false,
+      reason: "mollie_update_failed",
+      // COPY: confirm met Marlon
+      message:
+        "Het incassobedrag kon bij Mollie niet aangepast worden; de wijziging is teruggedraaid. Probeer het opnieuw.",
+    };
+  }
+
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message: `Wijziging gepland per ${result.effective_date} (volgende factuurdatum). Vanaf dan geldt het nieuwe tarief van ${((result.new_recurring_cents ?? 0) / 100).toFixed(2).replace(".", ",")} euro per 4 weken.`,
+    effectiveDate: result.effective_date,
+  };
+}
+
+interface CancelChangeRpcResult {
+  ok: boolean;
+  reason?: string;
+  membership_id?: string;
+  mollie_customer_id?: string;
+  mollie_subscription_id?: string;
+  restore_recurring_cents?: number;
+  already_cancelled?: boolean;
+}
+
+/**
+ * Annuleer een pending wijzigingsverzoek en zet het Mollie-bedrag terug
+ * naar de huidige recurring. Lokaal eerst (daarna kan de verwerking het
+ * verzoek nooit meer toepassen), dan het Mollie-bedrag terug; faalt dat,
+ * dan luid alarm zodat admin het bij Mollie herstelt.
+ */
+export async function cancelMembershipChangeCore(params: {
+  requestId: string;
+}): Promise<LifecycleResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc(
+    "cancel_membership_change_request",
+    { p_request_id: params.requestId },
+  );
+  if (error) {
+    console.error("[cancelMembershipChangeCore] rpc failed", error);
+    return {
+      ok: false,
+      reason: "rpc_failed",
+      // COPY: confirm met Marlon
+      message: "Annuleren lukte niet. Probeer het opnieuw.",
+    };
+  }
+  const result = data as CancelChangeRpcResult | null;
+  if (!result?.ok) {
+    return {
+      ok: false,
+      reason: result?.reason,
+      // COPY: confirm met Marlon
+      message: `Annuleren is geweigerd (${result?.reason ?? "onbekende reden"}).`,
+    };
+  }
+  if (result.already_cancelled) {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Dit verzoek was al geannuleerd." };
+  }
+
+  const restored = await updateMollieSubscriptionAmount(
+    result.mollie_customer_id ?? null,
+    result.mollie_subscription_id ?? null,
+    result.restore_recurring_cents ?? 0,
+  );
+  if (!restored) {
+    await sendNotification(
+      "Mollie-bedrag niet teruggezet",
+      `Wijzigingsverzoek ${params.requestId} is geannuleerd, maar het Mollie-bedrag van subscription ${result.mollie_subscription_id ?? "?"} kon niet teruggezet worden naar ${result.restore_recurring_cents ?? "?"} cent. Handmatig herstellen bij Mollie.`,
+      "warning",
+    );
+    return {
+      ok: true,
+      // COPY: confirm met Marlon
+      message:
+        "Het verzoek is geannuleerd, maar het incassobedrag kon bij Mollie nog niet teruggezet worden; dit is gemeld.",
+    };
+  }
+
+  // COPY: confirm met Marlon
+  return { ok: true, message: "De geplande wijziging is geannuleerd." };
 }
 
 interface ResumeRpcResult {

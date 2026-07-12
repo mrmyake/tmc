@@ -5,6 +5,16 @@
 **IN OPBOUW — inventarisatie compleet, enkele besluiten genomen, nav-landing en discovery-punten open.**
 Datum: 2026-07-10.
 
+UPDATE 2026-07-12: de GEDEELDE LIFECYCLE-PRIMITIEVEN-LAAG IS COMPLEET (klantbeheer-workstream,
+discovery `discovery-klantbeheer-lifecycle.md`): fase 1 pauze/hervat (PR #88, `688b5ba`), fase 2A
+admin-stop (PR #89, `893106f`) en fase 2B change-requests plus e-mailcorrectie (branch
+`feat/lifecycle-change-requests-email`). Alle beleid leeft in SECURITY DEFINER RPC's
+(`admin_pause_membership`, `admin_resume_membership`, `admin_cancel_membership`,
+`request_membership_change`, `cancel_membership_change_request`, `admin_correct_customer_email`)
+met TS-orkestratie in `src/lib/admin/membership-lifecycle.ts`. De latere Sonnet-voorkanten
+(admin-UI en de lid-facing Stap 2 hieronder) zijn dunne aanroepers van die laag en nemen zelf
+geen lifecycle-beslissingen.
+
 Doel van dit document: de *hele* member-omgeving (`/app`) in kaart brengen voordat we losse
 pagina's bouwen, zodat we niet per feature vastlopen op aannames die elders al anders besloten zijn.
 Dit document is de koepel. Bestaande specs blijven leidend voor hun eigen onderdeel
@@ -46,7 +56,9 @@ ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
   Onbeperkt, of All Access toevoegen). DOWNGRADEN kan NIET via het lid: geen self-service pad omlaag.
   Binnen een jaar-commitment kan sowieso niet naar flex gewisseld worden (bestaande regel). Overgang
   loopt via `membership_change_requests` op de volgende factuurdatum, geen proratie. Leeft op de
-  Lidmaatschap-pagina.
+  Lidmaatschap-pagina. UPDATE 2026-07-12: de backend bestaat (lifecycle fase 2B): tabel plus
+  `request_membership_change` (eigenaar of admin, alleen-upgrade, catalogusprijs) en verwerking op
+  de factuurdatum; de UI is een dunne aanroeper van `requestMembershipChangeCore`.
 - **Opzeggen / pauzeren (lid-facing)** — NIEUW (app-laag). Gevoeligste moment van de hele omgeving
   (jaar-commitment, geen restitutie bij 24 maanden). UPDATE 2026-07-12: de gedeelde
   lifecycle-primitieven-laag (Stap 3-fundament) is live (PR #88, merge `688b5ba`): pauze/hervat-

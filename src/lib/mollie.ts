@@ -95,6 +95,35 @@ export async function hasValidMollieMandate(
   }
 }
 
+/**
+ * Werk het bedrag van een lopende subscription bij (upgrade op de volgende
+ * factuurdatum: het bedrag wijzigt NU zodat de eerstvolgende incasso
+ * gegarandeerd het nieuwe bedrag is; de entitlements volgen op de
+ * factuurdatum via de cron). Geeft `false` bij een fout zodat de caller
+ * het verzoek kan terugdraaien. Throwt nooit.
+ */
+export async function updateMollieSubscriptionAmount(
+  customerId: string | null,
+  subscriptionId: string | null,
+  amountCents: number,
+): Promise<boolean> {
+  const mollie = getMollieClient();
+  if (!mollie || !customerId || !subscriptionId) return false;
+  try {
+    await mollie.customerSubscriptions.update(subscriptionId, {
+      customerId,
+      amount: {
+        currency: "EUR",
+        value: (amountCents / 100).toFixed(2),
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error("[updateMollieSubscriptionAmount] failed", err);
+    return false;
+  }
+}
+
 export interface CreateRecurringSubscriptionParams {
   customerId: string;
   amountCents: number;

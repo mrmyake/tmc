@@ -43,6 +43,10 @@ export type EventType =
   | "membership.paused"
   | "membership.resumed"
   | "membership.resume_blocked"
+  | "membership.change_requested"
+  | "membership.change_cancelled"
+  | "membership.changed"
+  | "member.email_changed"
   | "membership.cancellation_requested"
   | "membership.cancelled"
   // Payments

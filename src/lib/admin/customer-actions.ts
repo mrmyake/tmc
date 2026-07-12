@@ -2,6 +2,7 @@
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/events/emit";
 import {
   findOrCreateCustomerCore,
@@ -227,4 +228,100 @@ export async function searchCustomers(
     memberCode: row.member_code,
     role: row.role,
   }));
+}
+
+// ----------------------------------------------------------------------------
+// Directe e-mailcorrectie op een bestaand account (lifecycle fase 2B)
+// ----------------------------------------------------------------------------
+
+export type CorrectEmailResult =
+  | { ok: true; message: string; newEmail: string }
+  | { ok: false; message: string; reason?: string };
+
+/**
+ * Corrigeert het login-adres van een bestaand account. De volledige
+ * synchronisatie (auth.users.email + auth.identities + tmc.profiles.email)
+ * en de PR B-strengheid (genormaliseerd zoek-eerst, weigeren bij een
+ * bestaand ander account) zitten in EEN transactie in de definer-RPC
+ * tmc.admin_correct_customer_email; deze action is de dunne
+ * requireAdmin-schil met audit-log. profiles.email voedt de
+ * betaallink-mails, dus na deze correctie gaan resends naar het nieuwe
+ * adres.
+ */
+export async function correctCustomerEmail(input: {
+  profileId: string;
+  newEmail: string;
+}): Promise<CorrectEmailResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, message: gate.message };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_correct_customer_email", {
+    p_profile_id: input.profileId,
+    p_new_email: input.newEmail,
+  });
+
+  if (error) {
+    console.error("[correctCustomerEmail] rpc failed", error);
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: "De e-mailcorrectie kon niet worden uitgevoerd. Probeer het opnieuw.",
+    };
+  }
+
+  const result = data as {
+    ok: boolean;
+    reason?: string;
+    old_email?: string;
+    new_email?: string;
+    already_current?: boolean;
+    email?: string;
+  } | null;
+
+  if (!result?.ok) {
+    const messages: Record<string, string> = {
+      // COPY: confirm met Marlon
+      email_exists:
+        "Dit e-mailadres hoort al bij een ander account; de correctie is geweigerd.",
+      invalid_email: "Dit is geen geldig e-mailadres.",
+      user_not_found: "Account niet gevonden.",
+      sso_user: "Dit account logt in via een externe provider; het adres kan hier niet gewijzigd worden.",
+    };
+    return {
+      ok: false,
+      reason: result?.reason,
+      message:
+        messages[result?.reason ?? ""] ??
+        `De correctie is geweigerd (${result?.reason ?? "onbekende reden"}).`,
+    };
+  }
+
+  if (result.already_current) {
+    return {
+      ok: true,
+      // COPY: confirm met Marlon
+      message: "Dit account gebruikt dit e-mailadres al.",
+      newEmail: result.email ?? input.newEmail,
+    };
+  }
+
+  const admin = createAdminClient();
+  await admin.from("admin_audit_log").insert({
+    admin_id: gate.userId,
+    action: "email_corrected",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      old_email: result.old_email ?? null,
+      new_email: result.new_email ?? null,
+    },
+  });
+
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message: `E-mailadres bijgewerkt naar ${result.new_email}. Login en betaallink-mails gebruiken vanaf nu dit adres.`,
+    newEmail: result.new_email ?? input.newEmail,
+  };
 }
