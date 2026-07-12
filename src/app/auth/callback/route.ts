@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 function roleRedirect(role: string | null | undefined): string {
   if (role === "admin") return "/app/admin";
   if (role === "trainer") return "/app/trainer/sessies";
-  return "/app/rooster";
+  return "/app";
 }
 
 export async function GET(request: Request) {
@@ -36,9 +36,10 @@ export async function GET(request: Request) {
       ? nextParam
       : null;
 
-  // Specifieke next → die volgen. De bare `/app` vangen we op en
-  // sturen naar de rol-default; anders zou iedereen op /app/rooster
-  // landen en dan pas worden doorgestuurd.
+  // Specifieke next → die volgen. De bare `/app` vangen we op en sturen
+  // naar de rol-default (die voor members ook gewoon /app is, sinds de
+  // landing-flip 2026-07-12 — dit voorkomt alleen dat een niet-member
+  // met next=/app op de member-landing terechtkomt).
   if (safeNext && safeNext !== "/app") {
     return NextResponse.redirect(`${origin}${safeNext}`);
   }
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let target = "/app/rooster";
+  let target = "/app";
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")

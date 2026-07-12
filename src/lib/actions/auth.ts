@@ -26,7 +26,7 @@ export type VerifyOtpResult =
 function roleRedirect(role: string | null | undefined): string {
   if (role === "admin") return "/app/admin";
   if (role === "trainer") return "/app/trainer/sessies";
-  return "/app/rooster";
+  return "/app";
 }
 
 /**

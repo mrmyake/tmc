@@ -28,7 +28,7 @@ const BASE_ITEMS: NavItem[] = [
     href: "/app/rooster",
     label: "Rooster",
     icon: Calendar,
-    matchPrefixes: ["/app/rooster", "/app"],
+    matchPrefixes: ["/app/rooster"],
   },
   {
     href: "/app/boekingen",
@@ -79,12 +79,6 @@ interface MemberNavProps {
 }
 
 function isItemActive(pathname: string, item: NavItem): boolean {
-  // `/app/rooster` moet ook matchen op de bare `/app` root voor het
-  // geval de redirect nog niet is uitgevoerd. Andere items hebben
-  // strikte prefix-matches.
-  if (item.href === "/app/rooster") {
-    if (pathname === "/app") return true;
-  }
   return (
     pathname === item.href || pathname.startsWith(`${item.href}/`)
   );
