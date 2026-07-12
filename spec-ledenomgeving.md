@@ -7,8 +7,7 @@ Datum: 2026-07-10.
 
 UPDATE 2026-07-12: de GEDEELDE LIFECYCLE-PRIMITIEVEN-LAAG IS COMPLEET (klantbeheer-workstream,
 discovery `discovery-klantbeheer-lifecycle.md`): fase 1 pauze/hervat (PR #88, `688b5ba`), fase 2A
-admin-stop (PR #89, `893106f`) en fase 2B change-requests plus e-mailcorrectie (branch
-`feat/lifecycle-change-requests-email`). Alle beleid leeft in SECURITY DEFINER RPC's
+admin-stop (PR #89, `893106f`) en fase 2B change-requests plus e-mailcorrectie (PR #90, `b708e7f`). Alle beleid leeft in SECURITY DEFINER RPC's
 (`admin_pause_membership`, `admin_resume_membership`, `admin_cancel_membership`,
 `request_membership_change`, `cancel_membership_change_request`, `admin_correct_customer_email`)
 met TS-orkestratie in `src/lib/admin/membership-lifecycle.ts`. De latere Sonnet-voorkanten
