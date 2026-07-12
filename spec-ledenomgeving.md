@@ -145,16 +145,15 @@ geen eigen chrome mee.
 - Vrij Trainen — zichtbaar bij vrij_trainen-entitlement.
 - Schema — zichtbaar zodra lid ooit een protocol had en nog lid is. BESLOTEN.
 
-### 3.3 BESLOTEN, maar HEROPEND (zie §8 punt 1): het "overzicht" wordt de uitgebreide Lidmaatschap-pagina (optie A)
-Rooster blijft de landing. Het overzicht (tegoed + status + entitlements + schema-teaser) is geen
-dagelijkse actie maar een "hoe sta ik ervoor"-laag, en wordt daarom de uitgebreide Lidmaatschap-
-pagina (`/app/abonnement`): abbo + status + tegoed + entitlements + schema-teaser + facturen-subpagina.
-Geen vijfde vast nav-item. Schema blijft een apart conditioneel item omdat het een werkplek is
-(loggen), niet alleen overzicht.
+### 3.3 BESLOTEN (2026-07-12): de landing wordt een home-dashboard (optie A vervangen)
+De lid-facing landingspagina wordt een home-dashboard en is het eerste scherm bij het openen van de
+app. Rooster is niet langer de landing. Het dashboard toont: begroeting, eerstvolgende les
+(rooster-teaser), tegoed (indien aanwezig), schema-teaser (indien aanwezig), lidmaatschap-status en
+de entitlement-lijst.
 
-Reden voor A boven een los "Overzicht"-item: op mobiel is 5 items de bovengrens in de bottom tab
-bar, en Vrij Trainen + Schema zijn al conditionele items die om die ruimte concurreren. A houdt de
-nav op 4 vaste items.
+De bredere nav-herziening (waar Rooster heen gaat, de mobiele cap) blijft expliciet geparkeerd in het
+aparte navigatie-project. Alleen dat dit scherm de landing wordt, is nu besloten; de nav-cap blijft
+dus een open punt, de landing-keuze niet.
 
 ---
 
@@ -169,11 +168,12 @@ nav op 4 vaste items.
    loopt af op). Volledige voorwaarden + knoppen op de Lidmaatschap-pagina.
 4. **Duo = PT met introducé.** Zelfde mechaniek als PT (tegoed-blok, saldo, koop bij). De introducé
    is een boek-detail, niet iets wat het overzicht oplost. Bewust simpel gehouden.
-5. **Rooster blijft landing page.**
+5. **Landing wordt het home-dashboard (zie §3.3).** Rooster blijft bereikbaar binnen de bestaande
+   shell; de nav-plek ervan valt onder het geparkeerde navigatie-project.
 6. **Entitlement-weergave:** actief + maximaal 1 relevante upsell (Duo), rest in Kopen. Geen volle
    locked-lijst. Typografische lijst, geen iconen.
-7. **Nav-landing (optie A):** overzicht wordt de uitgebreide Lidmaatschap-pagina, geen vijfde
-   nav-item. Rooster blijft landing. HEROPEND bij de mockup-review van 2026-07-12 (zie §8 punt 1).
+7. **Nav-landing:** het overzicht wordt het home-dashboard en de landing; besluit A (optie A,
+   Lidmaatschap-pagina als overzicht) is vervangen. Zie §3.3 voor de uitwerking.
 
 ---
 
@@ -241,19 +241,24 @@ Detectie mag eerder gebouwd, maar produceert stil niets tot het project bestaat.
 
 ---
 
-## 8. Open UI-besluiten (te behandelen voor de lid-facing Stap 2 bouw)
+## 8. UI-besluiten mockup-review 2026-07-12 (punt 1 en 2 beslist, punt 3 en 4 open)
 
-Verzameld bij de mockup-review (2026-07-12); lijst is nog OPEN en kan groeien bij de UI-doorloop.
+Verzameld bij de mockup-review (2026-07-12). Punt 1 en 2 zijn beslist (2026-07-12); de uitkomst staat
+bij het punt. Punt 3 (nav mobiele cap) en punt 4 blijven open, net als de discovery-afhankelijke
+punten kaart-houdbaarheid en health-intake-gate uit §5.
 
-1. **Landing vs Lidmaatschap-pagina (heropent §3.3):** is het overzicht (begroeting, eerstvolgende
-   les, tegoed, schema-teaser, entitlements) de uitgebreide Lidmaatschap-pagina onder
-   `/app/abonnement` (huidig besluit optie A, Rooster blijft landing), of wordt het een
-   home-dashboard als nieuwe landing? De mockup toont overzicht-inhoud met Rooster als actief
-   nav-item, wat A tegenspreekt. Keuze raakt de nav-highlight en mogelijk de nav-structuur.
-2. **Entitlement-model in "In jouw lidmaatschap":** tonen we PT en Trainingsschema als
-   entitlement-regel ("Actief"), of eruit conform de kernregel §2 (schema hangt aan een actief
-   protocol, PT loopt via credits, geen van beide is een abonnementsrecht)? PT staat in de mockup
-   dubbel: als tegoed-blok en als entitlement-regel.
+1. **OPGELOST (2026-07-12) — Landing vs Lidmaatschap-pagina:** was de vraag of het overzicht
+   (begroeting, eerstvolgende les, tegoed, schema-teaser, entitlements) de uitgebreide
+   Lidmaatschap-pagina onder `/app/abonnement` blijft (toenmalig besluit optie A) of een
+   home-dashboard als nieuwe landing wordt. Uitkomst: home-dashboard als landing, zie §3.3 en §4
+   besluit 5/7.
+2. **OPGELOST (2026-07-12) — Entitlement-model in "In jouw lidmaatschap":** was de vraag of PT en
+   Trainingsschema als entitlement-regel ("Actief") getoond worden, of eruit conform de kernregel §2.
+   Uitkomst: de lijst toont alleen rijen voor wat het lid daadwerkelijk heeft, geen vergrendelde of
+   grijze rijen. Strikte abonnementsrechten (Groepslessen, Vrij Trainen, Verlengde toegang) vormen de
+   kern. Personal Training en Trainingsschema verschijnen als lichte "Actief"-rij alleen als het lid
+   ze heeft, met het detail in respectievelijk het tegoed-blok en de schema-teaser, dus geen echte
+   duplicatie. Maximaal één upsell (Duo), alleen indien relevant.
 3. **Nav mobiele cap:** 4 vaste items + 2 conditionele (Vrij Trainen EN Schema) = 6, over de 5-cap
    in de bottom tab bar. Hoort bij het uitgestelde navigatie-project. De overzichtspagina blijft
    binnen de bestaande shell en behandelt de nav als out-of-scope; geen stil vijfde/zesde item
@@ -269,3 +274,7 @@ Uit de lifecycle-primitieven (fase 1, PR #88 merge `688b5ba`), mee te nemen in d
 6. **Geen hervat-cron (per beleid handmatig):** een open pauze blijft staan tot admin hervat. Later
    een admin-overzicht "gepauzeerde leden en sinds wanneer" zodat langlopende, niet-incasserende
    pauzes zichtbaar worden. Parkeren, niet nu bouwen.
+
+**Copy-status (2026-07-12):** de placeholder-copy voor de home-dashboard-landing staat in
+`copy-ledenomgeving-landing.md`, opgesteld en akkoord bevonden door Marlon. De copy voor dit scherm
+ligt dus vast voor de latere Sonnet-bouw.
