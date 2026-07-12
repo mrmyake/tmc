@@ -25,6 +25,33 @@ binnen de shell (`/app/rooster`); de nav-highlight-fallback die bare `/app` als 
 behandelde is verwijderd (`MemberNav.tsx`). Geen nieuwe RPC's, migraties of nav-structuurwijziging
 — alleen de landing-bestemming is verschoven. Twee follow-ups blijven open, zie §3.3.
 
+UPDATE 2026-07-12 (PR #93, zelfde branch): TIJDELIJK TWEE DESIGN-VARIANTEN NAAST ELKAAR, in
+afwachting van Marlons keuze. Alle data-reads, statusvarianten en conditionele sectielogica zijn
+uit de pagina getrokken in één gedeelde laag (`src/app/app/_lib/dashboard-data.ts`,
+`loadDashboardData()`) die beide varianten identiek consumeren — geen logica-, data- of
+copyverschil tussen de twee, uitsluitend presentatie.
+- **Variant A (donker, on-brand)** op de bestaande route `/app`. Volgt de merk-skill uit
+  `docs/design-system/` (Ink-800 kaarten, radius-md, champagne hover-border, `--radius-md: 8px`),
+  met kaart-afbakening per sectie en de tegoed-stippenrij nu toegevoegd.
+- **Variant B (licht, mockup 1:1)** op de tijdelijke route `/app/preview-licht`. Volgt
+  `mockup-leden-overzicht.html` letterlijk: stone-achtergrond, witte kaarten, het zwarte
+  tegoed-blok met champagne-stippen, exacte hex-kleuren uit de mockup-CSS (niet uit de donkere
+  `/app`-tokens — enige uitzondering: de `danger`-tone hergebruikt het merk-brede semantische
+  foutkleur `#C47A6E` uit `docs/design-system/DESIGN-SYSTEM.md`, geen dark-surface-token).
+- **Nieuw in de gedeelde laag (verschijnt dus in beide varianten):** de tegoed-stippenrij
+  (gevuld/leeg naar `credits_remaining`/`credits_total`) en een statusregel-variant voor
+  `payment_failed` (niet in de goedgekeurde copy-set — nieuwe tekst, gemarkeerd
+  `// COPY: confirm met Marlon` in `_lib/dashboard.ts`, wacht op Marlons akkoord).
+- Beide routes blijven naast elkaar bestaan tot de keuze gemaakt is; de landing zelf is niet
+  verder geflipt en er is niets verwijderd.
+- **Follow-up, niet in deze PR:** de "landing-consistentie"-opruiming van de resterende
+  `/app/rooster`-hrefs die niet zijn meegenomen in de PR #93-flip — de wrong-role guards in
+  `src/app/app/admin/layout.tsx` en `src/app/app/trainer/layout.tsx`, en de "Schakel naar Member
+  view"-hrefs in `AvatarDropdown.tsx`/`MobileAccountActions.tsx`. Die wijzen nog naar
+  `/app/rooster` in plaats van `/app`; functioneel correct maar inconsistent met de nieuwe
+  landing. Gemeld bij de PR #93-flip, bewust niet meegenomen om die wijziging chirurgisch te
+  houden.
+
 Doel van dit document: de *hele* member-omgeving (`/app`) in kaart brengen voordat we losse
 pagina's bouwen, zodat we niet per feature vastlopen op aannames die elders al anders besloten zijn.
 Dit document is de koepel. Bestaande specs blijven leidend voor hun eigen onderdeel

@@ -1,62 +1,53 @@
 import { Button } from "@/components/ui/Button";
-import { formatDateLong } from "@/lib/format-date";
-import {
-  CREDIT_TYPE_LABELS,
-  creditType,
-  type CreditMembershipRow,
-} from "../producten/lib";
+import type { DashboardCreditCard } from "../_lib/dashboard-data";
 
-function nudgeText(remaining: number): string | null {
-  if (remaining >= 3) return null;
-  // COPY: akkoord Marlon 2026-07-12
-  if (remaining === 2) {
-    return "Nog 2 sessies over. Koop bij zodat je zonder onderbreking doortraint.";
-  }
-  // COPY: akkoord Marlon 2026-07-12
-  if (remaining === 1) {
-    return "Dit is je laatste sessie. Koop bij om door te gaan.";
-  }
-  // COPY: akkoord Marlon 2026-07-12
-  return "Je tegoed is op. Koop een nieuwe kaart om weer te boeken.";
+function CreditDots({ dots }: { dots: boolean[] }) {
+  if (dots.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-5 mb-6">
+      {dots.map((filled, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className={`w-3 h-3 rounded-full ${
+            filled ? "bg-accent" : "border border-text-muted/30"
+          }`}
+        />
+      ))}
+    </div>
+  );
 }
 
-function CreditCard({ row }: { row: CreditMembershipRow }) {
-  const type = creditType(row);
-  const label = CREDIT_TYPE_LABELS[type];
-  const remaining = row.credits_remaining;
-  const nudge = nudgeText(remaining);
-
+function CreditCard({ card }: { card: DashboardCreditCard }) {
   return (
-    <div className="bg-bg-elevated p-8">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="bg-bg-elevated rounded-lg p-8">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <span className="tmc-eyebrow tmc-eyebrow--accent block mb-1">
-            {label.sub}
+            {card.typeSub}
           </span>
-          <p className="text-text text-sm">{label.name}</p>
+          <p className="text-text text-sm">{card.typeName}</p>
         </div>
         <p className="font-[family-name:var(--font-playfair)] text-3xl text-text leading-none whitespace-nowrap">
-          {remaining}
-          <span className="text-text-muted text-lg"> / {row.credits_total}</span>
+          {card.remaining}
+          <span className="text-text-muted text-lg"> / {card.total}</span>
         </p>
       </div>
 
-      {nudge && (
+      <CreditDots dots={card.dots} />
+
+      {card.nudgeText && (
         <p className="text-text-muted text-sm leading-relaxed mb-6">
-          {nudge}
+          {card.nudgeText}
         </p>
       )}
 
       <Button href="/app/producten" variant="secondary" className="w-full justify-center">
-        {/* COPY: akkoord Marlon 2026-07-12 */}
-        {remaining > 0 ? "Extra sessies kopen" : "Nieuwe kaart kopen"}
+        {card.buttonLabel}
       </Button>
 
       <p className="mt-5 text-text-muted/70 text-xs text-center">
-        {/* COPY: akkoord Marlon 2026-07-12 */}
-        {row.credits_expires_at
-          ? `Geldig tot ${formatDateLong(new Date(`${row.credits_expires_at}T00:00:00`))}`
-          : "Geen vervaldatum"}
+        {card.validityText}
       </p>
     </div>
   );
@@ -65,19 +56,19 @@ function CreditCard({ row }: { row: CreditMembershipRow }) {
 export function DashboardCredits({
   credits,
 }: {
-  credits: CreditMembershipRow[];
+  credits: DashboardCreditCard[];
 }) {
   if (credits.length === 0) return null;
 
   return (
-    <section className="mb-14">
+    <section className="mb-10 md:mb-14">
       {/* COPY: akkoord Marlon 2026-07-12 */}
       <h2 className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
         Jouw tegoed
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {credits.map((row) => (
-          <CreditCard key={row.id} row={row} />
+        {credits.map((card) => (
+          <CreditCard key={card.id} card={card} />
         ))}
       </div>
     </section>

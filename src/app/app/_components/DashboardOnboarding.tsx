@@ -10,7 +10,11 @@ export function DashboardOnboarding({
   intakeDone,
 }: DashboardOnboardingProps) {
   return (
-    <section className="bg-bg-elevated p-10 md:p-12 mb-14">
+    <section className="relative bg-bg-elevated rounded-lg p-10 md:p-12">
+      <span
+        aria-hidden
+        className="absolute top-0 left-10 right-10 h-px bg-accent/40"
+      />
       <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.05] tracking-[-0.02em] mb-5">
         {/* COPY: akkoord Marlon 2026-07-12 */}
         Welkom bij The Movement Club, {firstName}.

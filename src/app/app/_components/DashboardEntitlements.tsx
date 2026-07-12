@@ -25,12 +25,12 @@ export function DashboardEntitlements({
   if (rows.length === 0 && !upsell) return null;
 
   return (
-    <section className="mb-14">
+    <section className="mb-10 md:mb-14">
       {/* COPY: akkoord Marlon 2026-07-12 */}
       <h2 className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
         In jouw lidmaatschap
       </h2>
-      <div className="bg-bg-elevated divide-y divide-[color:var(--ink-500)]/60">
+      <div className="bg-bg-elevated rounded-lg divide-y divide-[color:var(--ink-500)]/60 overflow-hidden">
         {rows.map((row) => (
           <div
             key={row.title}
@@ -50,7 +50,7 @@ export function DashboardEntitlements({
         {upsell && (
           <Link
             href={upsell.href}
-            className="flex items-baseline justify-between gap-4 px-6 py-4 bg-bg/40 hover:bg-bg/70 transition-colors"
+            className="flex items-baseline justify-between gap-4 px-6 py-4 bg-bg/40 hover:bg-bg/70 transition-colors duration-500"
           >
             <div>
               <p className="text-text text-sm font-medium">{upsell.title}</p>

@@ -1,26 +1,22 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { amsterdamParts, formatTime, MONTH_SHORT_NL } from "@/lib/format-date";
+import type { DashboardNextSession } from "../_lib/dashboard-data";
 
 interface DashboardNextClassProps {
-  session: {
-    startAt: Date;
-    endAt: Date;
-    className: string;
-    trainerName: string;
-  } | null;
+  session: DashboardNextSession | null;
 }
 
 export function DashboardNextClass({ session }: DashboardNextClassProps) {
   return (
-    <section className="mb-14">
+    <section className="mb-10 md:mb-14">
       {/* COPY: akkoord Marlon 2026-07-12 */}
       <h2 className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
         Eerstvolgende
       </h2>
 
       {!session ? (
-        <div className="bg-bg-elevated p-8 md:p-10">
+        <div className="bg-bg-elevated rounded-lg p-8 md:p-10">
           <h3 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text leading-[1.1] tracking-[-0.02em] mb-3">
             {/* COPY: akkoord Marlon 2026-07-12 */}
             Nog geen les gepland
@@ -35,9 +31,13 @@ export function DashboardNextClass({ session }: DashboardNextClassProps) {
       ) : (
         <Link
           href="/app/boekingen"
-          className="flex items-center gap-5 bg-bg-elevated p-6 md:p-7 hover:bg-bg-elevated/70 transition-colors duration-300"
+          className="relative flex items-center gap-5 bg-bg-elevated rounded-lg p-6 md:p-7 border border-transparent hover:border-accent/40 transition-colors duration-500"
         >
-          <div className="shrink-0 w-14 h-14 bg-bg flex flex-col items-center justify-center">
+          <span
+            aria-hidden
+            className="absolute top-0 left-8 right-8 h-px bg-accent/40"
+          />
+          <div className="shrink-0 w-14 h-14 rounded-md bg-bg flex flex-col items-center justify-center">
             <span className="font-[family-name:var(--font-playfair)] text-lg text-text leading-none">
               {amsterdamParts(session.startAt).day}
             </span>
