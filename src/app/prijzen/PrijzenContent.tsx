@@ -1,10 +1,66 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
+
+type AuthState = "unknown" | "out" | "in";
+
+// Zelfde client-only auth-check als Navbar.tsx: lazy import van de
+// browser-Supabase-client zodat deze pagina op ISR blijft draaien
+// (geen cookies()/auth.getUser() in page.tsx, dat zou de hele pagina
+// naar force-dynamic zetten). Lokaal hier ipv gedeeld, want alleen deze
+// twee koop-CTA's hebben de auth-staat nodig.
+function useAuthState(): AuthState {
+  const [authState, setAuthState] = useState<AuthState>("unknown");
+
+  useEffect(() => {
+    let mounted = true;
+    import("@/lib/supabase/client")
+      .then(({ createClient }) => {
+        if (!mounted) return;
+        return createClient().auth.getUser();
+      })
+      .then((result) => {
+        if (mounted) setAuthState(result?.data.user ? "in" : "out");
+      })
+      .catch(() => {
+        if (mounted) setAuthState("out");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return authState;
+}
+
+// PT en rittenkaarten tonen hun prijs aan iedereen; de koop-CTA zelf is
+// alleen voor ingelogde leden (koopt via /app/producten, WS-6). Voor
+// "unknown" blijft de knop onzichtbaar EN onklikbaar (pointer-events-none),
+// zodat er geen fout label wegflitst en er niets te klikken valt voordat
+// de auth-staat bekend is.
+function BuyOrLoginButton({ authState, label }: { authState: AuthState; label: string }) {
+  if (authState === "in") {
+    return <Button href="/app/producten">{label}</Button>;
+  }
+  if (authState === "out") {
+    return (
+      <Button href="/login?next=/app/producten">
+        {/* COPY: confirm met Marlon */}
+        Log in om te kopen
+      </Button>
+    );
+  }
+  return (
+    <span className="inline-block opacity-0 pointer-events-none" aria-hidden="true">
+      <Button href="/app/producten">{label}</Button>
+    </span>
+  );
+}
 
 // Copy hieronder is een eerste voorstel voor een evergreen prijspagina,
 // zonder actietaal of einddatum. Elke klantgerichte string draagt een
@@ -45,6 +101,8 @@ interface PrijzenContentProps {
 }
 
 export function PrijzenContent({ pricing }: PrijzenContentProps) {
+  const authState = useAuthState();
+
   // Enige prijsbron is tmc.catalogue; een ontbrekend veld is null, nooit
   // een verzonnen bedrag. fmt() is de standaard weergave daarvoor overal
   // op deze pagina.
@@ -447,7 +505,10 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
             </div>
 
             <div className="mt-8">
-              <Button href="/abonnement">Boek personal training</Button>
+              {/* COPY: confirm met Marlon — "Koop" ipv "Boek": de
+                  bestemming is een koop-pagina (/app/producten), geen
+                  boekflow. */}
+              <BuyOrLoginButton authState={authState} label="Koop personal training" />
             </div>
           </ScrollReveal>
         </Container>
@@ -562,7 +623,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
               </li>
             </ul>
             <div className="mt-8">
-              <Button href="/abonnement">Koop een rittenkaart</Button>
+              <BuyOrLoginButton authState={authState} label="Koop een rittenkaart" />
             </div>
           </ScrollReveal>
         </Container>

@@ -71,10 +71,12 @@ Bijgewerkt 2026-07-11, geverifieerd tegen de live git-staat (`gh pr list`, `git 
   - OPENSTAAND: lichte post-merge-check van het betaalverzoek-overzicht op productie (toont het de juiste verzoeken/statussen per groep, stuurt resend-zelfde-adres daadwerkelijk de mail) wanneer het uitkomt. Niet-blokkerend: de code is puur lezen plus een bestaande mail-flow hergebruikt, geen nieuwe schrijfpaden.
   - OPENSTAAND: de self-service WS-6-redirect (ingelogde product-koop landt op /app/producten?tab=tegoed, create-order.ts) is nog niet geverifieerd met een echte round-trip; alleen het admin-betaallink-pad is dat deze sessie.
 - **WS-5 PR D (custom bedrag / factuur)**: GEPARKEERD, bewust uit scope. Custom bedragen doorbreken de catalogus-single-source en leveren zonder BTW-registratie geen kloppende factuur op. Waarschijnlijke richting: extern boekhoudpakket met sync. Wacht op het facturatie-besluit met Marlons accountant.
+- **/prijzen koopknoppen auth-bewust (WS-3 vervolg, WS-6-seam)**: PR feat/prijzen-koop-login-gate (merge `<merge-hash na merge invullen>`). De publieke PT- en rittenkaart-CTA's op `/prijzen` (voorheen href `/abonnement`, de abonnement-boekflow) wijzen nu naar de product-surface `/app/producten` (WS-6). Lokale `BuyOrLoginButton` hergebruikt het client-side auth-patroon van `Navbar.tsx` (`authState` unknown/out/in, opacity-gate plus pointer-events-none in unknown): ingelogd naar `/app/producten`, uitgelogd naar `/login?next=/app/producten` met label "Log in om te kopen". PT-label van "Boek" naar "Koop personal training" omdat de bestemming een koop-pagina is. Geen aparte Duo-CTA gevonden (discovery); Duo loopt mee in de PT-sectie-knop. ISR en server-fetch van `/prijzen` ongemoeid (auth-check is client-only, geen force-dynamic). Geen DB, geen migratie, geen prijswijziging. Alle copy `// COPY: confirm met Marlon`.
 
 #### In uitvoering / open
 
-- Geen actieve WS-5-PR's meer open; PR A, B en C zijn gemerged. Zie de openstaande vervolgpunten bij WS-5 PR C hierboven.
+- **/prijzen koopknoppen auth-bewust**: PR feat/prijzen-koop-login-gate open tegen `main`, wacht op groene Vercel-preview-build en merge.
+- Geen andere actieve WS-5-PR's meer open; PR A, B en C zijn gemerged. Zie de openstaande vervolgpunten bij WS-5 PR C hierboven.
 
 #### Nog te doen (na WS-5)
 
@@ -179,8 +181,8 @@ The point of this design is that there is exactly one of each thing that could o
 
 Every existing pricing, subscription, and membership page is removed, including the current in-app checkout `/app/abonnement/nieuw`; these two replace them, and any old route 301's to the right new one:
 
-1. **Prices overview** (`/prijzen`): the whole catalogue shown clearly and scannably, read from the DB. All memberships and their frequencies, the add-on, the one-off products, the commitment terms and inschrijfkosten. Prices are shown as they are. While the Early Member campaign runs, the page also makes the Early Member benefits clear (see the Early Member section). Its job is orientation and comparison; it holds no checkout logic. Its CTAs point to `/abonnement`.
-2. **Subscription booking** (`/abonnement`): where you directly book a subscription (and buy one-off products), running the Configure, Identify, Pay, Activate flow below.
+1. **Prices overview** (`/prijzen`): the whole catalogue shown clearly and scannably, read from the DB. All memberships and their frequencies, the add-on, the one-off products, the commitment terms and inschrijfkosten. Prices are shown as they are. While the Early Member campaign runs, the page also makes the Early Member benefits clear (see the Early Member section). Its job is orientation and comparison; it holds no checkout logic. Its subscription CTAs point to `/abonnement`; its one-off product CTAs (PT, rittenkaart, Duo) point to `/app/producten` (WS-6, login-gated).
+2. **Subscription booking** (`/abonnement`): where you directly book a subscription, running the Configure, Identify, Pay, Activate flow below. One-off products are bought on `/app/producten` (WS-6) through the same pipeline; drop-in blijft publiek en is geen self-service product op die surface.
 
 A logged-in buyer who lands on `/abonnement` skips Identify. The `/early-member` page keeps its role as the campaign surface, but its CTAs now link into the `/abonnement` flow with Early Member benefits applied, not to any removed page.
 
