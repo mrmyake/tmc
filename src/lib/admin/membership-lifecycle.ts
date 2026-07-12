@@ -205,6 +205,165 @@ export async function pauseMembershipCore(
   };
 }
 
+interface CancelParams {
+  membershipId: string;
+  /** Verplichte reden; gaat het events-log in (audit). */
+  reason: string;
+  /** Gemarkeerde coulance/geschil-tak: stopt per direct, maakt de betaalde cyclus niet af. */
+  hardStop?: boolean;
+}
+
+interface CancelRpcResult {
+  ok: boolean;
+  reason?: string;
+  mode?: "immediate" | "scheduled";
+  hard_stop?: boolean;
+  effective_date?: string;
+  cancelled_bookings?: number;
+  already_cancelled?: boolean;
+  already_scheduled?: boolean;
+  end_date?: string;
+}
+
+/**
+ * Admin-stop. Zelfde volgorde-discipline als pauzeren: Mollie-cancel EERST
+ * (idempotent), dan pas de definer-RPC. Default plant de stop op het einde
+ * van de betaalde cyclus en rijdt daarna op de bestaande
+ * process-cancellations cron; hardStop stopt per direct. Faalt de RPC na
+ * een geslaagde Mollie-cancel, dan is de incasso gestopt maar de lokale
+ * staat ongewijzigd; opnieuw aanroepen is veilig.
+ */
+export async function cancelMembershipCore(
+  params: CancelParams,
+): Promise<LifecycleResult> {
+  const admin = createAdminClient();
+  const { data: m } = await admin
+    .from("memberships")
+    .select(
+      "id, profile_id, status, start_date, billing_cycle_weeks, mollie_customer_id, mollie_subscription_id, pause_effective_date, cancellation_effective_date",
+    )
+    .eq("id", params.membershipId)
+    .maybeSingle();
+
+  if (!m) return { ok: false, message: "Abonnement niet gevonden." };
+  if (m.status === "cancelled") {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Dit abonnement is al stopgezet." };
+  }
+  if (!m.billing_cycle_weeks) {
+    return {
+      ok: false,
+      reason: "not_cancellable_plan",
+      // COPY: confirm met Marlon
+      message:
+        "Dit product heeft geen doorlopende incasso; pas het tegoed aan in plaats van stop te zetten.",
+    };
+  }
+  if (!params.reason?.trim()) {
+    // COPY: confirm met Marlon
+    return { ok: false, reason: "missing_reason", message: "Geef een reden op." };
+  }
+
+  // Einde van de betaalde dekking voor de default-modus. Bron is Mollie's
+  // nextPaymentDate; is de subscription al gestopt (bv. door een pauze),
+  // dan kent de RPC de dekking via pause_effective_date. Zonder enige
+  // subscription valt hij terug op de berekende cyclusgrens.
+  let effectiveDate: string | null = null;
+  if (m.mollie_subscription_id) {
+    const info = await getMollieSubscriptionInfo(
+      m.mollie_customer_id,
+      m.mollie_subscription_id,
+    );
+    if (!info) {
+      return {
+        ok: false,
+        reason: "mollie_unreachable",
+        // COPY: confirm met Marlon
+        message:
+          "Mollie is niet bereikbaar; de stopzetting is niet doorgevoerd. Probeer het opnieuw.",
+      };
+    }
+    if (info.status === "active" && info.nextPaymentDate) {
+      effectiveDate = info.nextPaymentDate;
+    }
+
+    // Mollie-eerst: stop de incasso. Idempotent; bij falen geen lokale
+    // wijziging, de volgende poging herprobeert.
+    const stopped = await cancelMollieSubscription(
+      m.mollie_customer_id,
+      m.mollie_subscription_id,
+    );
+    if (!stopped) {
+      return {
+        ok: false,
+        reason: "mollie_cancel_failed",
+        // COPY: confirm met Marlon
+        message:
+          "De incasso kon bij Mollie niet gestopt worden; de stopzetting is niet doorgevoerd. Probeer het opnieuw.",
+      };
+    }
+  } else if (!m.pause_effective_date && m.status === "active") {
+    effectiveDate = nextCycleBoundary(m.start_date, m.billing_cycle_weeks);
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_cancel_membership", {
+    p_membership_id: params.membershipId,
+    p_reason: params.reason.trim(),
+    p_hard_stop: params.hardStop ?? false,
+    p_effective_date: effectiveDate,
+  });
+
+  if (error) {
+    console.error("[cancelMembershipCore] rpc failed", error);
+    await sendNotification(
+      "Stopzetting half doorgevoerd",
+      `De Mollie-incasso van membership ${params.membershipId} is gestopt, maar de lokale stopzetting faalde (${error.message}). Opnieuw proberen is veilig en idempotent.`,
+      "warning",
+    );
+    return {
+      ok: false,
+      reason: "rpc_failed",
+      // COPY: confirm met Marlon
+      message:
+        "De incasso is gestopt, maar de stopzetting faalde. Probeer het direct opnieuw.",
+    };
+  }
+
+  const result = data as CancelRpcResult | null;
+  if (!result?.ok) {
+    return {
+      ok: false,
+      reason: result?.reason,
+      // COPY: confirm met Marlon
+      message: `De stopzetting is geweigerd (${result?.reason ?? "onbekende reden"}).`,
+    };
+  }
+  if (result.already_cancelled) {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Dit abonnement is al stopgezet." };
+  }
+  if (result.already_scheduled) {
+    return {
+      ok: true,
+      // COPY: confirm met Marlon
+      message: `De stopzetting stond al gepland per ${result.effective_date}.`,
+      effectiveDate: result.effective_date,
+    };
+  }
+
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message:
+      result.mode === "immediate"
+        ? "Abonnement per direct stopgezet; de incasso is gestopt."
+        : `Stopzetting gepland per ${result.effective_date} (einde van de betaalde cyclus); de incasso is per direct gestopt.`,
+    effectiveDate: result.effective_date,
+    cancelledBookings: result.cancelled_bookings,
+  };
+}
+
 interface ResumeRpcResult {
   ok: boolean;
   reason?: string;
