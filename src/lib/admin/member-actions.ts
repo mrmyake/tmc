@@ -6,6 +6,10 @@ import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { cancelMollieSubscription } from "@/lib/mollie";
 import { sendNotification } from "@/lib/ntfy";
+import {
+  pauseMembershipCore,
+  resumeMembershipCore,
+} from "./membership-lifecycle";
 
 export type MemberActionResult =
   | { ok: true; message: string }
@@ -61,40 +65,16 @@ export async function grantPause(
     return { ok: false, message: "Abonnement hoort niet bij dit lid." };
   }
 
-  const nowIso = new Date().toISOString();
-
-  const { data: pause, error: pauseErr } = await admin
-    .from("membership_pauses")
-    .insert({
-      membership_id: input.membershipId,
-      requested_by: input.profileId,
-      start_date: input.startDate,
-      end_date: input.endDate,
-      reason,
-      status: "approved",
-      approved_by: auth.userId,
-      approved_at: nowIso,
-    })
-    .select("id")
-    .single();
-
-  if (pauseErr) {
-    console.error("[grantPause] insert failed", pauseErr);
-    return { ok: false, message: "Pauze toekennen lukte niet." };
-  }
-
-  // Als de pauze vandaag of in verleden start, zet abbo meteen op paused.
-  const today = nowIso.slice(0, 10);
-  if (
-    input.startDate <= today &&
-    input.endDate >= today &&
-    membership.status === "active"
-  ) {
-    await admin
-      .from("memberships")
-      .update({ status: "paused" })
-      .eq("id", input.membershipId);
-  }
+  // Toekennen loopt volledig via de gedeelde lifecycle-laag (Mollie-incasso
+  // eerst gestopt, dan de definer-RPC tmc.admin_pause_membership). Beleid:
+  // de pauze gaat in op het einde van de lopende betaalde cyclus en is
+  // open-einde tot admin handmatig hervat; de datums uit het formulier zijn
+  // adviserend en bepalen de ingang of duur niet.
+  const result = await pauseMembershipCore({
+    membershipId: input.membershipId,
+    reason,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
 
   await admin.from("admin_audit_log").insert({
     admin_id: auth.userId,
@@ -103,9 +83,8 @@ export async function grantPause(
     target_id: input.profileId,
     details: {
       membership_id: input.membershipId,
-      pause_id: pause?.id,
-      start_date: input.startDate,
-      end_date: input.endDate,
+      pause_effective_date: result.effectiveDate ?? null,
+      cancelled_bookings: result.cancelledBookings ?? 0,
       reason,
     },
   });
@@ -118,16 +97,62 @@ export async function grantPause(
     subjectId: input.membershipId,
     payload: {
       profile_id: input.profileId,
-      pause_id: pause?.id ?? null,
       membership_id: input.membershipId,
-      start_date: input.startDate,
-      end_date: input.endDate,
+      pause_effective_date: result.effectiveDate ?? null,
       reason,
     },
   });
 
   revalidateDetail(input.profileId);
-  return { ok: true, message: "Pauze toegekend." };
+  return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// Resume a paused membership (new subscription on the existing mandate)
+// ----------------------------------------------------------------------------
+
+interface ResumeMembershipInput {
+  profileId: string;
+  membershipId: string;
+}
+
+export async function resumeMembership(
+  input: ResumeMembershipInput,
+): Promise<MemberActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("id, profile_id")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (!membership) return { ok: false, message: "Abonnement niet gevonden." };
+  if (membership.profile_id !== input.profileId) {
+    return { ok: false, message: "Abonnement hoort niet bij dit lid." };
+  }
+
+  const result = await resumeMembershipCore({
+    membershipId: input.membershipId,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "membership_resumed",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      membership_id: input.membershipId,
+      resumed_from: result.effectiveDate ?? null,
+      shift_days: result.shiftDays ?? 0,
+    },
+  });
+
+  revalidateDetail(input.profileId);
+  return { ok: true, message: result.message };
 }
 
 // ----------------------------------------------------------------------------
