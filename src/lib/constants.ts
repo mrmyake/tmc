@@ -47,18 +47,29 @@ export const SITE = {
   hormoonprofiel: "https://hormoonprofiel.com",
 } as const;
 
-// Primaire navigatie, zes items. Labels zijn user-facing NL-copy // COPY:
-// confirm met Marlon, ook al zijn de meeste al bestaande labels. Het
-// "Early Member"-label wordt in de Navbar zelf vervangen door "Word lid"
-// zodra getCampaignPhase() (src/lib/campaign.ts) 'closed' teruggeeft; de
-// href blijft ongewijzigd. Footer.tsx rendert deze lijst ook, als platte
-// sitemap-kolom (geen dropdown/fase-logica daar).
+// Primaire navigatie (top-nav content-cluster), vier items. Labels zijn
+// user-facing NL-copy // COPY: confirm met Marlon, ook al zijn de meeste al
+// bestaande labels. Het "Early Member"-label wordt in de Navbar zelf
+// vervangen door "Word lid" zodra getCampaignPhase() (src/lib/campaign.ts)
+// 'closed' teruggeeft; de href blijft ongewijzigd.
+//
+// "Home" en "Contact" staan hier bewust niet meer in (nav-cleanup): het
+// logo dekt Home al (dubbele ingang weg), en Contact is verplaatst naar
+// footer-only. Beide pagina's (`/`, `/contact`) blijven gewoon bestaan en
+// zijn bereikbaar via het logo resp. FOOTER_NAV_LINKS. Zie
+// discovery-navigatie-structuur.md voor de onderbouwing.
 export const NAV_LINKS = [
-  { label: "Home", href: "/" }, // COPY: confirm met Marlon
   { label: "Aanbod", href: "/aanbod" }, // COPY: confirm met Marlon
   { label: "Prijzen", href: "/prijzen" }, // COPY: confirm met Marlon
   { label: "Early Member", href: "/early-member" }, // COPY: confirm met Marlon
   { label: "Over ons", href: "/over" }, // COPY: confirm met Marlon
+] as const;
+
+// Footer-navigatiekolom: volledige sitemap-lijst (geen dropdown/fase-logica
+// hier), inclusief Home en Contact die niet meer in de top-nav staan.
+export const FOOTER_NAV_LINKS = [
+  { label: "Home", href: "/" }, // COPY: confirm met Marlon
+  ...NAV_LINKS,
   { label: "Contact", href: "/contact" }, // COPY: confirm met Marlon
 ] as const;
 

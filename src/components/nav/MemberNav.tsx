@@ -5,108 +5,95 @@ import { usePathname } from "next/navigation";
 import {
   Calendar,
   ClipboardList,
-  CreditCard,
-  DoorOpen,
-  Dumbbell,
-  LifeBuoy,
-  UserCircle,
+  Home,
+  MoreHorizontal,
+  ShoppingBag,
 } from "lucide-react";
 import { AvatarDropdown, type Role } from "./AvatarDropdown";
+import { MemberMoreMenu } from "./MemberMoreMenu";
 
 interface NavItem {
   href: string;
   label: string;
-  /** Kortere label voor mobiele bottom-tab bar — 5-6 items maken de tabs smal. */
-  labelMobile?: string;
   icon: typeof Calendar;
-  /** Pathname-prefixes die deze item als actief markeren. */
-  matchPrefixes: string[];
+  /** Alleen voor "Home": exacte match i.p.v. prefix, anders zou elke
+   * /app/**-route ook Home als actief markeren. */
+  exact?: boolean;
 }
 
-const BASE_ITEMS: NavItem[] = [
+/**
+ * Nav-cleanup: exact 5 vaste tabs (was 6 basisitems plus een conditionele
+ * 7e voor "Vrij trainen" — ruim boven de bottom-tab 5-item-vuistregel, zie
+ * discovery-navigatie-structuur.md punt 9). Alle segment-/conditionele
+ * items (Profiel, Account en instellingen, Schema, PT, Support, en een
+ * link terug naar de marketingsite) zitten nu achter "Meer"
+ * (MemberMoreMenu). "Vrij trainen" heeft bewust geen eigen tab meer — die
+ * ingang loopt via de bestaande link op /app/rooster.
+ */
+const FIXED_ITEMS: NavItem[] = [
+  {
+    href: "/app",
+    // COPY: confirm met Marlon
+    label: "Home",
+    icon: Home,
+    exact: true,
+  },
   {
     href: "/app/rooster",
     label: "Rooster",
     icon: Calendar,
-    matchPrefixes: ["/app/rooster"],
   },
   {
     href: "/app/boekingen",
-    label: "Mijn lessen",
-    labelMobile: "Lessen",
+    // COPY: confirm met Marlon — paginatitel blijft "Mijn boekingen"
+    label: "Boekingen",
     icon: ClipboardList,
-    matchPrefixes: ["/app/boekingen"],
   },
   {
-    href: "/app/abonnement",
-    label: "Lidmaatschap",
-    labelMobile: "Abbo",
-    icon: CreditCard,
-    matchPrefixes: ["/app/abonnement", "/app/facturen"],
-  },
-  {
-    href: "/app/schema",
-    label: "Schema",
-    icon: Dumbbell,
-    matchPrefixes: ["/app/schema"],
-  },
-  {
-    href: "/app/profiel",
-    label: "Profiel",
-    icon: UserCircle,
-    matchPrefixes: ["/app/profiel"],
-  },
-  {
-    href: "/app/support",
-    label: "Support",
-    icon: LifeBuoy,
-    matchPrefixes: ["/app/support"],
+    href: "/app/producten",
+    // COPY: confirm met Marlon
+    label: "Producten",
+    icon: ShoppingBag,
   },
 ];
 
-const VRIJ_TRAINEN_ITEM: NavItem = {
-  href: "/app/vrij-trainen",
-  label: "Vrij trainen",
-  labelMobile: "Vrij",
-  icon: DoorOpen,
-  matchPrefixes: ["/app/vrij-trainen"],
-};
+// Routes die vanuit het "Meer"-menu bereikbaar zijn — gebruikt om de
+// Meer-tab zelf als actief te markeren wanneer je op zo'n pagina bent.
+const MEER_ROUTE_PREFIXES = [
+  "/app/profiel",
+  "/app/abonnement",
+  "/app/facturen",
+  "/app/schema",
+  "/app/pt",
+  "/app/support",
+];
 
 interface MemberNavProps {
   firstName: string;
   role: Role;
-  eligibleForVrijTrainen: boolean;
+  eligibleForSchema: boolean;
+  eligibleForPt: boolean;
 }
 
 function isItemActive(pathname: string, item: NavItem): boolean {
-  return (
-    pathname === item.href || pathname.startsWith(`${item.href}/`)
+  if (item.exact) return pathname === item.href;
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+function isMeerActive(pathname: string): boolean {
+  return MEER_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
 
 export function MemberNav({
   firstName,
   role,
-  eligibleForVrijTrainen,
+  eligibleForSchema,
+  eligibleForPt,
 }: MemberNavProps) {
   const pathname = usePathname();
-  // Vrij trainen tussen Rooster en Mijn lessen — logisch volgorde qua
-  // "booking surface". Alleen tonen als de user's plan 'vrij_trainen'
-  // covert zodat we niet-eligible members niet verleiden tot klikken.
-  const items: NavItem[] = eligibleForVrijTrainen
-    ? [BASE_ITEMS[0], VRIJ_TRAINEN_ITEM, ...BASE_ITEMS.slice(1)]
-    : BASE_ITEMS;
-  // BASE_ITEMS heeft 6 items (incl. Support); met Vrij trainen erbij is
-  // dat 7. Expliciete lookup i.p.v. een template-literal grid-cols-${n}
-  // klasse — Tailwind's JIT-scanner ziet dynamisch samengestelde
-  // classnames niet en zou de utility dan niet genereren.
-  const GRID_COLS: Record<number, string> = {
-    4: "grid-cols-4",
-    5: "grid-cols-5",
-    6: "grid-cols-6",
-    7: "grid-cols-7",
-  };
-  const mobileGridCols = GRID_COLS[items.length] ?? "grid-cols-4";
+  const meerActive = isMeerActive(pathname);
 
   return (
     <>
@@ -125,7 +112,7 @@ export function MemberNav({
               aria-label="Hoofdnavigatie"
               className="flex items-center gap-1"
             >
-              {items.map((item) => {
+              {FIXED_ITEMS.map((item) => {
                 const active = isItemActive(pathname, item);
                 return (
                   <Link
@@ -142,6 +129,19 @@ export function MemberNav({
                   </Link>
                 );
               })}
+              <MemberMoreMenu
+                align="down"
+                eligibleForSchema={eligibleForSchema}
+                eligibleForPt={eligibleForPt}
+                triggerClassName={`px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer ${
+                  meerActive
+                    ? "text-accent"
+                    : "text-text-muted hover:text-text"
+                }`}
+              >
+                {/* COPY: confirm met Marlon */}
+                Meer
+              </MemberMoreMenu>
             </nav>
 
             <AvatarDropdown
@@ -153,13 +153,13 @@ export function MemberNav({
         </div>
       </header>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar — altijd exact 5 tabs, zie FIXED_ITEMS. */}
       <nav
         aria-label="Hoofdnavigatie"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg/95 backdrop-blur-sm border-t border-[color:var(--ink-500)]/60 safe-bottom"
       >
-        <ul className={`grid ${mobileGridCols}`}>
-          {items.map((item) => {
+        <ul className="grid grid-cols-5">
+          {FIXED_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isItemActive(pathname, item);
             return (
@@ -172,11 +172,25 @@ export function MemberNav({
                   }`}
                 >
                   <Icon size={18} strokeWidth={1.5} aria-hidden />
-                  {item.labelMobile ?? item.label}
+                  {item.label}
                 </Link>
               </li>
             );
           })}
+          <li>
+            <MemberMoreMenu
+              align="up"
+              eligibleForSchema={eligibleForSchema}
+              eligibleForPt={eligibleForPt}
+              triggerClassName={`w-full flex flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors duration-300 cursor-pointer ${
+                meerActive ? "text-accent" : "text-text-muted"
+              }`}
+            >
+              <MoreHorizontal size={18} strokeWidth={1.5} aria-hidden />
+              {/* COPY: confirm met Marlon */}
+              Meer
+            </MemberMoreMenu>
+          </li>
         </ul>
       </nav>
     </>

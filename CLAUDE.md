@@ -743,7 +743,19 @@ vercel env pull .env.local
 
 ## Navigation architecture
 
-Role-scoped layouts onder `/app/*`. Zie `navigation-refactor-spec.md` voor de oorspronkelijke spec.
+Role-scoped layouts onder `/app/*`. Zie `navigation-refactor-spec.md` voor de oorspronkelijke spec en `discovery-navigatie-structuur.md` voor de nav-cleanup discovery + besluiten (chore/nav-cleanup).
+
+### Marketing (publiek)
+
+Top-nav (`Navbar.tsx`) is gesplitst in twee visuele clusters, zelfde styling, alleen gescheiden door een verticale divider:
+- **Content-cluster** (`NAV_LINKS` in `src/lib/constants.ts`): Aanbod (+dropdown), Prijzen, Early Member (label wisselt naar "Word lid" zodra de campagne `closed` is, href blijft `/early-member`), Over ons.
+- **Actie-cluster**: "Inloggen" (secundair, target `/app` — geen client-side auth-check meer, `/app` redirect't zelf naar `/login` voor uitgelogde bezoekers) + "Plan je proefles" (primaire CTA, target `/proefles`).
+
+"Home" staat niet meer in de top-nav (was een functieloos duplicaat van het logo) en "Contact" is verplaatst naar footer-only. Beide pagina's (`/`, `/contact`) bestaan gewoon en zijn bereikbaar via het logo resp. de footer. De footer (`Footer.tsx`) gebruikt een aparte, volledige lijst `FOOTER_NAV_LINKS` (Home + de content-cluster-items + Contact).
+
+`/12-weken-programma` (eigen microsite, geen standaard Navbar/Footer) heeft een terugroute naar `/aanbod` in `ProgrammaTopbar.tsx` — dat is het enige binnenkom-punt (item in de Aanbod-dropdown), er is geen losse sectie op `/aanbod` zelf.
+
+### Lid-app, trainer-app, admin
 
 **Rollen (`profiles.role` — single string):**
 - `member` — betalend lid
@@ -753,20 +765,29 @@ Role-scoped layouts onder `/app/*`. Zie `navigation-refactor-spec.md` voor de oo
 Het schema ondersteunt geen role-arrays. "Trainer+member" combos zijn niet mogelijk; admins zijn per definitie superset.
 
 **Default landing per rol (post-login redirect in `/auth/callback`):**
-- `member` → `/app/rooster`
+- `member` → `/app` (bare dashboard-landing; **niet** `/app/rooster` — dat was de oorspronkelijke spec, maar sinds de landing-flip van 2026-07-12 retourneert `roleRedirect()` gewoon `/app`)
 - `trainer` → `/app/trainer/sessies`
 - `admin` → `/app/admin`
 
 Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check.
 
 **Drie layouts, één auth-guard:**
-- `src/app/app/layout.tsx` — outer: auth-guard + `ensureProfile`, geeft `firstName` + `role` door aan `AppChrome`.
+- `src/app/app/layout.tsx` — outer: auth-guard + `ensureProfile`, berekent `eligibleForSchema`/`eligibleForPt` (zie hieronder) en geeft die + `firstName`/`role` door aan `AppChrome`.
 - `src/app/app/AppChrome.tsx` — client-switcher: op basis van `usePathname()` rendert 'ie `MemberNav`, `TrainerNav`, of niets (voor admin — die heeft zijn eigen shell).
-- `src/app/app/trainer/layout.tsx` — autorisatie-guard; redirect naar `/app/rooster` bij wrong role.
+- `src/app/app/trainer/layout.tsx` — autorisatie-guard; redirect naar `/app` bij wrong role.
 - `src/app/app/admin/layout.tsx` — autorisatie-guard; `AdminShell` met eigen sidebar + header.
 
+**MemberNav (nav-cleanup, exact 5 vaste tabs, desktop + mobiele bottom-tab-bar):**
+- Home (`/app`) · Rooster (`/app/rooster`) · Boekingen (`/app/boekingen`, paginatitel blijft "Mijn boekingen") · Producten (`/app/producten`) · **Meer**
+- **Meer** (`MemberMoreMenu.tsx`, dropdown-paneel zelfde stijl als AvatarDropdown): Profiel (`/app/profiel`), Account en instellingen (`/app/abonnement`, `/app/facturen` blijft bereikbaar via een link op die pagina), Schema (`/app/schema`, conditioneel — zie hieronder), PT (`/app/pt`, conditioneel), Support (`/app/support`), en een externe link terug naar de marketingsite (opent `/` in een nieuw tabblad).
+- "Vrij trainen" heeft bewust geen eigen tab meer — die ingang loopt via de bestaande link op `/app/rooster`.
+
+**Schema-conditie (hersteld, was sinds een regressie onvoorwaardelijk zichtbaar):** "ooit protocol gehad EN nog lid". Berekend in `src/app/app/layout.tsx`: `everHadProgram` (een actieve `training_programs`-rij, óf minstens één `workout_sessions`-rij — nodig omdat RLS alleen de eigen `active`-rij leesbaar maakt, geen `archived`) `&& isActiveMember` (membership-rij met status `active`/`paused`).
+
+**PT-conditie:** bewust minimaal gehouden op `isActiveMember` — puur een nav-ingang, geen nieuwe business-rule. Een fijnmaziger `hasPtCredits`-check bestaat al voor de dashboard-entitlements (`creditType()` in `src/app/app/producten/lib.ts`) en kan later toegepast worden op de nav zelf als dat gewenst is.
+
 **Route → chrome mapping:**
-- `/app/rooster`, `/app/boekingen`, `/app/abonnement`, `/app/facturen`, `/app/profiel`, `/app/pt` → `MemberNav`
+- `/app/rooster`, `/app/boekingen`, `/app/abonnement`, `/app/facturen`, `/app/profiel`, `/app/schema`, `/app/pt`, `/app/support`, `/app/producten` → `MemberNav`
 - `/app/trainer/**` → `TrainerNav`
 - `/app/admin/**` → `AdminSidebar` + `AdminHeader`; `AdminMobileBlock` op <lg
 
@@ -778,6 +799,7 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 
 **Component-locations (`src/components/nav/`):**
 - `MemberNav.tsx`, `TrainerNav.tsx` — top-nav desktop + bottom-tab bar mobile
+- `MemberMoreMenu.tsx` — "Meer"-overloopmenu voor MemberNav (desktop + mobiel)
 - `AdminHeader.tsx`, `AdminMobileBlock.tsx`
 - `AvatarDropdown.tsx` — role-aware context-switcher
 - `PauzeRequestBell.tsx` — server-component met count van open pauze-verzoeken
@@ -788,8 +810,9 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 - `Rapportage` sidebar item — nog geen pagina; spec zegt "don't add empty shell now"
 - PT filter-chip op `/app/rooster` + merge met `pt_sessions` — data-model wijziging buiten nav-scope
 - Middleware; alles via layout-redirects
+- Fijnmazige `hasPtCredits`-conditie voor de "PT"-Meer-item — bewust uitgesteld, zie PT-conditie hierboven
 
-**Admin sidebar items:** Dashboard · Rooster · Leden · Trainers (daily) — horizontale scheider — Pauzes · Aankondigingen · Instellingen (secondary) — Content↗ (opent `/studio` in nieuw tabblad).
+**Admin sidebar items:** Dashboard · Rooster · Leden · Trainers (daily) — horizontale scheider — Pauzes · Aankondigingen · Instellingen (secondary) — Content↗ (opent `/studio` in nieuw tabblad). Ongewijzigd door de nav-cleanup.
 
 ---
 

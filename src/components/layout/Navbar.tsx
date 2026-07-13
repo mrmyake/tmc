@@ -15,8 +15,6 @@ interface NavbarProps {
   campaignDeadline: string;
 }
 
-type AuthState = "unknown" | "out" | "in";
-
 /**
  * Marketing navbar. No framer-motion — the mobile menu uses a CSS
  * grid-rows transition (0fr → 1fr) which smoothly animates the
@@ -28,7 +26,6 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aanbodOpen, setAanbodOpen] = useState(false);
   const [mobileAanbodOpen, setMobileAanbodOpen] = useState(false);
-  const [authState, setAuthState] = useState<AuthState>("unknown");
   const pathname = usePathname();
   const aanbodRef = useRef<HTMLDivElement>(null);
 
@@ -54,33 +51,6 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
     setMobileAanbodOpen(false);
   }, [pathname]);
 
-  // Auth-swap "Inloggen" → "Ga naar app": client-only check via het
-  // lazy-imported browser-Supabase-client, zelfde patroon als
-  // AuthListener.tsx. Bewust NIET server-side (cookies()/auth.getUser() in
-  // de root layout) — dat zou de hele marketing-site van ISR
-  // (revalidate=60) naar force-dynamic zetten. Het label rendert pas
-  // zodra authState bekend is (zie de opacity-gate hieronder), zodat een
-  // ingelogd lid nooit even "Inloggen" ziet flitsen.
-  useEffect(() => {
-    let mounted = true;
-    import("@/lib/supabase/client")
-      .then(({ createClient }) => {
-        if (!mounted) return;
-        return createClient().auth.getUser();
-      })
-      .then((result) => {
-        if (mounted) setAuthState(result?.data.user ? "in" : "out");
-      })
-      .catch(() => {
-        // Geen Supabase-config beschikbaar (of netwerkfout): val terug op
-        // "Inloggen" i.p.v. de placeholder eeuwig onzichtbaar te laten.
-        if (mounted) setAuthState("out");
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // Aanbod-dropdown: sluit op klik buiten het paneel of Escape.
   useEffect(() => {
     if (!aanbodOpen) return;
@@ -101,9 +71,14 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
   }, [aanbodOpen]);
 
   const chromeOpen = scrolled || mobileOpen;
+  // Nav-cleanup: één statisch label + target i.p.v. de vroegere client-side
+  // auth-check (authState "in"/"out" → "Ga naar app"/"Inloggen"). /app heeft
+  // zijn eigen auth-guard (src/app/app/layout.tsx redirect("/login") voor
+  // uitgelogde bezoekers), dus één link naar /app werkt voor beide gevallen
+  // zonder de opacity-gate/flits-preventie van de oude aanpak.
   // COPY: confirm met Marlon
-  const utilityLabel = authState === "in" ? "Ga naar app" : "Inloggen";
-  const utilityHref = authState === "in" ? "/app" : "/login";
+  const utilityLabel = "Inloggen";
+  const utilityHref = "/app";
   // COPY: confirm met Marlon
   const earlyMemberLabel = campaignPhase === "closed" ? "Word lid" : "Early Member";
 
@@ -134,6 +109,8 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
         </Link>
 
         <div className="hidden md:flex items-center gap-10">
+          {/* Content-cluster: Aanbod, Prijzen, Early Member, Over ons. */}
+          <div className="flex items-center gap-10">
           {NAV_LINKS.map((link) => {
             if (link.label === "Aanbod") {
               return (
@@ -202,17 +179,15 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
               </QuietLink>
             );
           })}
-          <span
-            className={`ml-4 transition-opacity duration-300 ${
-              authState === "unknown" ? "opacity-0" : "opacity-100"
-            }`}
-            aria-hidden={authState === "unknown"}
-          >
+          </div>
+
+          {/* Actie-cluster: secundaire Inloggen-link + primaire CTA. */}
+          <div className="flex items-center gap-6 ml-4 pl-8 border-l border-bg-subtle">
             <QuietLink href={utilityHref} className="text-[15px] py-1">
               {utilityLabel}
             </QuietLink>
-          </span>
-          <Button href="/proefles">Plan je proefles</Button>
+            <Button href="/proefles">Plan je proefles</Button>
+          </div>
         </div>
 
         <button
@@ -307,24 +282,20 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
                 </div>
               );
             })}
+            {/* Actie-cluster: secundaire Inloggen-link + primaire CTA. */}
             <div
               style={{
                 animationDelay: mobileOpen
                   ? `${NAV_LINKS.length * 0.05 + 0.08}s`
                   : "0s",
               }}
-              className={mobileOpen ? "tmc-fade-up" : "opacity-0"}
+              className={`pt-2 border-t border-bg-subtle ${
+                mobileOpen ? "tmc-fade-up" : "opacity-0"
+              }`}
             >
-              <span
-                className={`block transition-opacity duration-300 ${
-                  authState === "unknown" ? "opacity-0" : "opacity-100"
-                }`}
-                aria-hidden={authState === "unknown"}
-              >
-                <QuietLink href={utilityHref} className="text-xl pb-1">
-                  {utilityLabel}
-                </QuietLink>
-              </span>
+              <QuietLink href={utilityHref} className="text-xl pb-1">
+                {utilityLabel}
+              </QuietLink>
             </div>
             <div
               style={{ animationDelay: mobileOpen ? "0.35s" : "0s" }}

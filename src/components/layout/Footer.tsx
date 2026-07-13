@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NAV_LINKS } from "@/lib/constants";
+import { FOOTER_NAV_LINKS } from "@/lib/constants";
 import { Container } from "./Container";
 import { QuietLink } from "@/components/ui/QuietLink";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
@@ -37,7 +37,7 @@ export function Footer({ settings }: FooterProps) {
                 Navigatie
               </h3>
               <ul className="space-y-3">
-                {NAV_LINKS.map((link) => (
+                {FOOTER_NAV_LINKS.map((link) => (
                   <li key={link.href}>
                     <QuietLink href={link.href}>{link.label}</QuietLink>
                   </li>
