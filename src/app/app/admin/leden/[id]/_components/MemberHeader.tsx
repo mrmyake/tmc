@@ -61,6 +61,7 @@ export function MemberHeader({ detail }: MemberHeaderProps) {
         <ActionMenu
           profileId={profile.id}
           firstName={profile.firstName}
+          email={profile.email}
           primaryMembership={primaryMembership}
         />
       </div>

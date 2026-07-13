@@ -51,6 +51,11 @@ export interface MemberDetailMembership {
   endDate: string | null;
   cancellationRequestedAt: string | null;
   cancellationEffectiveDate: string | null;
+  cancellationSource: string | null;
+  cancellationPriorStatus: string | null;
+  pausePlannedAt: string | null;
+  pauseEffectiveDate: string | null;
+  resumeBlockedReason: string | null;
 }
 
 export interface MemberBookingRow {
@@ -210,7 +215,9 @@ export async function loadMemberDetail(
             id, plan_type, plan_variant, status,
             credits_remaining, price_per_cycle_cents, billing_cycle_weeks,
             start_date, commit_end_date, end_date,
-            cancellation_requested_at, cancellation_effective_date
+            cancellation_requested_at, cancellation_effective_date,
+            cancellation_source, cancellation_prior_status,
+            pause_planned_at, pause_effective_date, resume_blocked_reason
           `,
         )
         .eq("profile_id", profileId)
@@ -300,6 +307,11 @@ export async function loadMemberDetail(
     endDate: m.end_date,
     cancellationRequestedAt: m.cancellation_requested_at,
     cancellationEffectiveDate: m.cancellation_effective_date,
+    cancellationSource: m.cancellation_source,
+    cancellationPriorStatus: m.cancellation_prior_status,
+    pausePlannedAt: m.pause_planned_at,
+    pauseEffectiveDate: m.pause_effective_date,
+    resumeBlockedReason: m.resume_blocked_reason,
   }));
 
   const { primary, status: primaryStatus } = pickPrimary(memberships);
