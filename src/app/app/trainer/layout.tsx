@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 /**
  * Autorisatie-guard voor `/app/trainer/*`. Chrome (TrainerNav) komt
  * uit de outer `AppChrome`. Members zonder trainer-rol worden naar
- * `/app/rooster` geredirect (spec §8).
+ * `/app` geredirect (spec §8).
  */
 export default async function TrainerLayout({
   children,
@@ -27,7 +27,7 @@ export default async function TrainerLayout({
 
   // Admin is een superset en mag hier binnen via de context-switcher.
   if (!profile || (profile.role !== "trainer" && profile.role !== "admin")) {
-    redirect("/app/rooster");
+    redirect("/app");
   }
 
   return children;

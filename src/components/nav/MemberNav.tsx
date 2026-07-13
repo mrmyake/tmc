@@ -115,7 +115,7 @@ export function MemberNav({
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link
-              href="/app/rooster"
+              href="/app"
               className="font-[family-name:var(--font-playfair)] text-xl text-text hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]"
             >
               The Movement Club
