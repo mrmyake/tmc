@@ -12,6 +12,8 @@ export interface ChipProps {
   /** Optional icon rendered before the label (replaces dot if present). */
   icon?: React.ReactNode;
   className?: string;
+  /** Optional native tooltip, e.g. the full reason text behind a short label. */
+  title?: string;
 }
 
 /**
@@ -26,9 +28,11 @@ export function Chip({
   dot = true,
   icon,
   className = "",
+  title,
 }: ChipProps) {
   return (
     <span
+      title={title}
       className={`inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.16em] ${TONE_TEXT_CLASS[tone]} ${className}`}
     >
       {icon ? (
