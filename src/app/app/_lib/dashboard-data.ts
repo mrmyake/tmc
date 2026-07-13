@@ -105,10 +105,8 @@ function nudgeText(remaining: number): string | null {
 }
 
 /**
- * Eén read + derive-laag voor de leden-landing, gedeeld door beide
- * design-varianten (/app en /app/preview-licht). Geen enkele component mag
- * zelf data ophalen of copy resolven — dat garandeert dat de twee skins
- * functioneel en tekstueel identiek zijn, alleen de presentatie verschilt.
+ * Eén read + derive-laag voor de leden-landing (/app). Geen enkele component
+ * mag zelf data ophalen of copy resolven.
  */
 export async function loadDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();

@@ -15,10 +15,8 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * Design-variant A (donker, on-brand skin uit docs/design-system/). Consumeert
- * uitsluitend loadDashboardData() — geen eigen reads of copy. Variant B
- * (licht, mockup 1:1) leeft op /app/preview-licht en consumeert exact
- * dezelfde laag; alleen deze presentatie verschilt.
+ * Home-dashboard-landing (donker, on-brand skin uit docs/design-system/).
+ * Consumeert uitsluitend loadDashboardData() — geen eigen reads of copy.
  */
 export default async function AppDashboardPage() {
   const data = await loadDashboardData();
