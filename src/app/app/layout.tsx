@@ -56,29 +56,69 @@ export default async function AppLayout({
   // Self-heal ontbrekende profile-rij
   await ensureProfile(user);
 
-  const [profileRes, membershipRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("first_name, role")
-      .eq("id", user.id)
-      .maybeSingle(),
-    // Membership in active/paused met covered_pillars — bepaalt of de
-    // "Vrij trainen" nav-entry voor deze user zichtbaar moet zijn.
-    supabase
-      .from("memberships")
-      .select("covered_pillars")
-      .eq("profile_id", user.id)
-      .in("status", ["active", "paused"])
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [profileRes, membershipRes, activeProgramRes, workoutHistoryRes] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("first_name, role")
+        .eq("id", user.id)
+        .maybeSingle(),
+      // Membership in active/paused — bepaalt of iemand "nog lid" is, nodig
+      // voor de Schema- en PT-nav-condities hieronder. covered_pillars is
+      // hier niet meer nodig: "Vrij trainen" heeft geen eigen nav-entry
+      // meer (zie MemberNav.tsx nav-cleanup), die ingang loopt nu via de
+      // bestaande link op /app/rooster.
+      supabase
+        .from("memberships")
+        .select("id")
+        .eq("profile_id", user.id)
+        .in("status", ["active", "paused"])
+        .limit(1)
+        .maybeSingle(),
+      // "Ooit protocol gehad" (deel 1/2): heeft nu een actief programma.
+      // RLS (training_programs_self_active_read) laat een lid alleen z'n
+      // eigen 'active'-rij lezen, geen 'archived' — vandaar de aanvullende
+      // workout_sessions-check hieronder voor protocollen die niet meer
+      // actief zijn.
+      supabase
+        .from("training_programs")
+        .select("id")
+        .eq("profile_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle(),
+      // "Ooit protocol gehad" (deel 2/2): workout_sessions kent geen
+      // status-filter in RLS (workout_sessions_self_read), dus een gelogde
+      // workout bewijst een protocol uit het verleden, ook als dat
+      // programma inmiddels is gearchiveerd.
+      supabase
+        .from("workout_sessions")
+        .select("id")
+        .eq("profile_id", user.id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
   const profile = profileRes.data;
   const firstName =
     profile?.first_name?.trim() || user.email?.split("@")[0] || "Member";
   const role: Role = (profile?.role as Role) ?? "member";
-  const eligibleForVrijTrainen =
-    membershipRes.data?.covered_pillars?.includes("vrij_trainen") ?? false;
+
+  const isActiveMember = Boolean(membershipRes.data);
+  const everHadProgram =
+    Boolean(activeProgramRes.data) || Boolean(workoutHistoryRes.data);
+  // Besloten conditie (discovery-navigatie-structuur.md, punt 6): "ooit
+  // protocol gehad EN nog lid" — niet onvoorwaardelijk, zoals het nav-item
+  // dat sinds de regressie wél deed.
+  const eligibleForSchema = everHadProgram && isActiveMember;
+  // Nav-cleanup, bewuste minimale invulling: "conditioneel" voor PT is in de
+  // opdracht niet verder gespecificeerd en dit is puur een nav-ingang, geen
+  // nieuwe business-rule. We hergebruiken alleen de al bestaande "nog
+  // lid"-status; de fijnmaziger hasPtCredits-check (creditType-rijen met
+  // plan_type 'pt_package', gebruikt in dashboard-data.ts) toepassen op de
+  // nav zelf is een aparte productbeslissing en bewust buiten deze PR
+  // gehouden (zie besluiten-sectie in discovery-navigatie-structuur.md).
+  const eligibleForPt = isActiveMember;
 
   return (
     <>
@@ -87,7 +127,8 @@ export default async function AppLayout({
       <AppChrome
         firstName={firstName}
         role={role}
-        eligibleForVrijTrainen={eligibleForVrijTrainen}
+        eligibleForSchema={eligibleForSchema}
+        eligibleForPt={eligibleForPt}
       >
         {children}
       </AppChrome>
