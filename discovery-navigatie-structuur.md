@@ -306,8 +306,8 @@ Geen van deze reparaties vereist het aanraken van de layout-driedeling, de rol-g
 
 ## Besluiten & doorgevoerde reparaties (chore/nav-cleanup)
 
-**Status:** PR open, nog niet gemerged. Merge-hash hieronder invullen zodra de PR daadwerkelijk gemerged is.
-**Merge-hash:** _TBD — in te vullen na merge._
+**Status:** Gemerged naar main (PR #98, 2026-07-13).
+**Merge-hash:** `8a4abf6c89730f1b5c74bf6f353a66a447419a90` (merge pull request #98 from mrmyake/chore/nav-cleanup)
 
 ### Marketing
 
