@@ -32,10 +32,10 @@ export function AdminMobileBlock() {
           Open op een laptop of desktop om verder te gaan.
         </p>
         <Link
-          href="/app/rooster"
+          href="/app"
           className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text hover:border-accent hover:text-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]"
         >
-          Naar rooster
+          Naar de app
         </Link>
       </div>
     </section>

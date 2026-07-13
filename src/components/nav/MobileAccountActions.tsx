@@ -24,7 +24,7 @@ function targetsFor(role: Role, active: ActiveContext): SwitchTarget[] {
   const all: Record<ActiveContext, SwitchTarget> = {
     admin: { label: "Admin cockpit", href: "/app/admin" },
     trainer: { label: "Trainer view", href: "/app/trainer/sessies" },
-    member: { label: "Member view", href: "/app/rooster" },
+    member: { label: "Member view", href: "/app" },
   };
   return (["admin", "trainer", "member"] as ActiveContext[])
     .filter((ctx) => ctx !== active)

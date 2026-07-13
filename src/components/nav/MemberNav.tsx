@@ -28,7 +28,7 @@ const BASE_ITEMS: NavItem[] = [
     href: "/app/rooster",
     label: "Rooster",
     icon: Calendar,
-    matchPrefixes: ["/app/rooster", "/app"],
+    matchPrefixes: ["/app/rooster"],
   },
   {
     href: "/app/boekingen",
@@ -79,12 +79,6 @@ interface MemberNavProps {
 }
 
 function isItemActive(pathname: string, item: NavItem): boolean {
-  // `/app/rooster` moet ook matchen op de bare `/app` root voor het
-  // geval de redirect nog niet is uitgevoerd. Andere items hebben
-  // strikte prefix-matches.
-  if (item.href === "/app/rooster") {
-    if (pathname === "/app") return true;
-  }
   return (
     pathname === item.href || pathname.startsWith(`${item.href}/`)
   );
@@ -121,7 +115,7 @@ export function MemberNav({
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link
-              href="/app/rooster"
+              href="/app"
               className="font-[family-name:var(--font-playfair)] text-xl text-text hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]"
             >
               The Movement Club

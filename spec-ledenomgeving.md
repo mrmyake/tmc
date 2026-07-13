@@ -15,6 +15,35 @@ met TS-orkestratie in `src/lib/admin/membership-lifecycle.ts`. De latere Sonnet-
 (admin-UI en de lid-facing Stap 2 hieronder) zijn dunne aanroepers van die laag en nemen zelf
 geen lifecycle-beslissingen.
 
+UPDATE 2026-07-12 (PR #93, branch `feat/leden-landing`): de home-dashboard-landing uit §3.3 is
+GEBOUWD EN GEFLIPT. `/app` (voorheen een redirect-stub naar `/app/rooster`) rendert nu het
+dashboard: begroeting, plan-badge/statusregel, eerstvolgende les, tegoed, schema-teaser en
+entitlement-lijst, elk conditioneel op echte data. `roleRedirect()` (zowel in
+`src/app/auth/callback/route.ts` als de duplicate in `src/lib/actions/auth.ts`) stuurt de
+member-tak nu naar `/app` in plaats van `/app/rooster`. Rooster blijft bestaan en bereikbaar
+binnen de shell (`/app/rooster`); de nav-highlight-fallback die bare `/app` als "Rooster actief"
+behandelde is verwijderd (`MemberNav.tsx`). Geen nieuwe RPC's, migraties of nav-structuurwijziging
+— alleen de landing-bestemming is verschoven. Twee follow-ups blijven open, zie §3.3.
+
+UPDATE 2026-07-12 (PR #93, zelfde branch): DESIGN-KEUZE GEMAAKT — DONKER WINT. Er hebben kort
+twee design-varianten naast elkaar bestaan (donker on-brand op `/app` vs. een lichte
+mockup-1:1-variant op de tijdelijke route `/app/preview-licht`, plus een login-vrije statische
+preview-export in `public/preview/` zodat Marlon puur op design kon kiezen zonder in te loggen).
+Na de keuze zijn de lichte variant, de tijdelijke route, de statische preview-export en de
+bijbehorende build-tooling (`scripts/design-preview/`) volledig verwijderd. `/app` is de enige,
+definitieve landing: donker on-brand, volgt de merk-skill uit `docs/design-system/` (Ink-800
+kaarten, radius-md, champagne hover-border, `--radius-md: 8px`), met kaart-afbakening per sectie
+en de tegoed-stippenrij. Alle data-reads, statusvarianten en conditionele sectielogica blijven in
+de gedeelde laag (`src/app/app/_lib/dashboard-data.ts`, `loadDashboardData()`), nu zonder een
+tweede consument. De statusregel-variant voor `payment_failed` (nieuwe tekst, gemarkeerd
+`// COPY: confirm met Marlon` in `_lib/dashboard.ts`) staat nog open voor Marlons akkoord.
+- **OPGELOST:** de "landing-consistentie"-opruiming van de resterende `/app/rooster`-hrefs
+  (wrong-role guards in `src/app/app/admin/layout.tsx` en `src/app/app/trainer/layout.tsx`, en de
+  "Schakel naar Member view"-hrefs in `AvatarDropdown.tsx`/`MobileAccountActions.tsx`, plus het
+  brand-logo in `MemberNav.tsx` en de mobile-block-escape-hatch in `AdminMobileBlock.tsx`) is
+  gebouwd op branch `fix/landing-routing-consistentie` (PR #94) en samengevouwen in PR #93.
+  Alle wijzen nu naar `/app`.
+
 Doel van dit document: de *hele* member-omgeving (`/app`) in kaart brengen voordat we losse
 pagina's bouwen, zodat we niet per feature vastlopen op aannames die elders al anders besloten zijn.
 Dit document is de koepel. Bestaande specs blijven leidend voor hun eigen onderdeel
@@ -34,7 +63,8 @@ Onderverdeeld naar status: BESTAAT (live), SCHEMA-LIVE (DB klaar, app-laag mist)
 ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
 
 ### 1.1 Boeken en aanwezigheid
-- **Rooster** (`/app/rooster`) — BESTAAT. Week-view, boeken, filter-chips per pillar. Landing page.
+- **Rooster** (`/app/rooster`) — BESTAAT. Week-view, boeken, filter-chips per pillar. Niet langer de
+  landing sinds 2026-07-12 (PR #93) — zie §3.3.
 - **Mijn lessen** (`/app/boekingen`) — BESTAAT. Komend, historie, wachtlijst-status.
 - **Vrij Trainen** (`/app/vrij-trainen`) — BESTAAT. Conditioneel nav-item (alleen als membership
   `covered_pillars` vrij_trainen bevat). Eigen dagselector, eligibility-states.
@@ -153,15 +183,24 @@ geen eigen chrome mee.
 - Vrij Trainen — zichtbaar bij vrij_trainen-entitlement.
 - Schema — zichtbaar zodra lid ooit een protocol had en nog lid is. BESLOTEN.
 
-### 3.3 BESLOTEN (2026-07-12): de landing wordt een home-dashboard (optie A vervangen)
-De lid-facing landingspagina wordt een home-dashboard en is het eerste scherm bij het openen van de
-app. Rooster is niet langer de landing. Het dashboard toont: begroeting, eerstvolgende les
-(rooster-teaser), tegoed (indien aanwezig), schema-teaser (indien aanwezig), lidmaatschap-status en
-de entitlement-lijst.
+### 3.3 GEBOUWD EN GEFLIPT (2026-07-12, PR #93): de landing is een home-dashboard (optie A vervangen)
+De lid-facing landingspagina is een home-dashboard op `/app` en is het eerste scherm bij het openen
+van de app. Rooster is niet langer de landing. Het dashboard toont: begroeting, plan-badge en
+statusregel, eerstvolgende les (rooster-teaser), tegoed (indien aanwezig), schema-teaser (indien
+aanwezig) en de entitlement-lijst — elke sectie conditioneel op echte data, geen enkele hardcoded.
 
 De bredere nav-herziening (waar Rooster heen gaat, de mobiele cap) blijft expliciet geparkeerd in het
-aparte navigatie-project. Alleen dat dit scherm de landing wordt, is nu besloten; de nav-cap blijft
-dus een open punt, de landing-keuze niet.
+aparte navigatie-project. Alleen dat dit scherm de landing wordt, was besloten en is nu ook
+geïmplementeerd; de nav-cap blijft een open punt.
+
+**Openstaande follow-ups uit de bouw (discovery + build, niet in PR #93):**
+- **Week-voortgang in de schema-teaser** ("Week x van y" + voortgangsbalk uit de mockup) is niet
+  gebouwd: `tmc.training_programs` heeft geen `start_date`/totaal-weken-veld om dat uit af te leiden.
+  Vergt een schema-veld voordat dit gebouwd kan worden.
+- **"Historie read-only, protocol afgerond"-variant** uit `copy-ledenomgeving-landing.md` §5 (lid dat
+  ooit een protocol had maar waarvan het is afgerond) is niet gebouwd. `loadActiveProgramForMember()`
+  geeft alleen `status='active'`-programma's terug; deze variant vergt een extra read op
+  niet-actieve programma's, buiten de discovery-scope van deze build.
 
 ---
 

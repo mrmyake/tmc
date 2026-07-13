@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Autorisatie-guard voor `/app/admin/*`. Non-admins worden naar
- * `/app/rooster` geredirect (spec §8) ipv 404 — consistent met de
- * rest van de role-based routing.
+ * `/app` geredirect (spec §8) ipv 404 — consistent met de rest van
+ * de role-based routing.
  */
 export default async function AdminLayout({
   children,
@@ -27,7 +27,7 @@ export default async function AdminLayout({
     .maybeSingle();
 
   if (!profile || profile.role !== "admin") {
-    redirect("/app/rooster");
+    redirect("/app");
   }
 
   const firstName =
