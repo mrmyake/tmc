@@ -10,7 +10,10 @@ import {
   cancelMembershipCore,
   pauseMembershipCore,
   resumeMembershipCore,
+  requestMembershipChangeCore,
+  undoMembershipCancellation,
 } from "./membership-lifecycle";
+import { getCatalogue } from "@/lib/catalogue";
 
 export type MemberActionResult =
   | { ok: true; message: string }
@@ -209,6 +212,161 @@ export async function cancelMembership(
 
   revalidateDetail(input.profileId);
   return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// Undo a scheduled cancellation (only safely reversible ones; guarded by
+// admin_undo_cancellation itself — see membership-lifecycle.ts)
+// ----------------------------------------------------------------------------
+
+interface UndoCancellationInput {
+  profileId: string;
+  membershipId: string;
+}
+
+export async function undoCancellation(
+  input: UndoCancellationInput,
+): Promise<MemberActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("id, profile_id")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (!membership) return { ok: false, message: "Abonnement niet gevonden." };
+  if (membership.profile_id !== input.profileId) {
+    return { ok: false, message: "Abonnement hoort niet bij dit lid." };
+  }
+
+  const result = await undoMembershipCancellation({
+    membershipId: input.membershipId,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "cancellation_undone",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      membership_id: input.membershipId,
+      undone_effective_date: result.effectiveDate ?? null,
+    },
+  });
+
+  revalidateDetail(input.profileId);
+  return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// Request an upgrade-only plan change (effective on the next invoice date)
+// ----------------------------------------------------------------------------
+
+interface RequestPlanChangeInput {
+  profileId: string;
+  membershipId: string;
+  targetSlug: string;
+}
+
+export async function requestPlanChange(
+  input: RequestPlanChangeInput,
+): Promise<MemberActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (!input.targetSlug) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Kies een abonnement." };
+  }
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("id, profile_id")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (!membership) return { ok: false, message: "Abonnement niet gevonden." };
+  if (membership.profile_id !== input.profileId) {
+    return { ok: false, message: "Abonnement hoort niet bij dit lid." };
+  }
+
+  const result = await requestMembershipChangeCore({
+    membershipId: input.membershipId,
+    targetSlug: input.targetSlug,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "plan_change_requested",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      membership_id: input.membershipId,
+      target_slug: input.targetSlug,
+      effective_date: result.effectiveDate ?? null,
+    },
+  });
+
+  revalidateDetail(input.profileId);
+  return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// List candidate upgrade targets for the "Abonnement wisselen"-dialoog.
+// Read-only: filtert alleen de catalogus (leeftijdscategorie, strikt
+// duurder dan het huidige recurring-bedrag). Geen prijsberekening — elke
+// getoonde prijs is het catalogue.price_cents zelf (display-equals-charge);
+// de RPC snapshot bij het indienen zelf opnieuw uit dezelfde catalogus.
+// ----------------------------------------------------------------------------
+
+export interface UpgradeOption {
+  slug: string;
+  displayName: string;
+  priceCents: number;
+  billingCycleWeeks: number;
+}
+
+export async function listUpgradeOptions(
+  membershipId: string,
+): Promise<UpgradeOption[]> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return [];
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("age_category, price_per_cycle_cents, extended_access_price_cents")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (!membership) return [];
+
+  const currentRecurringCents =
+    (membership.price_per_cycle_cents ?? 0) +
+    (membership.extended_access_price_cents ?? 0);
+
+  const catalogue = await getCatalogue();
+  return Array.from(catalogue.values())
+    .filter(
+      (row) =>
+        row.kind === "plan" &&
+        row.purchasable &&
+        row.age_category === membership.age_category &&
+        row.billing_cycle_weeks != null &&
+        row.price_cents > currentRecurringCents,
+    )
+    .map((row) => ({
+      slug: row.slug,
+      displayName: row.display_name,
+      priceCents: row.price_cents,
+      billingCycleWeeks: row.billing_cycle_weeks as number,
+    }))
+    .sort((a, b) => a.priceCents - b.priceCents);
 }
 
 // ----------------------------------------------------------------------------
