@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Rooster coverage-kleuren</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+/* =============================================================================
+   Design tokens, copied verbatim from The Movement Club design-skill
+   (colors_and_type.css). Values only, never redefined — see SKILL.md:
+   "Always link colors_and_type.css — never redefine tokens." This is a
+   single-file mockup so the tokens are inlined here instead of linked, but
+   the values below are an exact copy, not a reinterpretation.
+   ========================================================================== */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/fraunces/v32/6NUh8FyLNQOQZAnv9bYgvLFieqTfMpNXpa9-KzgPBQ.woff2") format("woff2");
+  font-variation-settings: "opsz" 144, "SOFT" 0;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/inter/v19/UcCm3FwrK3iLTcvnUwQT9nbsoKaP.woff2") format("woff2");
+}
+
+:root {
+  --ink-900: #0E0C0B;
+  --ink-800: #17140F;
+  --ink-700: #1F1A14;
+  --ink-600: #2A241C;
+  --ink-500: #3A342B;
+
+  --stone-100: #F4EFE6;
+  --stone-200: #E8E1D4;
+  --stone-300: #D8D0C1;
+  --stone-400: #B3AC9E;
+  --stone-500: #8B8478;
+  --stone-600: #605B52;
+
+  --champagne:       #B9986A;
+  --champagne-deep:  #8A6E47;
+  --champagne-wash:  rgba(185,152,106,0.12);
+
+  --danger:  #C47A6E;
+  --success: #8A9577;
+  --info:    #C6BDA9;
+
+  --bg: var(--ink-900);
+  --bg-elevated: var(--ink-800);
+
+  --fg: var(--stone-100);
+  --fg-muted: var(--stone-300);
+  --fg-dim: var(--stone-500);
+
+  --border: var(--ink-500);
+  --accent: var(--champagne);
+
+  --font-serif-display: "Fraunces", "Canela", "GT Super", "Didot", "Bodoni 72", "Noto Serif", Georgia, serif;
+  --font-sans: "Inter", "Söhne", "Söhne Buch", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+
+  --fs-eyebrow: 12px;
+  --fs-caption: 13px;
+  --fs-body-sm: 14px;
+  --fs-body: 16px;
+  --fs-h3: clamp(28px, 2.4vw, 36px);
+  --fs-h2: clamp(40px, 4vw, 64px);
+
+  --track-display: -0.02em;
+  --track-tight: -0.01em;
+  --track-label: 0.16em;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  --ease-club: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --dur-medium: 500ms;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ink-900);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--fg-muted);
+}
+.eyebrow--accent { color: var(--accent); }
+
+/* ---------- Mockup chrome (not brand production UI, purely for review) --- */
+.mockup-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--ink-700);
+  border-bottom: 1px solid var(--ink-500);
+  color: var(--stone-300);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 10px var(--space-4);
+}
+
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-9);
+}
+
+.intro {
+  padding: var(--space-7) 0 var(--space-6);
+  border-bottom: 1px solid var(--ink-500);
+  margin-bottom: var(--space-7);
+}
+.intro h1 {
+  font-family: var(--font-serif-display);
+  font-weight: 400;
+  font-size: var(--fs-h2);
+  line-height: 1.05;
+  letter-spacing: var(--track-display);
+  margin: var(--space-4) 0 var(--space-4);
+}
+.intro p {
+  max-width: 62ch;
+  color: var(--stone-300);
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 0 0 var(--space-4);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin-top: var(--space-5);
+}
+.legend-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.legend-group-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stone-500);
+}
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--stone-300);
+}
+.legend-dot {
+  width: 7px; height: 7px; border-radius: 999px; flex: none;
+}
+
+/* ---------- Variant sections ---------------------------------------------- */
+.variant {
+  margin-bottom: var(--space-9);
+}
+.variant-head {
+  margin-bottom: var(--space-5);
+}
+.variant-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-h3);
+  letter-spacing: var(--track-tight);
+  margin: var(--space-2) 0 var(--space-2);
+}
+.variant-desc {
+  color: var(--stone-400);
+  font-size: 14px;
+  max-width: 62ch;
+  margin: 0;
+}
+
+/* ---------- Rooster shell (1:1 with production shape) --------------------- */
+.rooster-shell {
+  max-width: 440px;
+  margin: 0 auto;
+}
+@media (min-width: 900px) {
+  .rooster-shell { max-width: 620px; margin: 0; }
+}
+
+.rooster-title {
+  font-family: var(--font-serif-display);
+  font-weight: 400;
+  font-size: 34px;
+  letter-spacing: var(--track-display);
+  line-height: 1.05;
+  margin: var(--space-2) 0 var(--space-5);
+}
+
+/* Schematic day strip — visual only, not functional */
+.day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: var(--space-5);
+}
+.day-pill {
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-sm);
+  padding: 8px 2px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--stone-500);
+}
+.day-pill .d { display: block; letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; margin-bottom: 3px; }
+.day-pill .n { display: block; font-family: var(--font-serif-display); font-size: 16px; color: var(--stone-300); }
+.day-pill.is-selected {
+  border-color: var(--champagne);
+  background: var(--champagne-wash);
+}
+.day-pill.is-selected .n { color: var(--stone-100); }
+.day-pill.is-selected .d { color: var(--champagne); }
+
+.filter-chips {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.filter-chip {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stone-400);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-xs);
+  padding: 6px 12px;
+}
+.filter-chip.is-active {
+  color: var(--stone-100);
+  border-color: var(--stone-400);
+}
+
+/* ---------- Session list ---------------------------------------------------
+   Two shape-tiers, not just color: "lit" rows (booked / bookable) get an
+   Ink-800 card fill per the Cards rule in the design system ("Ink 800 fill,
+   no border, no shadow, radius-md"); dimmed rows stay flat on Ink-900 with
+   only a hairline divider. That shape difference is the quiet-glow effect,
+   independent of any color a viewer can or can't perceive.
+   ========================================================================== */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 18px 16px;
+  border-radius: var(--radius-md);
+}
+@media (min-width: 900px) {
+  .row { grid-template-columns: 64px 1fr auto auto; gap: var(--space-5); padding: 20px 20px; }
+}
+
+/* flat rows (dimmed) sit directly on the page background with a hairline
+   divider only, no fill — the same as a plain list row today */
+.row--flat {
+  background: transparent;
+  border-top: 1px solid var(--ink-500);
+  border-radius: 0;
+}
+.row--flat + .row--flat { }
+
+/* lit rows (booked / bookable) get the elevated card fill */
+.row--lit {
+  background: var(--bg-elevated);
+}
+
+.row-time {
+  font-family: var(--font-serif-display);
+  font-size: 16px;
+  color: var(--stone-400);
+}
+.row--dim .row-time { color: var(--stone-600); }
+
+.row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.row-title {
+  font-family: var(--font-serif-display);
+  font-weight: 400;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--stone-100);
+}
+@media (min-width: 900px) { .row-title { font-size: 23px; } }
+.row--dim .row-title { color: var(--stone-500); }
+.row--dim-strong .row-title { color: var(--stone-600); }
+
+.row-meta {
+  font-size: 12.5px;
+  color: var(--stone-400);
+}
+.row--dim .row-meta,
+.row--dim-strong .row-meta { color: var(--stone-600); }
+
+.row-reason {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  margin-top: 2px;
+  color: var(--stone-400);
+}
+.row-reason .icon { width: 13px; height: 13px; flex: none; }
+.row--dim-strong .row-reason { color: var(--stone-500); }
+
+.row-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--stone-300);
+  width: fit-content;
+}
+.row-cta .icon { width: 12px; height: 12px; }
+.row-cta:hover { color: var(--stone-100); }
+
+.row-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+.status-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 999px; flex: none; }
+/* Base icon size — inline <svg class="icon"> has no intrinsic size without
+   explicit width/height, so every icon needs this default; contexts below
+   may override. */
+.icon { width: 13px; height: 13px; flex: none; display: inline-block; vertical-align: middle; }
+.status-label--booked { color: var(--success); }
+.status-label--open { color: var(--champagne); }
+.status-label--dim { color: var(--stone-500); }
+.status-label--dim-strong { color: var(--stone-600); }
+.status-sub {
+  font-size: 10.5px;
+  color: var(--stone-600);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.row-chevron { color: var(--stone-500); width: 15px; height: 15px; }
+.row--dim .row-chevron,
+.row--dim-strong .row-chevron { color: transparent; }
+
+/* ---------- Variant C: pill/chip badge -------------------------------------
+   Design system: pill-rounding is reserved for tiny status chips (see
+   badges.html precedent). Used only in variant C.
+   ========================================================================== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill .icon { width: 11px; height: 11px; }
+.pill--booked { background: var(--success); color: var(--ink-900); }
+.pill--open { background: var(--champagne); color: var(--ink-900); }
+.pill--dim { border: 1px solid var(--ink-500); color: var(--stone-400); background: transparent; }
+.pill--dim-strong { border: 1px solid var(--ink-600); color: var(--stone-600); background: transparent; }
+
+/* ---------- Footer ---------------------------------------------------------*/
+.colofon {
+  border-top: 1px solid var(--ink-500);
+  padding-top: var(--space-5);
+  color: var(--stone-600);
+  font-size: 12px;
+  line-height: 1.7;
+}
+</style>
+</head>
+<body>
+
+<div class="mockup-banner">Mockup — geen productiecode · concept-review rooster coverage-kleuren</div>
+
+<svg style="display:none">
+  <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
+  </symbol>
+  <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H7.4A3.4 3.4 0 0 0 4 18.4V20"/>
+    <circle cx="9.5" cy="7.5" r="3.2"/>
+    <path d="M20 20v-1.6a3.4 3.4 0 0 0-2.4-3.26"/>
+    <path d="M14.7 4.3a3.2 3.2 0 0 1 0 6.2"/>
+  </symbol>
+  <symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="5" width="17" height="15.5" rx="1.5"/>
+    <path d="M8 3v4M16 3v4M3.5 10h17"/>
+  </symbol>
+  <symbol id="icon-arrow-up-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 17 17 7M9 7h8v8"/>
+  </symbol>
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 6 15 12 9 18"/>
+  </symbol>
+</svg>
+
+<div class="page">
+
+  <section class="intro">
+    <span class="eyebrow eyebrow--accent">Concept · rustig einde</span>
+    <h1>Boekbaar licht op.<br>Rest blijft stil.</h1>
+    <p>
+      Twee toestanden trekken het oog: een sessie die je al geboekt hebt, en een
+      sessie die binnen je abonnement past en nu boekbaar is. De rest van de dag
+      dooft naar de achtergrond, met het waarom als klein, concreet label in
+      plaats van een kale streep. Tijdelijke redenen (vol, limiet, boekvenster)
+      krijgen een neutrale, lichtere demping: nu even niet, later wel. Buiten
+      abonnement is structureel en krijgt de zwaarste demping, met een stille
+      verwijzing naar het abonnement, want dat is de enige reden waar een lid
+      zelf iets aan kan doen.
+    </p>
+    <div class="legend">
+      <div class="legend-group">
+        <span class="legend-group-title">Licht (trekt het oog)</span>
+        <span class="legend-row"><span class="legend-dot" style="background:var(--success)"></span>Geboekt</span>
+        <span class="legend-row"><span class="legend-dot" style="background:var(--champagne)"></span>Boekbaar binnen abonnement</span>
+      </div>
+      <div class="legend-group">
+        <span class="legend-group-title">Gedempt, tijdelijk (nu even niet)</span>
+        <span class="legend-row"><span class="legend-dot" style="background:var(--stone-500)"></span>Vol · limiet · boekvenster dicht</span>
+      </div>
+      <div class="legend-group">
+        <span class="legend-group-title">Gedempt, structureel</span>
+        <span class="legend-row"><span class="legend-dot" style="background:var(--stone-600)"></span>Buiten abonnement</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       VARIANT A — label naast de tijd (in de bestaande badge-positie)
+       ====================================================================== -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="eyebrow">Variant A</span>
+      <h2>Label in de badge-zone.</h2>
+      <p class="variant-desc">
+        Kleinste ingreep op de bestaande rij: de badge rechts krijgt een tweede,
+        kleinere regel met het waarom. De rest van de rij verandert niet van
+        vorm, alleen de badge wordt iets rijker.
+      </p>
+    </div>
+
+    <div class="rooster-shell">
+      <span class="eyebrow eyebrow--accent">Rooster</span>
+      <h3 class="rooster-title">Woensdag.</h3>
+
+      <div class="day-strip">
+        <div class="day-pill"><span class="d">ma</span><span class="n">12</span></div>
+        <div class="day-pill"><span class="d">di</span><span class="n">13</span></div>
+        <div class="day-pill is-selected"><span class="d">wo</span><span class="n">14</span></div>
+        <div class="day-pill"><span class="d">do</span><span class="n">15</span></div>
+        <div class="day-pill"><span class="d">vr</span><span class="n">16</span></div>
+        <div class="day-pill"><span class="d">za</span><span class="n">17</span></div>
+        <div class="day-pill"><span class="d">zo</span><span class="n">18</span></div>
+      </div>
+
+      <div class="filter-chips">
+        <span class="filter-chip is-active">Alles</span>
+        <span class="filter-chip">Yoga &amp; mobility</span>
+        <span class="filter-chip">Kettlebell</span>
+      </div>
+
+      <div class="session-list">
+
+        <div class="row row--lit">
+          <span class="row-time">06:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--booked"><span class="status-dot" style="background:var(--success)"></span>Geboekt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">07:30</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">4 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">09:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">Onbeperkt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">12:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Sanne · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim"><svg class="icon"><use href="#icon-users"/></svg>Vol</span>
+            <span class="status-sub">Wachtlijst mogelijk</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">17:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim"><svg class="icon"><use href="#icon-calendar"/></svg>Limiet bereikt</span>
+            <span class="status-sub">Volgende week weer</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">18:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">2 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">19:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Joris · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim"><svg class="icon"><use href="#icon-clock"/></svg>Nog niet open</span>
+            <span class="status-sub">Boekvenster later</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim-strong">
+          <span class="row-time">20:30</span>
+          <span class="row-main">
+            <span class="row-title">Senior Circuit</span>
+            <span class="row-meta">met Sanne · 45 min</span>
+            <a class="row-cta" href="#"><svg class="icon"><use href="#icon-arrow-up-right"/></svg>Bekijk abonnement</a>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim-strong">Buiten abonnement</span>
+          </span>
+          <span></span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       VARIANT B — gedempte rij met de reden onder de lesnaam
+       ====================================================================== -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="eyebrow">Variant B</span>
+      <h2>Reden onder de lesnaam.</h2>
+      <p class="variant-desc">
+        Hergebruikt de plek waar vandaag al de check-in-hint staat (onder de
+        lesnaam). De badge rechts blijft kort en simpel; de volledige uitleg
+        (dezelfde tekst als REASON_COPY) staat inline bij de les zelf.
+      </p>
+    </div>
+
+    <div class="rooster-shell">
+      <span class="eyebrow eyebrow--accent">Rooster</span>
+      <h3 class="rooster-title">Woensdag.</h3>
+
+      <div class="day-strip">
+        <div class="day-pill"><span class="d">ma</span><span class="n">12</span></div>
+        <div class="day-pill"><span class="d">di</span><span class="n">13</span></div>
+        <div class="day-pill is-selected"><span class="d">wo</span><span class="n">14</span></div>
+        <div class="day-pill"><span class="d">do</span><span class="n">15</span></div>
+        <div class="day-pill"><span class="d">vr</span><span class="n">16</span></div>
+        <div class="day-pill"><span class="d">za</span><span class="n">17</span></div>
+        <div class="day-pill"><span class="d">zo</span><span class="n">18</span></div>
+      </div>
+
+      <div class="filter-chips">
+        <span class="filter-chip is-active">Alles</span>
+        <span class="filter-chip">Yoga &amp; mobility</span>
+        <span class="filter-chip">Kettlebell</span>
+      </div>
+
+      <div class="session-list">
+
+        <div class="row row--lit">
+          <span class="row-time">06:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--booked"><span class="status-dot" style="background:var(--success)"></span>Geboekt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">07:30</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">4 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">09:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">Onbeperkt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">12:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Sanne · 60 min</span>
+            <span class="row-reason"><svg class="icon"><use href="#icon-users"/></svg>Vol. Je kunt je op de wachtlijst zetten.</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim">Vol</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">17:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+            <span class="row-reason"><svg class="icon"><use href="#icon-calendar"/></svg>Je weekcap voor deze discipline is bereikt. Volgende week weer.</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim">Limiet</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">18:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--open">2 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">19:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Joris · 45 min</span>
+            <span class="row-reason"><svg class="icon"><use href="#icon-clock"/></svg>Nog niet open voor boeking.</span>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim">Later</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim-strong">
+          <span class="row-time">20:30</span>
+          <span class="row-main">
+            <span class="row-title">Senior Circuit</span>
+            <span class="row-meta">met Sanne · 45 min</span>
+            <span class="row-reason">Deze sessie valt buiten je huidige abonnement.</span>
+            <a class="row-cta" href="#"><svg class="icon"><use href="#icon-arrow-up-right"/></svg>Bekijk abonnement</a>
+          </span>
+          <span class="row-status">
+            <span class="status-label status-label--dim-strong">Buiten abonnement</span>
+          </span>
+          <span></span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       VARIANT C — badge/pill-stijl
+       ====================================================================== -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="eyebrow">Variant C</span>
+      <h2>Pill-badge per reden.</h2>
+      <p class="variant-desc">
+        De reden krijgt een eigen omkaderd label (de enige plek waar het
+        design-system pil-vorm toestaat, zie badges.html). Elke reden oogt als
+        een apart, herkenbaar "tagje" in plaats van platte tekst.
+      </p>
+    </div>
+
+    <div class="rooster-shell">
+      <span class="eyebrow eyebrow--accent">Rooster</span>
+      <h3 class="rooster-title">Woensdag.</h3>
+
+      <div class="day-strip">
+        <div class="day-pill"><span class="d">ma</span><span class="n">12</span></div>
+        <div class="day-pill"><span class="d">di</span><span class="n">13</span></div>
+        <div class="day-pill is-selected"><span class="d">wo</span><span class="n">14</span></div>
+        <div class="day-pill"><span class="d">do</span><span class="n">15</span></div>
+        <div class="day-pill"><span class="d">vr</span><span class="n">16</span></div>
+        <div class="day-pill"><span class="d">za</span><span class="n">17</span></div>
+        <div class="day-pill"><span class="d">zo</span><span class="n">18</span></div>
+      </div>
+
+      <div class="filter-chips">
+        <span class="filter-chip is-active">Alles</span>
+        <span class="filter-chip">Yoga &amp; mobility</span>
+        <span class="filter-chip">Kettlebell</span>
+      </div>
+
+      <div class="session-list">
+
+        <div class="row row--lit">
+          <span class="row-time">06:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--booked">Geboekt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">07:30</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--open">4 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">09:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--open">Onbeperkt</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">12:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Sanne · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--dim"><svg class="icon"><use href="#icon-users"/></svg>Vol · wachtlijst</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">17:00</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Kracht</span>
+            <span class="row-meta">met Tom · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--dim"><svg class="icon"><use href="#icon-calendar"/></svg>Limiet bereikt</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--lit">
+          <span class="row-time">18:00</span>
+          <span class="row-main">
+            <span class="row-title">Yoga &amp; Mobility</span>
+            <span class="row-meta">met Marlon · 60 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--open">2 plekken</span>
+          </span>
+          <svg class="row-chevron"><use href="#icon-chevron-right"/></svg>
+        </div>
+
+        <div class="row row--flat row--dim">
+          <span class="row-time">19:30</span>
+          <span class="row-main">
+            <span class="row-title">Kettlebell Flow</span>
+            <span class="row-meta">met Joris · 45 min</span>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--dim"><svg class="icon"><use href="#icon-clock"/></svg>Venster dicht</span>
+          </span>
+          <span></span>
+        </div>
+
+        <div class="row row--flat row--dim-strong">
+          <span class="row-time">20:30</span>
+          <span class="row-main">
+            <span class="row-title">Senior Circuit</span>
+            <span class="row-meta">met Sanne · 45 min</span>
+            <a class="row-cta" href="#"><svg class="icon"><use href="#icon-arrow-up-right"/></svg>Bekijk abonnement</a>
+          </span>
+          <span class="row-status">
+            <span class="pill pill--dim-strong">Buiten abonnement</span>
+          </span>
+          <span></span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="colofon">
+    Mockup ter concept-review, geen productiecode. Lesnamen, tijden en namen
+    van coaches zijn voorbeelddata. Reden-teksten bij vol/limiet/venster/
+    buiten-abonnement zijn woordelijk overgenomen uit REASON_COPY in
+    src/lib/member/can-book.ts zodat de review realistisch is tegen bestaande,
+    al goedgekeurde copy. Kleur is nergens het enige signaal: elke toestand
+    heeft ook een tekstlabel, en boekbaar/geboekt onderscheiden zich bovendien
+    door een Ink-800 kaartvulling ten opzichte van de vlakke, gedempte rijen.
+  </div>
+
+</div>
+</body>
+</html>
