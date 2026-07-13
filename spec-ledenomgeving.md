@@ -37,6 +37,12 @@ en de tegoed-stippenrij. Alle data-reads, statusvarianten en conditionele sectie
 de gedeelde laag (`src/app/app/_lib/dashboard-data.ts`, `loadDashboardData()`), nu zonder een
 tweede consument. De statusregel-variant voor `payment_failed` (nieuwe tekst, gemarkeerd
 `// COPY: confirm met Marlon` in `_lib/dashboard.ts`) staat nog open voor Marlons akkoord.
+
+UPDATE 2026-07-13: GEMERGED naar `main` — PR #93, merge-commit `fa3408d`,
+`github.com/mrmyake/tmc/pull/93`. De routing-opruiming (voorheen los op PR #94, branch
+`fix/landing-routing-consistentie`) is vóór de merge via een fast-forward samengevouwen in
+`feat/leden-landing`; GitHub markeert PR #94 daardoor zelf ook als merged (mergeCommit `b31ba95`,
+dat commit-punt zit in `fa3408d`). Vercel's build op de merge-commit is groen.
 - **OPGELOST:** de "landing-consistentie"-opruiming van de resterende `/app/rooster`-hrefs
   (wrong-role guards in `src/app/app/admin/layout.tsx` en `src/app/app/trainer/layout.tsx`, en de
   "Schakel naar Member view"-hrefs in `AvatarDropdown.tsx`/`MobileAccountActions.tsx`, plus het
