@@ -11,8 +11,9 @@ import PtTrainerChange from "@/emails/pt_trainer_change";
 
 /**
  * PT-agenda C1: annuleren en verzetten van een PT-boeking. De RPC's
- * autoriseren zelf (eigen boeking of admin); deze actions verzorgen het
- * event-spoor en de trainer-notificatie. De notificatie gaat UITSLUITEND
+ * autoriseren zelf (eigen boeking, eigen-sessie-trainer of admin, sinds
+ * C4); deze actions verzorgen het event-spoor en de trainer-notificatie.
+ * De notificatie gaat UITSLUITEND
  * bij een lid-geinitieerde actie (via trainers.profile_id naar
  * profiles.email), nooit bij Marlon-eigen acties. Per gebeurtenis, geen
  * digest. Push volgt later (stille no-op tot het Firebase-project er is).
@@ -38,14 +39,32 @@ export type PtManageResult =
   | { ok: true; withinWindow?: boolean; creditsRefunded?: boolean }
   | { ok: false; message: string; reason?: string; conflictAt?: string };
 
-async function callerIsAdmin(userId: string): Promise<boolean> {
+/**
+ * C4: actor-afleiding server-side (niet via een parameter, die zou vanaf
+ * de client spoofbaar zijn). Admin via profiel-rol; trainer via een
+ * actieve trainers-rij, dezelfde definitie als tmc.is_staff(). Rollen
+ * zijn single-string (geen trainer+member combos), dus een actieve
+ * trainer handelt hier per definitie als trainer.
+ */
+async function callerActorType(
+  userId: string,
+): Promise<"admin" | "trainer" | "member"> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .maybeSingle();
-  return data?.role === "admin";
+  if (data?.role === "admin") return "admin";
+
+  const admin = createAdminClient();
+  const { data: trainer } = await admin
+    .from("trainers")
+    .select("id")
+    .eq("profile_id", userId)
+    .eq("is_active", true)
+    .maybeSingle();
+  return trainer ? "trainer" : "member";
 }
 
 /** Trainer-mail bij een lid-geinitieerde wijziging. Faalt stil. */
@@ -127,11 +146,11 @@ export async function cancelPtBooking(
     };
   }
 
-  const isAdmin = await callerIsAdmin(user.id);
+  const actorType = await callerActorType(user.id);
 
   await emitEvent({
     type: "pt_booking.cancelled",
-    actorType: isAdmin ? "admin" : "member",
+    actorType,
     actorId: user.id,
     subjectType: "pt_booking",
     subjectId: ptBookingId,
@@ -143,7 +162,7 @@ export async function cancelPtBooking(
     },
   });
 
-  if (!isAdmin) {
+  if (actorType === "member") {
     const start = new Date(result.start_at);
     await notifyTrainerOfChange({
       trainerId: result.trainer_id,
@@ -197,11 +216,11 @@ export async function reschedulePtBooking(
     };
   }
 
-  const isAdmin = await callerIsAdmin(user.id);
+  const actorType = await callerActorType(user.id);
 
   await emitEvent({
     type: "pt_booking.rescheduled",
-    actorType: isAdmin ? "admin" : "member",
+    actorType,
     actorId: user.id,
     subjectType: "pt_booking",
     subjectId: ptBookingId,
@@ -213,7 +232,7 @@ export async function reschedulePtBooking(
     },
   });
 
-  if (!isAdmin) {
+  if (actorType === "member") {
     const oldStart = new Date(result.old_start_at);
     const newStart = new Date(result.new_start_at);
     const newEnd = new Date(result.new_end_at);

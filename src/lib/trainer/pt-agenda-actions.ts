@@ -26,21 +26,15 @@ import type {
  * gewone RLS-client lezen. De toegangscontrole is hier de
  * requireTrainerOrAdmin-gate, niet RLS.
  *
- * BELANGRIJK GAT (zie PR-omschrijving): mark_pt_attendance is uitsluitend
- * tmc.is_admin()-gated (geen staff-tak), en cancel_pt/reschedule_pt
- * gate'en boeking-zichtbaarheid op `profile_id = auth.uid() OR is_admin()`
- * — een trainer die niet de klant zelf is krijgt dus `not_found`,
- * ongeacht de C3-staff-verruiming op de tijd-overrides. Deze drie acties
- * zijn dus in de praktijk nog admin-only. De wrappers hieronder checken
- * `actorType === "admin"` VOORDAT de RPC wordt aangeroepen, zodat een
- * trainer een eerlijke melding krijgt in plaats van een misleidende
- * "bestaat niet"-foutmelding. Kleine Fable-vervolgmigratie nodig om dit
- * naar staff te verruimen (zie PR-omschrijving).
+ * C4 (20260802-migratie): de drie beheer-RPC's zijn verruimd naar de
+ * eigen-sessie-trainer — mark_pt_attendance accepteert staff met een
+ * eigen-sessie-grens, en cancel_pt/reschedule_pt zien een boeking ook
+ * als die op een sessie van de eigen actieve trainers-rij staat. De
+ * wrappers gate'en dus alleen nog op requireTrainerOrAdmin; de RPC zelf
+ * bewaakt de eigen-sessie-grens (andermans sessie blijft `not_found`).
+ * Nieuw in C4: createPtBlock/deletePtBlock (ad-hoc tijd blokkeren,
+ * kind='block', geen klant en geen credit).
  */
-
-// COPY: confirm met Marlon
-const STAFF_ONLY_MESSAGE =
-  "Deze actie is voorlopig alleen voor beheer. Trainer-toegang op annuleren, verzetten en aanwezigheid volgt in een kleine vervolgstap.";
 
 interface SessionRow {
   id: string;
@@ -139,7 +133,8 @@ export type PtAgendaActionResult = PtManageResult;
 
 /**
  * Aanwezigheid markeren. Geen bestaande wrapper elders (dit is de eerste
- * UI die mark_pt_attendance aanroept); admin-only, zie fileheader.
+ * UI die mark_pt_attendance aanroept); staff, met de eigen-sessie-grens
+ * in de RPC (zie fileheader).
  */
 export async function markPtAttendance(
   ptBookingId: string,
@@ -147,9 +142,6 @@ export async function markPtAttendance(
 ): Promise<PtAgendaActionResult> {
   const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
-  if (gate.actorType !== "admin") {
-    return { ok: false, message: STAFF_ONLY_MESSAGE };
-  }
 
   const supabase = await createClient();
   const { data: result, error } = await supabase.rpc("mark_pt_attendance", {
@@ -165,7 +157,7 @@ export async function markPtAttendance(
     const reason = result?.reason as string | undefined;
     const copy: Record<string, string> = {
       // COPY: confirm met Marlon
-      not_found: "Deze boeking bestaat niet (meer).",
+      not_found: "Deze boeking bestaat niet (meer) of hoort niet bij jouw agenda.",
       not_markable: "Deze boeking heeft geen aanwezigheid om te markeren.",
       session_not_started: "Deze sessie is nog niet begonnen.",
       invalid_status: "Ongeldige status.",
@@ -178,7 +170,7 @@ export async function markPtAttendance(
 
   await emitEvent({
     type: "pt_booking.attendance_marked",
-    actorType: "admin",
+    actorType: gate.actorType,
     actorId: gate.userId,
     subjectType: "pt_booking",
     subjectId: ptBookingId,
@@ -191,16 +183,13 @@ export async function markPtAttendance(
 /**
  * Staff-wrapper om cancelPtBooking (src/lib/member/pt-manage-actions.ts,
  * gedeeld met PR E): dezelfde event-emissie en trainer-notificatie
- * hergebruiken, alleen de gate + de eerlijke trainer-melding zijn nieuw.
+ * hergebruiken; de RPC bewaakt de eigen-sessie-grens.
  */
 export async function cancelPtBookingAsStaff(
   ptBookingId: string,
 ): Promise<PtAgendaActionResult> {
   const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
-  if (gate.actorType !== "admin") {
-    return { ok: false, message: STAFF_ONLY_MESSAGE };
-  }
   return cancelPtBooking(ptBookingId);
 }
 
@@ -214,8 +203,119 @@ export async function reschedulePtBookingAsStaff(
 ): Promise<PtAgendaActionResult> {
   const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
-  if (gate.actorType !== "admin") {
-    return { ok: false, message: STAFF_ONLY_MESSAGE };
-  }
   return reschedulePtBooking(ptBookingId, newStartAt, opts);
+}
+
+// COPY: confirm met Marlon
+const PT_BLOCK_REASON_COPY: Record<string, string> = {
+  trainer_required: "Kies eerst een trainer voor dit blok.",
+  not_own_agenda: "Je kunt alleen tijd in je eigen agenda blokkeren.",
+  trainer_unavailable: "Deze trainer is niet (meer) actief.",
+  invalid_range: "De eindtijd moet na de starttijd liggen (hele minuten).",
+  block_in_past: "Dit blok ligt volledig in het verleden.",
+  invalid_duration: "Een blok duurt minimaal 1 minuut en maximaal 24 uur.",
+  not_found: "Dit blok bestaat niet (meer) of hoort niet bij jouw agenda.",
+  pt_overlap: "Dit blok overlapt met een bestaande afspraak.",
+  pt_no_turnaround: "Te weinig omkleedtijd rond dit blok.",
+};
+
+/**
+ * Ad-hoc tijd blokkeren in de agenda (kind='block', geen klant, geen
+ * credit). trainerId komt uit de agenda-selectie; de RPC dwingt af dat
+ * een niet-admin alleen de eigen agenda blokkeert, dus dit is geen
+ * vertrouwde parameter.
+ */
+export async function createPtBlock(args: {
+  trainerId: string;
+  startAt: string;
+  endAt: string;
+  note?: string;
+  allowOverlap?: boolean;
+  allowNoTurnaround?: boolean;
+}): Promise<PtAgendaActionResult> {
+  const gate = await requireTrainerOrAdmin();
+  if (!gate.ok) return { ok: false, message: gate.message };
+
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("create_pt_block", {
+    p_start_at: args.startAt,
+    p_end_at: args.endAt,
+    p_trainer_id: args.trainerId,
+    p_note: args.note ?? null,
+    p_allow_overlap: args.allowOverlap ?? false,
+    p_allow_no_turnaround: args.allowNoTurnaround ?? false,
+  });
+  if (error) {
+    console.error("[createPtBlock] rpc", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Blok toevoegen lukte niet." };
+  }
+  if (!result?.ok) {
+    const reason = result?.reason as string | undefined;
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: PT_BLOCK_REASON_COPY[reason ?? ""] ?? "Blok toevoegen lukte niet.",
+      reason,
+      conflictAt: result?.conflict_at ?? undefined,
+    };
+  }
+
+  await emitEvent({
+    type: "pt_session.block_created",
+    actorType: gate.actorType,
+    actorId: gate.userId,
+    subjectType: "pt_session",
+    subjectId: result.pt_session_id,
+    payload: {
+      trainer_id: result.trainer_id,
+      start_at: result.start_at,
+      end_at: result.end_at,
+    },
+  });
+
+  return { ok: true };
+}
+
+/** Een blok weer weghalen; alleen kind='block', harde delete in de RPC. */
+export async function deletePtBlock(
+  ptSessionId: string,
+): Promise<PtAgendaActionResult> {
+  const gate = await requireTrainerOrAdmin();
+  if (!gate.ok) return { ok: false, message: gate.message };
+
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("delete_pt_block", {
+    p_pt_session_id: ptSessionId,
+  });
+  if (error) {
+    console.error("[deletePtBlock] rpc", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Blok verwijderen lukte niet." };
+  }
+  if (!result?.ok) {
+    const reason = result?.reason as string | undefined;
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message:
+        PT_BLOCK_REASON_COPY[reason ?? ""] ?? "Blok verwijderen lukte niet.",
+      reason,
+    };
+  }
+
+  await emitEvent({
+    type: "pt_session.block_deleted",
+    actorType: gate.actorType,
+    actorId: gate.userId,
+    subjectType: "pt_session",
+    subjectId: ptSessionId,
+    payload: {
+      trainer_id: result.trainer_id,
+      start_at: result.start_at,
+      end_at: result.end_at,
+    },
+  });
+
+  return { ok: true };
 }
