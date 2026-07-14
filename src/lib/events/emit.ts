@@ -61,6 +61,8 @@ export type EventType =
   | "pt_session.block_created"
   | "pt_session.block_deleted"
   | "pt_intake.created"
+  | "pt_intake.completed"
+  | "pt_intake.cancelled"
   // Guest
   | "guest.booked"
   // Sessions (admin)
