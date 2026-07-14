@@ -156,11 +156,112 @@ export async function GET(req: Request) {
     sent++;
   }
 
+  // PT-boekingen (PT-agenda C1): zelfde window, zelfde stamp-eerst-dedupe
+  // op de eigen reminder_sent_at-kolom. Volume is klein (1-op-1 sessies),
+  // dus dezelfde run kan het erbij hebben.
+  type PtRow = {
+    id: string;
+    pt_session_id: string;
+    profile_id: string;
+    profile: { first_name: string | null; email: string | null } | null;
+    session: {
+      start_at: string;
+      end_at: string;
+      status: string;
+      format: string | null;
+      mode: string | null;
+      trainer: { display_name: string | null } | null;
+    } | null;
+  };
+
+  const { data: ptCandidates, error: ptError } = await admin
+    .from("pt_bookings")
+    .select(
+      `
+        id, pt_session_id, profile_id,
+        profile:profiles(first_name, email),
+        session:pt_sessions!inner(
+          start_at, end_at, status, format, mode,
+          trainer:trainers(display_name)
+        )
+      `,
+    )
+    .eq("status", "booked")
+    .is("reminder_sent_at", null)
+    .gte("session.start_at", windowStart.toISOString())
+    .lt("session.start_at", windowEnd.toISOString())
+    .returns<PtRow[]>();
+
+  let ptSent = 0;
+  let ptSkipped = 0;
+
+  if (ptError) {
+    console.error("[cron/send-reminders] pt query failed", ptError);
+  } else {
+    for (const row of ptCandidates ?? []) {
+      const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+      const session = Array.isArray(row.session) ? row.session[0] : row.session;
+      if (!profile?.email || !session || session.status !== "scheduled") {
+        ptSkipped++;
+        continue;
+      }
+
+      const { error: stampErr } = await admin
+        .from("pt_bookings")
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("reminder_sent_at", null);
+      if (stampErr) {
+        console.error("[cron/send-reminders] pt stamp failed", row.id, stampErr);
+        ptSkipped++;
+        continue;
+      }
+
+      const tr = (Array.isArray(session.trainer)
+        ? session.trainer[0]
+        : session.trainer) as { display_name: string | null } | null;
+      const start = new Date(session.start_at);
+      const end = new Date(session.end_at);
+      const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+      // COPY: confirm met Marlon
+      const className =
+        session.format === "duo"
+          ? "Personal training duo"
+          : session.mode === "online"
+            ? "Personal training (online)"
+            : "Personal training";
+
+      await sendEmail({
+        to: profile.email,
+        toName: profile.first_name ?? undefined,
+        subject: `Morgen: ${className}`,
+        react: BookingReminder({
+          firstName: profile.first_name ?? "",
+          className,
+          trainerName: tr?.display_name ?? "je coach",
+          whenLabel,
+          siteUrl: siteUrl(),
+        }),
+      });
+
+      void sendPushToProfile(row.profile_id, {
+        title: `Morgen: ${className}`,
+        body: `${whenLabel} met ${tr?.display_name ?? "je coach"}`,
+        data: { type: "pt_booking_reminder", ptSessionId: row.pt_session_id },
+      });
+
+      ptSent++;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     checked: candidates?.length ?? 0,
     eligible: elig.length,
     sent,
     skipped,
+    ptChecked: ptCandidates?.length ?? 0,
+    ptSent,
+    ptSkipped,
   });
 }

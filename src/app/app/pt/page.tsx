@@ -1,44 +1,22 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Container } from "@/components/layout/Container";
+import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
-import { getCatalogue } from "@/lib/catalogue";
-import { PtBookingFlow } from "./PtBookingFlow";
-import type { TrainerOption } from "./_components/TrainerStep";
-import type { SlotOption } from "./_components/SlotStep";
-
-// Noodgreep, alleen gebruikt als de catalogus-fetch faalt. Moet gelijk
-// blijven aan de live catalogus (slug pt_single), maar is bewust niet de
-// bron van waarheid.
-const FALLBACK_PT_SINGLE_CENTS = 9500;
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "PT boeken | The Movement Club",
+  title: "Personal training | The Movement Club",
   robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
 
-const SLOT_HORIZON_DAYS = 14;
-
-type TrainerRow = {
-  id: string;
-  slug: string;
-  display_name: string;
-  bio: string | null;
-  pt_tier: string;
-  is_pt_available: boolean;
-  is_active: boolean;
-};
-
-type PtSessionRow = {
-  id: string;
-  trainer_id: string;
-  start_at: string;
-  end_at: string;
-  format: string;
-  status: string;
-};
-
+/**
+ * PT-agenda C1 (model-herziening): PT wordt volledig door Marlon
+ * ingepland, er is geen zelfbedienings-boekflow meer. Deze pagina is de
+ * informatieve landing achter de "PT"-ingang in het Meer-menu; de eigen
+ * geboekte PT-sessies verschijnen in /app/boekingen (PR E).
+ */
 export default async function PtPage() {
   const supabase = await createClient();
   const {
@@ -46,103 +24,48 @@ export default async function PtPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const now = new Date();
-  const horizon = new Date(now.getTime() + SLOT_HORIZON_DAYS * 86400000);
-
-  const [trainersRes, sessionsRes, ptMembershipRes, existingBookingsRes, catalogue] =
-    await Promise.all([
-      supabase
-        .from("trainers")
-        .select("id, slug, display_name, bio, pt_tier, is_pt_available, is_active")
-        .eq("is_active", true)
-        .eq("is_pt_available", true)
-        .order("pt_tier", { ascending: true })
-        .returns<TrainerRow[]>(),
-      supabase
-        .from("pt_sessions")
-        .select("id, trainer_id, start_at, end_at, format, status")
-        .eq("status", "scheduled")
-        .eq("format", "one_on_one")
-        .gte("start_at", now.toISOString())
-        .lt("start_at", horizon.toISOString())
-        .order("start_at", { ascending: true })
-        .returns<PtSessionRow[]>(),
-      supabase
-        .from("memberships")
-        .select("id, credits_remaining")
-        .eq("profile_id", user.id)
-        .eq("status", "active")
-        .eq("plan_type", "pt_package")
-        .gt("credits_remaining", 0)
-        .order("start_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("pt_bookings")
-        .select("pt_session_id")
-        .eq("profile_id", user.id)
-        .in("status", ["booked"]),
-      getCatalogue(),
-    ]);
-
-  const priceCents =
-    catalogue.get("pt_single")?.price_cents ?? FALLBACK_PT_SINGLE_CENTS;
-
-  const trainers: TrainerOption[] = (trainersRes.data ?? []).map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    displayName: t.display_name,
-    bio: t.bio,
-    avatarUrl: null,
-  }));
-
-  const bookedSessionIds = new Set(
-    (existingBookingsRes.data ?? []).map((b) => b.pt_session_id),
-  );
-  const slots: Array<SlotOption & { trainerId: string }> = (
-    sessionsRes.data ?? []
-  )
-    .filter((s) => !bookedSessionIds.has(s.id))
-    .map((s) => ({
-      id: s.id,
-      startAt: s.start_at,
-      endAt: s.end_at,
-      trainerId: s.trainer_id,
-    }));
-
-  const creditsRemaining = ptMembershipRes.data?.credits_remaining ?? null;
-
   return (
-    <Container className="py-16 md:py-20 max-w-4xl">
-      <header className="mb-14">
+    <Container className="py-16 md:py-20 max-w-3xl">
+      <header className="mb-12">
         <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
           Personal training
         </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em]">
-          Boek een sessie.
+        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
+          Persoonlijk ingepland.
         </h1>
+        {/* COPY: confirm met Marlon */}
         <p className="mt-6 text-text-muted text-lg max-w-xl">
-          Kies een trainer en een moment. Jouw sessie staat binnen vier
-          stappen.
+          Personal training plannen we samen. Marlon boekt jouw sessies op
+          momenten die voor jou werken, afgestemd op jouw traject.
         </p>
       </header>
 
-      {trainers.length === 0 ? (
-        <section className="bg-bg-elevated p-10 text-center">
-          <span className="tmc-eyebrow block mb-4">Geen trainers</span>
-          <p className="text-text-muted text-base max-w-md mx-auto">
-            Er staan op dit moment geen PT-trainers beschikbaar. Neem contact
-            op met Marlon voor een afspraak.
-          </p>
-        </section>
-      ) : (
-        <PtBookingFlow
-          trainers={trainers}
-          slots={slots}
-          creditsRemaining={creditsRemaining}
-          priceCents={priceCents}
-        />
-      )}
+      <section className="bg-bg-elevated p-8 md:p-10 mb-10">
+        {/* COPY: confirm met Marlon */}
+        <p className="text-text text-base leading-relaxed mb-4">
+          Wil je een sessie plannen, verzetten of een traject starten? Stuur
+          Marlon een bericht en het staat zo in je agenda.
+        </p>
+        <p className="text-text-muted text-base leading-relaxed">
+          Je geboekte PT-sessies vind je terug bij je boekingen.
+        </p>
+      </section>
+
+      <div className="flex flex-wrap gap-3">
+        <Button href="/app/boekingen">Mijn boekingen</Button>
+        <Button href="/app/support" variant="secondary">
+          Neem contact op
+        </Button>
+      </div>
+
+      <p className="mt-10 text-text-muted text-sm">
+        {/* COPY: confirm met Marlon */}
+        Meer weten over het 12-weken programma?{" "}
+        <Link href="/12-weken-programma" className="underline" target="_blank">
+          Bekijk het programma
+        </Link>
+        .
+      </p>
     </Container>
   );
 }

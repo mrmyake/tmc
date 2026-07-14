@@ -311,9 +311,17 @@ export async function POST(request: Request) {
       }
 
       if (!activation.already_activated) {
+        // pt_order (PT-agenda C1): losse-sessie- of programma-betaling;
+        // er hoort geen membership bij, de sessies staan al geboekt.
         await sendNotification(
-          activation.needs_subscription ? "Nieuw abonnement!" : "Product verkocht!",
-          `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
+          activation.needs_subscription
+            ? "Nieuw abonnement!"
+            : activation.pt_order
+              ? "PT betaald!"
+              : "Product verkocht!",
+          activation.pt_order
+            ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
+            : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
           "tada,moneybag"
         );
         await emitEvent({

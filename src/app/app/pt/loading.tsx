@@ -4,8 +4,8 @@ export default function PtLoading() {
   return (
     <PageSkeleton
       eyebrow="Personal training"
-      title="Boek je sessie."
-      rows={3}
+      title="Persoonlijk ingepland."
+      rows={2}
     />
   );
 }

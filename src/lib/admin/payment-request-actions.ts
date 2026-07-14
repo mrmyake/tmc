@@ -20,6 +20,12 @@ export interface CreatePaymentRequestInput {
   waiveSignupFee?: boolean;
   /** Levensduur van de betaallink in dagen; de RPC klemt op 1 t/m 14. */
   expiresInDays?: number;
+  /**
+   * PT-agenda C1: koppelt de order aan een al geboekte pt_session zodat
+   * activate_order er geen credit-membership van maakt (het geld betaalt
+   * de sessie zelf).
+   */
+  ptSessionId?: string;
 }
 
 export type CreatePaymentRequestResult =
@@ -56,6 +62,7 @@ const REASON_COPY: Record<string, string> = {
     "Verlengde toegang is niet beschikbaar op dit abonnement.",
   invalid_product_options: "Deze opties zijn niet geldig voor dit product.",
   product_not_supported: "Dit product is niet via een order te verkopen.",
+  pt_session_not_found: "De gekoppelde PT-sessie bestaat niet (meer).",
 };
 
 /**
@@ -87,6 +94,7 @@ export async function createPaymentRequest(
         p_early_member: false,
         p_waive_signup_fee: input.waiveSignupFee ?? false,
         p_expires_in_days: input.expiresInDays ?? 7,
+        p_pt_session_id: input.ptSessionId ?? null,
       },
     );
     if (rpcError) {
