@@ -8,23 +8,40 @@ interface SessionBlockProps {
 }
 
 // COPY: confirm met Marlon
-const KIND_LABEL: Record<AgendaSessionBlockData["kind"], string> = {
+export const KIND_LABEL: Record<AgendaSessionBlockData["kind"], string> = {
   bookable: "PT",
   intake: "Intake",
   block: "Blok",
 };
 
-function kindToneClass(session: AgendaSessionBlockData): string {
+/**
+ * Gedeeld met MonthGrid (PR I): dezelfde type-kleurcodering als de
+ * week/dagweergave, zodat een sessie er in elke weergave hetzelfde
+ * uitziet.
+ */
+export function kindTone(session: AgendaSessionBlockData): "danger" | "intake" | "block" | "accent" {
   // Bewust overlappende sessies (dubbelboeking) krijgen altijd de
   // terracotta danger-tone, ongeacht het type — dat is het signaal dat
   // hier iets aandacht nodig heeft, belangrijker dan het type zelf.
-  if (session.overlapping) return "border-l-[color:var(--danger)]";
-  if (session.kind === "intake") return "border-l-[color:var(--warning)]";
-  if (session.kind === "block") return "border-l-[color:var(--stone-500)]";
-  return "border-l-accent";
+  if (session.overlapping) return "danger";
+  if (session.kind === "intake") return "intake";
+  if (session.kind === "block") return "block";
+  return "accent";
 }
 
-function customerLabel(session: AgendaSessionBlockData): string {
+const TONE_BORDER_CLASS: Record<ReturnType<typeof kindTone>, string> = {
+  danger: "border-l-[color:var(--danger)]",
+  intake: "border-l-[color:var(--warning)]",
+  block: "border-l-[color:var(--stone-500)]",
+  accent: "border-l-accent",
+};
+
+function kindToneClass(session: AgendaSessionBlockData): string {
+  return TONE_BORDER_CLASS[kindTone(session)];
+}
+
+/** Gedeeld met MonthGrid (PR I). */
+export function customerLabel(session: AgendaSessionBlockData): string {
   if (session.booking) {
     const name =
       `${session.booking.firstName} ${session.booking.lastName}`.trim();
@@ -91,13 +108,13 @@ export function SessionBlock({ session, onSelect }: SessionBlockProps) {
         }`}
         aria-label={`${KIND_LABEL[session.kind]} om ${session.startLabel}: ${customerLabel(session)}`}
       >
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">
           {session.startLabel}
         </span>
-        <span className="text-xs font-medium text-text leading-tight line-clamp-2">
+        <span className="shrink-0 w-full truncate text-xs font-medium text-text leading-tight">
           {customerLabel(session)}
         </span>
-        <span className="text-[10px] text-text-muted leading-tight mt-auto">
+        <span className="shrink-0 mt-auto text-[10px] text-text-muted leading-tight">
           {KIND_LABEL[session.kind]}
           {session.booking && session.booking.status !== "booked"
             ? ` · ${session.booking.status}`
