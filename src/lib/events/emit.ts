@@ -57,6 +57,7 @@ export type EventType =
   | "pt_booking.confirmed"
   | "pt_booking.cancelled"
   | "pt_booking.rescheduled"
+  | "pt_intake.created"
   // Guest
   | "guest.booked"
   // Sessions (admin)
@@ -98,6 +99,7 @@ export type SubjectType =
   | "booking"
   | "payment"
   | "pt_booking"
+  | "pt_session"
   | "pause"
   | "waitlist"
   | "guest_booking"

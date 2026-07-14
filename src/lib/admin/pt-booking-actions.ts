@@ -82,7 +82,13 @@ export type BookPtForMemberResult =
       /** Waarschuwing wanneer de boeking staat maar de link/mail faalde. */
       warning: string | null;
     }
-  | { ok: false; message: string; conflictAt?: string };
+  | {
+      ok: false;
+      message: string;
+      /** Ruwe RPC-reason (bv. "pt_overlap"), voor de override-UI in C2. */
+      reason?: string;
+      conflictAt?: string;
+    };
 
 async function sendCustomerConfirmation(args: {
   profileId: string;
@@ -152,6 +158,7 @@ export async function bookPtForMember(
     return {
       ok: false,
       message: PT_REASON_COPY[result?.reason] ?? "Boeken lukte niet.",
+      reason: result?.reason ?? undefined,
       conflictAt: result?.conflict_at ?? undefined,
     };
   }

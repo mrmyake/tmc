@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
+  CalendarPlus,
   Users,
   User,
   Settings,
@@ -52,6 +53,7 @@ const SECONDARY: NavItem[] = [
     label: "Betaalverzoeken",
     icon: CreditCard,
   },
+  { href: "/app/admin/pt-boeken", label: "PT boeken", icon: CalendarPlus },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
   {
     href: "/app/admin/aankondigingen",
