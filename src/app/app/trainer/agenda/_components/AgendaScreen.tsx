@@ -8,6 +8,7 @@ import { AdminField, AdminSelect } from "@/components/ui/AdminField";
 import { WeekGrid } from "./WeekGrid";
 import { MonthGrid } from "./MonthGrid";
 import { SessionDetailPanel } from "./SessionDetailPanel";
+import { BlockCreatePanel } from "./BlockCreatePanel";
 import type {
   AgendaDay,
   AgendaSessionBlockData,
@@ -76,6 +77,7 @@ export function AgendaScreen({
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+  const [blockPanelOpen, setBlockPanelOpen] = useState(false);
 
   const sessionById = useMemo(() => {
     const map = new Map<string, AgendaSessionBlockData>();
@@ -179,9 +181,8 @@ export function AgendaScreen({
 
         <button
           type="button"
-          disabled
-          title="Vereist een kleine Fable-RPC (advisory-lock + conflictcheck, zoals de boek-RPC's) — nog niet gebouwd."
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] border border-[color:var(--ink-500)] text-text-muted/50 opacity-50 cursor-not-allowed"
+          onClick={() => setBlockPanelOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] border border-[color:var(--ink-500)] text-text-muted hover:border-accent hover:text-accent transition-colors cursor-pointer"
         >
           {/* COPY: confirm met Marlon */}+ Blok toevoegen
         </button>
@@ -229,6 +230,14 @@ export function AgendaScreen({
           session={selectedSession}
           isAdmin={isAdmin}
           onClose={() => setSelectedSessionId(null)}
+        />
+      )}
+
+      {blockPanelOpen && (
+        <BlockCreatePanel
+          trainerId={selectedTrainerId}
+          defaultDateIso={anchorIso}
+          onClose={() => setBlockPanelOpen(false)}
         />
       )}
     </Container>

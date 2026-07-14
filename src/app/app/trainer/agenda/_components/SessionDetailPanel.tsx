@@ -12,6 +12,7 @@ import {
   markPtAttendance,
   cancelPtBookingAsStaff,
   reschedulePtBookingAsStaff,
+  deletePtBlock,
 } from "@/lib/trainer/pt-agenda-actions";
 import type { AgendaSessionBlockData } from "./types";
 
@@ -50,14 +51,13 @@ function todayIso(): string {
 }
 
 /**
- * PT-agenda PR D: detailpaneel voor een bestaande sessie. Acties
- * (aanwezigheid/annuleren/verzetten) zijn in de praktijk nog admin-only:
- * mark_pt_attendance is uitsluitend tmc.is_admin()-gated, en cancel_pt/
- * reschedule_pt gaten boeking-zichtbaarheid op
- * `profile_id = auth.uid() OR is_admin()` — een trainer krijgt daar
- * `not_found` op andermans boeking, ongeacht de C3-staff-verruiming op de
- * tijd-overrides. Voor `isAdmin=false` tonen we de acties dus disabled
- * met een eerlijke notitie i.p.v. de knoppen te laten falen op de RPC.
+ * PT-agenda PR D: detailpaneel voor een bestaande sessie. Sinds C4
+ * (20260802-migratie) werken aanwezigheid/annuleren/verzetten ook voor
+ * de trainer van de sessie: de RPC's bewaken de eigen-sessie-grens, dus
+ * de knoppen zijn hier voor alle staff enabled. De klantnaam linkt
+ * rol-afhankelijk: admin naar het ledenbeheer, trainer naar de smalle
+ * read-only klantweergave (/app/trainer/klant). Blokken kunnen sinds C4
+ * verwijderd worden via deletePtBlock.
  */
 export function SessionDetailPanel({
   session,
@@ -92,11 +92,6 @@ export function SessionDetailPanel({
     hasStarted &&
     ["booked", "attended", "no_show"].includes(booking.status);
 
-  const staffDisabledNote = !isAdmin
-    ? // COPY: confirm met Marlon
-      "Deze actie is voorlopig alleen voor beheer. Trainer-toegang volgt in een kleine vervolgstap."
-    : null;
-
   function refreshAndClose() {
     router.refresh();
     onClose();
@@ -120,6 +115,18 @@ export function SessionDetailPanel({
     setError(null);
     startTransition(async () => {
       const res = await cancelPtBookingAsStaff(booking.id);
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      refreshAndClose();
+    });
+  }
+
+  function handleDeleteBlock() {
+    setError(null);
+    startTransition(async () => {
+      const res = await deletePtBlock(session.id);
       if (!res.ok) {
         setError(res.message);
         return;
@@ -197,29 +204,20 @@ export function SessionDetailPanel({
         {session.kind === "bookable" && booking && (
           <div className="mb-6 pb-6 border-b border-[color:var(--ink-500)]/60">
             <span className="tmc-eyebrow block mb-2">Klant</span>
-            {isAdmin ? (
-              <Link
-                href={`/app/admin/leden/${booking.profileId}?tab=schema`}
-                className="text-text text-base hover:text-accent transition-colors"
-              >
-                {booking.firstName} {booking.lastName}
-              </Link>
-            ) : (
-              <p className="text-text text-base">
-                {booking.firstName} {booking.lastName}
-              </p>
-            )}
+            <Link
+              href={
+                isAdmin
+                  ? `/app/admin/leden/${booking.profileId}?tab=schema`
+                  : `/app/trainer/klant/${booking.profileId}`
+              }
+              className="text-text text-base hover:text-accent transition-colors"
+            >
+              {booking.firstName} {booking.lastName}
+            </Link>
             {booking.introduceeName && (
               <p className="text-text-muted text-sm mt-1">
                 {/* COPY: confirm met Marlon */}+ introducee:{" "}
                 {booking.introduceeName}
-              </p>
-            )}
-            {!isAdmin && (
-              <p className="text-text-muted/70 text-xs mt-2">
-                {/* COPY: confirm met Marlon */}
-                Klantprofiel en trainingsschema-inzage voor trainers volgt
-                (nu alleen voor beheer).
               </p>
             )}
             <p className="text-text-muted text-sm mt-3">
@@ -261,29 +259,28 @@ export function SessionDetailPanel({
               {/* COPY: confirm met Marlon */}
               Geblokkeerde tijd, niet boekbaar.
             </p>
-            <p className="text-text-muted/70 text-xs mt-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleDeleteBlock}
+              className="mt-4 w-full px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+            >
               {/* COPY: confirm met Marlon */}
-              Blokkades toevoegen of verwijderen is hier nog niet gebouwd —
-              dat vereist een kleine Fable-RPC met dezelfde
-              overlap-locking als de boek-RPC&apos;s.
-            </p>
+              {pending ? "Bezig..." : "Blok verwijderen"}
+            </button>
           </div>
         )}
 
         {/* Acties */}
         {session.kind === "bookable" && booking && mode === "view" && (
           <div className="flex flex-col gap-4">
-            {staffDisabledNote && (
-              <p className="text-text-muted/70 text-xs">{staffDisabledNote}</p>
-            )}
-
             {canMarkAttendance && (
               <div>
                 <span className="tmc-eyebrow block mb-2">Aanwezigheid</span>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={!isAdmin || pending}
+                    disabled={pending}
                     onClick={() => handleAttendance("attended")}
                     className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--success)]/40 text-[color:var(--success)] hover:bg-[color:var(--success)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                   >
@@ -292,7 +289,7 @@ export function SessionDetailPanel({
                   </button>
                   <button
                     type="button"
-                    disabled={!isAdmin || pending}
+                    disabled={pending}
                     onClick={() => handleAttendance("no_show")}
                     className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--warning)]/40 text-[color:var(--warning)] hover:bg-[color:var(--warning)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                   >
@@ -307,7 +304,7 @@ export function SessionDetailPanel({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={!isAdmin || pending}
+                  disabled={pending}
                   onClick={() => setMode("reschedule")}
                   className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
@@ -316,7 +313,7 @@ export function SessionDetailPanel({
                 </button>
                 <button
                   type="button"
-                  disabled={!isAdmin || pending}
+                  disabled={pending}
                   onClick={handleCancel}
                   className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
