@@ -38,6 +38,12 @@ import type {
  * PR G (20260803-migratie): completePtIntake/cancelPtIntake voor
  * kind='intake' (account-loos en gratis, dus buiten de boeking-RPC's om);
  * zelfde staff-gate en eigen-sessie-grens, geen credit en geen geld.
+ *
+ * PR J (20260804-migratie): cancel_pt kent nu een expliciete,
+ * staff-only restitutie-keuze (p_with_restitution). getAgendaSessions
+ * geeft credits_used_from door zodat de UI weet of er uberhaupt een
+ * credit gedebiteerd is (en dus een keuze moet tonen); de wrapper
+ * cancelPtBookingAsStaff geeft die keuze door aan cancelPtBooking.
  */
 
 interface SessionRow {
@@ -59,6 +65,7 @@ interface SessionRow {
     status: AgendaBookingStatus;
     profile_id: string;
     introducee_name: string | null;
+    credits_used_from: string | null;
     profile: { first_name: string; last_name: string } | null;
   }> | null;
   pt_programs: { type: "studio" | "online"; total_sessions: number } | null;
@@ -79,7 +86,7 @@ export async function getAgendaSessions(
       `
         id, trainer_id, kind, format, mode, status, start_at, end_at, duration_min,
         prospect_name, prospect_email, prospect_phone, program_id,
-        pt_bookings(id, status, profile_id, introducee_name, profile:profiles(first_name, last_name)),
+        pt_bookings(id, status, profile_id, introducee_name, credits_used_from, profile:profiles(first_name, last_name)),
         pt_programs(type, total_sessions)
       `,
     )
@@ -114,6 +121,7 @@ export async function getAgendaSessions(
             firstName: bookingRow.profile?.first_name ?? "",
             lastName: bookingRow.profile?.last_name ?? "",
             introduceeName: bookingRow.introducee_name,
+            usedCredit: bookingRow.credits_used_from !== null,
           }
         : null,
       prospect: s.prospect_name
@@ -191,10 +199,11 @@ export async function markPtAttendance(
  */
 export async function cancelPtBookingAsStaff(
   ptBookingId: string,
+  withRestitution: boolean | undefined,
 ): Promise<PtAgendaActionResult> {
   const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
-  return cancelPtBooking(ptBookingId);
+  return cancelPtBooking(ptBookingId, withRestitution);
 }
 
 /**

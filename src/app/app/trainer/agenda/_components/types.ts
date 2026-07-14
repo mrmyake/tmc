@@ -16,6 +16,11 @@ export interface AgendaBookingInfo {
   firstName: string;
   lastName: string;
   introduceeName: string | null;
+  /**
+   * Of er bij het boeken een credit is gedebiteerd. Bepaalt of de
+   * annuleer-stap een restitutie-keuze toont (PT-agenda PR J).
+   */
+  usedCredit: boolean;
 }
 
 export interface AgendaProspectInfo {

@@ -28,6 +28,8 @@ interface AgendaScreenProps {
   nextHref: string;
   todayHref: string;
   isCurrentRangeToday: boolean;
+  /** PR J: annuleringsvenster van de geselecteerde trainer, voor de default in het cancel-paneel. */
+  cancelWindowHours: number;
 }
 
 // COPY: confirm met Marlon
@@ -74,6 +76,7 @@ export function AgendaScreen({
   nextHref,
   todayHref,
   isCurrentRangeToday,
+  cancelWindowHours,
 }: AgendaScreenProps) {
   const router = useRouter();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -252,6 +255,7 @@ export function AgendaScreen({
         <SessionDetailPanel
           session={selectedSession}
           isAdmin={isAdmin}
+          cancelWindowHours={cancelWindowHours}
           onClose={() => setSelectedSessionId(null)}
         />
       )}
