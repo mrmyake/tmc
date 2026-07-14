@@ -12,10 +12,12 @@ export const dynamic = "force-dynamic";
  * verweesde sessie plus pending booking achter.
  *
  * De slot-berekening telt een verlopen hold al als vrij, dus dit is puur
- * hygiene: hard-delete van sessies waarvan de hold ruim verlopen is en
- * waar uitsluitend pending boekingen aan hangen. Het uur marge dekt de
- * race met een trage Mollie-webhook (de webhook meldt een betaling op een
- * al opgeruimde boeking als "PT-betaling zonder boeking"). De delete
+ * hygiene en daily volstaat (het Vercel-plan staat alleen dagelijkse
+ * cron-schedules toe): hard-delete van sessies waarvan de hold ruim
+ * verlopen is en waar uitsluitend pending boekingen aan hangen. Het uur
+ * marge dekt de race met een trage Mollie-webhook (de webhook meldt een
+ * betaling op een al opgeruimde boeking als "PT-betaling zonder
+ * boeking"). De delete
  * cascadet naar pt_bookings; payments.pt_booking_id is ON DELETE SET
  * NULL (live geverifieerd), dus de betaalhistorie blijft staan.
  * Idempotent: een tweede run vindt niets meer.
