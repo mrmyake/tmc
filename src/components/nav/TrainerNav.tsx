@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, UserCircle } from "lucide-react";
+import { Calendar, CalendarDays, CalendarPlus, UserCircle } from "lucide-react";
 import { AvatarDropdown, type Role } from "./AvatarDropdown";
 
 interface NavItem {
@@ -12,7 +12,20 @@ interface NavItem {
   icon: typeof CalendarDays;
 }
 
+// PT-agenda PR D: Agenda toegevoegd als primaire trainer-landing-tab.
+// PT-agenda PR C3 bouwde /app/trainer/boeken al maar liet 'm nav-loos
+// (bewust, buiten C3-scope); Boeken hier meenemen sluit dat gat.
 const ITEMS: NavItem[] = [
+  {
+    href: "/app/trainer/agenda",
+    label: "Agenda",
+    icon: Calendar,
+  },
+  {
+    href: "/app/trainer/boeken",
+    label: "Boeken",
+    icon: CalendarPlus,
+  },
   {
     href: "/app/trainer/sessies",
     label: "Mijn sessies",
@@ -45,7 +58,7 @@ export function TrainerNav({ firstName, role }: TrainerNavProps) {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link
-              href="/app/trainer/sessies"
+              href="/app/trainer/agenda"
               className="font-[family-name:var(--font-playfair)] text-xl text-text hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]"
             >
               The Movement Club
@@ -88,7 +101,7 @@ export function TrainerNav({ firstName, role }: TrainerNavProps) {
         aria-label="Trainer-navigatie"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg/95 backdrop-blur-sm border-t border-[color:var(--ink-500)]/60 safe-bottom"
       >
-        <ul className="grid grid-cols-2">
+        <ul className="grid grid-cols-4">
           {ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);

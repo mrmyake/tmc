@@ -6,10 +6,21 @@ import { createClient } from "@/lib/supabase/server";
  * param als die intern is (magic-link naar een specifieke pagina) —
  * zodat de testing-workflow (seed-dummies) niet stukgaat. Anders kies
  * op basis van rol.
+ *
+ * PT-agenda PR D: trainer landt op de agenda (page-level
+ * requireTrainerOrAdmin vangt een inactieve trainer op, net als bij
+ * /app/trainer/boeken uit C3 — geen losse is_active-check hier nodig).
+ * Admin landt op de agenda MET trainer-kiezer als er een actieve eigen
+ * trainers-rij bestaat (bv. Marlon), anders ongewijzigd op /app/admin.
  */
-function roleRedirect(role: string | null | undefined): string {
-  if (role === "admin") return "/app/admin";
-  if (role === "trainer") return "/app/trainer/sessies";
+function roleRedirect(
+  role: string | null | undefined,
+  adminHasActiveTrainerRow: boolean,
+): string {
+  if (role === "admin") {
+    return adminHasActiveTrainerRow ? "/app/trainer/agenda" : "/app/admin";
+  }
+  if (role === "trainer") return "/app/trainer/agenda";
   return "/app";
 }
 
@@ -55,7 +66,19 @@ export async function GET(request: Request) {
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    target = roleRedirect(profile?.role);
+
+    let adminHasActiveTrainerRow = false;
+    if (profile?.role === "admin") {
+      const { data: trainerRow } = await supabase
+        .from("trainers")
+        .select("id")
+        .eq("profile_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      adminHasActiveTrainerRow = trainerRow !== null;
+    }
+
+    target = roleRedirect(profile?.role, adminHasActiveTrainerRow);
   }
 
   return NextResponse.redirect(`${origin}${target}`);

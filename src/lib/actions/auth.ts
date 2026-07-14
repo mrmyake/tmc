@@ -22,10 +22,18 @@ export type VerifyOtpResult =
  * src/app/auth/callback/route.ts (die route blijft bestaan voor
  * trainer-invites en de seed-workflow, dus de mapping leeft op twee
  * plekken; wijzig ze samen).
+ *
+ * PT-agenda PR D: zie de uitgebreide toelichting bij de tegenhanger in
+ * auth/callback/route.ts.
  */
-function roleRedirect(role: string | null | undefined): string {
-  if (role === "admin") return "/app/admin";
-  if (role === "trainer") return "/app/trainer/sessies";
+function roleRedirect(
+  role: string | null | undefined,
+  adminHasActiveTrainerRow: boolean,
+): string {
+  if (role === "admin") {
+    return adminHasActiveTrainerRow ? "/app/trainer/agenda" : "/app/admin";
+  }
+  if (role === "trainer") return "/app/trainer/agenda";
   return "/app";
 }
 
@@ -150,8 +158,23 @@ export async function verifyLoginOtp(
     .eq("id", data.session.user.id)
     .maybeSingle();
 
+  let adminHasActiveTrainerRow = false;
+  if (profile?.role === "admin") {
+    const { data: trainerRow } = await supabase
+      .from("trainers")
+      .select("id")
+      .eq("profile_id", data.session.user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    adminHasActiveTrainerRow = trainerRow !== null;
+  }
+
   const safeNext = safeNextPath(next);
-  return { ok: true, redirectTo: safeNext ?? roleRedirect(profile?.role) };
+  return {
+    ok: true,
+    redirectTo:
+      safeNext ?? roleRedirect(profile?.role, adminHasActiveTrainerRow),
+  };
 }
 
 async function lookupProfileId(email: string): Promise<string | null> {
