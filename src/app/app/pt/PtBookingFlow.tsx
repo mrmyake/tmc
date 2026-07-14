@@ -98,10 +98,16 @@ export function PtBookingFlow({
     if (!selectedSlot || !paymentMethod) return;
     setError(null);
     startTransition(async () => {
+      // Create-on-book (PT-agenda PR A): de RPC's nemen trainer plus
+      // starttijd, niet langer een bestaand sessie-id.
+      const slotInput = {
+        trainerId: selectedSlot.trainerId,
+        startAt: selectedSlot.startAt,
+      };
       const res =
         paymentMethod === "credits"
-          ? await createPtBookingFromCredits(selectedSlot.id)
-          : await createPtBookingWithPayment(selectedSlot.id);
+          ? await createPtBookingFromCredits(slotInput)
+          : await createPtBookingWithPayment(slotInput);
       if (!res.ok) {
         setError(res.message);
         return;

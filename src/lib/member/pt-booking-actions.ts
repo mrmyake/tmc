@@ -11,42 +11,57 @@ export type PtActionResult =
   | { ok: true; action: "redirect"; url: string }
   | { ok: false; message: string };
 
+export type PtSlotInput = {
+  trainerId: string;
+  startAt: string;
+  format?: "one_on_one" | "duo";
+};
+
 type BookPtCreditsResult = {
   ok: boolean;
   reason?: string;
   booking_id?: string;
+  pt_session_id?: string;
   membership_id?: string;
+  start_at?: string;
+  end_at?: string;
 };
 
 type BookPtPendingPaymentResult = {
   ok: boolean;
   reason?: string;
   booking_id?: string;
+  pt_session_id?: string;
   price_cents?: number;
-  is_intake_discount?: boolean;
-  reused?: boolean;
   trainer_name?: string;
   start_at?: string;
+  end_at?: string;
 };
 
 const PT_REASON_COPY: Record<string, string> = {
-  session_unavailable: "Deze sessie is niet meer beschikbaar.",
-  session_in_past: "Deze sessie is al voorbij.",
-  profile_not_found: "Profiel niet gevonden.",
+  slot_unavailable: "Dit moment is net bezet geraakt. Kies een ander slot.", // COPY: confirm met Marlon
+  session_in_past: "Dit moment is al voorbij.",
+  outside_horizon: "Je kunt maximaal 8 weken vooruit boeken.", // COPY: confirm met Marlon
+  trainer_unavailable: "Deze trainer is niet beschikbaar voor PT.",
+  no_active_membership:
+    "PT boeken kan met een actief lidmaatschap of tegoed. Neem contact op met Marlon.", // COPY: confirm met Marlon
   no_credits: "Geen passend PT-pakket met beschikbare credits gevonden.",
+  insufficient_credits: "Geen passend PT-pakket met beschikbare credits gevonden.",
+  credits_expired: "Je rittenkaart is verlopen.", // COPY: confirm met Marlon
+  membership_not_active: "Je pakket is niet actief.", // COPY: confirm met Marlon
   format_not_supported:
-    "Deze sessie kan niet met een rittenkaart geboekt worden.", // COPY: confirm met Marlon
-  already_booked: "Je hebt deze sessie al geboekt.",
+    "Dit format kan niet met een rittenkaart geboekt worden.", // COPY: confirm met Marlon
 };
 
 /**
  * Book a PT session using credits from an active pt_package membership.
- * Direct path — no Mollie. Sessie-checks, pakket-keuze en credit-aftrek
- * zitten atomair in de SECURITY DEFINER RPC (audit-fix #3 + #1 deel 2);
- * credits_used_from is dus nooit client-supplied.
+ * Direct path — no Mollie. Create-on-book (PT-agenda PR A): de SECURITY
+ * DEFINER RPC valideert venster plus vrij onder een advisory lock, maakt
+ * de pt_session plus pt_booking atomair aan en debiteert via de
+ * geauditeerde credit-kern; credits_used_from is nooit client-supplied.
  */
 export async function createPtBookingFromCredits(
-  ptSessionId: string,
+  slot: PtSlotInput,
 ): Promise<PtActionResult> {
   const supabase = await createClient();
   const {
@@ -55,7 +70,9 @@ export async function createPtBookingFromCredits(
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const rpcResult = await supabase.rpc("book_pt_credits", {
-    p_pt_session_id: ptSessionId,
+    p_trainer_id: slot.trainerId,
+    p_start_at: slot.startAt,
+    p_format: slot.format ?? "one_on_one",
   });
 
   if (rpcResult.error) {
@@ -81,7 +98,7 @@ export async function createPtBookingFromCredits(
     subjectId: result.booking_id,
     payload: {
       profile_id: user.id,
-      pt_session_id: ptSessionId,
+      pt_session_id: result.pt_session_id ?? null,
       funded: "credits",
       price_paid_cents: 0,
     },
@@ -96,15 +113,16 @@ export async function createPtBookingFromCredits(
 }
 
 /**
- * Book a PT session with Mollie payment. De SECURITY DEFINER RPC maakt (of
- * hergebruikt) de pending pt_booking-rij en berekent price_paid_cents +
- * is_intake_discount server-side (audit-fix #3: de intake-korting is niet
- * langer client-side manipuleerbaar). Daarna opent deze action de Mollie-
- * betaling en koppelt het payment-id via de admin-client — leden hebben
- * geen write-toegang meer op pt_bookings.
+ * Book a PT session with Mollie payment. Create-on-book met hold
+ * (PT-agenda PR A): de RPC maakt de pt_session (hold van 20 minuten)
+ * plus een pending pt_booking en berekent de prijs server-side uit de
+ * catalogus. Daarna opent deze action de Mollie-betaling en koppelt het
+ * payment-id via de admin-client — leden hebben geen write-toegang op
+ * pt_bookings. De webhook flipt naar 'booked' en wist de hold; een
+ * verlopen hold wordt door de cleanup-cron opgeruimd.
  */
 export async function createPtBookingWithPayment(
-  ptSessionId: string,
+  slot: PtSlotInput,
 ): Promise<PtActionResult> {
   const supabase = await createClient();
   const {
@@ -113,7 +131,9 @@ export async function createPtBookingWithPayment(
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
   const rpcResult = await supabase.rpc("book_pt_pending_payment", {
-    p_pt_session_id: ptSessionId,
+    p_trainer_id: slot.trainerId,
+    p_start_at: slot.startAt,
+    p_format: slot.format ?? "one_on_one",
   });
 
   if (rpcResult.error) {
@@ -138,24 +158,21 @@ export async function createPtBookingWithPayment(
 
   const bookingId = result.booking_id;
   const priceCents = result.price_cents;
-  const isIntake = Boolean(result.is_intake_discount);
   const trainerName = result.trainer_name ?? "coach";
 
-  if (!result.reused) {
-    await emitEvent({
-      type: "pt_booking.created",
-      actorType: "member",
-      actorId: user.id,
-      subjectType: "pt_booking",
-      subjectId: bookingId,
-      payload: {
-        profile_id: user.id,
-        pt_session_id: ptSessionId,
-        funded: "payment",
-        price_paid_cents: priceCents,
-      },
-    });
-  }
+  await emitEvent({
+    type: "pt_booking.created",
+    actorType: "member",
+    actorId: user.id,
+    subjectType: "pt_booking",
+    subjectId: bookingId,
+    payload: {
+      profile_id: user.id,
+      pt_session_id: result.pt_session_id ?? null,
+      funded: "payment",
+      price_paid_cents: priceCents,
+    },
+  });
 
   const mollie = getMollieClient();
   if (!mollie) {
@@ -181,7 +198,6 @@ export async function createPtBookingWithPayment(
         type: "pt_booking",
         ptBookingId: bookingId,
         profileId: user.id,
-        isIntakeDiscount: isIntake ? "true" : "false",
       },
     });
   } catch (e) {
@@ -190,7 +206,7 @@ export async function createPtBookingWithPayment(
   }
 
   // Store Mollie payment id on the booking row for webhook correlation.
-  // Via de admin-client: pt_bookings heeft geen self-write-policy meer.
+  // Via de admin-client: pt_bookings heeft geen self-write-policy.
   const admin = createAdminClient();
   const { error: updateErr } = await admin
     .from("pt_bookings")

@@ -155,54 +155,79 @@ export async function POST(request: Request) {
       });
     }
 
-    // PT booking payment — flip pt_booking status + set intake discount flag
+    // PT booking payment (create-on-book met hold, PT-agenda PR A):
+    // paid flipt de pending booking naar 'booked' en wist de hold op de
+    // sessie; failed/expired/canceled annuleert booking plus sessie zodat
+    // het slot vrijkomt. Idempotent: de status-flip is een no-op op een
+    // al geflipte rij en de hold-wipe is idempotent van zichzelf.
     if (type === "pt_booking" && ptBookingId) {
-      if (payment.status === "paid") {
-        const { data: booking } = await supabase
-          .from("pt_bookings")
-          .select("id, profile_id, is_intake_discount")
-          .eq("id", ptBookingId)
-          .maybeSingle();
-        if (booking) {
-          await supabase
-            .from("pt_bookings")
-            .update({ status: "booked" })
-            .eq("id", ptBookingId);
-          if (booking.is_intake_discount) {
-            await supabase
-              .from("profiles")
-              .update({ has_used_pt_intake_discount: true })
-              .eq("id", booking.profile_id);
-          }
+      const { data: booking } = await supabase
+        .from("pt_bookings")
+        .select("id, profile_id, pt_session_id, status")
+        .eq("id", ptBookingId)
+        .maybeSingle();
+
+      if (!booking) {
+        // Kan gebeuren als de cleanup-cron een verlopen hold al heeft
+        // opgeruimd terwijl de betaling toch nog binnenkwam: geld is
+        // binnen zonder boeking, dus een mens moet ernaar kijken.
+        if (payment.status === "paid") {
           await sendNotification(
-            "Nieuwe PT-boeking",
-            `PT sessie betaald. Booking ${ptBookingId}, €${(Math.round(parseFloat(payment.amount.value) * 100) / 100).toFixed(2)}.`,
-            "tada",
+            "PT-betaling zonder boeking",
+            `Betaling ${payment.id} (€${(amountCents / 100).toFixed(2)}) verwijst naar pt_booking ${ptBookingId}, maar die bestaat niet meer (hold verlopen en opgeruimd). Refund of handmatig inplannen.`,
+            "warning",
           );
-          await emitEvent({
-            type: "pt_booking.confirmed",
-            actorType: "system",
-            subjectType: "pt_booking",
-            subjectId: ptBookingId,
-            payload: {
-              profile_id: booking.profile_id,
-              pt_booking_id: ptBookingId,
-              payment_id: payment.id,
-              amount_cents: amountCents,
-            },
-          });
         }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (payment.status === "paid") {
+        await supabase
+          .from("pt_bookings")
+          .update({ status: "booked" })
+          .eq("id", ptBookingId)
+          .in("status", ["pending", "booked"]);
+        await supabase
+          .from("pt_sessions")
+          .update({ hold_expires_at: null })
+          .eq("id", booking.pt_session_id);
+        await sendNotification(
+          "Nieuwe PT-boeking",
+          `PT sessie betaald. Booking ${ptBookingId}, €${(amountCents / 100).toFixed(2)}.`,
+          "tada",
+        );
+        await emitEvent({
+          type: "pt_booking.confirmed",
+          actorType: "system",
+          subjectType: "pt_booking",
+          subjectId: ptBookingId,
+          payload: {
+            profile_id: booking.profile_id,
+            pt_booking_id: ptBookingId,
+            payment_id: payment.id,
+            amount_cents: amountCents,
+          },
+        });
       } else if (
-        ["failed", "expired", "canceled"].includes(payment.status)
+        ["failed", "expired", "canceled"].includes(payment.status) &&
+        booking.status === "pending"
       ) {
-        // Betaling mislukt — zet de booking op cancelled zodat slot vrijkomt.
+        // Betaling mislukt: annuleer booking en sessie zodat het slot
+        // vrijkomt. Alleen vanaf 'pending' — een al betaalde boeking mag
+        // nooit door een verlate failed-event omvallen.
         await supabase
           .from("pt_bookings")
           .update({
             status: "cancelled",
             cancelled_at: new Date().toISOString(),
           })
-          .eq("id", ptBookingId);
+          .eq("id", ptBookingId)
+          .eq("status", "pending");
+        await supabase
+          .from("pt_sessions")
+          .update({ status: "cancelled" })
+          .eq("id", booking.pt_session_id)
+          .eq("status", "scheduled");
         await emitEvent({
           type: "pt_booking.cancelled",
           actorType: "system",
