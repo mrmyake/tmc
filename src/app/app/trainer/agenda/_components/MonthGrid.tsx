@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { AgendaDay } from "./types";
+import { KIND_LABEL, customerLabel, kindTone } from "./SessionBlock";
 
 interface MonthGridProps {
   days: AgendaDay[];
@@ -10,11 +11,13 @@ interface MonthGridProps {
 
 const WEEKDAY_HEADERS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
 
-// COPY: confirm met Marlon
-const KIND_INITIAL: Record<string, string> = {
-  bookable: "PT",
-  intake: "IN",
-  block: "BL",
+// Zelfde type-kleurcodering als de week/dagweergave (kindTone in
+// SessionBlock.tsx), hier toegepast op zowel de border als de tekst.
+const TONE_CLASS: Record<ReturnType<typeof kindTone>, string> = {
+  danger: "border-[color:var(--danger)] text-[color:var(--danger)]",
+  intake: "border-[color:var(--warning)] text-text-muted",
+  block: "border-[color:var(--stone-500)] text-text-muted",
+  accent: "border-accent text-text-muted",
 };
 
 function chunkWeeks(days: AgendaDay[]): AgendaDay[][] {
@@ -69,17 +72,11 @@ export function MonthGrid({ days, dayHref }: MonthGridProps) {
                 {d.sessions.slice(0, 3).map((s) => (
                   <span
                     key={s.id}
-                    className={`text-[9px] leading-tight px-1 py-0.5 truncate border-l-2 ${
-                      s.overlapping
-                        ? "border-[color:var(--danger)] text-[color:var(--danger)]"
-                        : s.kind === "intake"
-                          ? "border-[color:var(--warning)] text-text-muted"
-                          : s.kind === "block"
-                            ? "border-[color:var(--stone-500)] text-text-muted"
-                            : "border-accent text-text-muted"
-                    } ${s.status === "cancelled" ? "opacity-50 line-through" : ""}`}
+                    className={`text-[9px] leading-tight px-1 py-0.5 truncate border-l-2 ${TONE_CLASS[kindTone(s)]} ${
+                      s.status === "cancelled" ? "opacity-50 line-through" : ""
+                    }`}
                   >
-                    {s.startLabel} {KIND_INITIAL[s.kind] ?? ""}
+                    {customerLabel(s)} · {KIND_LABEL[s.kind]}
                   </span>
                 ))}
                 {d.sessions.length > 3 && (

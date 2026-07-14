@@ -165,7 +165,7 @@ export function BookSlotPanel({
             initialDateIso={dateIso}
             initialTime={time}
             onDateTimeChange={handleDateTimeChange}
-            onSuccess={onClose}
+            onSuccess={handleBooked}
           />
         )}
       </div>
