@@ -16,7 +16,6 @@ interface BookingJoinRow {
   id: string;
   status: string;
   price_paid_cents: number;
-  is_intake_discount: boolean;
   credits_used_from: string | null;
   session:
     | {
@@ -46,7 +45,6 @@ export default async function PtBedanktPage(props: {
         id,
         status,
         price_paid_cents,
-        is_intake_discount,
         credits_used_from,
         session:pt_sessions(
           start_at, end_at,
@@ -168,11 +166,7 @@ export default async function PtBedanktPage(props: {
           ) : (
             <Row
               label="Totaal"
-              value={
-                booking.is_intake_discount
-                  ? `${formatPriceEuro(booking.price_paid_cents)} · Intake-korting`
-                  : formatPriceEuro(booking.price_paid_cents)
-              }
+              value={formatPriceEuro(booking.price_paid_cents)}
             />
           )}
         </dl>
