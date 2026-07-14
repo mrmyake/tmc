@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getPtBusy } from "@/lib/admin/pt-busy-actions";
@@ -42,7 +42,9 @@ const DEFAULT_INTAKE_DURATION_MIN = 90;
 export async function createPtIntake(
   input: CreatePtIntakeInput,
 ): Promise<CreatePtIntakeResult> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer. De service-role-insert hieronder heeft
+  // geen DB-gate, dus deze TS-check is hier de enige toegangscontrole.
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const name = input.prospectName.trim();
@@ -132,7 +134,7 @@ export async function createPtIntake(
 
   await emitEvent({
     type: "pt_intake.created",
-    actorType: "admin",
+    actorType: gate.actorType,
     actorId: gate.userId,
     subjectType: "pt_session",
     subjectId: session.id,

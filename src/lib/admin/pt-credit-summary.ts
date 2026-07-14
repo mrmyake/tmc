@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { creditType } from "@/app/app/producten/lib";
 
@@ -22,7 +22,8 @@ export interface PtCreditSummary {
 export async function getPtCreditSummary(
   profileId: string,
 ): Promise<PtCreditSummary> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer (de klantkaart in het boek-scherm).
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { pt: null, duo: null };
 
   const admin = createAdminClient();

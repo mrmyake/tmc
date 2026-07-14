@@ -53,7 +53,10 @@ const SECONDARY: NavItem[] = [
     label: "Betaalverzoeken",
     icon: CreditCard,
   },
-  { href: "/app/admin/pt-boeken", label: "PT boeken", icon: CalendarPlus },
+  // C3: het boek-scherm leeft onder /app/trainer (trainer-werk); admins
+  // houden toegang via hetzelfde staff-predicaat. Deze link verlaat dus
+  // de admin-cockpit; PR D geeft de agenda een eigen admin-ingang.
+  { href: "/app/trainer/boeken", label: "PT boeken", icon: CalendarPlus },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
   {
     href: "/app/admin/aankondigingen",
