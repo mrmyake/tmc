@@ -3,6 +3,7 @@ interface SectionHeadingProps {
   heading: string;
   subtext?: string;
   align?: "left" | "center";
+  as?: "h1" | "h2";
 }
 
 export function SectionHeading({
@@ -10,6 +11,7 @@ export function SectionHeading({
   heading,
   subtext,
   align = "center",
+  as: HeadingTag = "h2",
 }: SectionHeadingProps) {
   const alignment = align === "center" ? "text-center" : "text-left";
 
@@ -20,9 +22,9 @@ export function SectionHeading({
           {label}
         </span>
       )}
-      <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-4">
+      <HeadingTag className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-4">
         {heading}
-      </h2>
+      </HeadingTag>
       {subtext && (
         <p className="text-text-muted text-lg max-w-2xl mx-auto">{subtext}</p>
       )}

@@ -129,8 +129,10 @@ export function AanbodContent({ images }: AanbodContentProps) {
           <ScrollReveal>
             <SectionHeading
               label="Ons aanbod"
+              // COPY: confirm met Marlon
               heading="Trainingen op maat"
               subtext="Elke trainingsvorm bij The Movement Club is ontworpen met hetzelfde doel: jou helpen beter te bewegen, sterker te worden en je het beste te laten voelen."
+              as="h1"
             />
           </ScrollReveal>
         </Container>
