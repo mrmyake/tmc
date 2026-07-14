@@ -20,6 +20,25 @@ interface LosseSessieFormProps {
   creditSummary: PtCreditSummary | null;
   /** C3: betaallinks (tmc.admin_create_order) zijn admin-only. */
   paymentLinksEnabled: boolean;
+  /**
+   * C4-vervolg (kalender-klik-om-te-boeken): initiele datum/tijd i.p.v.
+   * vandaag/09:00. Optioneel, dus het bestaande boek-scherm (dat deze
+   * niet meegeeft) verandert niet van gedrag.
+   */
+  initialDateIso?: string;
+  initialTime?: string;
+  /**
+   * Meldt elke datum/tijd-wijziging aan de ouder — de kalender-klik-panel
+   * gebruikt dit om dezelfde tijd door te geven aan de Intake-tab bij het
+   * wisselen ("die de tijd overneemt").
+   */
+  onDateTimeChange?: (dateIso: string, time: string) => void;
+  /**
+   * Kalender-klik-panel: sluit direct na een geslaagde boeking i.p.v. de
+   * SuccessBanner te tonen. Optioneel, dus het bestaande scherm (zonder
+   * deze prop) toont de banner zoals vandaag.
+   */
+  onSuccess?: () => void;
 }
 
 type DurationChoice = "30" | "45" | "60" | "90" | "custom";
@@ -36,19 +55,26 @@ function todayIso(): string {
  * PT-agenda C2, keuze 1: losse sessie via admin_book_pt_for_member.
  * Vrije duur, optioneel duo met introducee, optionele wekelijkse reeks,
  * en de twee losse override-meldingen bij pt_overlap/pt_no_turnaround.
+ * C4-vervolg: optionele initialDateIso/initialTime/onDateTimeChange/
+ * onSuccess voor hergebruik vanuit de kalender-klik-panel in de agenda;
+ * zonder die props is het gedrag exact zoals op het volledige boek-scherm.
  */
 export function LosseSessieForm({
   trainerId,
   customer,
   creditSummary,
   paymentLinksEnabled,
+  initialDateIso,
+  initialTime,
+  onDateTimeChange,
+  onSuccess,
 }: LosseSessieFormProps) {
   const [format, setFormat] = useState<"one_on_one" | "duo">("one_on_one");
   const [introduceeName, setIntroduceeName] = useState("");
   const [durationChoice, setDurationChoice] = useState<DurationChoice>("60");
   const [customDuration, setCustomDuration] = useState("60");
-  const [date, setDate] = useState(todayIso());
-  const [time, setTime] = useState("09:00");
+  const [date, setDate] = useState(initialDateIso ?? todayIso());
+  const [time, setTime] = useState(initialTime ?? "09:00");
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState("4");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("already_paid");
@@ -131,7 +157,11 @@ export function LosseSessieForm({
 
       setOverlapConflictAt(null);
       setTurnaroundConflictAt(null);
-      setResult(res);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        setResult(res);
+      }
     });
   }
 
@@ -227,14 +257,20 @@ export function LosseSessieForm({
           <AdminInput
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value);
+              onDateTimeChange?.(e.target.value, time);
+            }}
           />
         </AdminField>
         <AdminField label="Tijd">
           <AdminInput
             type="time"
             value={time}
-            onChange={(e) => setTime(e.target.value)}
+            onChange={(e) => {
+              setTime(e.target.value);
+              onDateTimeChange?.(date, e.target.value);
+            }}
           />
         </AdminField>
       </div>
