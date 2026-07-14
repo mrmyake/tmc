@@ -5,7 +5,7 @@ import { AdminField, AdminInput } from "@/components/ui/AdminField";
 import { createPtIntake } from "@/lib/admin/pt-intake-actions";
 import { zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
-import { BusyDayPanel } from "./BusyDayPanel";
+import { MomentPicker } from "./MomentPicker";
 import { SuccessBanner } from "./SuccessBanner";
 
 interface IntakeFormProps {
@@ -43,7 +43,8 @@ function todayIso(): string {
  * DB-advisory-lock. C4-vervolg: optionele initialDateIso/initialTime/
  * onDateTimeChange/onSuccess voor hergebruik vanuit de kalender-klik-
  * panel; zonder die props is het gedrag exact zoals op het volledige
- * boek-scherm.
+ * boek-scherm. PR H: het handmatige datum/tijd-veld is vervangen door
+ * MomentPicker (ingebedde week-kalender op get_pt_busy).
  */
 export function IntakeForm({
   trainerId,
@@ -181,30 +182,25 @@ export function IntakeForm({
         </AdminField>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <AdminField label="Datum">
-          <AdminInput
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              onDateTimeChange?.(e.target.value, time);
-            }}
-          />
-        </AdminField>
-        <AdminField label="Tijd">
-          <AdminInput
-            type="time"
-            value={time}
-            onChange={(e) => {
-              setTime(e.target.value);
-              onDateTimeChange?.(date, e.target.value);
-            }}
-          />
-        </AdminField>
+      {/* Geen AdminField hier: die rendert een <label>, en de browser
+          forwardt een klik overal in een label naar het eerste
+          form-control-kind (de "Kies een moment"-knop) — dat zou elke
+          klik in MomentPicker's tijdlijn de knop laten meetriggeren en
+          expanded meteen terugklappen naar true. */}
+      <div className="flex flex-col gap-2">
+        <span className="tmc-eyebrow">Moment</span>
+        <MomentPicker
+          trainerId={trainerId}
+          dateIso={date}
+          time={time}
+          durationMin={durationMin}
+          onPick={(nextDate, nextTime) => {
+            setDate(nextDate);
+            setTime(nextTime);
+            onDateTimeChange?.(nextDate, nextTime);
+          }}
+        />
       </div>
-
-      <BusyDayPanel trainerId={trainerId} dateIso={date} />
 
       {error && (
         <div

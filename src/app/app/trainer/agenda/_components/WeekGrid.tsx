@@ -2,6 +2,7 @@
 
 import { GRID_END_HOUR, GRID_HEIGHT_PX, GRID_START_HOUR, type AgendaDay } from "./types";
 import { SessionBlock } from "./SessionBlock";
+import { snapOffsetMinutesToTime } from "@/lib/scheduling/slot-grid";
 
 interface WeekGridProps {
   days: AgendaDay[];
@@ -17,8 +18,6 @@ interface WeekGridProps {
 function hourLabel(h: number): string {
   return `${h.toString().padStart(2, "0")}:00`;
 }
-
-const SLOT_SNAP_MIN = 15;
 
 /**
  * PT-agenda PR D: tijdas-grid, gedeeld door de dag- en weekweergave
@@ -90,11 +89,11 @@ export function WeekGrid({ days, onSelect, onSlotClick }: WeekGridProps) {
               // deze handler vuurt uitsluitend bij een klik op leeg gebied.
               const rect = e.currentTarget.getBoundingClientRect();
               const offsetMin = e.clientY - rect.top;
-              const snapped = Math.round(offsetMin / SLOT_SNAP_MIN) * SLOT_SNAP_MIN;
-              const maxMin = (GRID_END_HOUR - GRID_START_HOUR) * 60 - SLOT_SNAP_MIN;
-              const clamped = Math.min(Math.max(snapped, 0), maxMin);
-              const hour = GRID_START_HOUR + Math.floor(clamped / 60);
-              const minute = clamped % 60;
+              const { hour, minute } = snapOffsetMinutesToTime(
+                offsetMin,
+                GRID_START_HOUR,
+                GRID_END_HOUR,
+              );
               onSlotClick(d.isoDate, hour, minute);
             }}
             className={`group relative border-r border-[color:var(--ink-500)] last:border-r-0 ${
