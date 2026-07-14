@@ -19,6 +19,8 @@ interface ProgrammaFormProps {
   customer: CustomerProfile;
   studioProgram: ProgramInfo;
   onlineProgram: ProgramInfo;
+  /** C3: betaallinks (tmc.admin_create_order) zijn admin-only. */
+  paymentLinksEnabled: boolean;
 }
 
 type ProgramType = "studio" | "online";
@@ -48,9 +50,12 @@ export function ProgrammaForm({
   customer,
   studioProgram,
   onlineProgram,
+  paymentLinksEnabled,
 }: ProgrammaFormProps) {
   const [type, setType] = useState<ProgramType>("studio");
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>("payment_link");
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(
+    paymentLinksEnabled ? "payment_link" : "already_paid",
+  );
 
   const [date1, setDate1] = useState(todayIso());
   const [time1, setTime1] = useState("09:00");
@@ -243,16 +248,20 @@ export function ProgrammaForm({
               paymentMode === "payment_link"
                 ? "border-accent text-text"
                 : "border-[color:var(--ink-500)] text-text-muted"
-            }`}
+            } ${!paymentLinksEnabled ? "opacity-40 pointer-events-none" : ""}`}
           >
             <input
               type="radio"
               name="programPaymentMode"
               checked={paymentMode === "payment_link"}
+              disabled={!paymentLinksEnabled}
               onChange={() => setPaymentMode("payment_link")}
             />
             {/* COPY: confirm met Marlon */}
-            <span>Mollie-betaallink, {formatPriceEuro(program.priceCents)} vooraf</span>
+            <span>
+              Mollie-betaallink, {formatPriceEuro(program.priceCents)} vooraf
+              {!paymentLinksEnabled && " (alleen een admin kan betaallinks sturen)"}
+            </span>
           </label>
           <label
             className={`flex items-center gap-2 text-sm px-4 py-3 border cursor-pointer ${

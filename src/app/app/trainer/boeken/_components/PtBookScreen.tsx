@@ -30,6 +30,8 @@ interface PtBookScreenProps {
   defaultTrainerId: string | null;
   studioProgram: ProgramInfo;
   onlineProgram: ProgramInfo;
+  /** C3: betaallinks (tmc.admin_create_order) zijn admin-only. */
+  paymentLinksEnabled: boolean;
 }
 
 // COPY: confirm met Marlon
@@ -40,17 +42,18 @@ const MODE_TABS: Array<{ id: Mode; label: string }> = [
 ];
 
 /**
- * PT-agenda C2: Boek-voor-klant-scherm. Links de klant (of, in
+ * PT-agenda C2/C3: Boek-voor-klant-scherm. Links de klant (of, in
  * intake-modus, de intake-toelichting); rechts de drie boek-vormen op de
- * RPC's uit C1. Admin-only: de onderliggende RPC's (admin_book_pt_for_
- * member, admin_plan_pt_program, get_pt_busy) zijn allemaal
- * tmc.is_admin()-gated, er is geen trainer-pad.
+ * RPC's uit C1. Toegang: admin of actieve trainer (tmc.is_staff() op de
+ * RPC's, requireTrainerOrAdmin in de actions). Betaallinks blijven
+ * admin-only via paymentLinksEnabled.
  */
 export function PtBookScreen({
   trainers,
   defaultTrainerId,
   studioProgram,
   onlineProgram,
+  paymentLinksEnabled,
 }: PtBookScreenProps) {
   const [trainerId, setTrainerId] = useState(defaultTrainerId ?? "");
   const [mode, setMode] = useState<Mode>("losse_sessie");
@@ -179,6 +182,7 @@ export function PtBookScreen({
                 trainerId={trainerId}
                 customer={customer}
                 creditSummary={creditSummary}
+                paymentLinksEnabled={paymentLinksEnabled}
               />
             ) : mode === "programma" && customer ? (
               <ProgrammaForm
@@ -186,6 +190,7 @@ export function PtBookScreen({
                 customer={customer}
                 studioProgram={studioProgram}
                 onlineProgram={onlineProgram}
+                paymentLinksEnabled={paymentLinksEnabled}
               />
             ) : null}
           </div>

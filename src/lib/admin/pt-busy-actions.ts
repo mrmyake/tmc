@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -24,7 +24,8 @@ export async function getPtBusy(
   fromIso: string,
   toIso: string,
 ): Promise<PtBusyBlock[]> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer, dezelfde gate als tmc.is_staff() in de RPC.
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return [];
 
   const supabase = await createClient();

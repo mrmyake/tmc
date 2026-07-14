@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
@@ -131,7 +131,11 @@ async function sendCustomerConfirmation(args: {
 export async function bookPtForMember(
   input: BookPtForMemberInput,
 ): Promise<BookPtForMemberResult> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer, dezelfde gate als tmc.is_staff() in de
+  // RPC. Let op: de payment_link-modus leunt op createPaymentRequest en
+  // die blijft admin-only (tmc.admin_create_order); de UI biedt die modus
+  // alleen aan admins aan.
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -173,7 +177,7 @@ export async function bookPtForMember(
   for (const b of bookings) {
     await emitEvent({
       type: "pt_booking.created",
-      actorType: "admin",
+      actorType: gate.actorType,
       actorId: gate.userId,
       subjectType: "pt_booking",
       subjectId: b.bookingId,
@@ -258,7 +262,9 @@ export type PlanPtProgramResult =
 export async function planPtProgram(
   input: PlanPtProgramInput,
 ): Promise<PlanPtProgramResult> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer; payment_link is UI-side admin-only,
+  // zie bookPtForMember.
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -298,7 +304,7 @@ export async function planPtProgram(
   for (const s of sessions) {
     await emitEvent({
       type: "pt_booking.created",
-      actorType: "admin",
+      actorType: gate.actorType,
       actorId: gate.userId,
       subjectType: "pt_booking",
       subjectId: s.booking_id,

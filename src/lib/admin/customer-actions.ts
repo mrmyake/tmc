@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
+import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/events/emit";
@@ -195,7 +196,10 @@ export interface CustomerSearchRow {
 export async function searchCustomers(
   query: string,
 ): Promise<CustomerSearchRow[]> {
-  const gate = await requireAdmin();
+  // C3: admin of actieve trainer. Het PT-boek-scherm (KlantPaneel) leunt
+  // hierop; zoeken is alleen-lezen. Aanmaken (findOrCreateCustomer) en
+  // e-mailcorrectie blijven admin-only.
+  const gate = await requireTrainerOrAdmin();
   if (!gate.ok) return [];
 
   // Komma's en haakjes breken de PostgREST or()-syntax; eruit filteren is

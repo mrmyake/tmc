@@ -18,6 +18,8 @@ interface LosseSessieFormProps {
   trainerId: string;
   customer: CustomerProfile;
   creditSummary: PtCreditSummary | null;
+  /** C3: betaallinks (tmc.admin_create_order) zijn admin-only. */
+  paymentLinksEnabled: boolean;
 }
 
 type DurationChoice = "30" | "45" | "60" | "90" | "custom";
@@ -39,6 +41,7 @@ export function LosseSessieForm({
   trainerId,
   customer,
   creditSummary,
+  paymentLinksEnabled,
 }: LosseSessieFormProps) {
   const [format, setFormat] = useState<"one_on_one" | "duo">("one_on_one");
   const [introduceeName, setIntroduceeName] = useState("");
@@ -67,7 +70,7 @@ export function LosseSessieForm({
   const relevantCredit = format === "duo" ? creditSummary?.duo : creditSummary?.pt;
   const creditsAvailable = (relevantCredit?.creditsRemaining ?? 0) > 0;
   const repeatCount = repeatEnabled ? Math.max(1, Number(repeatWeeks) || 1) : 1;
-  const paymentLinkAllowed = repeatCount <= 1;
+  const paymentLinkAllowed = repeatCount <= 1 && paymentLinksEnabled;
 
   // Overrides zijn per handeling: elke wijziging aan wat en wanneer er
   // geboekt wordt annuleert eerder getoonde conflicten en vinkjes.
@@ -302,7 +305,11 @@ export function LosseSessieForm({
             {/* COPY: confirm met Marlon */}
             <span>
               Mollie-betaallink
-              {!paymentLinkAllowed && " (niet mogelijk bij een reeks)"}
+              {!paymentLinksEnabled
+                ? " (alleen een admin kan betaallinks sturen)"
+                : !paymentLinkAllowed
+                  ? " (niet mogelijk bij een reeks)"
+                  : ""}
             </span>
           </label>
           <label
