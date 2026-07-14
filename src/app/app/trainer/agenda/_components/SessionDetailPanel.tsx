@@ -13,6 +13,8 @@ import {
   cancelPtBookingAsStaff,
   reschedulePtBookingAsStaff,
   deletePtBlock,
+  completePtIntake,
+  cancelPtIntake,
 } from "@/lib/trainer/pt-agenda-actions";
 import type { AgendaSessionBlockData } from "./types";
 
@@ -57,7 +59,9 @@ function todayIso(): string {
  * de knoppen zijn hier voor alle staff enabled. De klantnaam linkt
  * rol-afhankelijk: admin naar het ledenbeheer, trainer naar de smalle
  * read-only klantweergave (/app/trainer/klant). Blokken kunnen sinds C4
- * verwijderd worden via deletePtBlock.
+ * verwijderd worden via deletePtBlock. Intakes kunnen sinds PR G afgerond
+ * (status 'completed', blijft als historie zichtbaar) of geannuleerd
+ * (harde delete, tijd komt vrij) worden.
  */
 export function SessionDetailPanel({
   session,
@@ -135,6 +139,30 @@ export function SessionDetailPanel({
     });
   }
 
+  function handleIntakeComplete() {
+    setError(null);
+    startTransition(async () => {
+      const res = await completePtIntake(session.id);
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      refreshAndClose();
+    });
+  }
+
+  function handleIntakeCancel() {
+    setError(null);
+    startTransition(async () => {
+      const res = await cancelPtIntake(session.id);
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      refreshAndClose();
+    });
+  }
+
   function handleReschedule() {
     if (!booking) return;
     setError(null);
@@ -191,6 +219,10 @@ export function SessionDetailPanel({
           {session.status === "cancelled" && (
             <span className="text-[color:var(--danger)]"> · Geannuleerd</span>
           )}
+          {session.status === "completed" && (
+            // COPY: confirm met Marlon
+            <span className="text-[color:var(--success)]"> · Afgerond</span>
+          )}
         </p>
 
         {session.overlapping && (
@@ -245,11 +277,38 @@ export function SessionDetailPanel({
               {session.prospect.email}
               {session.prospect.phone ? ` · ${session.prospect.phone}` : ""}
             </p>
-            <p className="text-text-muted/70 text-xs mt-3">
-              {/* COPY: confirm met Marlon */}
-              Intake-acties (afronden, annuleren) zijn nog niet gebouwd —
-              er bestaat nog geen RPC hiervoor.
-            </p>
+            {session.status === "scheduled" && (
+              <>
+                <div className="mt-4 flex gap-2">
+                  {hasStarted && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={handleIntakeComplete}
+                      className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--success)]/40 text-[color:var(--success)] hover:bg-[color:var(--success)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                    >
+                      {/* COPY: confirm met Marlon */}
+                      {pending ? "Bezig..." : "Afronden"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={handleIntakeCancel}
+                    className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig..." : "Annuleren"}
+                  </button>
+                </div>
+                <p className="text-text-muted/70 text-xs mt-3">
+                  {/* COPY: confirm met Marlon */}
+                  Annuleren verwijdert de intake uit de agenda en geeft de
+                  tijd vrij. Een intake is gratis, er wordt niets
+                  terugbetaald of verrekend.
+                </p>
+              </>
+            )}
           </div>
         )}
 

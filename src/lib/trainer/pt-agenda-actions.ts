@@ -34,6 +34,10 @@ import type {
  * bewaakt de eigen-sessie-grens (andermans sessie blijft `not_found`).
  * Nieuw in C4: createPtBlock/deletePtBlock (ad-hoc tijd blokkeren,
  * kind='block', geen klant en geen credit).
+ *
+ * PR G (20260803-migratie): completePtIntake/cancelPtIntake voor
+ * kind='intake' (account-loos en gratis, dus buiten de boeking-RPC's om);
+ * zelfde staff-gate en eigen-sessie-grens, geen credit en geen geld.
  */
 
 interface SessionRow {
@@ -306,6 +310,107 @@ export async function deletePtBlock(
 
   await emitEvent({
     type: "pt_session.block_deleted",
+    actorType: gate.actorType,
+    actorId: gate.userId,
+    subjectType: "pt_session",
+    subjectId: ptSessionId,
+    payload: {
+      trainer_id: result.trainer_id,
+      start_at: result.start_at,
+      end_at: result.end_at,
+    },
+  });
+
+  return { ok: true };
+}
+
+// COPY: confirm met Marlon
+const PT_INTAKE_REASON_COPY: Record<string, string> = {
+  not_found: "Deze intake bestaat niet (meer) of hoort niet bij jouw agenda.",
+  not_completable: "Deze intake is al afgerond of geannuleerd.",
+  not_cancellable: "Deze intake is al afgerond of geannuleerd.",
+  session_not_started: "Deze intake is nog niet begonnen.",
+};
+
+/**
+ * Intake afronden: status naar 'completed' in de RPC. Geen credit en geen
+ * geld (een intake is gratis en account-loos); de RPC bewaakt de
+ * eigen-sessie-grens en weigert alles wat geen kind='intake' is.
+ */
+export async function completePtIntake(
+  ptSessionId: string,
+): Promise<PtAgendaActionResult> {
+  const gate = await requireTrainerOrAdmin();
+  if (!gate.ok) return { ok: false, message: gate.message };
+
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("complete_pt_intake", {
+    p_pt_session_id: ptSessionId,
+  });
+  if (error) {
+    console.error("[completePtIntake] rpc", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Intake afronden lukte niet." };
+  }
+  if (!result?.ok) {
+    const reason = result?.reason as string | undefined;
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: PT_INTAKE_REASON_COPY[reason ?? ""] ?? "Intake afronden lukte niet.",
+      reason,
+    };
+  }
+
+  await emitEvent({
+    type: "pt_intake.completed",
+    actorType: gate.actorType,
+    actorId: gate.userId,
+    subjectType: "pt_session",
+    subjectId: ptSessionId,
+    payload: {
+      trainer_id: result.trainer_id,
+      start_at: result.start_at,
+    },
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Intake annuleren: harde delete in de RPC, zoals delete_pt_block — er is
+ * geen boeking en geen betaling, en de agenda-query filtert niet op status,
+ * dus alleen een delete haalt de intake echt uit beeld en geeft de tijd
+ * vrij. Prospect-gegevens gaan bewust mee weg (AVG). Geen PII in de
+ * event-payload.
+ */
+export async function cancelPtIntake(
+  ptSessionId: string,
+): Promise<PtAgendaActionResult> {
+  const gate = await requireTrainerOrAdmin();
+  if (!gate.ok) return { ok: false, message: gate.message };
+
+  const supabase = await createClient();
+  const { data: result, error } = await supabase.rpc("cancel_pt_intake", {
+    p_pt_session_id: ptSessionId,
+  });
+  if (error) {
+    console.error("[cancelPtIntake] rpc", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Intake annuleren lukte niet." };
+  }
+  if (!result?.ok) {
+    const reason = result?.reason as string | undefined;
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: PT_INTAKE_REASON_COPY[reason ?? ""] ?? "Intake annuleren lukte niet.",
+      reason,
+    };
+  }
+
+  await emitEvent({
+    type: "pt_intake.cancelled",
     actorType: gate.actorType,
     actorId: gate.userId,
     subjectType: "pt_session",
