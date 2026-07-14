@@ -201,10 +201,16 @@ export default async function TrainerAgendaPage(props: {
   const rangeStartIso = rangeStart.toISOString();
   const rangeEndIso = rangeEnd.toISOString();
 
-  const [sessions, busyBlocks] = await Promise.all([
+  // PR J: dezelfde bron als cancel_pt (tmc.pt_trainer_settings) zodat de
+  // voor-geselecteerde restitutie-default in de UI niet uiteenloopt met
+  // wat de RPC zelf berekent.
+  const [sessions, busyBlocks, { data: trainerSettingsRows }] = await Promise.all([
     getAgendaSessions(selectedTrainerId, rangeStartIso, rangeEndIso),
     getPtBusy(selectedTrainerId, rangeStartIso, rangeEndIso),
+    admin.rpc("pt_trainer_settings", { p_trainer_id: selectedTrainerId }),
   ]);
+  const cancelWindowHours =
+    trainerSettingsRows?.[0]?.cancel_window_hours ?? 24;
 
   const busyBySessionId = new Map(busyBlocks.map((b) => [b.ptSessionId, b]));
   const todayKey = isoDateAms(new Date());
@@ -292,6 +298,7 @@ export default async function TrainerAgendaPage(props: {
       nextHref={nextHref}
       todayHref={todayHref}
       isCurrentRangeToday={days.some((d) => d.isToday)}
+      cancelWindowHours={cancelWindowHours}
     />
   );
 }

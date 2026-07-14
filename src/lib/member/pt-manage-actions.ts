@@ -20,6 +20,11 @@ import PtTrainerChange from "@/emails/pt_trainer_change";
  *
  * PR E hangt hier de leden-UI aan (/app/boekingen); PR C2 het
  * admin-scherm.
+ *
+ * PR J: cancel_pt accepteert nu ook een expliciete p_with_restitution
+ * (staff-only, true/false); zonder die parameter (null) blijft het
+ * annuleringsvenster de refund-beslissing nemen zoals voorheen. Het
+ * lid-pad (cancelPtBooking zonder tweede argument) verandert dus niet.
  */
 
 // COPY: confirm met Marlon
@@ -33,6 +38,9 @@ const PT_MANAGE_REASON_COPY: Record<string, string> = {
   override_not_allowed: "Deze optie is alleen voor de studio.",
   pt_overlap: "Het nieuwe moment overlapt met een bestaande afspraak.",
   pt_no_turnaround: "Te weinig omkleedtijd rond het nieuwe moment.",
+  // COPY: confirm met Marlon
+  restitution_not_allowed:
+    "Alleen een trainer of beheerder kan de restitutie-keuze maken.",
 };
 
 export type PtManageResult =
@@ -123,6 +131,7 @@ async function notifyTrainerOfChange(args: {
 
 export async function cancelPtBooking(
   ptBookingId: string,
+  withRestitution?: boolean,
 ): Promise<PtManageResult> {
   const supabase = await createClient();
   const {
@@ -132,6 +141,7 @@ export async function cancelPtBooking(
 
   const { data: result, error: rpcError } = await supabase.rpc("cancel_pt", {
     p_pt_booking_id: ptBookingId,
+    p_with_restitution: withRestitution ?? null,
   });
   if (rpcError) {
     console.error("[cancelPtBooking] rpc", rpcError);
@@ -159,6 +169,7 @@ export async function cancelPtBooking(
       pt_session_id: result.pt_session_id,
       within_window: result.within_window,
       credits_refunded: result.credits_refunded,
+      restitution_explicit: result.restitution_explicit,
     },
   });
 

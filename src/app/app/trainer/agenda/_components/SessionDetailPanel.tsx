@@ -21,6 +21,8 @@ import type { AgendaSessionBlockData } from "./types";
 interface SessionDetailPanelProps {
   session: AgendaSessionBlockData;
   isAdmin: boolean;
+  /** PR J: annuleringsvenster van de trainer, voor de default in het cancel-paneel. */
+  cancelWindowHours: number;
   onClose: () => void;
 }
 
@@ -62,16 +64,25 @@ function todayIso(): string {
  * verwijderd worden via deletePtBlock. Intakes kunnen sinds PR G afgerond
  * (status 'completed', blijft als historie zichtbaar) of geannuleerd
  * (harde delete, tijd komt vrij) worden.
+ *
+ * PR J (20260804-migratie): annuleren gaat niet meer direct, maar via een
+ * expliciete restitutie-keuze-stap (mode 'cancel'). Het annuleringsvenster
+ * (cancelWindowHours, dezelfde bron als de RPC) bepaalt de voor-selectie;
+ * de trainer kan die vrij omzetten voor het bevestigen. Alleen relevant
+ * voor kind='bookable'; intakes en blokken hebben geen credit en dus
+ * geen keuze nodig.
  */
 export function SessionDetailPanel({
   session,
   isAdmin,
+  cancelWindowHours,
   onClose,
 }: SessionDetailPanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"view" | "reschedule">("view");
+  const [mode, setMode] = useState<"view" | "reschedule" | "cancel">("view");
+  const [withRestitution, setWithRestitution] = useState(true);
 
   const [date, setDate] = useState(todayIso());
   const [time, setTime] = useState("09:00");
@@ -91,6 +102,10 @@ export function SessionDetailPanel({
   const booking = session.booking;
   const canManage =
     booking !== null && booking.status === "booked" && !hasStarted;
+  // PR J: zelfde formule als de RPC (tmc.cancel_pt), voor de
+  // voor-geselecteerde restitutie-default in het cancel-paneel.
+  const withinWindow = start.getTime() - now >= cancelWindowHours * 3_600_000;
+  const creditLabel = session.format === "duo" ? "duo-credit" : "PT-credit";
   const canMarkAttendance =
     booking !== null &&
     hasStarted &&
@@ -118,7 +133,10 @@ export function SessionDetailPanel({
     if (!booking) return;
     setError(null);
     startTransition(async () => {
-      const res = await cancelPtBookingAsStaff(booking.id);
+      const res = await cancelPtBookingAsStaff(
+        booking.id,
+        booking.usedCredit ? withRestitution : undefined,
+      );
       if (!res.ok) {
         setError(res.message);
         return;
@@ -373,7 +391,10 @@ export function SessionDetailPanel({
                 <button
                   type="button"
                   disabled={pending}
-                  onClick={handleCancel}
+                  onClick={() => {
+                    setWithRestitution(withinWindow);
+                    setMode("cancel");
+                  }}
                   className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
                   {/* COPY: confirm met Marlon */}
@@ -459,6 +480,84 @@ export function SessionDetailPanel({
               >
                 {/* COPY: confirm met Marlon */}
                 {pending ? "Bezig..." : "Bevestig verzetten"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {session.kind === "bookable" && booking && mode === "cancel" && (
+          <div className="flex flex-col gap-4">
+            {booking.usedCredit ? (
+              <>
+                <p className="text-text-muted text-sm">
+                  {/* COPY: confirm met Marlon */}
+                  {withinWindow
+                    ? `Deze sessie valt binnen het annuleringsvenster van ${cancelWindowHours} uur. Restitutie is de standaard.`
+                    : `Deze sessie valt buiten het annuleringsvenster van ${cancelWindowHours} uur. Zonder restitutie is de standaard.`}
+                </p>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWithRestitution(true)}
+                    className={`w-full text-left px-4 py-3 border transition-colors cursor-pointer ${
+                      withRestitution
+                        ? "border-accent text-accent"
+                        : "border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent"
+                    }`}
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    <span className="block text-xs font-medium uppercase tracking-[0.1em]">
+                      Met restitutie
+                    </span>
+                    <span className="block text-sm text-text-muted mt-1">
+                      {booking.firstName} krijgt 1 {creditLabel} terug.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWithRestitution(false)}
+                    className={`w-full text-left px-4 py-3 border transition-colors cursor-pointer ${
+                      !withRestitution
+                        ? "border-accent text-accent"
+                        : "border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent"
+                    }`}
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    <span className="block text-xs font-medium uppercase tracking-[0.1em]">
+                      Zonder restitutie
+                    </span>
+                    <span className="block text-sm text-text-muted mt-1">
+                      Er gaat geen credit terug.
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-text-muted text-sm">
+                {/* COPY: confirm met Marlon */}
+                Voor deze boeking is geen credit verrekend. Er wordt niets
+                terugbetaald of verrekend.
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("view")}
+                className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--ink-500)] text-text-muted hover:border-accent hover:text-accent transition-colors cursor-pointer"
+              >
+                {/* COPY: confirm met Marlon */}
+                Terug
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={handleCancel}
+                className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/60 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+              >
+                {/* COPY: confirm met Marlon */}
+                {pending ? "Bezig..." : "Bevestig annuleren"}
               </button>
             </div>
           </div>
