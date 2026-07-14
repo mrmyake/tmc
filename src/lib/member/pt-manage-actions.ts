@@ -36,7 +36,7 @@ const PT_MANAGE_REASON_COPY: Record<string, string> = {
 
 export type PtManageResult =
   | { ok: true; withinWindow?: boolean; creditsRefunded?: boolean }
-  | { ok: false; message: string };
+  | { ok: false; message: string; reason?: string; conflictAt?: string };
 
 async function callerIsAdmin(userId: string): Promise<boolean> {
   const supabase = await createClient();
@@ -123,6 +123,7 @@ export async function cancelPtBooking(
       ok: false,
       message:
         PT_MANAGE_REASON_COPY[result?.reason] ?? "Annuleren lukte niet.",
+      reason: result?.reason ?? undefined,
     };
   }
 
@@ -191,6 +192,8 @@ export async function reschedulePtBooking(
       ok: false,
       message:
         PT_MANAGE_REASON_COPY[result?.reason] ?? "Verzetten lukte niet.",
+      reason: result?.reason ?? undefined,
+      conflictAt: result?.conflict_at ?? undefined,
     };
   }
 

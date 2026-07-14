@@ -766,8 +766,8 @@ Het schema ondersteunt geen role-arrays. "Trainer+member" combos zijn niet mogel
 
 **Default landing per rol (post-login redirect in `/auth/callback`):**
 - `member` → `/app` (bare dashboard-landing; **niet** `/app/rooster` — dat was de oorspronkelijke spec, maar sinds de landing-flip van 2026-07-12 retourneert `roleRedirect()` gewoon `/app`)
-- `trainer` → `/app/trainer/sessies`
-- `admin` → `/app/admin`
+- `trainer` → `/app/trainer/agenda` (sinds PT-agenda PR D, 2026-07-14; was `/app/trainer/sessies`)
+- `admin` → `/app/trainer/agenda` (met trainer-kiezer) als er een actieve eigen `trainers`-rij bestaat (bv. Marlon), anders ongewijzigd `/app/admin`
 
 Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check.
 
