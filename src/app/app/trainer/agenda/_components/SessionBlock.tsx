@@ -70,7 +70,16 @@ export function SessionBlock({ session, onSelect }: SessionBlockProps) {
       )}
       <button
         type="button"
-        onClick={() => onSelect(session.id)}
+        onClick={(e) => {
+          // C4-vervolg (kalender-klik-om-te-boeken): de dagkolom eronder
+          // heeft zijn eigen onClick voor een leeg-moment-klik; zonder
+          // stopPropagation zou een klik op een sessie ALSNOG die
+          // leeg-moment-handler triggeren (currentTarget van de
+          // kolom-handler verandert niet, alleen propagatie voorkomt dat
+          // 'ie ook afgaat).
+          e.stopPropagation();
+          onSelect(session.id);
+        }}
         style={{
           top: `${session.startOffsetMin}px`,
           height: `${Math.max(30, session.durationMin) - 2}px`,

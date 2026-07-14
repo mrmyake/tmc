@@ -9,6 +9,7 @@ import { WeekGrid } from "./WeekGrid";
 import { MonthGrid } from "./MonthGrid";
 import { SessionDetailPanel } from "./SessionDetailPanel";
 import { BlockCreatePanel } from "./BlockCreatePanel";
+import { BookSlotPanel } from "./BookSlotPanel";
 import type {
   AgendaDay,
   AgendaSessionBlockData,
@@ -58,8 +59,9 @@ function rangeLabel(view: AgendaViewMode, days: AgendaDay[]): string {
  * PT-agenda PR D: orchestrator voor de trainer-agenda. Puur
  * query-param-gedreven (geen losse client-state voor view/datum/trainer)
  * zodat prev/today/next-navigatie en delen van een link werken zoals bij
- * het bestaande rooster-scherm. Alleen de sessie-detailpaneel-selectie is
- * lokale state.
+ * het bestaande rooster-scherm. Alleen welk paneel open staat (sessie-
+ * detail, blok-aanmaak, of het C4-vervolg boek-paneel vanuit een
+ * kalender-klik) is lokale state; de drie sluiten elkaar bewust uit.
  */
 export function AgendaScreen({
   view,
@@ -78,6 +80,10 @@ export function AgendaScreen({
     null,
   );
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
+  const [bookSlot, setBookSlot] = useState<{
+    dateIso: string;
+    time: string;
+  } | null>(null);
 
   const sessionById = useMemo(() => {
     const map = new Map<string, AgendaSessionBlockData>();
@@ -181,7 +187,11 @@ export function AgendaScreen({
 
         <button
           type="button"
-          onClick={() => setBlockPanelOpen(true)}
+          onClick={() => {
+            setSelectedSessionId(null);
+            setBookSlot(null);
+            setBlockPanelOpen(true);
+          }}
           className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] border border-[color:var(--ink-500)] text-text-muted hover:border-accent hover:text-accent transition-colors cursor-pointer"
         >
           {/* COPY: confirm met Marlon */}+ Blok toevoegen
@@ -222,7 +232,20 @@ export function AgendaScreen({
           }}
         />
       ) : (
-        <WeekGrid days={days} onSelect={setSelectedSessionId} />
+        <WeekGrid
+          days={days}
+          onSelect={(id) => {
+            setBookSlot(null);
+            setSelectedSessionId(id);
+          }}
+          onSlotClick={(isoDate, hour, minute) => {
+            setSelectedSessionId(null);
+            setBookSlot({
+              dateIso: isoDate,
+              time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+            });
+          }}
+        />
       )}
 
       {selectedSession && (
@@ -238,6 +261,16 @@ export function AgendaScreen({
           trainerId={selectedTrainerId}
           defaultDateIso={anchorIso}
           onClose={() => setBlockPanelOpen(false)}
+        />
+      )}
+
+      {bookSlot && (
+        <BookSlotPanel
+          trainerId={selectedTrainerId}
+          initialDateIso={bookSlot.dateIso}
+          initialTime={bookSlot.time}
+          paymentLinksEnabled={isAdmin}
+          onClose={() => setBookSlot(null)}
         />
       )}
     </Container>

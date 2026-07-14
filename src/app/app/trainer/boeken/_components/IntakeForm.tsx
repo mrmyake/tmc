@@ -10,6 +10,20 @@ import { SuccessBanner } from "./SuccessBanner";
 
 interface IntakeFormProps {
   trainerId: string;
+  /**
+   * C4-vervolg (kalender-klik-om-te-boeken): initiele datum/tijd i.p.v.
+   * vandaag/09:00, en een callback zodat de kalender-klik-panel dezelfde
+   * tijd kan doorgeven aan de Losse-sessie-tab bij het wisselen. Beide
+   * optioneel; het bestaande boek-scherm geeft ze niet mee.
+   */
+  initialDateIso?: string;
+  initialTime?: string;
+  onDateTimeChange?: (dateIso: string, time: string) => void;
+  /**
+   * Kalender-klik-panel: sluit direct na een geslaagde intake i.p.v. de
+   * SuccessBanner te tonen. Optioneel.
+   */
+  onSuccess?: () => void;
 }
 
 type DurationChoice = "60" | "90" | "120" | "custom";
@@ -26,16 +40,25 @@ function todayIso(): string {
  * Geen kosten, geen credit; blokkeert de agenda maar is geen boekbaar
  * slot. Bewuste afwijking (zie createPtIntake): geen override bij een
  * conflict, alleen een hard-blokkerende melding, want dit pad heeft geen
- * DB-advisory-lock.
+ * DB-advisory-lock. C4-vervolg: optionele initialDateIso/initialTime/
+ * onDateTimeChange/onSuccess voor hergebruik vanuit de kalender-klik-
+ * panel; zonder die props is het gedrag exact zoals op het volledige
+ * boek-scherm.
  */
-export function IntakeForm({ trainerId }: IntakeFormProps) {
+export function IntakeForm({
+  trainerId,
+  initialDateIso,
+  initialTime,
+  onDateTimeChange,
+  onSuccess,
+}: IntakeFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [durationChoice, setDurationChoice] = useState<DurationChoice>("90");
   const [customDuration, setCustomDuration] = useState("90");
-  const [date, setDate] = useState(todayIso());
-  const [time, setTime] = useState("09:00");
+  const [date, setDate] = useState(initialDateIso ?? todayIso());
+  const [time, setTime] = useState(initialTime ?? "09:00");
 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ startAt: string; endAt: string } | null>(
@@ -69,7 +92,11 @@ export function IntakeForm({ trainerId }: IntakeFormProps) {
         setError(res.message);
         return;
       }
-      setResult({ startAt: res.startAt, endAt: res.endAt });
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        setResult({ startAt: res.startAt, endAt: res.endAt });
+      }
     });
   }
 
@@ -159,14 +186,20 @@ export function IntakeForm({ trainerId }: IntakeFormProps) {
           <AdminInput
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value);
+              onDateTimeChange?.(e.target.value, time);
+            }}
           />
         </AdminField>
         <AdminField label="Tijd">
           <AdminInput
             type="time"
             value={time}
-            onChange={(e) => setTime(e.target.value)}
+            onChange={(e) => {
+              setTime(e.target.value);
+              onDateTimeChange?.(date, e.target.value);
+            }}
           />
         </AdminField>
       </div>

@@ -6,18 +6,26 @@ import { SessionBlock } from "./SessionBlock";
 interface WeekGridProps {
   days: AgendaDay[];
   onSelect: (sessionId: string) => void;
+  /**
+   * PT-agenda C4-vervolg: klik op een leeg moment in de dagkolom. Geeft
+   * de dag en het aangeklikte tijdstip terug (gesnapt op 15 minuten).
+   * Optioneel zodat WeekGrid ook zonder deze prop bruikbaar blijft.
+   */
+  onSlotClick?: (isoDate: string, hour: number, minute: number) => void;
 }
 
 function hourLabel(h: number): string {
   return `${h.toString().padStart(2, "0")}:00`;
 }
 
+const SLOT_SNAP_MIN = 15;
+
 /**
  * PT-agenda PR D: tijdas-grid, gedeeld door de dag- en weekweergave
  * (werkt voor elk aantal dagen). Zelfde CSS-grid-positionering als
  * AdminWeekGrid (src/app/app/admin/rooster) — 1 minuut = 1 pixel.
  */
-export function WeekGrid({ days, onSelect }: WeekGridProps) {
+export function WeekGrid({ days, onSelect, onSlotClick }: WeekGridProps) {
   const hours: number[] = [];
   for (let h = GRID_START_HOUR; h <= GRID_END_HOUR; h++) hours.push(h);
   const columns = `64px repeat(${days.length}, minmax(0, 1fr))`;
@@ -74,13 +82,29 @@ export function WeekGrid({ days, onSelect }: WeekGridProps) {
         {days.map((d) => (
           <div
             key={d.isoDate}
+            onClick={(e) => {
+              if (!onSlotClick) return;
+              // e.currentTarget is altijd deze kolom-div (niet het
+              // aangeklikte kind), dus de rect klopt ongeacht waar in de
+              // kolom geklikt is. SessionBlock stopt propagatie zelf, dus
+              // deze handler vuurt uitsluitend bij een klik op leeg gebied.
+              const rect = e.currentTarget.getBoundingClientRect();
+              const offsetMin = e.clientY - rect.top;
+              const snapped = Math.round(offsetMin / SLOT_SNAP_MIN) * SLOT_SNAP_MIN;
+              const maxMin = (GRID_END_HOUR - GRID_START_HOUR) * 60 - SLOT_SNAP_MIN;
+              const clamped = Math.min(Math.max(snapped, 0), maxMin);
+              const hour = GRID_START_HOUR + Math.floor(clamped / 60);
+              const minute = clamped % 60;
+              onSlotClick(d.isoDate, hour, minute);
+            }}
             className={`group relative border-r border-[color:var(--ink-500)] last:border-r-0 ${
-              d.isToday ? "bg-accent/[0.02]" : ""
-            }`}
+              onSlotClick ? "cursor-pointer" : ""
+            } ${d.isToday ? "bg-accent/[0.02]" : ""}`}
           >
-            {/* Vrije-slot-affordance: puur visueel, geen klik-interactie
-                (het boek-paneel-vanuit-de-agenda is C2-vervolg). Ligt
-                achter de sessieblokken, dus zichtbaar in de vrije gaten. */}
+            {/* Vrije-slot-affordance: klik op leeg gebied opent het
+                boek-paneel met de aangeklikte tijd voor-ingevuld (C4-
+                vervolg). Ligt achter de sessieblokken, dus zichtbaar in de
+                vrije gaten. */}
             <div
               aria-hidden
               className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
