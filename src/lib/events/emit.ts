@@ -56,6 +56,7 @@ export type EventType =
   | "pt_booking.created"
   | "pt_booking.confirmed"
   | "pt_booking.cancelled"
+  | "pt_booking.rescheduled"
   // Guest
   | "guest.booked"
   // Sessions (admin)
