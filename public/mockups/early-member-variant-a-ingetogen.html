@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Variant A, ingetogen | Early Member mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E0C0B;
+    --ink-soft:#171412;
+    --stone:#F4EFE6;
+    --accent:#B9986A;
+    --on-dark:#F4EFE6;
+    --on-dark-dim:rgba(244,239,230,.62);
+    --on-light:#0E0C0B;
+    --on-light-dim:rgba(14,12,11,.62);
+    --rule-dark:rgba(244,239,230,.14);
+    --rule-light:rgba(14,12,11,.14);
+    --track-label:.16em;
+
+    /* VARIANT A, ingetogen: type dicht bij /prijzen */
+    --fs-h1:2.25rem;
+    --fs-h2:1.5rem;
+    --fs-h3:1.125rem;
+    --section-y:5rem;
+  }
+  @media(min-width:768px){
+    :root{ --fs-h1:3rem; --fs-h2:1.875rem; --fs-h3:1.25rem; --section-y:6rem; }
+  }
+  @media(min-width:1024px){
+    :root{ --fs-h1:3.75rem; }
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);color:var(--on-dark);
+    font-family:Inter,system-ui,sans-serif;font-weight:300;
+    font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;
+    padding-top:2rem;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 1.5rem}
+  @media(min-width:768px){ .wrap{padding:0 2.5rem} }
+
+  section{padding:var(--section-y) 0}
+  .s-dark{background:var(--ink)}
+  .s-soft{background:var(--ink-soft)}
+  .s-light{background:var(--stone);color:var(--on-light)}
+
+  .eyebrow{
+    font-size:11px;letter-spacing:var(--track-label);text-transform:uppercase;
+    font-weight:400;color:var(--accent);margin-bottom:1.25rem;
+  }
+  h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:300;line-height:1.08;letter-spacing:-.01em}
+  h1{font-size:var(--fs-h1)}
+  h2{font-size:var(--fs-h2);line-height:1.15}
+  h3{font-size:var(--fs-h3);line-height:1.25;font-weight:400}
+  h1 em, h2 em{font-style:normal;color:var(--accent)}
+  .lede{max-width:48ch;margin-top:1.25rem;color:var(--on-dark-dim);font-size:15px}
+  .s-light .lede{color:var(--on-light-dim)}
+  .lede + .lede{margin-top:.85rem}
+  .head{margin-bottom:2.5rem;max-width:58ch}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:.9rem 1.75rem;font-size:11px;font-weight:400;
+    letter-spacing:.18em;text-transform:uppercase;text-decoration:none;
+    border:1px solid transparent;cursor:pointer;transition:all .2s ease;text-align:center;
+  }
+  .btn-primary{background:var(--accent);color:var(--ink);border-color:var(--accent)}
+  .btn-primary:hover{background:transparent;color:var(--accent)}
+  .btn-secondary{background:transparent;color:var(--on-dark);border-color:var(--rule-dark)}
+  .btn-secondary:hover{border-color:var(--on-dark)}
+  .btn-secondary-light{background:transparent;color:var(--on-light);border-color:var(--rule-light)}
+  .btn-secondary-light:hover{border-color:var(--on-light)}
+  .btn-block{width:100%}
+  .btns{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}
+
+  .hero{padding-top:6rem;padding-bottom:var(--section-y)}
+  .countdown{display:flex;gap:2.5rem;margin-top:3rem;padding-top:2rem;border-top:1px solid var(--rule-dark);max-width:34rem}
+  .cd-unit .n{font-family:Fraunces,serif;font-size:2.25rem;font-weight:300;line-height:1;color:var(--on-dark)}
+  .cd-unit .l{font-size:10px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--on-dark-dim);margin-top:.5rem}
+  .cd-note{margin-top:1.25rem;font-size:13px;color:var(--on-dark-dim)}
+  .reassure{margin-top:1.75rem;font-size:13px;color:var(--on-dark-dim);border-left:1px solid var(--accent);padding-left:1rem;max-width:44ch}
+
+  .grid-2{display:grid;gap:1.5rem;grid-template-columns:1fr}
+  @media(min-width:900px){ .grid-2{grid-template-columns:1fr 1fr} }
+  .card{padding:1.75rem;display:flex;flex-direction:column}
+  @media(min-width:768px){ .card{padding:2rem} }
+  .card-dark{background:var(--ink);color:var(--on-dark)}
+  .card-light{background:transparent;border:1px solid var(--rule-light)}
+  .card-onsoft{border:1px solid var(--rule-dark)}
+  .card .desc{margin-top:.75rem;font-size:14px;color:var(--on-dark-dim)}
+  .card-light .desc{color:var(--on-light-dim)}
+
+  .badge{
+    display:inline-block;font-size:10px;letter-spacing:var(--track-label);
+    text-transform:uppercase;color:var(--accent);margin-bottom:1rem;
+  }
+  .sublab{font-size:11px;letter-spacing:var(--track-label);text-transform:uppercase;
+    color:var(--on-dark-dim);margin-top:1.75rem;margin-bottom:.75rem}
+  .card-light .sublab{color:var(--on-light-dim)}
+
+  .rows{border-top:1px solid var(--rule-dark)}
+  .card-light .rows{border-color:var(--rule-light)}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;
+    padding:.8rem 0;border-bottom:1px solid var(--rule-dark);font-size:14px}
+  .card-light .row{border-color:var(--rule-light)}
+  .row-price{white-space:nowrap;text-align:right}
+  .row.is-em{padding-bottom:1rem}
+  .row.is-em .row-price{color:var(--accent);font-weight:400}
+  .price-was{font-size:13px;color:var(--on-dark-dim);text-decoration:line-through;display:block}
+  .lock-note{font-size:12px;color:var(--on-dark-dim);margin-top:.85rem}
+  .card-light .lock-note{color:var(--on-light-dim)}
+
+  .feats{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+  .feats li{font-size:14px;color:var(--on-dark-dim);padding-left:1.1rem;position:relative}
+  .card-light .feats li{color:var(--on-light-dim)}
+  .feats li::before{content:"";position:absolute;left:0;top:.6rem;width:5px;height:1px;background:var(--accent)}
+  .grow{flex-grow:1}
+  .card .btn{margin-top:1.75rem}
+
+  .em-callout{
+    border:1px solid rgba(185,152,106,.45);background:rgba(185,152,106,.07);
+    padding:.875rem 1rem;margin-top:1.75rem;
+  }
+  .em-callout .lab{font-size:11px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--accent);margin-bottom:.4rem}
+  .em-callout .val{font-size:13px;color:var(--on-dark-dim)}
+  .em-callout .val + .val{margin-top:.5rem}
+  .card-light .em-callout .val{color:var(--on-light-dim)}
+
+  .cmp{display:grid;gap:1.5rem;grid-template-columns:1fr}
+  @media(min-width:768px){ .cmp{grid-template-columns:1fr 1fr;gap:2.5rem} }
+  .cmp-col h3{margin-bottom:1.25rem}
+  .cmp-col.is-reg h3{color:var(--on-dark-dim)}
+  .cmp-col.is-em h3{color:var(--accent)}
+  .cmp-list{list-style:none;border-top:1px solid var(--rule-dark)}
+  .cmp-list li{padding:.9rem 0;border-bottom:1px solid var(--rule-dark);font-size:14px}
+  .cmp-col.is-reg li{color:var(--on-dark-dim)}
+  .cmp-note{margin-top:2rem;font-size:13px;color:var(--on-dark-dim);max-width:56ch}
+  .cmp-note + .cmp-note{margin-top:.6rem}
+
+  .signup{display:grid;gap:2.5rem;grid-template-columns:1fr}
+  @media(min-width:900px){ .signup{grid-template-columns:1.05fr .95fr;gap:3.5rem} }
+  .gift{border:1px solid rgba(185,152,106,.45);background:rgba(185,152,106,.07);padding:1.5rem;margin-top:2rem}
+  .gift h3{font-size:1rem;color:var(--accent);margin-bottom:1rem}
+  .gift p{font-size:13px;color:var(--on-dark-dim)}
+  .gift p + p{margin-top:.6rem}
+  .gift ul{list-style:none;margin:1rem 0;border-top:1px solid rgba(185,152,106,.2)}
+  .gift ul li{font-size:13px;color:var(--on-dark);padding:.7rem 0;border-bottom:1px solid rgba(185,152,106,.2)}
+  .field label{display:block;font-size:11px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--on-dark-dim);margin-bottom:.6rem}
+  .field input{
+    width:100%;background:transparent;border:1px solid var(--rule-dark);
+    padding:.9rem 1rem;color:var(--on-dark);font-family:Inter,sans-serif;font-size:15px;
+  }
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .field + .field{margin-top:1.25rem}
+
+  .closer{max-width:52ch}
+  .legal{padding:2.5rem 0;font-size:12px;color:var(--on-dark-dim);border-top:1px solid var(--rule-dark)}
+  .legal p + p{margin-top:.5rem}
+
+  .flag{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--accent);color:var(--ink);
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;text-align:center}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  @media(prefers-reduced-motion:reduce){ *{transition:none!important} html{scroll-behavior:auto} }
+</style>
+</head>
+<body>
+<div class="flag">Variant A, ingetogen &nbsp;·&nbsp; mockup, geen productie &nbsp;·&nbsp; prijzen indicatief</div>
+
+<!-- 1. HERO -->
+<section class="s-dark hero">
+  <div class="wrap">
+    <p class="eyebrow">Early Member</p>
+    <h1>Word Early Member. <em>Houd je voordeel.</em></h1>
+    <p class="lede">Begin september opent The Movement Club in Loosdrecht.</p>
+    <p class="lede">Laat nu je gegevens achter en ontvang als eerste bericht zodra je een abonnement kunt afsluiten. Word je Early Member, dan train je zonder inschrijfkosten, zonder jaarcontract en met voorwaarden die daarna niet meer terugkomen.</p>
+    <p class="lede">All Access kost voor Early Members blijvend €139 per 4 weken, in plaats van €149.</p>
+
+    <div class="countdown" id="cd">
+      <div class="cd-unit"><div class="n" data-d>108</div><div class="l">dagen</div></div>
+      <div class="cd-unit"><div class="n" data-h>06</div><div class="l">uur</div></div>
+      <div class="cd-unit"><div class="n" data-m>04</div><div class="l">minuten</div></div>
+    </div>
+    <p class="cd-note">Het Early Member aanbod is beschikbaar tot 1 november 2026.</p>
+
+    <div class="btns">
+      <a class="btn btn-primary" href="#reserveren">Reserveer je Early Member plek</a>
+      <a class="btn btn-secondary" href="#aanbod">Bekijk het aanbod</a>
+    </div>
+
+    <p class="reassure">Je betaalt nu niets en zit nergens aan vast. Een abonnement afsluiten kan pas na de officiële opening.</p>
+  </div>
+</section>
+
+<!-- 2. AANBOD -->
+<section class="s-light" id="aanbod">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Het aanbod</p>
+      <h2>Kies hoe jij wilt trainen</h2>
+      <p class="lede">Als Early Member betaal je geen €39 inschrijfkosten en ben je vanaf dag één per 4 weken opzegbaar.</p>
+      <p class="lede">Je kiest uit Groepslessen of All Access. Alle prijzen zijn per 4 weken.</p>
+    </div>
+
+    <div class="grid-2">
+      <article class="card card-dark">
+        <p class="badge">Early Member voordeel</p>
+        <h3>All Access</h3>
+        <p class="desc">Groepslessen en onbeperkt vrij trainen. Volg yoga, mobility en kettlebell in kleine groepen en train daarnaast onbeperkt zelfstandig in de studio.</p>
+
+        <div class="rows" style="margin-top:1.75rem">
+          <div class="row"><span>2 keer per week</span><span class="row-price">€109</span></div>
+          <div class="row"><span>3 keer per week</span><span class="row-price">€119</span></div>
+          <div class="row is-em">
+            <span>Onbeperkt</span>
+            <span class="row-price">
+              <span class="price-was">Normaal €149</span>
+              Early Member €139
+            </span>
+          </div>
+        </div>
+        <p class="lock-note">Dit tarief blijft gelden zolang je lidmaatschap zonder onderbreking doorloopt.</p>
+
+        <p class="sublab">Inbegrepen</p>
+        <ul class="feats">
+          <li>Yoga, mobility en kettlebell</li>
+          <li>Onbeperkt vrij trainen</li>
+          <li>Geen inschrijfkosten</li>
+          <li>Geen jaarcontract</li>
+          <li>Vanaf dag één per 4 weken opzegbaar</li>
+        </ul>
+        <div class="grow"></div>
+
+        <div class="em-callout">
+          <p class="lab">Early Member cadeau</p>
+          <p class="val">Laat voor de officiële opening je e-mailadres achter en word binnen 4 weken na de officiële opening All Access lid.</p>
+          <p class="val">Dan ligt er bij je eerste training een The Movement Club hoodie voor je klaar.</p>
+        </div>
+
+        <a class="btn btn-primary btn-block" href="#reserveren">Reserveer je Early Member plek</a>
+      </article>
+
+      <article class="card card-light">
+        <p class="badge">Early Member voordeel</p>
+        <h3>Groepslessen</h3>
+        <p class="desc">Persoonlijke begeleiding in kleine groepen. Volg yoga, mobility en kettlebell onder begeleiding van Marlon. Kies het aantal trainingen dat bij jouw week past.</p>
+
+        <div class="rows" style="margin-top:1.75rem">
+          <div class="row"><span>2 keer per week</span><span class="row-price">€79</span></div>
+          <div class="row"><span>3 keer per week</span><span class="row-price">€89</span></div>
+          <div class="row"><span>Onbeperkt</span><span class="row-price">€119</span></div>
+        </div>
+
+        <p class="sublab">Inbegrepen</p>
+        <ul class="feats">
+          <li>Yoga, mobility en kettlebell</li>
+          <li>Geen inschrijfkosten</li>
+          <li>Geen jaarcontract</li>
+          <li>Vanaf dag één per 4 weken opzegbaar</li>
+          <li>Vrij trainen toevoegen voor €30 per 4 weken</li>
+        </ul>
+        <div class="grow"></div>
+
+        <div class="em-callout">
+          <p class="lab">Early Member cadeau</p>
+          <p class="val">Laat voor de officiële opening je e-mailadres achter en word binnen 4 weken na de officiële opening lid van Groepslessen.</p>
+          <p class="val">Dan ligt er bij je eerste training een The Movement Club T shirt voor je klaar.</p>
+        </div>
+
+        <a class="btn btn-secondary-light btn-block" href="#reserveren">Reserveer je Early Member plek</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 3. WAAROM NU -->
+<section class="s-dark">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Waarom nu</p>
+      <h2>Deze voorwaarden komen niet terug</h2>
+    </div>
+
+    <div class="cmp">
+      <div class="cmp-col is-reg">
+        <h3>Reguliere voorwaarden</h3>
+        <ul class="cmp-list">
+          <li>€39 inschrijfkosten</li>
+          <li>Het eerste jaar vast</li>
+          <li>All Access Onbeperkt voor €149 per 4 weken</li>
+        </ul>
+      </div>
+      <div class="cmp-col is-em">
+        <h3>Early Member voorwaarden</h3>
+        <ul class="cmp-list">
+          <li>Geen inschrijfkosten</li>
+          <li>Vanaf dag één per 4 weken opzegbaar</li>
+          <li>All Access Onbeperkt voor €139 per 4 weken</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="cmp-note">Je behoudt jouw Early Member tarief en voorwaarden zolang je lidmaatschap zonder onderbreking doorloopt.</p>
+    <p class="cmp-note">Na 1 november 2026 gelden voor nieuwe leden de reguliere tarieven en voorwaarden.</p>
+  </div>
+</section>
+
+<!-- 4. RESERVEREN -->
+<section class="s-soft" id="reserveren">
+  <div class="wrap">
+    <div class="signup">
+      <div>
+        <p class="eyebrow">Voor de opening</p>
+        <h2>Reserveer nu je plek</h2>
+        <p class="lede">Voor de officiële opening kun je nog geen abonnement afsluiten.</p>
+        <p class="lede">Laat nu je naam en e-mailadres achter. Zodra de inschrijving opent, ontvang je als eerste bericht en kun je jouw lidmaatschap kiezen.</p>
+        <p class="lede">Je betaalt nu niets en zit nergens aan vast.</p>
+
+        <div class="gift">
+          <h3>Ontvang jouw Early Member cadeau</h3>
+          <p>Om het cadeau te ontvangen moet je aan beide voorwaarden voldoen.</p>
+          <ul>
+            <li>Je laat voor de officiële opening je e-mailadres achter.</li>
+            <li>Je wordt binnen 4 weken na de officiële opening lid.</li>
+          </ul>
+          <p>Kies je voor Groepslessen, dan ontvang je een The Movement Club T shirt. Kies je voor All Access, dan ontvang je een The Movement Club hoodie.</p>
+          <p>Je cadeau ligt bij je eerste training voor je klaar.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="field">
+          <label for="r-naam">Naam</label>
+          <input id="r-naam" type="text" placeholder="Je naam">
+        </div>
+        <div class="field">
+          <label for="r-mail">E-mailadres</label>
+          <input id="r-mail" type="email" placeholder="jij@voorbeeld.nl">
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:1.75rem">Reserveer mijn Early Member plek</button>
+        <p style="margin-top:1rem;font-size:12px;color:var(--on-dark-dim)">Je ontvangt alleen bericht over de opening en het afsluiten van je lidmaatschap.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. PROGRAMMA'S -->
+<section class="s-light" id="programmas">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Liever een persoonlijk traject</p>
+      <h2>De 12 weken programma's</h2>
+      <p class="lede">Onze programma's zijn ook zonder lidmaatschap te volgen.</p>
+      <p class="lede">Early Members krijgen tijdens het programma extra mogelijkheden om in de studio te trainen.</p>
+    </div>
+
+    <div class="grid-2">
+      <article class="card card-light">
+        <p class="badge">In de studio</p>
+        <h3>12 weken met Marlon</h3>
+        <p class="desc">Intensieve begeleiding in de studio. Een compleet programma voor wie gericht resultaat wil boeken met persoonlijke begeleiding.</p>
+        <p style="font-family:Fraunces,serif;font-size:2rem;font-weight:300;margin-top:1.5rem;line-height:1">€2.400</p>
+        <p style="font-size:12px;color:var(--on-light-dim);margin-top:.4rem">eenmalig</p>
+
+        <p class="sublab">Inbegrepen</p>
+        <ul class="feats">
+          <li>Een uitgebreide intake</li>
+          <li>2 keer personal training per week met Marlon</li>
+          <li>Een persoonlijk trainingsplan</li>
+          <li>Voedingsadvies</li>
+          <li>Supplementenadvies</li>
+          <li>Dagelijkse leefstijlbegeleiding</li>
+        </ul>
+        <div class="grow"></div>
+
+        <div class="em-callout">
+          <p class="lab">Early Member bonus</p>
+          <p class="val">Onbeperkt groepslessen tijdens het volledige programma.</p>
+        </div>
+        <a class="btn btn-secondary-light btn-block" href="#">Meer over het programma</a>
+      </article>
+
+      <article class="card card-light">
+        <p class="badge">Online</p>
+        <h3>12 weken online coaching</h3>
+        <p class="desc">Persoonlijke begeleiding op afstand. Een volledig begeleid trainingsprogramma en voedingsprogramma dat je zelfstandig uitvoert. Je hebt wekelijks een vast voortgangsmoment en ontvangt begeleiding bij je training, voeding en leefstijl.</p>
+        <p style="font-family:Fraunces,serif;font-size:2rem;font-weight:300;margin-top:1.5rem;line-height:1">€1.250</p>
+        <p style="font-size:12px;color:var(--on-light-dim);margin-top:.4rem">eenmalig</p>
+        <div class="grow"></div>
+
+        <div class="em-callout">
+          <p class="lab">Early Member bonus</p>
+          <p class="val">2 keer per week vrij trainen in de studio en 1 keer per week kettlebell.</p>
+          <p class="val">Deze bonus geldt tijdens het volledige programma.</p>
+        </div>
+        <a class="btn btn-secondary-light btn-block" href="#">Meer over online coaching</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 6. NOG NIET ZEKER -->
+<section class="s-dark">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Nog niet zeker</p>
+      <h2>Je hoeft niet direct te beslissen</h2>
+    </div>
+    <div class="grid-2">
+      <article class="card card-onsoft">
+        <h3>Je traint nu ergens anders</h3>
+        <p class="desc">Loopt je huidige abonnement nog door? Laat het ons weten. We denken mee over een logisch overstapmoment, zodat je niet onnodig dubbel betaalt.</p>
+        <div class="grow"></div>
+        <a class="btn btn-secondary btn-block" href="#">Vraag het overstapaanbod aan</a>
+      </article>
+      <article class="card card-onsoft">
+        <h3>Eerst een keer meedoen</h3>
+        <p class="desc">Ervaar zelf hoe we trainen tijdens een proefles. Daarna bepaal je welk lidmaatschap het beste bij je past. Het Early Member aanbod blijft beschikbaar tot 1 november 2026.</p>
+        <div class="grow"></div>
+        <a class="btn btn-secondary btn-block" href="#">Boek een proefles</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 7. AFSLUITER -->
+<section class="s-soft">
+  <div class="wrap">
+    <div class="closer">
+      <h2>Train vanaf het begin mee</h2>
+      <p class="lede">Reserveer nu je Early Member plek en ontvang als eerste bericht zodra je een abonnement kunt afsluiten.</p>
+      <p class="lede">Je betaalt nu niets en kiest pas na de officiële opening welk lidmaatschap bij je past.</p>
+      <div class="btns">
+        <a class="btn btn-primary" href="#reserveren">Reserveer mijn Early Member plek</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. LEGAL -->
+<div class="s-soft">
+  <div class="wrap">
+    <div class="legal">
+      <p>Early Member tarieven en voorwaarden zijn beschikbaar tot 1 november 2026.</p>
+      <p>Het Early Member cadeau is alleen beschikbaar wanneer je voor de officiële opening je e-mailadres achterlaat en binnen 4 weken na de officiële opening lid wordt.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var deadline = new Date("2026-11-01T00:00:00+01:00").getTime();
+    var el = document.getElementById("cd");
+    if(!el) return;
+    function tick(){
+      var d = deadline - Date.now();
+      if(d < 0) d = 0;
+      var days = Math.floor(d/86400000);
+      var hrs  = Math.floor(d%86400000/3600000);
+      var mins = Math.floor(d%3600000/60000);
+      el.querySelector("[data-d]").textContent = days;
+      el.querySelector("[data-h]").textContent = String(hrs).padStart(2,"0");
+      el.querySelector("[data-m]").textContent = String(mins).padStart(2,"0");
+    }
+    tick(); setInterval(tick, 30000);
+  })();
+</script>
+</body>
+</html>
