@@ -2,6 +2,14 @@ interface EarlyMemberCalloutProps {
   label: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * True voor plekken waar de box tussen doorlopende tekst staat en zich
+   * naar zijn eigen inhoud moet voegen (zoals de content-breedte badge
+   * ernaast), i.p.v. de volledige breedte van zijn flex-container in te
+   * nemen. Zie ConfigureStage.tsx's renderFeaturedCard(): die box stond
+   * vóór migratie op inline-block, niet op block.
+   */
+  inline?: boolean;
 }
 
 /**
@@ -15,10 +23,11 @@ export function EarlyMemberCallout({
   label,
   children,
   className = "",
+  inline = false,
 }: EarlyMemberCalloutProps) {
   return (
     <div
-      className={`border border-accent/45 bg-accent/[0.07] px-4 py-3.5 flex flex-col gap-1.5 ${className}`}
+      className={`${inline ? "inline-flex" : "flex"} flex-col gap-1.5 border border-accent/45 bg-accent/[0.07] px-4 py-3.5 ${className}`}
     >
       <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
         {label}

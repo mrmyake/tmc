@@ -407,13 +407,12 @@ export function ConfigureStage({
             van 06:00 tot 23:00 is inbegrepen.
           </p>
           {breakdown.emOpen && (
-            <div className="inline-block border border-accent/30 bg-bg px-3 py-2 mt-4 text-xs text-text-muted">
-              <span className="text-[10px] uppercase tracking-[0.16em] text-accent block mb-0.5">
-                Early Member
-              </span>
+            <EarlyMemberCallout label="Early Member" className="mt-4" inline>
               {/* COPY: confirm met Marlon */}
-              Per 4 weken opzegbaar, geen jaarcommitment.
-            </div>
+              <span className="text-xs text-text-muted">
+                Per 4 weken opzegbaar, geen jaarcommitment.
+              </span>
+            </EarlyMemberCallout>
           )}
         </div>
         <div className="flex flex-col items-start sm:items-end shrink-0">
