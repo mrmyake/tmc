@@ -7,21 +7,35 @@ import { createClient } from "@/lib/supabase/server";
  * en toont een klein accent-dot + count als er iets openstaat. Klik
  * gaat naar /app/admin/pauzes (waar Marlon ze goed/afkeurt).
  *
- * Server-component, dus telt fresh per request. Goedkoop — één count-
- * query met head:true.
+ * PT-agenda PR E2: telt naast de pauze-verzoeken ook de openstaande
+ * PT-annuleer-verzoeken mee (zelfde pagina, tweede sectie), zodat de
+ * bell één totaal "er is iets te doen op /app/admin/pauzes" geeft.
+ *
+ * Server-component, dus telt fresh per request. Goedkoop — twee count-
+ * queries met head:true.
  */
 export async function PauzeRequestBell() {
   const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("membership_pauses")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+  const [{ count: pauseCount, error: pauseError }, { count: ptCount, error: ptError }] =
+    await Promise.all([
+      supabase
+        .from("membership_pauses")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabase
+        .from("pt_cancellation_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ]);
 
-  if (error) {
-    console.error("[PauzeRequestBell] count failed", error.message);
+  if (pauseError) {
+    console.error("[PauzeRequestBell] count failed", pauseError.message);
+  }
+  if (ptError) {
+    console.error("[PauzeRequestBell] pt count failed", ptError.message);
   }
 
-  const open = count ?? 0;
+  const open = (pauseCount ?? 0) + (ptCount ?? 0);
 
   return (
     <Link
