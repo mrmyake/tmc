@@ -141,6 +141,7 @@ export default async function BoekingenPage(props: {
     todayCheckInsResult,
     ptUpcomingResult,
     ptHistoryResult,
+    ptPendingCancellationsResult,
   ] = await Promise.all([
       supabase
         .from("booking_settings")
@@ -257,6 +258,17 @@ export default async function BoekingenPage(props: {
             .order("session(start_at)", { ascending: false })
             .returns<PtBookingRow[]>()
         : Promise.resolve({ data: null, error: null }),
+      // PT-agenda PR E2: eigen openstaande annuleer-verzoeken, om per
+      // PT-rij te bepalen of de aanvraag-actie plaats moet maken voor de
+      // "Annulering aangevraagd"-status. RLS (pcr_self_read) scoped al op
+      // het eigen profiel; alleen relevant in de komend-tab.
+      view === "komend"
+        ? supabase
+            .from("pt_cancellation_requests")
+            .select("id, pt_booking_id, status")
+            .eq("profile_id", user.id)
+            .eq("status", "pending")
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   logIfError("settings", settingsResult.error);
@@ -266,6 +278,7 @@ export default async function BoekingenPage(props: {
   logIfError("today check-ins", todayCheckInsResult.error);
   logIfError("pt upcoming", ptUpcomingResult.error);
   logIfError("pt history", ptHistoryResult.error);
+  logIfError("pt pending cancellations", ptPendingCancellationsResult.error);
 
   const cancellationWindowHours =
     settingsResult.data?.cancellation_window_hours ?? 6;
@@ -399,6 +412,10 @@ export default async function BoekingenPage(props: {
     }
   }
 
+  const ptPendingCancellationBookingIds = new Set(
+    (ptPendingCancellationsResult.data ?? []).map((r) => r.pt_booking_id),
+  );
+
   const ptUpcomingRows: PtUpcomingRowData[] = (ptUpcomingResult.data ?? [])
     .filter((b) => b.session)
     .map((b) => ({
@@ -413,6 +430,7 @@ export default async function BoekingenPage(props: {
       ),
       trainerName: b.session!.trainer?.display_name ?? "coach",
       status: "booked" as const,
+      hasPendingCancellation: ptPendingCancellationBookingIds.has(b.id),
     }));
 
   const ptHistoryRows: HistoryRowData[] = (ptHistoryResult.data ?? [])
@@ -479,8 +497,8 @@ export default async function BoekingenPage(props: {
                   <span className="tmc-eyebrow block mb-6">PT-sessies</span>
                   <p className="text-text-muted text-sm mb-6 max-w-md">
                     {/* COPY: confirm met Marlon */}
-                    Wil je een sessie wijzigen of afzeggen? Neem contact op
-                    met Marlon.
+                    Kun je niet? Vraag een annulering aan. Je sessie blijft
+                    gepland tot Marlon je verzoek heeft behandeld.
                   </p>
                   <div>
                     {ptUpcomingRows.map((row) => (

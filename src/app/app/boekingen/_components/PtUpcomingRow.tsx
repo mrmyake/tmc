@@ -6,6 +6,7 @@ import {
   formatRelativeWhen,
   formatTimeRange,
 } from "@/lib/format-date";
+import { PtCancellationRequestAction } from "./PtCancellationRequestAction";
 
 export interface PtUpcomingRowData {
   bookingId: string;
@@ -14,13 +15,15 @@ export interface PtUpcomingRowData {
   label: string;
   trainerName: string;
   status: SessionStatus;
+  /** Eigen pending annuleer-verzoek op deze boeking (PR E2). */
+  hasPendingCancellation: boolean;
 }
 
 /**
- * PT-agenda PR E: leesweergave van een eigen PT/duo/programma-sessie in
- * /app/boekingen. Bewust GEEN mutatie-actie (geen annuleren/verzetten) —
- * dat loopt via Marlon; zie de toelichtingsregel in page.tsx. Daarom ook
- * geen "use client" of state nodig, in tegenstelling tot UpcomingRow.
+ * PT-agenda PR E2: het lid muteert nooit direct (geen annuleren/verzetten
+ * server-side vanaf deze rij), maar kan wel een annuleer-VERZOEK indienen
+ * dat staf afhandelt (PtCancellationRequestAction). PtUpcomingRow blijft
+ * zelf een server component; alleen de actie is "use client".
  */
 export function PtUpcomingRow({ row }: { row: PtUpcomingRowData }) {
   const start = new Date(row.startAt);
@@ -49,6 +52,10 @@ export function PtUpcomingRow({ row }: { row: PtUpcomingRowData }) {
       </div>
       <div className="flex flex-col items-end gap-4">
         <StatusBadge status={row.status} />
+        <PtCancellationRequestAction
+          ptBookingId={row.bookingId}
+          hasPendingCancellation={row.hasPendingCancellation}
+        />
       </div>
     </article>
   );
