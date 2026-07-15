@@ -9,7 +9,8 @@ import {
   type BoekingenView,
 } from "./_components/BoekingenTabs";
 import { UpcomingRow } from "./_components/UpcomingRow";
-import { HistoryRow } from "./_components/HistoryRow";
+import { HistoryRow, type HistoryRowData } from "./_components/HistoryRow";
+import { PtUpcomingRow, type PtUpcomingRowData } from "./_components/PtUpcomingRow";
 
 export const metadata = {
   title: "Boekingen | The Movement Club",
@@ -34,6 +35,48 @@ type BookingRow = {
       }
     | null;
 };
+
+type PtBookingRow = {
+  id: string;
+  status: string;
+  session:
+    | {
+        id: string;
+        start_at: string;
+        end_at: string;
+        format: string | null;
+        program_id: string | null;
+        trainer: { display_name: string } | null;
+        program: { total_sessions: number } | null;
+      }
+    | null;
+};
+
+// COPY: confirm met Marlon
+const PT_FORMAT_LABEL: Record<string, string> = {
+  one_on_one: "Losse PT-sessie",
+  duo: "Duo-sessie",
+  small_group_4: "Small group-sessie",
+};
+
+/**
+ * PT-agenda PR E: label voor een PT-boeking in de leden-boekingenlijst.
+ * Een programma-sessie toont bewust alleen de voortgang (sessie X van N),
+ * NOOIT een creditsaldo (vergrendelde regel); X is de chronologische
+ * positie van deze sessie binnen alle sessies van hetzelfde programma,
+ * N is pt_programs.total_sessions.
+ */
+function ptSessionLabel(
+  format: string | null,
+  programId: string | null,
+  programTotal: number | undefined,
+  ordinal: number | undefined,
+): string {
+  if (programId && programTotal && ordinal) {
+    return `Programma-sessie · sessie ${ordinal} van ${programTotal}`;
+  }
+  return (format && PT_FORMAT_LABEL[format]) ?? "PT-sessie";
+}
 
 function parseView(value: string | undefined): BoekingenView {
   return value === "historie" ? "historie" : "komend";
@@ -96,6 +139,8 @@ export default async function BoekingenPage(props: {
     historyResult,
     historyCountResult,
     todayCheckInsResult,
+    ptUpcomingResult,
+    ptHistoryResult,
   ] = await Promise.all([
       supabase
         .from("booking_settings")
@@ -168,6 +213,50 @@ export default async function BoekingenPage(props: {
               .gte("checked_in_at", startUtc.toISOString());
           })()
         : Promise.resolve({ data: null, error: null }),
+      // PT-agenda PR E: eigen PT/duo/programma-sessies, naast de
+      // groepslessen hierboven. RLS (pt_bookings_self_read +
+      // pt_sessions_member_booked_read/has_own_pt_booking) scoped al op
+      // het eigen profiel; geen service-role, geen nieuwe RPC. Intakes
+      // zijn account-loos en hebben nooit een pt_booking, dus die komen
+      // hier vanzelf nooit in beeld. Alleen status 'booked' (zelfde
+      // conventie als de groepsles-upcoming hierboven).
+      view === "komend"
+        ? supabase
+            .from("pt_bookings")
+            .select(
+              `
+                id, status,
+                session:pt_sessions!inner(
+                  id, start_at, end_at, format, program_id,
+                  trainer:trainers(display_name),
+                  program:pt_programs(total_sessions)
+                )
+              `,
+            )
+            .eq("profile_id", user.id)
+            .eq("status", "booked")
+            .gte("session.start_at", nowIso)
+            .order("session(start_at)", { ascending: true })
+            .returns<PtBookingRow[]>()
+        : Promise.resolve({ data: null, error: null }),
+      view === "historie"
+        ? supabase
+            .from("pt_bookings")
+            .select(
+              `
+                id, status,
+                session:pt_sessions!inner(
+                  id, start_at, end_at, format, program_id,
+                  trainer:trainers(display_name),
+                  program:pt_programs(total_sessions)
+                )
+              `,
+            )
+            .eq("profile_id", user.id)
+            .lt("session.start_at", nowIso)
+            .order("session(start_at)", { ascending: false })
+            .returns<PtBookingRow[]>()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   logIfError("settings", settingsResult.error);
@@ -175,6 +264,8 @@ export default async function BoekingenPage(props: {
   logIfError("history", historyResult.error);
   logIfError("history count", historyCountResult.error);
   logIfError("today check-ins", todayCheckInsResult.error);
+  logIfError("pt upcoming", ptUpcomingResult.error);
+  logIfError("pt history", ptHistoryResult.error);
 
   const cancellationWindowHours =
     settingsResult.data?.cancellation_window_hours ?? 6;
@@ -269,6 +360,76 @@ export default async function BoekingenPage(props: {
   const hasPrev = view === "historie" && page > 1;
   const hasNext = view === "historie" && page < historyLastPage;
 
+  // PT-agenda PR E: sessie X van N is de chronologische positie van deze
+  // sessie binnen ALLE sessies van hetzelfde programma (niet alleen de
+  // sessies in deze view); nooit een creditsaldo. admin_plan_pt_program
+  // creëert bij aanmaak alle sessies van een programma in een keer, dus
+  // "alle sessies" hier is stabiel. RLS (has_own_pt_booking) laat het lid
+  // elke sessie van het eigen programma lezen, geen service-role nodig.
+  const ptBookingRows = [
+    ...(ptUpcomingResult.data ?? []),
+    ...(ptHistoryResult.data ?? []),
+  ];
+  const programIds = Array.from(
+    new Set(
+      ptBookingRows
+        .map((b) => b.session?.program_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const programOrdinalBySession = new Map<string, number>();
+  if (programIds.length > 0) {
+    const { data: programSessions, error: programSessionsError } =
+      await supabase
+        .from("pt_sessions")
+        .select("id, program_id, start_at")
+        .in("program_id", programIds)
+        .order("start_at", { ascending: true });
+    logIfError("pt program sessions", programSessionsError);
+    const byProgram = new Map<string, string[]>();
+    for (const s of programSessions ?? []) {
+      const list = byProgram.get(s.program_id!) ?? [];
+      list.push(s.id);
+      byProgram.set(s.program_id!, list);
+    }
+    for (const list of byProgram.values()) {
+      list.forEach((sessionId, index) =>
+        programOrdinalBySession.set(sessionId, index + 1),
+      );
+    }
+  }
+
+  const ptUpcomingRows: PtUpcomingRowData[] = (ptUpcomingResult.data ?? [])
+    .filter((b) => b.session)
+    .map((b) => ({
+      bookingId: b.id,
+      startAt: b.session!.start_at,
+      endAt: b.session!.end_at,
+      label: ptSessionLabel(
+        b.session!.format,
+        b.session!.program_id,
+        b.session!.program?.total_sessions,
+        programOrdinalBySession.get(b.session!.id),
+      ),
+      trainerName: b.session!.trainer?.display_name ?? "coach",
+      status: "booked" as const,
+    }));
+
+  const ptHistoryRows: HistoryRowData[] = (ptHistoryResult.data ?? [])
+    .filter((b) => b.session)
+    .map((b) => ({
+      bookingId: b.id,
+      startAt: b.session!.start_at,
+      className: ptSessionLabel(
+        b.session!.format,
+        b.session!.program_id,
+        b.session!.program?.total_sessions,
+        programOrdinalBySession.get(b.session!.id),
+      ),
+      trainerName: b.session!.trainer?.display_name ?? "coach",
+      status: mapStatus(b.status),
+    }));
+
   return (
     <Container className="py-16 md:py-20">
       <header className="mb-12">
@@ -297,18 +458,38 @@ export default async function BoekingenPage(props: {
           aria-label="Komende boekingen"
           className="animate-tab-in"
         >
-          {upcomingRows.length === 0 ? (
+          {upcomingRows.length === 0 && ptUpcomingRows.length === 0 ? (
             <EmptyUpcoming />
           ) : (
-            <div>
-              {upcomingRows.map((row) => (
-                <UpcomingRow
-                  key={row.bookingId}
-                  row={row}
-                  cancellationWindowHours={cancellationWindowHours}
-                />
-              ))}
-            </div>
+            <>
+              {upcomingRows.length > 0 && (
+                <div>
+                  {upcomingRows.map((row) => (
+                    <UpcomingRow
+                      key={row.bookingId}
+                      row={row}
+                      cancellationWindowHours={cancellationWindowHours}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {ptUpcomingRows.length > 0 && (
+                <div className={upcomingRows.length > 0 ? "mt-12" : undefined}>
+                  <span className="tmc-eyebrow block mb-6">PT-sessies</span>
+                  <p className="text-text-muted text-sm mb-6 max-w-md">
+                    {/* COPY: confirm met Marlon */}
+                    Wil je een sessie wijzigen of afzeggen? Neem contact op
+                    met Marlon.
+                  </p>
+                  <div>
+                    {ptUpcomingRows.map((row) => (
+                      <PtUpcomingRow key={row.bookingId} row={row} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -319,15 +500,29 @@ export default async function BoekingenPage(props: {
           aria-label="Historie"
           className="animate-tab-in"
         >
-          {historyRows.length === 0 ? (
+          {historyRows.length === 0 && ptHistoryRows.length === 0 ? (
             <EmptyHistory />
           ) : (
             <>
-              <div>
-                {historyRows.map((row) => (
-                  <HistoryRow key={row.bookingId} row={row} />
-                ))}
-              </div>
+              {historyRows.length > 0 && (
+                <div>
+                  {historyRows.map((row) => (
+                    <HistoryRow key={row.bookingId} row={row} />
+                  ))}
+                </div>
+              )}
+
+              {ptHistoryRows.length > 0 && (
+                <div className={historyRows.length > 0 ? "mt-12" : undefined}>
+                  <span className="tmc-eyebrow block mb-6">PT-sessies</span>
+                  <div>
+                    {ptHistoryRows.map((row) => (
+                      <HistoryRow key={row.bookingId} row={row} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {(hasPrev || hasNext) && (
                 <nav
                   aria-label="Paginering"
