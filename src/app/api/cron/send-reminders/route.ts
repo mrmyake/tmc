@@ -4,11 +4,20 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import BookingReminder from "@/emails/booking_reminder";
+import IntakeReminder from "@/emails/intake_reminder";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
-const WINDOW_START_HOURS = 23;
+// PR K: het venster is bewust ruimer dan de uurlijkse cadans.
+// Vercel-cron-levering is best-effort: een run kan wegvallen en dezelfde
+// run kan dubbel vuren. Met 21-25u vooruit overleeft de reminder tot
+// drie gemiste opeenvolgende runs (de sessie zit dan nog steeds in het
+// venster van de eerstvolgende run die wel draait), en reminder_sent_at
+// dedupet een dubbele run. De correctheid hangt dus niet op
+// exact-elk-uur-precies; alleen de timing verschuift bij een gemiste
+// run iets richting "ruim 21 uur van tevoren".
+const WINDOW_START_HOURS = 21;
 const WINDOW_END_HOURS = 25;
 
 function siteUrl(): string {
@@ -16,14 +25,21 @@ function siteUrl(): string {
 }
 
 /**
- * Runs hourly. Picks booked rows for sessions 23–25h from now that haven't
- * had a reminder yet, sends the 24u email, stamps reminder_sent_at so a
- * re-run skips them. Fire-and-forget per mail — a MailerSend outage doesn't
- * block the stamping (we stamp first, email after) but an early-return cron
- * will retry uncovered rows on the next pass.
+ * Runs hourly (vercel.json "0 * * * *"; tot PR K stond die per abuis op
+ * 1x/dag 18:00 UTC, waardoor vrijwel geen enkele sessie ooit een
+ * reminder kreeg). Picks booked rows for sessions in the reminder window
+ * that haven't had a reminder yet, sends the 24u email, stamps
+ * reminder_sent_at so a re-run skips them. Fire-and-forget per mail — a
+ * MailerSend outage doesn't block the stamping (we stamp first, email
+ * after) but an early-return cron will retry uncovered rows on the next
+ * pass.
  *
- * Net effect: each booking receives at most one reminder, within an hour
- * of the 24h mark.
+ * Net effect: each booking receives at most one reminder, around the
+ * 24h mark. Three flavours share the same window and the same
+ * stamp-first dedupe, each on its own kolom: groepslessen
+ * (bookings.reminder_sent_at), PT-boekingen (pt_bookings.reminder_sent_at)
+ * en intakes (pt_sessions.reminder_sent_at, account-loos dus zonder
+ * pt_bookings-rij; PR K).
  */
 export async function GET(req: Request) {
   const denied = verifyCronAuth(req);
@@ -254,6 +270,89 @@ export async function GET(req: Request) {
     }
   }
 
+  // Intakes (PR K): kind='intake' is account-loos (prospect-velden op de
+  // sessie, geen pt_bookings-rij), dus de stempel staat op
+  // pt_sessions.reminder_sent_at zelf. Zelfde window, zelfde
+  // stamp-eerst-dedupe. Alleen status 'scheduled': een geannuleerde
+  // intake is hard gedelete (cancel_pt_intake) en een afgeronde staat op
+  // 'completed', dus die krijgen hier nooit een reminder. Geen push:
+  // een prospect heeft geen profiel.
+  type IntakeRow = {
+    id: string;
+    start_at: string;
+    end_at: string;
+    prospect_name: string | null;
+    prospect_email: string | null;
+    trainer: { display_name: string | null } | null;
+  };
+
+  const { data: intakeCandidates, error: intakeError } = await admin
+    .from("pt_sessions")
+    .select(
+      `
+        id, start_at, end_at, prospect_name, prospect_email,
+        trainer:trainers(display_name)
+      `,
+    )
+    .eq("kind", "intake")
+    .eq("status", "scheduled")
+    .is("reminder_sent_at", null)
+    .gte("start_at", windowStart.toISOString())
+    .lt("start_at", windowEnd.toISOString())
+    .returns<IntakeRow[]>();
+
+  let intakeSent = 0;
+  let intakeSkipped = 0;
+
+  if (intakeError) {
+    console.error("[cron/send-reminders] intake query failed", intakeError);
+  } else {
+    for (const row of intakeCandidates ?? []) {
+      if (!row.prospect_email) {
+        intakeSkipped++;
+        continue;
+      }
+
+      const { error: stampErr } = await admin
+        .from("pt_sessions")
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("reminder_sent_at", null);
+      if (stampErr) {
+        console.error(
+          "[cron/send-reminders] intake stamp failed",
+          row.id,
+          stampErr,
+        );
+        intakeSkipped++;
+        continue;
+      }
+
+      const tr = (Array.isArray(row.trainer)
+        ? row.trainer[0]
+        : row.trainer) as { display_name: string | null } | null;
+      const start = new Date(row.start_at);
+      const end = new Date(row.end_at);
+      const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+
+      await sendEmail({
+        to: row.prospect_email,
+        toName: row.prospect_name ?? undefined,
+        // COPY: confirm met Marlon
+        subject: "Morgen: je intake bij The Movement Club",
+        react: IntakeReminder({
+          prospectName: row.prospect_name ?? "",
+          trainerName: tr?.display_name ?? "je trainer",
+          whenLabel,
+          locationLabel: "Industrieweg 14P, Loosdrecht",
+          siteUrl: siteUrl(),
+        }),
+      });
+
+      intakeSent++;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     checked: candidates?.length ?? 0,
@@ -263,5 +362,8 @@ export async function GET(req: Request) {
     ptChecked: ptCandidates?.length ?? 0,
     ptSent,
     ptSkipped,
+    intakeChecked: intakeCandidates?.length ?? 0,
+    intakeSent,
+    intakeSkipped,
   });
 }
