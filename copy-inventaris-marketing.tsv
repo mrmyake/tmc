@@ -1,0 +1,1075 @@
+id	route	sectie	volgorde	type	tekst	bronsoort	bron	copy_marker
+_meta.commit.1	_meta	commit-hash	1	microcopy	95a50ab47963c019ff2593bdfd3c1b8106e617f1	code	git rev-parse HEAD	
+_meta.timestamp.1	_meta	extractie-tijdstip	1	microcopy	2026-07-15T17:25:21Z	code	date -u	
+_global.meta.1	_global	root-metadata	1	meta-title	The Movement Club | Boutique Training Studio Loosdrecht	code	src/app/layout.tsx:83	
+_global.meta.2	_global	root-metadata	2	meta-description	Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je gratis proefles.	code	src/app/layout.tsx:87	
+_global.meta.3	_global	root-metadata	3	meta-title	%s | The Movement Club	code	src/app/layout.tsx:84	
+_global.jsonld.1	_global	structured-data	1	json-ld	Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength.	code	src/lib/structuredData.ts:9	
+_global.jsonld.2	_global	structured-data	2	json-ld	Yogavormen bij The Movement Club	code	src/lib/structuredData.ts:133	
+_global.constants.1	_global	site-instellingen	1	label	The Movement Club	code	src/lib/constants.ts:25	
+_global.constants.2	_global	site-instellingen	2	body	Where Strength Meets Movement	code	src/lib/constants.ts:26	
+_global.constants.3	_global	site-instellingen	3	body	Boutique training studio in Loosdrecht. Persoonlijk. Exclusief. Resultaatgericht.	code	src/lib/constants.ts:28	
+_global.constants.4	_global	site-instellingen	4	label	Head Trainer & Oprichtster	code	src/lib/constants.ts:45	
+_global.campaignteaser.1	_global	campagne-teaser	1	microcopy	Binnenkort open in Loosdrecht. Word Early Member en profiteer als eerste mee.	code	src/components/layout/CampaignTeaser.tsx:46	
+_global.campaignteaser.2	_global	campagne-teaser	2	microcopy	We zijn open. Early Member nog beschikbaar tot {deadlineLabel}.	code	src/components/layout/CampaignTeaser.tsx:47	
+_global.campaignteaser.3	_global	campagne-teaser	3	microcopy	Binnenkort open in Loosdrecht.	code	src/components/layout/CampaignTeaser.tsx:50	
+_global.campaignteaser.4	_global	campagne-teaser	4	microcopy	Early Member nog tot {deadlineLabel}.	code	src/components/layout/CampaignTeaser.tsx:51	
+_global.campaignteaser.5	_global	campagne-teaser	5	cta	Word Early Member →	code	src/components/layout/CampaignTeaser.tsx:72	COPY: confirm met Marlon (regel 38, geldt voor alle teaser-teksten)
+_global.campaignteaser.6	_global	campagne-teaser	6	microcopy	Sluiten	code	src/components/layout/CampaignTeaser.tsx:77	
+_global.navbar.1	_global	navbar	1	label	TMC	code	src/components/layout/Navbar.tsx:104	
+_global.navbar.2	_global	navbar	2	label	The Movement Club	code	src/components/layout/Navbar.tsx:107	
+_global.navbar.3	_global	navbar	3	microcopy	The Movement Club, home	code	src/components/layout/Navbar.tsx:97	
+_global.navbar.4	_global	navbar	4	label	Aanbod	code	src/lib/constants.ts:62	COPY: confirm met Marlon
+_global.navbar.5	_global	navbar	5	label	Prijzen	code	src/lib/constants.ts:63	COPY: confirm met Marlon
+_global.navbar.6	_global	navbar	6	label	Early Member	code	src/lib/constants.ts:64	COPY: confirm met Marlon
+_global.navbar.7	_global	navbar	7	label	Over ons	code	src/lib/constants.ts:65	COPY: confirm met Marlon
+_global.navbar.8	_global	navbar	8	label	Word lid	code	src/components/layout/Navbar.tsx:83	COPY: confirm met Marlon
+_global.navbar.9	_global	navbar-aanbod-dropdown	9	label	Groepslessen	code	src/lib/constants.ts:84	COPY: confirm met Marlon
+_global.navbar.10	_global	navbar-aanbod-dropdown	10	microcopy	yoga, mobility, kettlebell	code	src/lib/constants.ts:86	COPY: confirm met Marlon
+_global.navbar.11	_global	navbar-aanbod-dropdown	11	label	Yoga	code	src/lib/constants.ts:88	COPY: confirm met Marlon
+_global.navbar.12	_global	navbar-aanbod-dropdown	12	label	Vrij trainen	code	src/lib/constants.ts:89	COPY: confirm met Marlon
+_global.navbar.13	_global	navbar-aanbod-dropdown	13	label	All Access	code	src/lib/constants.ts:90	COPY: confirm met Marlon
+_global.navbar.14	_global	navbar-aanbod-dropdown	14	label	Personal Training & Duo	code	src/lib/constants.ts:92	COPY: confirm met Marlon
+_global.navbar.15	_global	navbar-aanbod-dropdown	15	label	12-weken programma	code	src/lib/constants.ts:95	COPY: confirm met Marlon
+_global.navbar.16	_global	navbar	16	label	Inloggen	code	src/components/layout/Navbar.tsx:80	COPY: confirm met Marlon
+_global.navbar.17	_global	navbar	17	cta	Plan je proefles	code	src/components/layout/Navbar.tsx:189	
+_global.navbar.18	_global	navbar	18	microcopy	Sluit menu	code	src/components/layout/Navbar.tsx:196	
+_global.navbar.19	_global	navbar	19	microcopy	Open menu	code	src/components/layout/Navbar.tsx:196	
+_global.footer.1	_global	footer	1	label	The Movement Club	code	src/components/layout/Footer.tsx:25-26	
+_global.footer.2	_global	footer	2	body	Boutique training studio in {settings.address.city}. Kleine groepen, echte coaching, patronen die blijven.	code	src/components/layout/Footer.tsx:29-30	
+_global.footer.3	_global	footer	3	label	Navigatie	code	src/components/layout/Footer.tsx:37	
+_global.footer.4	_global	footer	4	label	Home	code	src/lib/constants.ts:71	COPY: confirm met Marlon
+_global.footer.5	_global	footer	5	label	Contact	code	src/lib/constants.ts:73	COPY: confirm met Marlon
+_global.footer.6	_global	footer	6	cta	Plan je proefles	code	src/components/layout/Footer.tsx:46	
+_global.footer.7	_global	footer	7	label	Gratis starten	code	src/components/layout/Footer.tsx:53	
+_global.footer.8	_global	footer	8	label	Beweeg Beter guide	code	src/components/layout/Footer.tsx:57	
+_global.footer.9	_global	footer	9	label	7-Dagen Mobility Reset	code	src/components/layout/Footer.tsx:60-62	
+_global.footer.10	_global	footer	10	label	Gratis Mobility Check	code	src/components/layout/Footer.tsx:65-67	
+_global.footer.11	_global	footer	11	label	Ook van Marlon	code	src/components/layout/Footer.tsx:74	
+_global.footer.12	_global	footer	12	label	Hormoonprofiel.com	code	src/components/layout/Footer.tsx:77	
+_global.footer.13	_global	footer	13	label	Contact	code	src/components/layout/Footer.tsx:84	
+_global.footer.14	_global	footer	14	label	Instagram	code	src/components/layout/Footer.tsx:105	
+_global.footer.15	_global	footer	15	microcopy	© {jaar} {settings.studioName}. Alle rechten voorbehouden.	code	src/components/layout/Footer.tsx:114-115	
+_global.footer.16	_global	footer	16	label	Privacyverklaring	code	src/components/layout/Footer.tsx:118	
+_global.footer.17	_global	footer	17	microcopy	KvK {settings.kvkNumber} · BTW {settings.btwNumber}	code	src/components/layout/Footer.tsx:120	
+_global.infooptin.1	_global	info-optin-banner	1	body	Bedankt, we houden je op de hoogte.	code	src/components/blocks/InfoOptInBanner.tsx:105	COPY: confirm met Marlon
+_global.infooptin.2	_global	info-optin-banner	2	label	Blijf op de hoogte	code	src/components/blocks/InfoOptInBanner.tsx:111	COPY: confirm met Marlon
+_global.infooptin.3	_global	info-optin-banner	3	body	Laat je e-mailadres achter en we houden je op de hoogte.	code	src/components/blocks/InfoOptInBanner.tsx:115	COPY: confirm met Marlon
+_global.infooptin.4	_global	info-optin-banner	4	label	Voornaam	code	src/components/blocks/InfoOptInBanner.tsx:122	
+_global.infooptin.5	_global	info-optin-banner	5	label	E-mailadres	code	src/components/blocks/InfoOptInBanner.tsx:131	
+_global.infooptin.6	_global	info-optin-banner	6	cta	Versturen	code	src/components/blocks/InfoOptInBanner.tsx:145	COPY: confirm met Marlon
+_global.infooptin.7	_global	info-optin-banner	7	cta	Aanmelden	code	src/components/blocks/InfoOptInBanner.tsx:145	COPY: confirm met Marlon
+_global.infooptin.8	_global	info-optin-banner	8	microcopy	Sluiten	code	src/components/blocks/InfoOptInBanner.tsx:98	
+_global.footercta.1	_global	footer-cta	1	body	Gratis: Beweeg Beter Guide	code	src/components/blocks/FooterCTA.tsx:11	
+_global.footercta.2	_global	footer-cta	2	body	5 dagelijkse oefeningen voor meer mobiliteit en kracht	code	src/components/blocks/FooterCTA.tsx:14	
+_global.footercta.3	_global	footer-cta	3	cta	Download gratis	code	src/components/blocks/FooterCTA.tsx:18	
+_global.cookieconsent.1	_global	cookie-consent	1	body	Wij gebruiken cookies	code	src/components/layout/CookieConsent.tsx:40	
+_global.cookieconsent.2	_global	cookie-consent	2	body	We gebruiken analytische cookies om onze website te verbeteren. Geen advertentiecookies, geen tracking door derden.	code	src/components/layout/CookieConsent.tsx:43-44	
+_global.cookieconsent.3	_global	cookie-consent	3	cta	Accepteren	code	src/components/layout/CookieConsent.tsx:48	
+_global.cookieconsent.4	_global	cookie-consent	4	cta	Weigeren	code	src/components/layout/CookieConsent.tsx:51	
+home.hero.1	/	hero	1	microcopy	Boutique training studio · {settings.address.city}	code	src/components/blocks/Hero.tsx:97	
+home.hero.2	/	hero	2	h1	{settings.tagline met accentwoord uit settings.taglineAccent}	sanity	siteSettings.tagline / siteSettings.taglineAccent	
+home.hero.3	/	hero	3	body	Boutique training studio in {settings.address.city}. Kleine groepen, echte coaching, patronen die blijven.	code	src/components/blocks/Hero.tsx:111-112	
+home.hero.4	/	hero	4	cta	Plan je proefles	code	src/components/blocks/Hero.tsx:119	
+home.hero.5	/	hero	5	cta	Download de guide	code	src/components/blocks/Hero.tsx:120-121	
+home.hero.6	/	hero	6	alt	The Movement Club studio	code	src/components/blocks/Hero.tsx:75	
+home.philosophy.1	/	philosophy-grid	1	label	Onze filosofie	code	src/components/blocks/PhilosophyGrid.tsx:18	
+home.philosophy.2	/	philosophy-grid	2	h2	Drie pijlers. Eén visie.	code	src/components/blocks/PhilosophyGrid.tsx:19	
+home.philosophy.3	/	philosophy-grid	3	body	Elke training bij The Movement Club is gebouwd op deze drie fundamenten.	code	src/components/blocks/PhilosophyGrid.tsx:20	
+home.philosophy.4	/	philosophy-grid	4	h3	Movement	code	src/lib/constants.ts:100	
+home.philosophy.5	/	philosophy-grid	5	body	Functionele bewegingspatronen die je lichaam weer laten doen waarvoor het gemaakt is.	code	src/lib/constants.ts:101-102	
+home.philosophy.6	/	philosophy-grid	6	h3	Mobility	code	src/lib/constants.ts:105	
+home.philosophy.7	/	philosophy-grid	7	body	Flexibiliteit en mobiliteit als fundament voor een sterk en gezond lichaam.	code	src/lib/constants.ts:106-107	
+home.philosophy.8	/	philosophy-grid	8	h3	Strength	code	src/lib/constants.ts:110	
+home.philosophy.9	/	philosophy-grid	9	body	Kracht opbouwen met precisie, techniek en een programma dat bij jou past.	code	src/lib/constants.ts:111-112	
+home.scheduleteaser.1	/	schedule-teaser	1	label	Komend op het rooster	code	src/components/blocks/ScheduleTeaser.tsx:218-219	
+home.scheduleteaser.2	/	schedule-teaser	2	h2	Wat staat er klaar.	code	src/components/blocks/ScheduleTeaser.tsx:221-222	
+home.scheduleteaser.3	/	schedule-teaser	3	body	Momenteel staan er geen sessies gepland. Kijk straks terug of bekijk het rooster in Sanity.	code	src/components/blocks/ScheduleTeaser.tsx:136-137	
+home.scheduleteaser.4	/	schedule-teaser	4	microcopy	Vandaag	code	src/components/blocks/ScheduleTeaser.tsx:147	
+home.scheduleteaser.5	/	schedule-teaser	5	microcopy	Vandaag geen sessies. Morgen om {tijd} weer van start.	code	src/components/blocks/ScheduleTeaser.tsx:150-152	
+home.scheduleteaser.6	/	schedule-teaser	6	microcopy	Vol	code	src/components/blocks/ScheduleTeaser.tsx:192	
+home.scheduleteaser.7	/	schedule-teaser	7	microcopy	{n} plekken	code	src/components/blocks/ScheduleTeaser.tsx:192	
+home.scheduleteaser.8	/	schedule-teaser	8	cta	Bekijk het volledige rooster	code	src/components/blocks/ScheduleTeaser.tsx:227-229 (exacte tekst niet volledig zichtbaar in laatst gelezen fragment, zie regel 226-229)	
+home.scheduleteaser.9	/	schedule-teaser	9	body	{class_type.name} (lessessie)	database	tmc.class_sessions via class_types.name	
+home.scheduleteaser.10	/	schedule-teaser	10	label	Vrij trainen	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.vrij_trainen)	
+home.scheduleteaser.11	/	schedule-teaser	11	label	Yoga & mobility	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.yoga_mobility)	
+home.scheduleteaser.12	/	schedule-teaser	12	label	Kettlebell	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.kettlebell)	
+home.studiosection.1	/	studio-section	1	microcopy	01 · De studio	code	src/components/blocks/StudioSection.tsx:50-51	
+home.studiosection.2	/	studio-section	2	h2	160m² puur voor jouw training	code	src/components/blocks/StudioSection.tsx:53	
+home.studiosection.3	/	studio-section	3	body	Geen drukte, geen wachtrijen, geen anonimiteit. The Movement Club is bewust kleinschalig, zodat elke training voelt alsof de studio er alleen voor jou is.	code	src/components/blocks/StudioSection.tsx:57-59	
+home.studiosection.4	/	studio-section	4	body	Met high-end apparatuur, doordachte verlichting en een sfeer die je nergens anders vindt, is onze studio ontworpen om het beste uit jezelf te halen. Elke vierkante meter is ingericht met oog voor functionaliteit én beleving.	code	src/components/blocks/StudioSection.tsx:61-65	
+home.studiosection.5	/	studio-section	5	cta	Meer over onze studio	code	src/components/blocks/StudioSection.tsx:69-71	
+home.studiosection.6	/	studio-section	6	alt	The Movement Club studio interieur	code	src/components/blocks/StudioSection.tsx:32	
+home.studiosection.7	/	studio-section	7	microcopy	Studio foto	code	src/components/blocks/StudioSection.tsx:41	
+home.trainerspotlight.1	/	trainer-spotlight	1	microcopy	02 · {trainer.role}	code	src/components/blocks/TrainerSpotlight.tsx:28	
+home.trainerspotlight.2	/	trainer-spotlight	2	h2	Maak kennis met {trainer.name}	code	src/components/blocks/TrainerSpotlight.tsx:30-31	
+home.trainerspotlight.3	/	trainer-spotlight	3	body	head_trainer (rol-code, niet gerenderd label)	sanity	trainer-marlon.role	
+home.trainerspotlight.4	/	trainer-spotlight	4	body	Ik ben Marlon, oprichter en head trainer van The Movement Club. Al jaren trainer, nog steeds elke dag lerend. Ik begon zelf te trainen om terug te komen van blessures en ontdekte dat ik pas écht lenig werd toen ik leerde tillen. Dat inzicht, dat sterk zijn en soepel zijn hetzelfde dier is, is het fundament van alles wat ik hier doe.	sanity	trainer-marlon.bio	
+home.trainerspotlight.5	/	trainer-spotlight	5	body	Ik geloof dat iedereen een atleet is. Het gaat er niet om hoe zwaar je tilt, maar hoe goed je beweegt.	sanity	trainer-marlon.quote	
+home.trainerspotlight.6	/	trainer-spotlight	6	alt	Portret Marlon	code	src/components/blocks/TrainerSpotlight.tsx:76 (template "Portret {trainer.name}")	
+home.offeringcards.1	/	offering-cards	1	label	Het aanbod	code	src/components/blocks/OfferingCards.tsx:23	
+home.offeringcards.2	/	offering-cards	2	h2	Training die bij jou past	code	src/components/blocks/OfferingCards.tsx:24	
+home.offeringcards.3	/	offering-cards	3	body	Of je nu kiest voor persoonlijke begeleiding of de energie van een kleine groep. Elke sessie is doordacht en op maat.	code	src/components/blocks/OfferingCards.tsx:25	
+home.offeringcards.4	/	offering-cards	4	h3	Personal Training	sanity	offering-personal-training.title	
+home.offeringcards.5	/	offering-cards	5	body	Eén-op-één, volledig op maat	sanity	offering-personal-training.subtitle	
+home.offeringcards.6	/	offering-cards	6	h3	Small Group Training	sanity	offering-small-group.title	
+home.offeringcards.7	/	offering-cards	7	body	Maximaal 6 personen	sanity	offering-small-group.subtitle	
+home.offeringcards.8	/	offering-cards	8	h3	Mobility Sessions	sanity	offering-mobility.title	
+home.offeringcards.9	/	offering-cards	9	body	Het fundament van goed bewegen	sanity	offering-mobility.subtitle	
+home.offeringcards.10	/	offering-cards	10	h3	Strength Programs	sanity	offering-strength.title	
+home.offeringcards.11	/	offering-cards	11	body	Gestructureerd sterker worden	sanity	offering-strength.subtitle	
+home.offeringcards.12	/	offering-cards	12	cta	Meer info	code	src/components/blocks/OfferingCards.tsx:62	
+home.offeringcards.13	/	offering-cards	13	alt	{offering.title} — The Movement Club	code	src/components/blocks/OfferingCards.tsx:37	
+home.yogateaser.1	/	yoga-teaser	1	label	Yoga · Loosdrecht & regio Hilversum	code	src/components/blocks/YogaTeaser.tsx:15	
+home.yogateaser.2	/	yoga-teaser	2	h2	Ook yoga, van diepe rust tot dynamische flow.	code	src/components/blocks/YogaTeaser.tsx:18	
+home.yogateaser.3	/	yoga-teaser	3	body	Naast personal training en kracht vind je bij The Movement Club ook yoga. Yin, Restorative, Yoga Nidra, iRest en Flow, in kleine, persoonlijke lessen. Onze studio in Loosdrecht ligt op zo'n tien minuten van Hilversum en is goed bereikbaar vanuit het hele Gooi.	code	src/components/blocks/YogaTeaser.tsx:21-24	
+home.yogateaser.4	/	yoga-teaser	4	cta	Ontdek yoga in Loosdrecht	code	src/components/blocks/YogaTeaser.tsx:27	
+home.yogateaser.5	/	yoga-teaser	5	cta	Bekijk het yogarooster	code	src/components/blocks/YogaTeaser.tsx:28	
+home.pricingtable.1	/	pricing-table	1	label	Lidmaatschap	code	src/components/blocks/PricingTable.tsx:32	
+home.pricingtable.2	/	pricing-table	2	h2	Investeer in jezelf	code	src/components/blocks/PricingTable.tsx:33	
+home.pricingtable.3	/	pricing-table	3	body	Kies het traject dat past bij jouw doelen en levensstijl.	code	src/components/blocks/PricingTable.tsx:34	
+home.pricingtable.4	/	pricing-table	4	microcopy	Meest gekozen	code	src/components/blocks/PricingTable.tsx:49	
+home.pricingtable.5	/	pricing-table	5	h3	Groepslessen Onbeperkt	code	src/app/page.tsx:31 (fallback-naam; live naam/prijs komt uit tmc.catalogue)	COPY: confirm met Marlon
+home.pricingtable.6	/	pricing-table	6	body	Onbeperkt groepslessen	code	src/app/page.tsx:34	COPY: confirm met Marlon
+home.pricingtable.7	/	pricing-table	7	body	Yoga, mobility en kettlebell, mix zoals jij wilt	code	src/app/page.tsx:34	COPY: confirm met Marlon
+home.pricingtable.8	/	pricing-table	8	h3	Vrij Trainen Onbeperkt	code	src/app/page.tsx:41 (fallback-naam)	COPY: confirm met Marlon
+home.pricingtable.9	/	pricing-table	9	body	Onbeperkt vrij trainen	code	src/app/page.tsx:44	COPY: confirm met Marlon
+home.pricingtable.10	/	pricing-table	10	body	Toegang tot alle equipment	code	src/app/page.tsx:44	COPY: confirm met Marlon
+home.pricingtable.11	/	pricing-table	11	h3	All Access Onbeperkt	code	src/app/page.tsx:50 (fallback-naam)	COPY: confirm met Marlon
+home.pricingtable.12	/	pricing-table	12	body	Onbeperkt alle lessen	code	src/app/page.tsx:54	COPY: confirm met Marlon
+home.pricingtable.13	/	pricing-table	13	body	Vrij trainen inbegrepen	code	src/app/page.tsx:54	COPY: confirm met Marlon
+home.pricingtable.14	/	pricing-table	14	body	Yoga, mobility, kettlebell	code	src/app/page.tsx:54	COPY: confirm met Marlon
+home.pricingtable.15	/	pricing-table	15	cta	Bekijk alle tarieven	code	src/app/page.tsx:35,45,55	COPY: confirm met Marlon
+home.pricingtable.16	/	pricing-table	16	prijs-dynamisch	{display_name}	database	tmc.catalogue.display_name (_id groepslessen_unl/vrij_trainen_unl/all_inclusive_unl)	
+home.pricingtable.17	/	pricing-table	17	prijs-dynamisch	{formatPriceEuro(price_cents)} / 4 weken	database	tmc.catalogue.price_cents (zelfde drie rijen)	
+home.testimonials.1	/	testimonial-carousel	1	label	Reviews	code	src/components/blocks/TestimonialCarousel.tsx:81	
+home.testimonials.2	/	testimonial-carousel	2	h2	Wat onze leden zeggen	code	src/components/blocks/TestimonialCarousel.tsx:82	
+home.testimonials.3	/	testimonial-carousel	3	body	Beoordeeld op Google, voorheen onder de naam PT Loosdrecht.	code	src/components/blocks/TestimonialCarousel.tsx:83	
+home.testimonials.4	/	testimonial-carousel	4	microcopy	Google reviews van onze leden	code	src/components/blocks/TestimonialCarousel.tsx:89	
+home.testimonials.5	/	testimonial-carousel	5	microcopy	Volgende review	code	src/components/blocks/TestimonialCarousel.tsx:58	
+home.testimonials.6	/	testimonial-carousel	6	microcopy	Vorige review	code	src/components/blocks/TestimonialCarousel.tsx:60	
+home.testimonials.7	/	testimonial-carousel	7	microcopy	Carousel navigatie	code	src/components/blocks/TestimonialCarousel.tsx:62	
+home.testimonials.8	/	testimonial-carousel	8	cta	Bekijk alle reviews op Google	code	src/components/blocks/TestimonialCarousel.tsx:117	
+home.contactsection.1	/	contact-section	1	label	Locatie · Contact	code	src/components/blocks/ContactSection.tsx:24	
+home.contactsection.2	/	contact-section	2	h2	Kom langs	code	src/components/blocks/ContactSection.tsx:25	
+home.contactsection.3	/	contact-section	3	body	We verwelkomen je graag in onze studio aan de {settings.address.street} in {settings.address.city}.	code	src/components/blocks/ContactSection.tsx:26	
+home.contactsection.4	/	contact-section	4	microcopy	The Movement Club locatie	code	src/components/blocks/ContactSection.tsx:39	
+home.contactsection.5	/	contact-section	5	label	Adres	code	src/components/blocks/ContactSection.tsx:47	
+home.contactsection.6	/	contact-section	6	label	Openingstijden	code	src/components/blocks/ContactSection.tsx:56	
+home.contactsection.7	/	contact-section	7	microcopy	Gesloten	code	src/components/blocks/ContactSection.tsx:60	
+home.contactsection.8	/	contact-section	8	label	Direct contact	code	src/components/blocks/ContactSection.tsx:70	
+home.contactsection.9	/	contact-section	9	body	Stuur ons een bericht via WhatsApp, of mail naar {email}.	code	src/components/blocks/ContactSection.tsx:71-79	
+home.contactsection.10	/	contact-section	10	cta	WhatsApp ons	code	src/components/blocks/ContactSection.tsx:82	
+home.contactsection.11	/	contact-section	11	cta	Naar contactpagina	code	src/components/blocks/ContactSection.tsx:88	
+home.contactsection.12	/	contact-section	12	body	Maandag	sanity	openingHours.schedule[0].day	
+home.contactsection.13	/	contact-section	13	body	Dinsdag	sanity	openingHours.schedule[1].day	
+home.contactsection.14	/	contact-section	14	body	Woensdag	sanity	openingHours.schedule[2].day	
+home.contactsection.15	/	contact-section	15	body	Donderdag	sanity	openingHours.schedule[3].day	
+home.contactsection.16	/	contact-section	16	body	Vrijdag	sanity	openingHours.schedule[4].day	
+home.contactsection.17	/	contact-section	17	body	Zaterdag	sanity	openingHours.schedule[5].day	
+home.contactsection.18	/	contact-section	18	body	Zondag	sanity	openingHours.schedule[6].day	
+aanbod.header.1	/aanbod	header	1	label	Ons aanbod	code	src/app/aanbod/AanbodContent.tsx:131	
+aanbod.header.2	/aanbod	header	2	h1	Trainingen op maat	code	src/app/aanbod/AanbodContent.tsx:133	COPY: confirm met Marlon
+aanbod.header.3	/aanbod	header	3	body	Elke trainingsvorm bij The Movement Club is ontworpen met hetzelfde doel: jou helpen beter te bewegen, sterker te worden en je het beste te laten voelen.	code	src/app/aanbod/AanbodContent.tsx:134	
+aanbod.pt.1	/aanbod	personal-training	1	microcopy	01 · Eén-op-één, volledig op maat	code	src/app/aanbod/AanbodContent.tsx:172 (template {i+1} · {subtitle})	
+aanbod.pt.2	/aanbod	personal-training	2	h2	Personal Training	code	src/app/aanbod/AanbodContent.tsx:36	
+aanbod.pt.3	/aanbod	personal-training	3	body	De meest effectieve manier om je doelen te bereiken. Elke sessie is volledig afgestemd op jouw lichaam, niveau en ambities. Marlon begeleidt je door elke beweging met volle aandacht.	code	src/app/aanbod/AanbodContent.tsx:38-39	
+aanbod.pt.4	/aanbod	personal-training	4	label	Voor wie	code	src/app/aanbod/AanbodContent.tsx:183	
+aanbod.pt.5	/aanbod	personal-training	5	body	Voor iedereen die maximaal resultaat wil met persoonlijke begeleiding.	code	src/app/aanbod/AanbodContent.tsx:40	
+aanbod.pt.6	/aanbod	personal-training	6	label	Wat kun je verwachten	code	src/app/aanbod/AanbodContent.tsx:190-192	
+aanbod.pt.7	/aanbod	personal-training	7	body	Intake en assessment van je huidige niveau	code	src/app/aanbod/AanbodContent.tsx:42	
+aanbod.pt.8	/aanbod	personal-training	8	body	Gepersonaliseerd trainingsschema	code	src/app/aanbod/AanbodContent.tsx:43	
+aanbod.pt.9	/aanbod	personal-training	9	body	Continue begeleiding en bijsturing	code	src/app/aanbod/AanbodContent.tsx:44	
+aanbod.pt.10	/aanbod	personal-training	10	body	Voedingsadvies op maat	code	src/app/aanbod/AanbodContent.tsx:45	
+aanbod.pt.11	/aanbod	personal-training	11	label	Frequentie	code	src/app/aanbod/AanbodContent.tsx:211	
+aanbod.pt.12	/aanbod	personal-training	12	body	1-4x per week, flexibel in te plannen	code	src/app/aanbod/AanbodContent.tsx:47	
+aanbod.pt.13	/aanbod	personal-training	13	cta	Probeer het zelf	code	src/app/aanbod/AanbodContent.tsx:217	
+aanbod.pt.14	/aanbod	personal-training	14	alt	Personal Training — The Movement Club	code	src/app/aanbod/AanbodContent.tsx:153	
+aanbod.sg.1	/aanbod	small-group	1	microcopy	02 · Maximaal 6 personen	code	src/app/aanbod/AanbodContent.tsx:172	
+aanbod.sg.2	/aanbod	small-group	2	h2	Small Group Training	code	src/app/aanbod/AanbodContent.tsx:51	
+aanbod.sg.3	/aanbod	small-group	3	body	De energie van samen trainen, met de aandacht van personal training. In groepen van maximaal 6 personen garanderen we dat iedereen gezien wordt en de juiste techniek hanteert.	code	src/app/aanbod/AanbodContent.tsx:53-54	
+aanbod.sg.4	/aanbod	small-group	4	body	Voor wie de balans zoekt tussen persoonlijke aandacht en groepsdynamiek.	code	src/app/aanbod/AanbodContent.tsx:55	
+aanbod.sg.5	/aanbod	small-group	5	body	Gevarieerde workouts die uitdagen	code	src/app/aanbod/AanbodContent.tsx:57	
+aanbod.sg.6	/aanbod	small-group	6	body	Persoonlijke correcties en aanpassingen	code	src/app/aanbod/AanbodContent.tsx:58	
+aanbod.sg.7	/aanbod	small-group	7	body	Vaste trainingstijden voor routine	code	src/app/aanbod/AanbodContent.tsx:59	
+aanbod.sg.8	/aanbod	small-group	8	body	Motivatie van een hechte groep	code	src/app/aanbod/AanbodContent.tsx:60	
+aanbod.sg.9	/aanbod	small-group	9	body	Vaste momenten door de week, ochtend en avond	code	src/app/aanbod/AanbodContent.tsx:62	
+aanbod.sg.10	/aanbod	small-group	10	alt	Small Group Training — The Movement Club	code	src/app/aanbod/AanbodContent.tsx:153	
+aanbod.mob.1	/aanbod	mobility	1	microcopy	03 · Het fundament van goed bewegen	code	src/app/aanbod/AanbodContent.tsx:172	
+aanbod.mob.2	/aanbod	mobility	2	h2	Mobility Sessions	code	src/app/aanbod/AanbodContent.tsx:66	
+aanbod.mob.3	/aanbod	mobility	3	body	Mobility is geen nice-to-have, het is de basis. In deze sessies werken we gericht aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn. Ideaal als aanvulling op je training of als zelfstandig traject.	code	src/app/aanbod/AanbodContent.tsx:68-69	
+aanbod.mob.4	/aanbod	mobility	4	body	Voor iedereen met stijfheid, blessure-gevoeligheid of zittend werk.	code	src/app/aanbod/AanbodContent.tsx:70	
+aanbod.mob.5	/aanbod	mobility	5	body	Gerichte mobiliteitsroutines	code	src/app/aanbod/AanbodContent.tsx:72	
+aanbod.mob.6	/aanbod	mobility	6	body	Myofasciale release technieken	code	src/app/aanbod/AanbodContent.tsx:73	
+aanbod.mob.7	/aanbod	mobility	7	body	Ademhalingswerk	code	src/app/aanbod/AanbodContent.tsx:74	
+aanbod.mob.8	/aanbod	mobility	8	body	Bewegingsscreenings	code	src/app/aanbod/AanbodContent.tsx:75	
+aanbod.mob.9	/aanbod	mobility	9	body	1-2x per week, los of als aanvulling	code	src/app/aanbod/AanbodContent.tsx:77	
+aanbod.mob.10	/aanbod	mobility	10	alt	Mobility Sessions — The Movement Club	code	src/app/aanbod/AanbodContent.tsx:153	
+aanbod.str.1	/aanbod	strength	1	microcopy	04 · Gestructureerd sterker worden	code	src/app/aanbod/AanbodContent.tsx:172	
+aanbod.str.2	/aanbod	strength	2	h2	Strength Programs	code	src/app/aanbod/AanbodContent.tsx:81	
+aanbod.str.3	/aanbod	strength	3	body	Een doordacht krachtprogramma dat periodisatie, progressieve overload en herstelbeheer combineert. Geen random workouts, maar een plan dat je meetbaar sterker maakt, week na week.	code	src/app/aanbod/AanbodContent.tsx:83-84	
+aanbod.str.4	/aanbod	strength	4	body	Voor gevorderden die structuur en progressie zoeken in hun krachttraining.	code	src/app/aanbod/AanbodContent.tsx:85	
+aanbod.str.5	/aanbod	strength	5	body	Periodisatie-schema op maat	code	src/app/aanbod/AanbodContent.tsx:87	
+aanbod.str.6	/aanbod	strength	6	body	Progressieve overload tracking	code	src/app/aanbod/AanbodContent.tsx:88	
+aanbod.str.7	/aanbod	strength	7	body	Techniekanalyse van compound lifts	code	src/app/aanbod/AanbodContent.tsx:89	
+aanbod.str.8	/aanbod	strength	8	body	Regelmatige evaluatiemomenten	code	src/app/aanbod/AanbodContent.tsx:90	
+aanbod.str.9	/aanbod	strength	9	body	3-4x per week, volgens vast schema	code	src/app/aanbod/AanbodContent.tsx:92	
+aanbod.str.10	/aanbod	strength	10	alt	Strength Programs — The Movement Club	code	src/app/aanbod/AanbodContent.tsx:153	
+aanbod.groepslessen.1	/aanbod	groepslessen	1	label	Groepslessen	code	src/app/aanbod/AanbodContent.tsx:236	COPY: confirm met Marlon
+aanbod.groepslessen.2	/aanbod	groepslessen	2	h2	Yoga, mobility en kettlebell	code	src/app/aanbod/AanbodContent.tsx:240	COPY: confirm met Marlon
+aanbod.groepslessen.3	/aanbod	groepslessen	3	body	Kleine groepen, vaste tijden door de week. Van rustige yoga tot stevige kettlebell-sessies.	code	src/app/aanbod/AanbodContent.tsx:243-245	COPY: confirm met Marlon
+aanbod.groepslessen.4	/aanbod	groepslessen	4	cta	Bekijk prijzen	code	src/app/aanbod/AanbodContent.tsx:247	
+aanbod.vrijtrainen.1	/aanbod	vrij-trainen	1	label	Vrij trainen	code	src/app/aanbod/AanbodContent.tsx:257	COPY: confirm met Marlon
+aanbod.vrijtrainen.2	/aanbod	vrij-trainen	2	h2	Train op je eigen moment	code	src/app/aanbod/AanbodContent.tsx:261	COPY: confirm met Marlon
+aanbod.vrijtrainen.3	/aanbod	vrij-trainen	3	body	Toegang tot de studio buiten de groepslessen om, zonder vaste tijden.	code	src/app/aanbod/AanbodContent.tsx:264-266	COPY: confirm met Marlon
+aanbod.vrijtrainen.4	/aanbod	vrij-trainen	4	cta	Bekijk prijzen	code	src/app/aanbod/AanbodContent.tsx:268	
+aanbod.allaccess.1	/aanbod	all-access	1	label	All Access	code	src/app/aanbod/AanbodContent.tsx:278	COPY: confirm met Marlon
+aanbod.allaccess.2	/aanbod	all-access	2	h2	Groepslessen en vrij trainen samen	code	src/app/aanbod/AanbodContent.tsx:281	COPY: confirm met Marlon
+aanbod.allaccess.3	/aanbod	all-access	3	body	Onbeperkt combineren van groepslessen en vrij trainen, voor een vast bedrag extra op elk niveau.	code	src/app/aanbod/AanbodContent.tsx:285-287	COPY: confirm met Marlon
+aanbod.allaccess.4	/aanbod	all-access	4	cta	Bekijk prijzen	code	src/app/aanbod/AanbodContent.tsx:289	
+aanbod.mobilitycta.1	/aanbod	mobility-reset-cta	1	label	Gratis programma	code	src/app/aanbod/AanbodContent.tsx:299	
+aanbod.mobilitycta.2	/aanbod	mobility-reset-cta	2	h2	Benieuwd hoe mobiel je bent?	code	src/app/aanbod/AanbodContent.tsx:302	
+aanbod.mobilitycta.3	/aanbod	mobility-reset-cta	3	body	Probeer de gratis zeven-dagen mobility reset. Elke dag een korte video van Marlon.	code	src/app/aanbod/AanbodContent.tsx:305-307	
+aanbod.mobilitycta.4	/aanbod	mobility-reset-cta	4	cta	Start de reset	code	src/app/aanbod/AanbodContent.tsx:308	
+aanbod.faq.1	/aanbod	faq	1	label	Veelgestelde vragen	code	src/app/aanbod/AanbodContent.tsx:318	
+aanbod.faq.2	/aanbod	faq	2	h2	Nog vragen?	code	src/app/aanbod/AanbodContent.tsx:319	
+aanbod.faq.3	/aanbod	faq	3	faq-vraag	Heb ik ervaring nodig om te starten?	code	src/app/aanbod/AanbodContent.tsx:98	
+aanbod.faq.4	/aanbod	faq	4	faq-antwoord	Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.	code	src/app/aanbod/AanbodContent.tsx:99	
+aanbod.faq.5	/aanbod	faq	5	faq-vraag	Kan ik verschillende trainingsvormen combineren?	code	src/app/aanbod/AanbodContent.tsx:102	
+aanbod.faq.6	/aanbod	faq	6	faq-antwoord	Absoluut. Veel leden combineren bijvoorbeeld small group training met een maandelijkse personal training sessie of mobility sessions.	code	src/app/aanbod/AanbodContent.tsx:103	
+aanbod.faq.7	/aanbod	faq	7	faq-vraag	Hoe groot zijn de groepen bij Small Group Training?	code	src/app/aanbod/AanbodContent.tsx:106	
+aanbod.faq.8	/aanbod	faq	8	faq-antwoord	Maximaal 6 personen. Zo garanderen we dat iedereen persoonlijke aandacht krijgt en de techniek correct wordt uitgevoerd.	code	src/app/aanbod/AanbodContent.tsx:107	
+aanbod.faq.9	/aanbod	faq	9	faq-vraag	Wat als ik een blessure heb?	code	src/app/aanbod/AanbodContent.tsx:110	
+aanbod.faq.10	/aanbod	faq	10	faq-antwoord	Bij een blessure passen we het programma aan. We werken samen met fysiotherapeuten in de regio voor een geïntegreerde aanpak.	code	src/app/aanbod/AanbodContent.tsx:111	
+aanbod.faq.11	/aanbod	faq	11	faq-vraag	Zijn er vaste contracten?	code	src/app/aanbod/AanbodContent.tsx:114	
+aanbod.faq.12	/aanbod	faq	12	faq-antwoord	We werken met flexibele lidmaatschappen. Neem contact op voor de mogelijkheden die bij jou passen.	code	src/app/aanbod/AanbodContent.tsx:115	
+aanbod.cta.1	/aanbod	cta-footer	1	label	Kom langs	code	src/app/aanbod/AanbodContent.tsx:349	
+aanbod.cta.2	/aanbod	cta-footer	2	h2	Klaar om te beginnen?	code	src/app/aanbod/AanbodContent.tsx:352	
+aanbod.cta.3	/aanbod	cta-footer	3	body	Plan een vrijblijvende proefles en ontdek welke training bij jou past.	code	src/app/aanbod/AanbodContent.tsx:355-356	
+aanbod.cta.4	/aanbod	cta-footer	4	cta	Plan je proefles	code	src/app/aanbod/AanbodContent.tsx:358	
+aanbod.cta.5	/aanbod	cta-footer	5	body	Nog niet klaar om te starten?	code	src/app/aanbod/AanbodContent.tsx:360	
+aanbod.cta.6	/aanbod	cta-footer	6	cta	Download de Beweeg Beter guide	code	src/app/aanbod/AanbodContent.tsx:362	
+prijzen.hero.1	/prijzen	hero	1	label	Prijzen	code	src/app/prijzen/PrijzenContent.tsx:158	COPY: confirm met Marlon
+prijzen.hero.2	/prijzen	hero	2	h1	Kies wat bij je past	code	src/app/prijzen/PrijzenContent.tsx:162	COPY: confirm met Marlon
+prijzen.hero.3	/prijzen	hero	3	body	Kleine groepen, persoonlijke aandacht. Van een losse les tot onbeperkt trainen, alles op een rij.	code	src/app/prijzen/PrijzenContent.tsx:165-167	COPY: confirm met Marlon
+prijzen.hero.4	/prijzen	hero	4	cta	Boek je abonnement	code	src/app/prijzen/PrijzenContent.tsx:170	
+prijzen.earlymember.1	/prijzen	early-member-callout	1	label	Early Member actie loopt nu	code	src/app/prijzen/PrijzenContent.tsx:189	COPY: confirm met Marlon
+prijzen.earlymember.2	/prijzen	early-member-callout	2	h2	Nu lid worden, blijvend voordeel	code	src/app/prijzen/PrijzenContent.tsx:192	COPY: confirm met Marlon
+prijzen.earlymember.3	/prijzen	early-member-callout	3	body	Geen inschrijfkosten op Groepslessen en All Access.	code	src/app/prijzen/PrijzenContent.tsx:198	COPY: confirm met Marlon
+prijzen.earlymember.4	/prijzen	early-member-callout	4	body	All Access Onbeperkt voor {prijs-dynamisch} per 4 weken in plaats van {prijs-dynamisch}, blijvend vastgezet zolang je lid blijft.	code	src/app/prijzen/PrijzenContent.tsx:202-210	COPY: confirm met Marlon
+prijzen.earlymember.5	/prijzen	early-member-callout	5	body	Per 4 weken opzegbaar in plaats van 1 jaar commitment.	code	src/app/prijzen/PrijzenContent.tsx:213	COPY: confirm met Marlon
+prijzen.earlymember.6	/prijzen	early-member-callout	6	cta	Naar de Early Member actie	code	src/app/prijzen/PrijzenContent.tsx:216	
+prijzen.lidmaatschappen.1	/prijzen	lidmaatschappen	1	label	Lidmaatschappen	code	src/app/prijzen/PrijzenContent.tsx:233	COPY: confirm met Marlon
+prijzen.lidmaatschappen.2	/prijzen	lidmaatschappen	2	h2	Groepslessen, vrij trainen, of allebei	code	src/app/prijzen/PrijzenContent.tsx:237	COPY: confirm met Marlon
+prijzen.lidmaatschappen.3	/prijzen	lidmaatschappen	3	body	All Access is Groepslessen met vrij trainen erbij, voor een vast bedrag extra op elk niveau.	code	src/app/prijzen/PrijzenContent.tsx:241-243	COPY: confirm met Marlon
+prijzen.lidmaatschappen.4	/prijzen	lidmaatschappen	4	label	2x / week	code	src/app/prijzen/PrijzenContent.tsx:252	
+prijzen.lidmaatschappen.5	/prijzen	lidmaatschappen	5	label	3x / week	code	src/app/prijzen/PrijzenContent.tsx:255	
+prijzen.lidmaatschappen.6	/prijzen	lidmaatschappen	6	label	Onbeperkt	code	src/app/prijzen/PrijzenContent.tsx:258	
+prijzen.lidmaatschappen.7	/prijzen	lidmaatschappen	7	label	Groepslessen	code	src/app/prijzen/PrijzenContent.tsx:267	COPY: confirm met Marlon
+prijzen.lidmaatschappen.8	/prijzen	lidmaatschappen	8	microcopy	yoga, mobility, kettlebell	code	src/app/prijzen/PrijzenContent.tsx:270	
+prijzen.lidmaatschappen.9	/prijzen	lidmaatschappen	9	prijs-dynamisch	{fmt(pricing.groepslessen.twoX/threeX/unl)}	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.lidmaatschappen.10	/prijzen	lidmaatschappen	10	microcopy	+ Onbeperkt vrij trainen toevoegen	code	src/app/prijzen/PrijzenContent.tsx:287	COPY: confirm met Marlon
+prijzen.lidmaatschappen.11	/prijzen	lidmaatschappen	11	prijs-dynamisch	+{addOnDiffs} (verschil allAccess - groepslessen)	database	tmc.catalogue (afgeleid), via src/app/prijzen/page.tsx	
+prijzen.lidmaatschappen.12	/prijzen	lidmaatschappen	12	label	= All Access	code	src/app/prijzen/PrijzenContent.tsx:303	COPY: confirm met Marlon
+prijzen.lidmaatschappen.13	/prijzen	lidmaatschappen	13	microcopy	groepslessen + vrij trainen	code	src/app/prijzen/PrijzenContent.tsx:306	
+prijzen.lidmaatschappen.14	/prijzen	lidmaatschappen	14	prijs-dynamisch	{fmt(pricing.allAccess.twoX/threeX/unl)}	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.lidmaatschappen.15	/prijzen	lidmaatschappen	15	body	De toevoeging geeft altijd onbeperkt vrij trainen, ongeacht of Groepslessen op 2x, 3x of onbeperkt staat. Bij 2x Groepslessen betaal je dus {bedrag} voor onbeperkt vrij trainen erbij, niet voor 2x vrij trainen.	code	src/app/prijzen/PrijzenContent.tsx:332-337	COPY: confirm met Marlon
+prijzen.lidmaatschappen.16	/prijzen	lidmaatschappen	16	body	De toevoeging geeft altijd onbeperkt vrij trainen, ongeacht of Groepslessen op 2x, 3x of onbeperkt staat. De meerprijs verschilt momenteel per kolom, zie de tabel hierboven voor het exacte bedrag per niveau.	code	src/app/prijzen/PrijzenContent.tsx:340-345	COPY: confirm met Marlon
+prijzen.lidmaatschappen.17	/prijzen	lidmaatschappen	17	microcopy	Alle bedragen per 4 weken. Klassengrootte: Yoga & Mobility max. 8 personen, Kettlebell geen maximum.	code	src/app/prijzen/PrijzenContent.tsx:351-353	COPY: confirm met Marlon
+prijzen.lidmaatschappen.18	/prijzen	lidmaatschappen	18	label	Los vrij trainen	code	src/app/prijzen/PrijzenContent.tsx:362	COPY: confirm met Marlon
+prijzen.lidmaatschappen.19	/prijzen	lidmaatschappen	19	prijs-dynamisch	{fmt(pricing.vrijTrainen.twoX/threeX/unl)}	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.lidmaatschappen.20	/prijzen	lidmaatschappen	20	body	Dit is een ander tarief dan de {bedrag}-toevoeging hierboven. Die toevoeging is een meerprijs voor wie al Groepslessen heeft; dit is de prijs voor wie alleen vrij wil trainen.	code	src/app/prijzen/PrijzenContent.tsx:393-406	COPY: confirm met Marlon
+prijzen.lidmaatschappen.21	/prijzen	lidmaatschappen	21	body	Verlengde toegang (06:00-23:00) is {bedrag} per 4 weken extra op All Access 2x/3x en op Vrij Trainen, en gratis inbegrepen bij All Access Onbeperkt. Niet beschikbaar op Groepslessen-only.	code	src/app/prijzen/PrijzenContent.tsx:417-424	COPY: confirm met Marlon
+prijzen.lidmaatschappen.22	/prijzen	lidmaatschappen	22	prijs-dynamisch	{fmt(pricing.extendedAccessCents)}	database	tmc.catalogue (addon extended_access), via src/app/prijzen/page.tsx	
+prijzen.lidmaatschappen.23	/prijzen	lidmaatschappen	23	cta	Kies je abonnement	code	src/app/prijzen/PrijzenContent.tsx:428	
+prijzen.pt.1	/prijzen	personal-training	1	label	Personal training	code	src/app/prijzen/PrijzenContent.tsx:441	COPY: confirm met Marlon
+prijzen.pt.2	/prijzen	personal-training	2	h2	1-op-1 of duo	code	src/app/prijzen/PrijzenContent.tsx:445	COPY: confirm met Marlon
+prijzen.pt.3	/prijzen	personal-training	3	label	Losse sessie	code	src/app/prijzen/PrijzenContent.tsx:456	
+prijzen.pt.4	/prijzen	personal-training	4	label	{n}-rittenkaart	code	src/app/prijzen/PrijzenContent.tsx:460	COPY: confirm met Marlon
+prijzen.pt.5	/prijzen	personal-training	5	label	Rittenkaart	code	src/app/prijzen/PrijzenContent.tsx:461	COPY: confirm met Marlon
+prijzen.pt.6	/prijzen	personal-training	6	label	1-op-1	code	src/app/prijzen/PrijzenContent.tsx:468	
+prijzen.pt.7	/prijzen	personal-training	7	label	Duo (totaal)	code	src/app/prijzen/PrijzenContent.tsx:487	COPY: confirm met Marlon
+prijzen.pt.8	/prijzen	personal-training	8	prijs-dynamisch	{fmt(pricing.ptSingleCents/ptCardCents/duoSingleCents/duoCardCents)}, {bedrag}/sessie	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.pt.9	/prijzen	personal-training	9	cta	Koop personal training	code	src/app/prijzen/PrijzenContent.tsx:511	COPY: confirm met Marlon
+prijzen.pt.10	/prijzen	personal-training	10	cta	Log in om te kopen	code	src/app/prijzen/PrijzenContent.tsx:54	COPY: confirm met Marlon
+prijzen.programmas.1	/prijzen	programmas	1	label	Programma's	code	src/app/prijzen/PrijzenContent.tsx:524	COPY: confirm met Marlon
+prijzen.programmas.2	/prijzen	programmas	2	h2	Gerichte begeleiding in 12 weken	code	src/app/prijzen/PrijzenContent.tsx:528	COPY: confirm met Marlon
+prijzen.programmas.3	/prijzen	programmas	3	h3	12 weken transformatie	code	src/app/prijzen/PrijzenContent.tsx:537	COPY: confirm met Marlon
+prijzen.programmas.4	/prijzen	programmas	4	body	Persoonlijke training, meting en trainingsprotocol, plus voedings-, supplementen- en maagzuuradvies.	code	src/app/prijzen/PrijzenContent.tsx:546-547	COPY: confirm met Marlon
+prijzen.programmas.5	/prijzen	programmas	5	h3	12 weken online	code	src/app/prijzen/PrijzenContent.tsx:560	COPY: confirm met Marlon
+prijzen.programmas.6	/prijzen	programmas	6	body	Hormonaal profiel, trainingsschema op maat, voedings- en supplementenadvies, wekelijkse check-in.	code	src/app/prijzen/PrijzenContent.tsx:568-570	COPY: confirm met Marlon
+prijzen.programmas.7	/prijzen	programmas	7	cta	Plan je intake	code	src/app/prijzen/PrijzenContent.tsx:551,574	
+prijzen.programmas.8	/prijzen	programmas	8	prijs-dynamisch	{formatPriceEuro(programStudioCents/programOnlineCents)} of "Op aanvraag"	database	tmc.catalogue, via src/app/prijzen/page.tsx	COPY: confirm met Marlon ("Op aanvraag")
+prijzen.losse.1	/prijzen	losse-bezoeken	1	label	Losse bezoeken	code	src/app/prijzen/PrijzenContent.tsx:590	COPY: confirm met Marlon
+prijzen.losse.2	/prijzen	losse-bezoeken	2	h2	Nog geen abonnement? Kom eerst kijken	code	src/app/prijzen/PrijzenContent.tsx:594	COPY: confirm met Marlon
+prijzen.losse.3	/prijzen	losse-bezoeken	3	label	Losse les (drop-in)	code	src/app/prijzen/PrijzenContent.tsx:600	COPY: confirm met Marlon
+prijzen.losse.4	/prijzen	losse-bezoeken	4	label	10-rittenkaart	code	src/app/prijzen/PrijzenContent.tsx:608	COPY: confirm met Marlon
+prijzen.losse.5	/prijzen	losse-bezoeken	5	microcopy	4 maanden geldig	code	src/app/prijzen/PrijzenContent.tsx:610	COPY: confirm met Marlon
+prijzen.losse.6	/prijzen	losse-bezoeken	6	prijs-dynamisch	{fmt(dropInCents/tenRideCardCents)}, {bedrag} per les	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.losse.7	/prijzen	losse-bezoeken	7	cta	Koop een rittenkaart	code	src/app/prijzen/PrijzenContent.tsx:626	
+prijzen.voorwaarden.1	/prijzen	voorwaarden	1	label	Goed om te weten	code	src/app/prijzen/PrijzenContent.tsx:639	COPY: confirm met Marlon
+prijzen.voorwaarden.2	/prijzen	voorwaarden	2	h2	Commitment en voorwaarden	code	src/app/prijzen/PrijzenContent.tsx:643	COPY: confirm met Marlon
+prijzen.voorwaarden.3	/prijzen	voorwaarden	3	label	Standaard commitment	code	src/app/prijzen/PrijzenContent.tsx:650	COPY: confirm met Marlon
+prijzen.voorwaarden.4	/prijzen	voorwaarden	4	body	1 jaar, daarna maandelijks (per 4 weken) opzegbaar	code	src/app/prijzen/PrijzenContent.tsx:653	
+prijzen.voorwaarden.5	/prijzen	voorwaarden	5	label	24 maanden commitment	code	src/app/prijzen/PrijzenContent.tsx:664	COPY: confirm met Marlon
+prijzen.voorwaarden.6	/prijzen	voorwaarden	6	body	{percentage}% korting op de abonnementsprijs	code	src/app/prijzen/PrijzenContent.tsx:668-670	COPY: confirm met Marlon
+prijzen.voorwaarden.7	/prijzen	voorwaarden	7	label	Inschrijfkosten	code	src/app/prijzen/PrijzenContent.tsx:676	COPY: confirm met Marlon
+prijzen.voorwaarden.8	/prijzen	voorwaarden	8	body	{bedrag} eenmalig bij nieuwe inschrijving	code	src/app/prijzen/PrijzenContent.tsx:679-681	
+prijzen.voorwaarden.9	/prijzen	voorwaarden	9	prijs-dynamisch	{commit24mDiscountPercent}, {signupFeeCents}	database	tmc.catalogue, via src/app/prijzen/page.tsx	
+prijzen.crosslink.1	/prijzen	crosslink-early-member	1	label	Nieuw hier?	code	src/app/prijzen/PrijzenContent.tsx:695	COPY: confirm met Marlon
+prijzen.crosslink.2	/prijzen	crosslink-early-member	2	h3	Bekijk de Early Member actie	code	src/app/prijzen/PrijzenContent.tsx:699	COPY: confirm met Marlon
+prijzen.crosslink.3	/prijzen	crosslink-early-member	3	body	Als een van de eerste leden krijg je voorwaarden die na deze periode niet meer terugkomen.	code	src/app/prijzen/PrijzenContent.tsx:703-704	COPY: confirm met Marlon
+prijzen.crosslink.4	/prijzen	crosslink-early-member	4	cta	Naar de Early Member actie	code	src/app/prijzen/PrijzenContent.tsx:707	
+abonnement.lib.1	/abonnement	labels	1	label	Groepslessen	code	src/app/abonnement/lib.ts:11	COPY: confirm met Marlon
+abonnement.lib.2	/abonnement	labels	2	label	Vrij Trainen	code	src/app/abonnement/lib.ts:12	COPY: confirm met Marlon
+abonnement.lib.3	/abonnement	labels	3	label	All Access	code	src/app/abonnement/lib.ts:13	COPY: confirm met Marlon
+abonnement.lib.4	/abonnement	labels	4	label	2× per week	code	src/app/abonnement/lib.ts:18	COPY: confirm met Marlon
+abonnement.lib.5	/abonnement	labels	5	label	3× per week	code	src/app/abonnement/lib.ts:19	COPY: confirm met Marlon
+abonnement.lib.6	/abonnement	labels	6	label	Onbeperkt	code	src/app/abonnement/lib.ts:20	COPY: confirm met Marlon
+abonnement.configure.1	/abonnement	configure-stap	1	microcopy	Stap 01 · Kies je abonnement	code	src/app/abonnement/ConfigureStage.tsx:473	
+abonnement.configure.2	/abonnement	configure-stap	2	h1	Stel je abonnement samen.	code	src/app/abonnement/ConfigureStage.tsx:477	COPY: confirm met Marlon
+abonnement.configure.3	/abonnement	configure-stap	3	body	Alle prijzen zijn per 4 weken.	code	src/app/abonnement/ConfigureStage.tsx:481	COPY: confirm met Marlon
+abonnement.configure.4	/abonnement	configure-stap	4	label	Looptijd	code	src/app/abonnement/ConfigureStage.tsx:487	COPY: confirm met Marlon
+abonnement.configure.5	/abonnement	configure-stap	5	cta	12 maanden	code	src/app/abonnement/ConfigureStage.tsx:500	COPY: confirm met Marlon
+abonnement.configure.6	/abonnement	configure-stap	6	cta	24 maanden	code	src/app/abonnement/ConfigureStage.tsx:512	COPY: confirm met Marlon
+abonnement.configure.7	/abonnement	configure-stap	7	label	All Access	code	src/app/abonnement/ConfigureStage.tsx:399	COPY: confirm met Marlon
+abonnement.configure.8	/abonnement	configure-stap	8	h3	{allAccessPlan.display_name}	database	tmc.catalogue.display_name (all_inclusive_unl)	
+abonnement.configure.9	/abonnement	configure-stap	9	body	Onbeperkt groepslessen en onbeperkt vrij trainen. Verlengde toegang van 06:00 tot 23:00 is inbegrepen.	code	src/app/abonnement/ConfigureStage.tsx:406-407	COPY: confirm met Marlon
+abonnement.configure.10	/abonnement	configure-stap	10	label	Early Member	code	src/app/abonnement/ConfigureStage.tsx:411,359	
+abonnement.configure.11	/abonnement	configure-stap	11	body	Per 4 weken opzegbaar, geen jaarcommitment.	code	src/app/abonnement/ConfigureStage.tsx:415,363	COPY: confirm met Marlon
+abonnement.configure.12	/abonnement	configure-stap	12	microcopy	/4wk	code	src/app/abonnement/ConfigureStage.tsx:425,299	COPY: confirm met Marlon
+abonnement.configure.13	/abonnement	configure-stap	13	cta	Gekozen	code	src/app/abonnement/ConfigureStage.tsx:442,377	COPY: confirm met Marlon
+abonnement.configure.14	/abonnement	configure-stap	14	cta	Kies All Access	code	src/app/abonnement/ConfigureStage.tsx:442	
+abonnement.configure.15	/abonnement	configure-stap	15	cta	Kies dit abonnement	code	src/app/abonnement/ConfigureStage.tsx:377	
+abonnement.configure.16	/abonnement	configure-stap	16	h2	Groepslessen	code	src/app/abonnement/ConfigureStage.tsx:526	
+abonnement.configure.17	/abonnement	configure-stap	17	microcopy	Yoga, mobility en kettlebell	code	src/app/abonnement/ConfigureStage.tsx:530	
+abonnement.configure.18	/abonnement	configure-stap	18	h2	Vrij Trainen	code	src/app/abonnement/ConfigureStage.tsx:542	
+abonnement.configure.19	/abonnement	configure-stap	19	microcopy	Op je eigen moment de studio in	code	src/app/abonnement/ConfigureStage.tsx:546	
+abonnement.configure.20	/abonnement	configure-stap	20	label	Onbeperkt vrij trainen erbij	code	src/app/abonnement/ConfigureStage.tsx:312	
+abonnement.configure.21	/abonnement	configure-stap	21	microcopy	Onbeperkt vrij trainen toevoegen	code	src/app/abonnement/ConfigureStage.tsx:324	
+abonnement.configure.22	/abonnement	configure-stap	22	label	Verlengde toegang 06:00-23:00	code	src/app/abonnement/ConfigureStage.tsx:333	
+abonnement.configure.23	/abonnement	configure-stap	23	microcopy	Verlengde toegang toevoegen	code	src/app/abonnement/ConfigureStage.tsx:343	
+abonnement.configure.24	/abonnement	configure-stap	24	body	Ook onbeperkt vrij trainen erbij? Dat is All Access, hierboven.	code	src/app/abonnement/ConfigureStage.tsx:352-353	
+abonnement.configure.25	/abonnement	configure-stap	25	h2	Kosten en voorwaarden	code	src/app/abonnement/ConfigureStage.tsx:556	
+abonnement.configure.26	/abonnement	configure-stap	26	label	Inschrijfkosten	code	src/app/abonnement/ConfigureStage.tsx:563	
+abonnement.configure.27	/abonnement	configure-stap	27	body	Eenmalig {bedrag} bij je eerste betaling.	code	src/app/abonnement/ConfigureStage.tsx:566-571	
+abonnement.configure.28	/abonnement	configure-stap	28	body	Vervalt als je Early Member wordt of overstapt.	code	src/app/abonnement/ConfigureStage.tsx:574	
+abonnement.configure.29	/abonnement	configure-stap	29	label	Looptijd	code	src/app/abonnement/ConfigureStage.tsx:580	
+abonnement.configure.30	/abonnement	configure-stap	30	body	24 maanden, met 8% korting.	code	src/app/abonnement/ConfigureStage.tsx:585	
+abonnement.configure.31	/abonnement	configure-stap	31	body	12 maanden, daarna per 4 weken opzegbaar.	code	src/app/abonnement/ConfigureStage.tsx:586	
+abonnement.configure.32	/abonnement	configure-stap	32	body	Niet-restitueerbaar bij tussentijds stoppen.	code	src/app/abonnement/ConfigureStage.tsx:590	
+abonnement.configure.33	/abonnement	configure-stap	33	body	Kies 24 maanden voor 8% korting.	code	src/app/abonnement/ConfigureStage.tsx:591	
+abonnement.configure.34	/abonnement	configure-stap	34	label	Betaling	code	src/app/abonnement/ConfigureStage.tsx:597	
+abonnement.configure.35	/abonnement	configure-stap	35	body	Automatische incasso per 4 weken.	code	src/app/abonnement/ConfigureStage.tsx:600	
+abonnement.configure.36	/abonnement	configure-stap	36	body	Je geeft hiervoor een doorlopende SEPA-machtiging.	code	src/app/abonnement/ConfigureStage.tsx:602	
+abonnement.configure.37	/abonnement	configure-stap	37	label	Eerste betaling	code	src/app/abonnement/ConfigureStage.tsx:632	
+abonnement.configure.38	/abonnement	configure-stap	38	cta	Ga verder	code	src/app/abonnement/ConfigureStage.tsx:646	
+abonnement.configure.39	/abonnement	configure-stap	39	body	{n} maanden looptijd / per 4 weken opzegbaar	code	src/app/abonnement/ConfigureStage.tsx:623-625	
+abonnement.configure.40	/abonnement	configure-stap	40	body	Abonnementen zijn momenteel niet beschikbaar. Neem contact met ons op.	code	src/app/abonnement/ConfigureStage.tsx:456	
+abonnement.configure.41	/abonnement	configure-stap	41	body	Groepslessen 2× + onbeperkt vrij trainen	code	src/app/abonnement/ConfigureStage.tsx:97	COPY: confirm met Marlon
+abonnement.configure.42	/abonnement	configure-stap	42	body	Groepslessen 3× + onbeperkt vrij trainen	code	src/app/abonnement/ConfigureStage.tsx:98	COPY: confirm met Marlon
+abonnement.configure.43	/abonnement	configure-stap	43	prijs-dynamisch	{formatEuro(recurringTotalCents/baseCatalogueCents)}, display_name per plan	database	tmc.catalogue, via src/app/abonnement/page.tsx	
+abonnement.identify.1	/abonnement	identify-stap	1	microcopy	Stap 02 · Jouw gegevens	code	src/app/abonnement/IdentifyStage.tsx:126	
+abonnement.identify.2	/abonnement	identify-stap	2	h1	Wie mogen we verwelkomen?	code	src/app/abonnement/IdentifyStage.tsx:130	COPY: confirm met Marlon
+abonnement.identify.3	/abonnement	identify-stap	3	body	Nodig voor je facturering en de automatische incasso via Mollie.	code	src/app/abonnement/IdentifyStage.tsx:134	COPY: confirm met Marlon
+abonnement.identify.4	/abonnement	identify-stap	4	label	Voornaam	code	src/app/abonnement/IdentifyStage.tsx:143	
+abonnement.identify.5	/abonnement	identify-stap	5	label	Achternaam	code	src/app/abonnement/IdentifyStage.tsx:152	
+abonnement.identify.6	/abonnement	identify-stap	6	label	Telefoon	code	src/app/abonnement/IdentifyStage.tsx:162	
+abonnement.identify.7	/abonnement	identify-stap	7	label	Straat + nummer	code	src/app/abonnement/IdentifyStage.tsx:171	
+abonnement.identify.8	/abonnement	identify-stap	8	label	Postcode	code	src/app/abonnement/IdentifyStage.tsx:181	
+abonnement.identify.9	/abonnement	identify-stap	9	label	Plaats	code	src/app/abonnement/IdentifyStage.tsx:190	
+abonnement.identify.10	/abonnement	identify-stap	10	cta	Terug	code	src/app/abonnement/IdentifyStage.tsx:214,361	
+abonnement.identify.11	/abonnement	identify-stap	11	cta	Opslaan...	code	src/app/abonnement/IdentifyStage.tsx:221	COPY: confirm met Marlon
+abonnement.identify.12	/abonnement	identify-stap	12	cta	Ga verder naar betalen	code	src/app/abonnement/IdentifyStage.tsx:221	COPY: confirm met Marlon
+abonnement.identify.13	/abonnement	identify-stap	13	microcopy	Stap 02 · Bevestig je e-mailadres	code	src/app/abonnement/IdentifyStage.tsx:233	
+abonnement.identify.14	/abonnement	identify-stap	14	microcopy	Check je mail	code	src/app/abonnement/IdentifyStage.tsx:238	
+abonnement.identify.15	/abonnement	identify-stap	15	body	We hebben een code van {n} cijfers gestuurd naar {email}. De code is 10 minuten geldig.	code	src/app/abonnement/IdentifyStage.tsx:242-244	COPY: confirm met Marlon
+abonnement.identify.16	/abonnement	identify-stap	16	label	Inlogcode	code	src/app/abonnement/IdentifyStage.tsx:253	
+abonnement.identify.17	/abonnement	identify-stap	17	cta	Bezig...	code	src/app/abonnement/IdentifyStage.tsx:284,368	COPY: confirm met Marlon
+abonnement.identify.18	/abonnement	identify-stap	18	cta	Bevestigen	code	src/app/abonnement/IdentifyStage.tsx:284	COPY: confirm met Marlon
+abonnement.identify.19	/abonnement	identify-stap	19	cta	Ander e-mailadres	code	src/app/abonnement/IdentifyStage.tsx:299	COPY: confirm met Marlon
+abonnement.identify.20	/abonnement	identify-stap	20	cta	Nieuwe code	code	src/app/abonnement/IdentifyStage.tsx:312	COPY: confirm met Marlon
+abonnement.identify.21	/abonnement	identify-stap	21	cta	Nieuwe code ({n}s)	code	src/app/abonnement/IdentifyStage.tsx:312	COPY: confirm met Marlon
+abonnement.identify.22	/abonnement	identify-stap	22	microcopy	Stap 02 · Wie ben je?	code	src/app/abonnement/IdentifyStage.tsx:323	
+abonnement.identify.23	/abonnement	identify-stap	23	h1	Bevestig je e-mailadres.	code	src/app/abonnement/IdentifyStage.tsx:327	COPY: confirm met Marlon
+abonnement.identify.24	/abonnement	identify-stap	24	body	Geen wachtwoord nodig. Je ontvangt een eenmalige inlogcode per mail.	code	src/app/abonnement/IdentifyStage.tsx:331	COPY: confirm met Marlon
+abonnement.identify.25	/abonnement	identify-stap	25	label	E-mailadres	code	src/app/abonnement/IdentifyStage.tsx:335	
+abonnement.identify.26	/abonnement	identify-stap	26	microcopy	naam@voorbeeld.nl	code	src/app/abonnement/IdentifyStage.tsx:341	
+abonnement.identify.27	/abonnement	identify-stap	27	cta	Stuur inlogcode	code	src/app/abonnement/IdentifyStage.tsx:368	COPY: confirm met Marlon
+abonnement.identify.28	/abonnement	identify-stap	28	body	Er ging iets mis. Probeer het opnieuw.	code	src/app/abonnement/IdentifyStage.tsx:58	COPY: confirm met Marlon
+abonnement.pay.1	/abonnement	pay-stap	1	microcopy	Stap 03 · Bevestigen	code	src/app/abonnement/PayStage.tsx:72	
+abonnement.pay.2	/abonnement	pay-stap	2	h1	Controleer je keuze.	code	src/app/abonnement/PayStage.tsx:76	COPY: confirm met Marlon
+abonnement.pay.3	/abonnement	pay-stap	3	body	Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische SEPA-incasso elke 4 weken. Opzegtermijn: 4 weken, in acht genomen na je commitment-periode.	code	src/app/abonnement/PayStage.tsx:80-83	COPY: confirm met Marlon
+abonnement.pay.4	/abonnement	pay-stap	4	label	Jouw plan	code	src/app/abonnement/PayStage.tsx:87	
+abonnement.pay.5	/abonnement	pay-stap	5	body	incl. verlengde toegang +{bedrag}/4wk	code	src/app/abonnement/PayStage.tsx:101-103	COPY: confirm met Marlon
+abonnement.pay.6	/abonnement	pay-stap	6	body	+ {bedrag} inschrijfkosten, eenmalig	code	src/app/abonnement/PayStage.tsx:109-111	COPY: confirm met Marlon
+abonnement.pay.7	/abonnement	pay-stap	7	body	Geen inschrijfkosten	code	src/app/abonnement/PayStage.tsx:114	COPY: confirm met Marlon
+abonnement.pay.8	/abonnement	pay-stap	8	body	Geen commitment, per 4 weken opzegbaar	code	src/app/abonnement/PayStage.tsx:120	COPY: confirm met Marlon
+abonnement.pay.9	/abonnement	pay-stap	9	body	Commitment: {n} maanden	code	src/app/abonnement/PayStage.tsx:123	COPY: confirm met Marlon
+abonnement.pay.10	/abonnement	pay-stap	10	cta	Naar je profiel	code	src/app/abonnement/PayStage.tsx:139	COPY: confirm met Marlon
+abonnement.pay.11	/abonnement	pay-stap	11	cta	Terug	code	src/app/abonnement/PayStage.tsx:153	
+abonnement.pay.12	/abonnement	pay-stap	12	cta	Doorsturen...	code	src/app/abonnement/PayStage.tsx:161	COPY: confirm met Marlon
+abonnement.pay.13	/abonnement	pay-stap	13	cta	Betaal nu	code	src/app/abonnement/PayStage.tsx:161	COPY: confirm met Marlon
+abonnement.pay.14	/abonnement	pay-stap	14	prijs-dynamisch	{plan.display_name}, breakdown-bedragen	database	tmc.catalogue, via src/app/abonnement/page.tsx	
+proefles.choice.1	/proefles	keuze	1	microcopy	Kennismaken	code	src/app/proefles/ProeflesChoice.tsx:31	
+proefles.choice.2	/proefles	keuze	2	h1	Hoe wil je kennismaken?	code	src/app/proefles/ProeflesChoice.tsx:36	COPY: confirm with Marlon
+proefles.choice.3	/proefles	keuze	3	body	Twee manieren om The Movement Club te ervaren. Kies wat bij je past.	code	src/app/proefles/ProeflesChoice.tsx:40-41	COPY: confirm with Marlon
+proefles.choice.4	/proefles	keuze	4	label	Direct een plek	code	src/app/proefles/ProeflesChoice.tsx:57	
+proefles.choice.5	/proefles	keuze	5	h2	Boek nu je proefles	code	src/app/proefles/ProeflesChoice.tsx:61	COPY: confirm with Marlon
+proefles.choice.6	/proefles	keuze	6	body	Kies zelf een sessie uit het rooster en betaal meteen. Geen wachten op een belletje, gewoon inplannen.	code	src/app/proefles/ProeflesChoice.tsx:65-66	COPY: confirm with Marlon
+proefles.choice.7	/proefles	keuze	7	cta	Bekijk beschikbare sessies	code	src/app/proefles/ProeflesChoice.tsx:69	
+proefles.choice.8	/proefles	keuze	8	label	Gratis · Vrijblijvend	code	src/app/proefles/ProeflesChoice.tsx:88	
+proefles.choice.9	/proefles	keuze	9	h2	Liever gebeld worden	code	src/app/proefles/ProeflesChoice.tsx:92	COPY: confirm with Marlon
+proefles.choice.10	/proefles	keuze	10	body	Laat je gegevens achter en Marlon belt je persoonlijk om een moment te plannen dat bij je past.	code	src/app/proefles/ProeflesChoice.tsx:96-97	COPY: confirm with Marlon
+proefles.choice.11	/proefles	keuze	11	cta	Meld je aan	code	src/app/proefles/ProeflesChoice.tsx:100	
+proefles.form.1	/proefles	bel-formulier	1	label	Gratis · Vrijblijvend	code	src/app/proefles/ProeflesContent.tsx:70	
+proefles.form.2	/proefles	bel-formulier	2	h1	Ervaar The Movement Club	code	src/app/proefles/ProeflesContent.tsx:74	
+proefles.form.3	/proefles	bel-formulier	3	body	Benieuwd of The Movement Club bij je past? Plan een gratis proefles en ontdek het zelf. Geen verplichtingen, geen verkooppraatje, gewoon een goede training.	code	src/app/proefles/ProeflesContent.tsx:77-79	
+proefles.form.4	/proefles	bel-formulier	4	body	Kennismaking met trainer Marlon	code	src/app/proefles/ProeflesContent.tsx:14	
+proefles.form.5	/proefles	bel-formulier	5	body	Ervaar de sfeer en apparatuur	code	src/app/proefles/ProeflesContent.tsx:15	
+proefles.form.6	/proefles	bel-formulier	6	body	Training afgestemd op jouw niveau	code	src/app/proefles/ProeflesContent.tsx:16	
+proefles.form.7	/proefles	bel-formulier	7	body	Volledig vrijblijvend, geen verplichtingen	code	src/app/proefles/ProeflesContent.tsx:17	
+proefles.form.8	/proefles	bel-formulier	8	label	Plan je sessie	code	src/app/proefles/ProeflesContent.tsx:107	
+proefles.form.9	/proefles	bel-formulier	9	h2	Meld je aan	code	src/app/proefles/ProeflesContent.tsx:110	
+proefles.form.10	/proefles	bel-formulier	10	label	Naam	code	src/app/proefles/ProeflesContent.tsx:132	
+proefles.form.11	/proefles	bel-formulier	11	label	E-mailadres	code	src/app/proefles/ProeflesContent.tsx:141	
+proefles.form.12	/proefles	bel-formulier	12	label	Telefoon	code	src/app/proefles/ProeflesContent.tsx:150	
+proefles.form.13	/proefles	bel-formulier	13	label	Voorkeur dag of tijd	code	src/app/proefles/ProeflesContent.tsx:159	
+proefles.form.14	/proefles	bel-formulier	14	microcopy	Optioneel	code	src/app/proefles/ProeflesContent.tsx:159,195	
+proefles.form.15	/proefles	bel-formulier	15	label	Ervaring	code	src/app/proefles/ProeflesContent.tsx:166	
+proefles.form.16	/proefles	bel-formulier	16	microcopy	Kies je niveau	code	src/app/proefles/ProeflesContent.tsx:175	
+proefles.form.17	/proefles	bel-formulier	17	microcopy	Beginner (weinig tot geen ervaring)	code	src/app/proefles/ProeflesContent.tsx:178	
+proefles.form.18	/proefles	bel-formulier	18	microcopy	Gemiddeld (ik train regelmatig)	code	src/app/proefles/ProeflesContent.tsx:180-182	
+proefles.form.19	/proefles	bel-formulier	19	microcopy	Gevorderd (ik train al jaren)	code	src/app/proefles/ProeflesContent.tsx:183-185	
+proefles.form.20	/proefles	bel-formulier	20	label	Nog iets te delen	code	src/app/proefles/ProeflesContent.tsx:195	
+proefles.form.21	/proefles	bel-formulier	21	cta	Plan mijn proefles	code	src/app/proefles/ProeflesContent.tsx:203	
+proefles.form.22	/proefles	bel-formulier	22	microcopy	Vrijblijvend en gratis. We nemen binnen 24 uur contact op.	code	src/app/proefles/ProeflesContent.tsx:206	
+proefles.confirm.1	/proefles	bevestiging	1	label	Verstuurd	code	src/app/proefles/ProeflesContent.tsx:37	
+proefles.confirm.2	/proefles	bevestiging	2	h1	Je aanmelding is ontvangen.	code	src/app/proefles/ProeflesContent.tsx:40	
+proefles.confirm.3	/proefles	bevestiging	3	body	Bedankt voor je interesse in The Movement Club.	code	src/app/proefles/ProeflesContent.tsx:43	
+proefles.confirm.4	/proefles	bevestiging	4	body	We nemen binnen 24 uur contact met je op om een moment in te plannen. Tot snel.	code	src/app/proefles/ProeflesContent.tsx:46-47	
+proefles.confirm.5	/proefles	bevestiging	5	cta	Terug naar home	code	src/app/proefles/ProeflesContent.tsx:51	
+proeflesboeken.list.1	/proefles/boeken	sessie-lijst	1	label	Direct een plek	code	src/app/proefles/boeken/TrialBookingList.tsx:70	
+proeflesboeken.list.2	/proefles/boeken	sessie-lijst	2	h1	Kies je sessie	code	src/app/proefles/boeken/TrialBookingList.tsx:75	COPY: confirm with Marlon
+proeflesboeken.list.3	/proefles/boeken	sessie-lijst	3	body	Op dit moment zijn er geen sessies met een vrije plek beschikbaar om als proefles te boeken. Kies liever de optie "Liever gebeld worden" op de vorige pagina, dan nemen we persoonlijk contact op.	code	src/app/proefles/boeken/TrialBookingList.tsx:83-87	COPY: confirm with Marlon
+proeflesboeken.list.4	/proefles/boeken	sessie-lijst	4	microcopy	Onbeperkt aantal plekken	code	src/app/proefles/boeken/TrialBookingList.tsx:129	COPY: confirm met Marlon
+proeflesboeken.list.5	/proefles/boeken	sessie-lijst	5	microcopy	{n} plek / plekken	code	src/app/proefles/boeken/TrialBookingList.tsx:130	
+proeflesboeken.list.6	/proefles/boeken	sessie-lijst	6	cta	← Andere sessie kiezen	code	src/app/proefles/boeken/TrialBookingList.tsx:152	
+proeflesboeken.list.7	/proefles/boeken	sessie-lijst	7	label	Naam	code	src/app/proefles/boeken/TrialBookingList.tsx:167	
+proeflesboeken.list.8	/proefles/boeken	sessie-lijst	8	label	E-mailadres	code	src/app/proefles/boeken/TrialBookingList.tsx:183	
+proeflesboeken.list.9	/proefles/boeken	sessie-lijst	9	label	Telefoon	code	src/app/proefles/boeken/TrialBookingList.tsx:193	
+proeflesboeken.list.10	/proefles/boeken	sessie-lijst	10	cta	Bezig...	code	src/app/proefles/boeken/TrialBookingList.tsx:216-217	COPY: confirm with Marlon
+proeflesboeken.list.11	/proefles/boeken	sessie-lijst	11	cta	Betaal {bedrag} en boek	code	src/app/proefles/boeken/TrialBookingList.tsx:217	COPY: confirm with Marlon
+proeflesboeken.list.12	/proefles/boeken	sessie-lijst	12	microcopy	Je wordt doorgestuurd naar Mollie om veilig te betalen.	code	src/app/proefles/boeken/TrialBookingList.tsx:221	COPY: confirm with Marlon
+proeflesboeken.list.13	/proefles/boeken	sessie-lijst	13	body	{class_type.name} sessie, trainer, tijd, prijs	database	tmc.class_sessions (via server component, options-lijst)	
+proeflesboekenbedankt.1	/proefles/boeken/bedankt	bevestiging	1	label	Bevestigd	code	src/app/proefles/boeken/bedankt/page.tsx:51	
+proeflesboekenbedankt.2	/proefles/boeken/bedankt	bevestiging	2	label	Verwerkt	code	src/app/proefles/boeken/bedankt/page.tsx:51	
+proeflesboekenbedankt.3	/proefles/boeken/bedankt	bevestiging	3	h1	Je proefles staat vast.	code	src/app/proefles/boeken/bedankt/page.tsx:56	COPY: confirm with Marlon
+proeflesboekenbedankt.4	/proefles/boeken/bedankt	bevestiging	4	h1	We verwerken je betaling.	code	src/app/proefles/boeken/bedankt/page.tsx:57	COPY: confirm with Marlon
+proeflesboekenbedankt.5	/proefles/boeken/bedankt	bevestiging	5	body	{className} op {datum} · {tijd}	code	src/app/proefles/boeken/bedankt/page.tsx:63-68	COPY: confirm with Marlon
+proeflesboekenbedankt.6	/proefles/boeken/bedankt	bevestiging	6	body	Je ontvangt een bevestiging per mail. Tot in de studio.	code	src/app/proefles/boeken/bedankt/page.tsx:74	COPY: confirm with Marlon
+proeflesboekenbedankt.7	/proefles/boeken/bedankt	bevestiging	7	body	Kan je toch niet? Annuleer via deze link. Bewaar 'm, hij staat niet nogmaals in een mail.	code	src/app/proefles/boeken/bedankt/page.tsx:80-87	COPY: confirm with Marlon
+proeflesboekenbedankt.8	/proefles/boeken/bedankt	bevestiging	8	cta	deze link	code	src/app/proefles/boeken/bedankt/page.tsx:85	
+proeflesboekenbedankt.9	/proefles/boeken/bedankt	bevestiging	9	cta	Bekijk lidmaatschappen	code	src/app/proefles/boeken/bedankt/page.tsx:95	
+proeflesboekenbedankt.10	/proefles/boeken/bedankt	bevestiging	10	cta	Terug naar home	code	src/app/proefles/boeken/bedankt/page.tsx:97	
+proeflesannuleren.1	/proefles/annuleren/[token]	annuleren	1	label	Niet gevonden	code	src/app/proefles/annuleren/[token]/page.tsx:24	
+proeflesannuleren.2	/proefles/annuleren/[token]	annuleren	2	body	Deze annuleerlink is ongeldig. Neem contact op als je toch je proefles wilt wijzigen.	code	src/app/proefles/annuleren/[token]/page.tsx:27-29	COPY: confirm with Marlon
+proeflesannuleren.3	/proefles/annuleren/[token]	annuleren	3	label	Al geannuleerd	code	src/app/proefles/annuleren/[token]/page.tsx:40	
+proeflesannuleren.4	/proefles/annuleren/[token]	annuleren	4	label	Proefles	code	src/app/proefles/annuleren/[token]/page.tsx:40	
+proeflesannuleren.5	/proefles/annuleren/[token]	annuleren	5	h1	{className} op {datum}	code	src/app/proefles/annuleren/[token]/page.tsx:44-45	COPY: confirm with Marlon
+proeflesannuleren.6	/proefles/annuleren/[token]	annuleren	6	body	Deze proefles is al geannuleerd.	code	src/app/proefles/annuleren/[token]/page.tsx:57	COPY: confirm with Marlon
+proeflesannuleren.7	/proefles/annuleren/[token]	annuleren	7	body	Annuleren kan tot {n} uur van tevoren. Neem contact op met de studio als er iets tussenkomt.	code	src/app/proefles/annuleren/[token]/page.tsx:64-65	COPY: confirm with Marlon
+proeflesannuleren.8	/proefles/annuleren/[token]	annuleren	8	cta	Bezig...	code	src/app/proefles/annuleren/[token]/CancelTrialBookingButton.tsx:33	COPY: confirm with Marlon
+proeflesannuleren.9	/proefles/annuleren/[token]	annuleren	9	cta	Annuleer mijn proefles	code	src/app/proefles/annuleren/[token]/CancelTrialBookingButton.tsx:33	COPY: confirm with Marlon
+proeflesannuleren.10	/proefles/annuleren/[token]	annuleren	10	body	{result.message} (server-actie resultaatbericht, tekst niet in deze view gedefinieerd)	code	src/lib/actions/trial-booking.ts (cancelTrialBooking-resultaat)	
+contact.header.1	/contact	header	1	label	Contact	code	src/app/contact/ContactContent.tsx:21	
+contact.header.2	/contact	header	2	h1	Neem contact op	code	src/app/contact/ContactContent.tsx:22	
+contact.header.3	/contact	header	3	body	Heb je een vraag, wil je meer weten over het aanbod, of wil je een proefles plannen? We horen graag van je.	code	src/app/contact/ContactContent.tsx:23	
+contact.form.1	/contact	formulier	1	label	Bericht sturen	code	src/app/contact/ContactContent.tsx:36	
+contact.form.2	/contact	formulier	2	h3	Stuur ons een bericht	code	src/app/contact/ContactContent.tsx:39	
+contact.info.1	/contact	info	1	label	Adres	code	src/app/contact/ContactContent.tsx:49	
+contact.info.2	/contact	info	2	label	Telefoon	code	src/app/contact/ContactContent.tsx:58	
+contact.info.3	/contact	info	3	label	E-mail	code	src/app/contact/ContactContent.tsx:65	
+contact.info.4	/contact	info	4	label	Openingstijden	code	src/app/contact/ContactContent.tsx:72	
+contact.info.5	/contact	info	5	body	Maandag – vrijdag: 07:00 – 21:00	code	src/app/contact/ContactContent.tsx:74	
+contact.info.6	/contact	info	6	body	Zaterdag: 08:00 – 14:00	code	src/app/contact/ContactContent.tsx:75	
+contact.info.7	/contact	info	7	body	Zondag: gesloten	code	src/app/contact/ContactContent.tsx:76	
+contact.info.8	/contact	info	8	label	WhatsApp	code	src/app/contact/ContactContent.tsx:81	
+contact.info.9	/contact	info	9	body	Liever direct chatten? Stuur ons een WhatsApp-bericht.	code	src/app/contact/ContactContent.tsx:83	
+contact.info.10	/contact	info	10	cta	Open WhatsApp	code	src/app/contact/ContactContent.tsx:86	
+contact.route.1	/contact	routebeschrijving	1	label	Hoe je hier komt	code	src/app/contact/ContactContent.tsx:114	
+contact.route.2	/contact	routebeschrijving	2	h3	Routebeschrijving	code	src/app/contact/ContactContent.tsx:117	
+contact.route.3	/contact	routebeschrijving	3	label	Met de auto	code	src/app/contact/ContactContent.tsx:121	
+contact.route.4	/contact	routebeschrijving	4	body	Vanuit Amsterdam of Utrecht ben je via de A2 in circa 30 minuten bij de studio. Neem afslag Loosdrecht/Hilversum en volg de borden richting Industrieweg. Gratis parkeren voor de deur.	code	src/app/contact/ContactContent.tsx:123-127	
+contact.route.5	/contact	routebeschrijving	5	label	Met het openbaar vervoer	code	src/app/contact/ContactContent.tsx:130-132	
+contact.route.6	/contact	routebeschrijving	6	body	Station Hilversum is het dichtstbijzijnste treinstation. Vanaf daar neem je bus 108 richting Loosdrecht. Halte Industrieweg ligt op twee minuten loopafstand.	code	src/app/contact/ContactContent.tsx:134-137	
+contact.route.7	/contact	routebeschrijving	7	microcopy	The Movement Club locatie	code	src/app/contact/ContactContent.tsx:107	
+over.header.1	/over	header	1	label	Over ons	code	src/app/over/OverContent.tsx:28	
+over.header.2	/over	header	2	h1	Het verhaal achter The Movement Club	code	src/app/over/OverContent.tsx:29	
+over.header.3	/over	header	3	body	Geen standaard sportschool. Een plek waar beweging, kracht en persoonlijke groei samenkomen.	code	src/app/over/OverContent.tsx:30	
+over.origin.1	/over	oorsprong	1	microcopy	01 · Waarom	code	src/app/over/OverContent.tsx:61	
+over.origin.2	/over	oorsprong	2	h2	Ontstaan uit overtuiging	code	src/app/over/OverContent.tsx:64	
+over.origin.3	/over	oorsprong	3	body	The Movement Club is geboren uit de overtuiging dat fitness persoonlijk moet zijn. Als oprichtster van PT Loosdrecht begeleidde {trainer.name} jarenlang klanten met dezelfde toewijding die haar kenmerkt. Maar ze wilde meer: een eigen studio waar elk lid écht gekend wordt.	code	src/app/over/OverContent.tsx:68-73	
+over.origin.4	/over	oorsprong	4	body	Haar visie was helder: een intieme plek waar de training niet draait om trends, maar om jouw lichaam, jouw doelen en jouw tempo. Geen anonieme sportschool, maar persoonlijke begeleiding op het hoogste niveau.	code	src/app/over/OverContent.tsx:75-79	
+over.origin.5	/over	oorsprong	5	body	Met de ervaring en reputatie opgebouwd bij PT Loosdrecht werd die visie werkelijkheid. Op de Industrieweg in Loosdrecht opende The Movement Club de deuren. 160m² puur gericht op kwalitatieve training in een omgeving die inspireert.	code	src/app/over/OverContent.tsx:81-85	
+over.origin.6	/over	oorsprong	6	alt	{trainer.name} in de studio	code	src/app/over/OverContent.tsx:45	
+over.origin.7	/over	oorsprong	7	microcopy	Foto {trainer.name}	code	src/app/over/OverContent.tsx:54	
+over.mobilitycta.1	/over	mobility-check-cta	1	label	Gratis screening	code	src/app/over/OverContent.tsx:97	
+over.mobilitycta.2	/over	mobility-check-cta	2	h2	Ontdek hoe je beweegt	code	src/app/over/OverContent.tsx:100	
+over.mobilitycta.3	/over	mobility-check-cta	3	body	Boek een gratis Mobility Check en krijg een persoonlijk bewegingsprofiel van Marlon.	code	src/app/over/OverContent.tsx:103-104	
+over.mobilitycta.4	/over	mobility-check-cta	4	cta	Plan mijn Mobility Check	code	src/app/over/OverContent.tsx:106	
+over.visie.1	/over	visie	1	label	Onze visie	code	src/app/over/OverContent.tsx:116	
+over.visie.2	/over	visie	2	h2	Functioneel. Holistisch. Duurzaam.	code	src/app/over/OverContent.tsx:117	
+over.visie.3	/over	visie	3	body	Wij geloven dat goed bewegen de basis is van alles. Niet alleen voor sportprestaties, maar voor je dagelijks leven. Hoe je loopt, bukt, tilt, draait: het begint allemaal bij beweegkwaliteit.	code	src/app/over/OverContent.tsx:123-126	
+over.visie.4	/over	visie	4	body	Onze aanpak combineert drie disciplines: movement voor natuurlijke bewegingspatronen, mobility voor flexibiliteit en herstel, en strength voor kracht die functioneel en overdraagbaar is.	code	src/app/over/OverContent.tsx:129-135	
+over.visie.5	/over	visie	5	body	We trainen niet voor de spiegel. We trainen voor het leven daarbuiten.	code	src/app/over/OverContent.tsx:138-139	
+over.gallery.1	/over	studio-galerij	1	label	De studio	code	src/app/over/OverContent.tsx:151	
+over.gallery.2	/over	studio-galerij	2	h2	Een ruimte die inspireert	code	src/app/over/OverContent.tsx:152	
+over.gallery.3	/over	studio-galerij	3	body	Elk detail is doordacht, van de apparatuur tot de verlichting.	code	src/app/over/OverContent.tsx:153	
+over.gallery.4	/over	studio-galerij	4	alt	Entree The Movement Club	sanity	siteImages.gallery[0].caption	
+over.gallery.5	/over	studio-galerij	5	alt	Mobility Area	sanity	siteImages.gallery[1].caption	
+over.gallery.6	/over	studio-galerij	6	alt	Remi doet een Pull Up	sanity	siteImages.gallery[2].caption	
+over.gallery.7	/over	studio-galerij	7	alt	rogue barbell	sanity	siteImages.gallery[3].caption	
+over.gallery.8	/over	studio-galerij	8	alt	Rogue Kettlebells	sanity	siteImages.gallery[4].caption	
+over.gallery.9	/over	studio-galerij	9	alt	Studio overzicht (fallback, alleen bij lege Sanity-gallery)	code	src/app/over/OverContent.tsx:172	
+over.gallery.10	/over	studio-galerij	10	alt	Premium apparatuur (fallback)	code	src/app/over/OverContent.tsx:173	
+over.gallery.11	/over	studio-galerij	11	alt	Sfeer en verlichting (fallback)	code	src/app/over/OverContent.tsx:174	
+over.gallery.12	/over	studio-galerij	12	alt	Small group training (fallback)	code	src/app/over/OverContent.tsx:175	
+over.gallery.13	/over	studio-galerij	13	alt	Mobility area (fallback)	code	src/app/over/OverContent.tsx:176	
+over.gallery.14	/over	studio-galerij	14	alt	Entree en ontvangst (fallback)	code	src/app/over/OverContent.tsx:177	
+over.hormoon.1	/over	hormoonprofiel-crosslink	1	microcopy	02 · Holistisch	code	src/app/over/OverContent.tsx:197	
+over.hormoon.2	/over	hormoonprofiel-crosslink	2	h2	Meer dan alleen training	code	src/app/over/OverContent.tsx:200	
+over.hormoon.3	/over	hormoonprofiel-crosslink	3	body	Marlon kijkt verder dan de training alleen. Via Hormoonprofiel.com biedt zij inzicht in hoe hormonen invloed hebben op je energie, herstel en resultaat.	code	src/app/over/OverContent.tsx:203-213	
+over.hormoon.4	/over	hormoonprofiel-crosslink	4	body	Door training, voeding en hormoonbalans samen te brengen ontstaat een compleet beeld, en een aanpak die écht werkt. Voor vrouwen én mannen.	code	src/app/over/OverContent.tsx:215-219	
+over.hormoon.5	/over	hormoonprofiel-crosslink	5	cta	Ontdek Hormoonprofiel	code	src/app/over/OverContent.tsx:226	
+over.hormoon.6	/over	hormoonprofiel-crosslink	6	alt	Hormoonprofiel, holistisch trainen	code	src/app/over/OverContent.tsx:235	
+over.hormoon.7	/over	hormoonprofiel-crosslink	7	microcopy	Hormoonprofiel (placeholder zonder afbeelding)	code	src/app/over/OverContent.tsx:244	
+over.cta.1	/over	cta-footer	1	label	Kom langs	code	src/app/over/OverContent.tsx:258	
+over.cta.2	/over	cta-footer	2	h2	Benieuwd geworden?	code	src/app/over/OverContent.tsx:261	
+over.cta.3	/over	cta-footer	3	body	Kom langs voor een vrijblijvende proefles en ervaar zelf wat The Movement Club anders maakt.	code	src/app/over/OverContent.tsx:264-265	
+over.cta.4	/over	cta-footer	4	cta	Plan je proefles	code	src/app/over/OverContent.tsx:267	
+contact.form.3	/contact	formulier	3	label	Verstuurd	code	src/components/blocks/ContactForm.tsx:24	
+contact.form.4	/contact	formulier	4	h3	Bedankt voor je bericht.	code	src/components/blocks/ContactForm.tsx:27	
+contact.form.5	/contact	formulier	5	body	We nemen zo snel mogelijk contact met je op.	code	src/components/blocks/ContactForm.tsx:30	
+contact.form.6	/contact	formulier	6	label	Naam	code	src/components/blocks/ContactForm.tsx:58	
+contact.form.7	/contact	formulier	7	label	E-mailadres	code	src/components/blocks/ContactForm.tsx:67	
+contact.form.8	/contact	formulier	8	label	Telefoon	code	src/components/blocks/ContactForm.tsx:77	
+contact.form.9	/contact	formulier	9	label	Onderwerp	code	src/components/blocks/ContactForm.tsx:85	
+contact.form.10	/contact	formulier	10	microcopy	Selecteer een onderwerp	code	src/components/blocks/ContactForm.tsx:94	
+contact.form.11	/contact	formulier	11	microcopy	Proefles aanvragen	code	src/components/blocks/ContactForm.tsx:96	
+contact.form.12	/contact	formulier	12	microcopy	Vraag over het aanbod	code	src/components/blocks/ContactForm.tsx:97	
+contact.form.13	/contact	formulier	13	microcopy	Anders	code	src/components/blocks/ContactForm.tsx:98	
+contact.form.14	/contact	formulier	14	label	Bericht	code	src/components/blocks/ContactForm.tsx:108	
+contact.form.15	/contact	formulier	15	cta	Verstuur bericht	code	src/components/blocks/ContactForm.tsx:117	
+earlymember.hero.1	/early-member	hero	1	label	Early Member	code	src/app/early-member/EarlyMemberContent.tsx:85	
+earlymember.hero.2	/early-member	hero	2	h1	De voorwaarden waarmee we nooit meer openen.	code	src/app/early-member/EarlyMemberContent.tsx:89-93	COPY: confirm met Marlon
+earlymember.hero.3	/early-member	hero	3	body	The Movement Club is open in Loosdrecht. Wie nu instapt, traint zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt.	code	src/app/early-member/EarlyMemberContent.tsx:98-101	COPY: confirm met Marlon
+earlymember.hero.4	/early-member	hero	4	body	Medio augustus opent The Movement Club in Loosdrecht. Wie nu instapt, traint zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt.	code	src/app/early-member/EarlyMemberContent.tsx:105-108	COPY: confirm met Marlon
+earlymember.hero.5	/early-member	hero	5	body	Early Member is beschikbaar tot {deadline}. Daarna gelden de reguliere voorwaarden.	code	src/app/early-member/EarlyMemberContent.tsx:119-123	COPY: confirm met Marlon
+earlymember.hero.6	/early-member	hero	6	cta	Word Early Member	code	src/app/early-member/EarlyMemberContent.tsx:130	
+earlymember.hero.7	/early-member	hero	7	cta	Bekijk de programma's	code	src/app/early-member/EarlyMemberContent.tsx:132	
+earlymember.aanbod.1	/early-member	aanbod	1	label	Het aanbod	code	src/app/early-member/EarlyMemberContent.tsx:145	
+earlymember.aanbod.2	/early-member	aanbod	2	h2	Twee lidmaatschappen. Eén moment.	code	src/app/early-member/EarlyMemberContent.tsx:149	COPY: confirm met Marlon
+earlymember.aanbod.3	/early-member	aanbod	3	body	Alle prijzen per 4 weken. Als Early Member vervalt het inschrijfgeld van {bedrag} en ben je vanaf dag één maandelijks opzegbaar.	code	src/app/early-member/EarlyMemberContent.tsx:155-158	COPY: confirm met Marlon
+earlymember.aanbod.4	/early-member	aanbod	4	body	Alle prijzen per 4 weken.	code	src/app/early-member/EarlyMemberContent.tsx:160	COPY: confirm met Marlon
+earlymember.aanbod.5	/early-member	aanbod	5	label	Early Member voordeel	code	src/app/early-member/EarlyMemberContent.tsx:174,271	
+earlymember.aanbod.6	/early-member	aanbod	6	h3	All Access	code	src/app/early-member/EarlyMemberContent.tsx:178	
+earlymember.aanbod.7	/early-member	aanbod	7	body	Alle groepslessen plus onbeperkt vrij trainen, ongeacht je lesfrequentie.	code	src/app/early-member/EarlyMemberContent.tsx:181-183	COPY: confirm met Marlon
+earlymember.aanbod.8	/early-member	aanbod	8	microcopy	per 4 weken, onbeperkt, blijvend tarief	code	src/app/early-member/EarlyMemberContent.tsx:196	COPY: confirm met Marlon
+earlymember.aanbod.9	/early-member	aanbod	9	microcopy	per 4 weken, onbeperkt	code	src/app/early-member/EarlyMemberContent.tsx:206	COPY: confirm met Marlon
+earlymember.aanbod.10	/early-member	aanbod	10	microcopy	2x per week / 3x per week / Onbeperkt	code	src/app/early-member/EarlyMemberContent.tsx:213,219,225-226	
+earlymember.aanbod.11	/early-member	aanbod	11	body	Yoga, mobility en kettlebell	code	src/app/early-member/EarlyMemberContent.tsx:246	
+earlymember.aanbod.12	/early-member	aanbod	12	body	Altijd onbeperkt vrij trainen inbegrepen	code	src/app/early-member/EarlyMemberContent.tsx:250	
+earlymember.aanbod.13	/early-member	aanbod	13	body	Geen inschrijfkosten, direct maandelijks opzegbaar	code	src/app/early-member/EarlyMemberContent.tsx:255	
+earlymember.aanbod.14	/early-member	aanbod	14	body	1 jaar commitment, daarna maandelijks opzegbaar	code	src/app/early-member/EarlyMemberContent.tsx:256,316	
+earlymember.aanbod.15	/early-member	aanbod	15	cta	Word Early Member	code	src/app/early-member/EarlyMemberContent.tsx:260,325	
+earlymember.aanbod.16	/early-member	aanbod	16	cta	Boek je abonnement	code	src/app/early-member/EarlyMemberContent.tsx:260,325	
+earlymember.aanbod.17	/early-member	aanbod	17	h3	Groepslessen	code	src/app/early-member/EarlyMemberContent.tsx:275	
+earlymember.aanbod.18	/early-member	aanbod	18	body	Yoga, mobility en kettlebell in kleine groepen, onder begeleiding van Marlon.	code	src/app/early-member/EarlyMemberContent.tsx:278-280	COPY: confirm met Marlon
+earlymember.aanbod.19	/early-member	aanbod	19	body	Geen inschrijfkosten ({bedrag})	code	src/app/early-member/EarlyMemberContent.tsx:307	
+earlymember.aanbod.20	/early-member	aanbod	20	body	Inschrijfkosten: {bedrag} eenmalig	code	src/app/early-member/EarlyMemberContent.tsx:309	
+earlymember.aanbod.21	/early-member	aanbod	21	body	Direct maandelijks opzegbaar, geen jaarcontract	code	src/app/early-member/EarlyMemberContent.tsx:315	
+earlymember.aanbod.22	/early-member	aanbod	22	body	Vrij trainen toevoegen kan altijd, voor {bedrag} per 4 weken	code	src/app/early-member/EarlyMemberContent.tsx:320-321	
+earlymember.waarom.1	/early-member	waarom-nu	1	label	Waarom nu	code	src/app/early-member/EarlyMemberContent.tsx:343	
+earlymember.waarom.2	/early-member	waarom-nu	2	h2	Dit aanbod komt niet terug.	code	src/app/early-member/EarlyMemberContent.tsx:346	COPY: confirm met Marlon
+earlymember.waarom.3	/early-member	waarom-nu	3	body	{bedrag} inschrijfkosten → Geen inschrijfkosten	code	src/app/early-member/EarlyMemberContent.tsx:353-361	COPY: confirm met Marlon
+earlymember.waarom.4	/early-member	waarom-nu	4	body	Eerste jaar vast, daarna per 4 weken opzegbaar → Vanaf dag één maandelijks opzegbaar	code	src/app/early-member/EarlyMemberContent.tsx:364-372	COPY: confirm met Marlon
+earlymember.waarom.5	/early-member	waarom-nu	5	body	All Access onbeperkt {bedrag} per 4 weken → {bedrag} per 4 weken, blijvend	code	src/app/early-member/EarlyMemberContent.tsx:375-385	COPY: confirm met Marlon
+earlymember.waarom.6	/early-member	waarom-nu	6	body	Na de Early Member-periode gelden voor iedereen de reguliere voorwaarden. Wie nu instapt, houdt deze voorwaarden zolang het lidmaatschap doorloopt.	code	src/app/early-member/EarlyMemberContent.tsx:389-393	COPY: confirm met Marlon
+earlymember.programmas.1	/early-member	programmas	1	label	Liever een traject	code	src/app/early-member/EarlyMemberContent.tsx:404	
+earlymember.programmas.2	/early-member	programmas	2	h2	De 12-weken programma's	code	src/app/early-member/EarlyMemberContent.tsx:408	COPY: confirm met Marlon
+earlymember.programmas.3	/early-member	programmas	3	body	Ook zonder lidmaatschap te volgen. De prijs is voor iedereen gelijk; Early Members krijgen er tijdens het programma extra training bij.	code	src/app/early-member/EarlyMemberContent.tsx:412-414	COPY: confirm met Marlon
+earlymember.programmas.4	/early-member	programmas	4	label	In de studio	code	src/app/early-member/EarlyMemberContent.tsx:424	
+earlymember.programmas.5	/early-member	programmas	5	h3	12 weken met Marlon	code	src/app/early-member/EarlyMemberContent.tsx:427	
+earlymember.programmas.6	/early-member	programmas	6	microcopy	eenmalig	code	src/app/early-member/EarlyMemberContent.tsx:434	
+earlymember.programmas.7	/early-member	programmas	7	body	Op aanvraag	code	src/app/early-member/EarlyMemberContent.tsx:438,484	COPY: confirm met Marlon
+earlymember.programmas.8	/early-member	programmas	8	body	Uitgebreide intake, 2x personal training per week met Marlon, voedings- en supplementenadvies en dagelijkse leefstijlbegeleiding.	code	src/app/early-member/EarlyMemberContent.tsx:442-445	COPY: confirm met Marlon
+earlymember.programmas.9	/early-member	programmas	9	label	Early Member bonus	code	src/app/early-member/EarlyMemberContent.tsx:449,494	
+earlymember.programmas.10	/early-member	programmas	10	body	Onbeperkt groepslessen tijdens het hele programma	code	src/app/early-member/EarlyMemberContent.tsx:453-454	COPY: confirm met Marlon
+earlymember.programmas.11	/early-member	programmas	11	cta	Meer over dit programma	code	src/app/early-member/EarlyMemberContent.tsx:462,508	
+earlymember.programmas.12	/early-member	programmas	12	label	Online	code	src/app/early-member/EarlyMemberContent.tsx:470	
+earlymember.programmas.13	/early-member	programmas	13	h3	12 weken online coaching	code	src/app/early-member/EarlyMemberContent.tsx:473	
+earlymember.programmas.14	/early-member	programmas	14	body	Volledig begeleid trainings- en voedingstraject op afstand, met wekelijkse check-ins.	code	src/app/early-member/EarlyMemberContent.tsx:488-490	COPY: confirm met Marlon
+earlymember.programmas.15	/early-member	programmas	15	body	2x per week vrij trainen en 1x per week kettlebell, tijdens het programma	code	src/app/early-member/EarlyMemberContent.tsx:499-501	COPY: confirm met Marlon
+earlymember.overstap.1	/early-member	overstap	1	label	Nog niet zeker	code	src/app/early-member/EarlyMemberContent.tsx:521	
+earlymember.overstap.2	/early-member	overstap	2	h2	Twee andere manieren om in te stappen.	code	src/app/early-member/EarlyMemberContent.tsx:524-525	COPY: confirm met Marlon
+earlymember.overstap.3	/early-member	overstap	3	h3	Je traint nu ergens anders	code	src/app/early-member/EarlyMemberContent.tsx:534	COPY: confirm met Marlon
+earlymember.overstap.4	/early-member	overstap	4	body	Stap over en betaal geen inschrijfkosten. We denken mee over de overgang vanaf je huidige abonnement, zodat je nergens dubbel voor betaalt.	code	src/app/early-member/EarlyMemberContent.tsx:538-540	
+earlymember.overstap.5	/early-member	overstap	5	h3	Eerst een keer meedoen	code	src/app/early-member/EarlyMemberContent.tsx:548	COPY: confirm met Marlon
+earlymember.overstap.6	/early-member	overstap	6	body	Boek een proefles en ervaar hoe we trainen. Daarna beslis je pas; het Early Member-voordeel blijft tot de einddatum beschikbaar.	code	src/app/early-member/EarlyMemberContent.tsx:551-554	
+earlymember.overstap.7	/early-member	overstap	7	cta	Boek een proefles	code	src/app/early-member/EarlyMemberContent.tsx:557	
+earlymember.emailcapture.1	/early-member	email-capture	1	label	Nog even nadenken	code	src/app/early-member/EarlyMemberContent.tsx:576	COPY: confirm met Marlon
+earlymember.emailcapture.2	/early-member	email-capture	2	h2	Blijf op de hoogte	code	src/app/early-member/EarlyMemberContent.tsx:580	COPY: confirm met Marlon
+earlymember.emailcapture.3	/early-member	email-capture	3	body	Laat je e-mailadres achter en ontvang alle informatie over Early Member, de opening en het rooster.	code	src/app/early-member/EarlyMemberContent.tsx:584-585	COPY: confirm met Marlon
+earlymember.footer.1	/early-member	juridisch	1	microcopy	Early Member tarieven gelden tot {deadline}, daarna gelden de reguliere tarieven.	code	src/app/early-member/EarlyMemberContent.tsx:598-599	COPY: confirm met Marlon
+earlymember.prijzen.1	/early-member	pricing	1	prijs-dynamisch	groepslessen/allAccess-bedragen, signupFeeCents, programStudioCents, programOnlineCents	database	tmc.catalogue, via src/app/early-member/page.tsx	
+earlymember.optin.1	/early-member	optin-formulier	1	body	Bedankt, we houden je op de hoogte.	code	src/app/early-member/EarlyMemberOptInForm.tsx:57	COPY: confirm met Marlon
+earlymember.optin.2	/early-member	optin-formulier	2	body	Zodra er nieuws is over Early Member, hoor je het als eerste.	code	src/app/early-member/EarlyMemberOptInForm.tsx:60	
+earlymember.optin.3	/early-member	optin-formulier	3	label	E-mailadres	code	src/app/early-member/EarlyMemberOptInForm.tsx:74	COPY: confirm met Marlon
+earlymember.optin.4	/early-member	optin-formulier	4	cta	Versturen	code	src/app/early-member/EarlyMemberOptInForm.tsx:92	
+earlymember.optin.5	/early-member	optin-formulier	5	cta	Blijf op de hoogte	code	src/app/early-member/EarlyMemberOptInForm.tsx:92	COPY: confirm met Marlon
+earlymember.overstapform.1	/early-member	overstap-dialoog	1	cta	Vraag het overstapaanbod aan	code	src/app/early-member/OverstapLeadForm.tsx:77	COPY: confirm met Marlon
+earlymember.overstapform.2	/early-member	overstap-dialoog	2	label	Overstappen	code	src/app/early-member/OverstapLeadForm.tsx:83	
+earlymember.overstapform.3	/early-member	overstap-dialoog	3	h2	Vertel ons over je huidige abonnement	code	src/app/early-member/OverstapLeadForm.tsx:84	
+earlymember.overstapform.4	/early-member	overstap-dialoog	4	body	Bedankt, we nemen snel contact op.	code	src/app/early-member/OverstapLeadForm.tsx:89	COPY: confirm met Marlon
+earlymember.overstapform.5	/early-member	overstap-dialoog	5	body	We denken mee over de overstap, zodat je nergens dubbel voor betaalt.	code	src/app/early-member/OverstapLeadForm.tsx:91-92	
+earlymember.overstapform.6	/early-member	overstap-dialoog	6	cta	Sluiten	code	src/app/early-member/OverstapLeadForm.tsx:95	
+earlymember.overstapform.7	/early-member	overstap-dialoog	7	label	Naam	code	src/app/early-member/OverstapLeadForm.tsx:104	
+earlymember.overstapform.8	/early-member	overstap-dialoog	8	label	E-mailadres	code	src/app/early-member/OverstapLeadForm.tsx:114	
+earlymember.overstapform.9	/early-member	overstap-dialoog	9	label	Telefoon	code	src/app/early-member/OverstapLeadForm.tsx:124	
+earlymember.overstapform.10	/early-member	overstap-dialoog	10	label	Huidige sportschool + bericht (optioneel)	code	src/app/early-member/OverstapLeadForm.tsx:134	
+earlymember.overstapform.11	/early-member	overstap-dialoog	11	body	Versturen mislukt. Probeer opnieuw.	code	src/app/early-member/OverstapLeadForm.tsx:50	COPY: confirm met Marlon
+earlymember.overstapform.12	/early-member	overstap-dialoog	12	cta	Versturen...	code	src/app/early-member/OverstapLeadForm.tsx:154	
+earlymember.overstapform.13	/early-member	overstap-dialoog	13	cta	Versturen	code	src/app/early-member/OverstapLeadForm.tsx:154	COPY: confirm met Marlon
+earlymember.countdown.1	/early-member	countdown	1	microcopy	Tijd tot einde Early Member	code	src/components/ui/Countdown.tsx:68	
+earlymember.countdown.2	/early-member	countdown	2	microcopy	dagen	code	src/components/ui/Countdown.tsx:34	
+earlymember.countdown.3	/early-member	countdown	3	microcopy	uur	code	src/components/ui/Countdown.tsx:35	
+earlymember.countdown.4	/early-member	countdown	4	microcopy	min	code	src/components/ui/Countdown.tsx:36	
+earlymember.countdown.5	/early-member	countdown	5	microcopy	sec	code	src/components/ui/Countdown.tsx:37	
+beweegbeter.leadpage.1	/beweeg-beter	nav	1	label	The Movement Club	code	src/components/layout/LeadPageLayout.tsx:14	
+beweegbeter.leadpage.2	/beweeg-beter	nav	2	cta	← Terug naar home	code	src/components/layout/LeadPageLayout.tsx:20	
+beweegbeter.cover.1	/beweeg-beter	cover	1	alt	Beweeg Beter guide — The Movement Club	code	src/app/beweeg-beter/BeweegBeterContent.tsx:77	
+beweegbeter.cover.2	/beweeg-beter	cover	2	label	PDF guide	code	src/app/beweeg-beter/BeweegBeterContent.tsx:90	
+beweegbeter.cover.3	/beweeg-beter	cover	3	body	Beweeg beter.	code	src/app/beweeg-beter/BeweegBeterContent.tsx:93	
+beweegbeter.cover.4	/beweeg-beter	cover	4	body	Vijf oefeningen voor meer mobiliteit en kracht.	code	src/app/beweeg-beter/BeweegBeterContent.tsx:96	
+beweegbeter.cover.5	/beweeg-beter	cover	5	microcopy	Door Marlon · The Movement Club	code	src/app/beweeg-beter/BeweegBeterContent.tsx:103	
+beweegbeter.form.1	/beweeg-beter	formulier	1	label	Gratis guide	code	src/app/beweeg-beter/BeweegBeterContent.tsx:112	
+beweegbeter.form.2	/beweeg-beter	formulier	2	h1	Beweeg beter in tien minuten per dag	code	src/app/beweeg-beter/BeweegBeterContent.tsx:115	
+beweegbeter.form.3	/beweeg-beter	formulier	3	body	Vijf oefeningen die Marlon zelf gebruikt. Direct bruikbaar, rustig uitgelegd.	code	src/app/beweeg-beter/BeweegBeterContent.tsx:118-119	
+beweegbeter.form.4	/beweeg-beter	formulier	4	body	5 oefeningen die je in 10 minuten doet	code	src/app/beweeg-beter/BeweegBeterContent.tsx:23	
+beweegbeter.form.5	/beweeg-beter	formulier	5	body	Van hip mobility tot thoracic rotation	code	src/app/beweeg-beter/BeweegBeterContent.tsx:24	
+beweegbeter.form.6	/beweeg-beter	formulier	6	body	Met veelgemaakte fouten en tips	code	src/app/beweeg-beter/BeweegBeterContent.tsx:25	
+beweegbeter.form.7	/beweeg-beter	formulier	7	label	Voornaam	code	src/app/beweeg-beter/BeweegBeterContent.tsx:143	
+beweegbeter.form.8	/beweeg-beter	formulier	8	label	E-mailadres	code	src/app/beweeg-beter/BeweegBeterContent.tsx:152	
+beweegbeter.form.9	/beweeg-beter	formulier	9	cta	Versturen	code	src/app/beweeg-beter/BeweegBeterContent.tsx:165	
+beweegbeter.form.10	/beweeg-beter	formulier	10	cta	Download gratis	code	src/app/beweeg-beter/BeweegBeterContent.tsx:165	
+beweegbeter.form.11	/beweeg-beter	formulier	11	microcopy	We respecteren je privacy. Geen spam, uitschrijven kan altijd.	code	src/app/beweeg-beter/BeweegBeterContent.tsx:168	
+beweegbeterbedankt.1	/beweeg-beter/bedankt	bevestiging	1	h1	Je guide is onderweg!	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:32	
+beweegbeterbedankt.2	/beweeg-beter/bedankt	bevestiging	2	body	Check je inbox, de Beweeg Beter guide staat klaar.	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:35	
+beweegbeterbedankt.3	/beweeg-beter/bedankt	bevestiging	3	body	De download start ook automatisch.	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:38	
+beweegbeterbedankt.4	/beweeg-beter/bedankt	bevestiging	4	h2	Volgende stap	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:42	
+beweegbeterbedankt.5	/beweeg-beter/bedankt	bevestiging	5	body	Klaar voor meer? Start de 7-Dagen Mobility Reset. Elke dag een korte video van Marlon.	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:45-46	
+beweegbeterbedankt.6	/beweeg-beter/bedankt	bevestiging	6	cta	Start de Mobility Reset	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:49	
+beweegbeterbedankt.7	/beweeg-beter/bedankt	bevestiging	7	cta	Terug naar home	code	src/app/beweeg-beter/bedankt/BedanktContent.tsx:53	
+mobilityreset.form.1	/mobility-reset	pitch	1	label	Gratis 7-dagen programma	code	src/app/mobility-reset/MobilityResetContent.tsx:79	
+mobilityreset.form.2	/mobility-reset	pitch	2	h1	Zeven dagen mobility reset	code	src/app/mobility-reset/MobilityResetContent.tsx:82	
+mobilityreset.form.3	/mobility-reset	pitch	3	body	Elke dag een korte video van Marlon. Beweeg vrijer in een week.	code	src/app/mobility-reset/MobilityResetContent.tsx:85	
+mobilityreset.form.4	/mobility-reset	pitch	4	alt	Mobility Reset video preview	code	src/app/mobility-reset/MobilityResetContent.tsx:93	
+mobilityreset.form.5	/mobility-reset	pitch	5	microcopy	Preview · Dag 01 · Heupen & onderrug	code	src/app/mobility-reset/MobilityResetContent.tsx:124	
+mobilityreset.form.6	/mobility-reset	pitch	6	label	Wat je krijgt	code	src/app/mobility-reset/MobilityResetContent.tsx:130	
+mobilityreset.form.7	/mobility-reset	pitch	7	body	7 video's van 2-3 minuten	code	src/app/mobility-reset/MobilityResetContent.tsx:133	
+mobilityreset.form.8	/mobility-reset	pitch	8	body	Van heupen tot schouders, van adem tot kracht	code	src/app/mobility-reset/MobilityResetContent.tsx:134	
+mobilityreset.form.9	/mobility-reset	pitch	9	body	Dag 7: je persoonlijke volgende stap	code	src/app/mobility-reset/MobilityResetContent.tsx:135	
+mobilityreset.form.10	/mobility-reset	pitch	10	label	Het programma	code	src/app/mobility-reset/MobilityResetContent.tsx:152	
+mobilityreset.form.11	/mobility-reset	pitch	11	microcopy	Dag {n}	code	src/app/mobility-reset/MobilityResetContent.tsx:160	
+mobilityreset.form.12	/mobility-reset	pitch	12	body	Heupen & Onderrug	code	src/app/mobility-reset/MobilityResetContent.tsx:24	
+mobilityreset.form.13	/mobility-reset	pitch	13	body	Schouders & Thoracic	code	src/app/mobility-reset/MobilityResetContent.tsx:25	
+mobilityreset.form.14	/mobility-reset	pitch	14	body	Adem & Core	code	src/app/mobility-reset/MobilityResetContent.tsx:26	
+mobilityreset.form.15	/mobility-reset	pitch	15	body	Enkels & Voeten	code	src/app/mobility-reset/MobilityResetContent.tsx:27	
+mobilityreset.form.16	/mobility-reset	pitch	16	body	Full Body Flow	code	src/app/mobility-reset/MobilityResetContent.tsx:28	
+mobilityreset.form.17	/mobility-reset	pitch	17	body	Strength Basics	code	src/app/mobility-reset/MobilityResetContent.tsx:29	
+mobilityreset.form.18	/mobility-reset	pitch	18	body	Jouw Volgende Stap	code	src/app/mobility-reset/MobilityResetContent.tsx:30	
+mobilityreset.form.19	/mobility-reset	formulier	19	label	Start nu	code	src/app/mobility-reset/MobilityResetContent.tsx:178	
+mobilityreset.form.20	/mobility-reset	formulier	20	h2	Ontvang dag 1	code	src/app/mobility-reset/MobilityResetContent.tsx:181	
+mobilityreset.form.21	/mobility-reset	formulier	21	body	Morgenochtend staat de eerste video in je inbox.	code	src/app/mobility-reset/MobilityResetContent.tsx:184	
+mobilityreset.form.22	/mobility-reset	formulier	22	label	Voornaam	code	src/app/mobility-reset/MobilityResetContent.tsx:191	
+mobilityreset.form.23	/mobility-reset	formulier	23	label	E-mailadres	code	src/app/mobility-reset/MobilityResetContent.tsx:200	
+mobilityreset.form.24	/mobility-reset	formulier	24	cta	Versturen	code	src/app/mobility-reset/MobilityResetContent.tsx:213	
+mobilityreset.form.25	/mobility-reset	formulier	25	cta	Start mijn reset	code	src/app/mobility-reset/MobilityResetContent.tsx:213	
+mobilityreset.form.26	/mobility-reset	formulier	26	microcopy	Gratis en vrijblijvend. Geen spam.	code	src/app/mobility-reset/MobilityResetContent.tsx:216	
+mobilityresetbedankt.1	/mobility-reset/bedankt	bevestiging	1	h1	Je reset start morgen ochtend!	code	src/app/mobility-reset/bedankt/page.tsx:22	
+mobilityresetbedankt.2	/mobility-reset/bedankt	bevestiging	2	body	Check je inbox, je ontvangt een welkomstmail.	code	src/app/mobility-reset/bedankt/page.tsx:25	
+mobilityresetbedankt.3	/mobility-reset/bedankt	bevestiging	3	body	Morgenochtend krijg je Dag 1: Heupen & Onderrug.	code	src/app/mobility-reset/bedankt/page.tsx:28	
+mobilityresetbedankt.4	/mobility-reset/bedankt	bevestiging	4	h2	In de tussentijd	code	src/app/mobility-reset/bedankt/page.tsx:32	
+mobilityresetbedankt.5	/mobility-reset/bedankt	bevestiging	5	body	Ontdek ons volledige trainingsaanbod, van personal training tot small group sessions.	code	src/app/mobility-reset/bedankt/page.tsx:35-36	
+mobilityresetbedankt.6	/mobility-reset/bedankt	bevestiging	6	cta	Bekijk het aanbod	code	src/app/mobility-reset/bedankt/page.tsx:38	
+mobilityresetbedankt.7	/mobility-reset/bedankt	bevestiging	7	cta	Terug naar home	code	src/app/mobility-reset/bedankt/page.tsx:41	
+mobilitycheck.hero.1	/mobility-check	hero	1	label	Gratis · Vrijblijvend	code	src/app/mobility-check/MobilityCheckContent.tsx:115	
+mobilitycheck.hero.2	/mobility-check	hero	2	h1	Ontdek hoe je beweegt	code	src/app/mobility-check/MobilityCheckContent.tsx:119	
+mobilitycheck.hero.3	/mobility-check	hero	3	body	Twintig minuten, één-op-één met Marlon. Een rustige screening van hoe je lichaam beweegt, en een persoonlijk profiel per email.	code	src/app/mobility-check/MobilityCheckContent.tsx:122-123	
+mobilitycheck.hero.4	/mobility-check	hero	4	cta	Plan mijn Mobility Check	code	src/app/mobility-check/MobilityCheckContent.tsx:126,310	
+mobilitycheck.steps.1	/mobility-check	hoe-het-werkt	1	label	Hoe het werkt	code	src/app/mobility-check/MobilityCheckContent.tsx:136	
+mobilitycheck.steps.2	/mobility-check	hoe-het-werkt	2	h2	In drie stappen	code	src/app/mobility-check/MobilityCheckContent.tsx:136	
+mobilitycheck.steps.3	/mobility-check	hoe-het-werkt	3	h3	Intake	code	src/app/mobility-check/MobilityCheckContent.tsx:30	
+mobilitycheck.steps.4	/mobility-check	hoe-het-werkt	4	body	Korte vragenlijst over je doelen, klachten en sportervaring.	code	src/app/mobility-check/MobilityCheckContent.tsx:31	
+mobilitycheck.steps.5	/mobility-check	hoe-het-werkt	5	h3	Screening	code	src/app/mobility-check/MobilityCheckContent.tsx:34	
+mobilitycheck.steps.6	/mobility-check	hoe-het-werkt	6	body	6-8 bewegingspatronen worden geanalyseerd door Marlon.	code	src/app/mobility-check/MobilityCheckContent.tsx:35	
+mobilitycheck.steps.7	/mobility-check	hoe-het-werkt	7	h3	Jouw profiel	code	src/app/mobility-check/MobilityCheckContent.tsx:38	
+mobilitycheck.steps.8	/mobility-check	hoe-het-werkt	8	body	Persoonlijk rapport met bevindingen en aanbevelingen per email.	code	src/app/mobility-check/MobilityCheckContent.tsx:39	
+mobilitycheck.forwhom.1	/mobility-check	voor-wie	1	label	Voor wie	code	src/app/mobility-check/MobilityCheckContent.tsx:162	
+mobilitycheck.forwhom.2	/mobility-check	voor-wie	2	h2	Herken je dit?	code	src/app/mobility-check/MobilityCheckContent.tsx:162	
+mobilitycheck.forwhom.3	/mobility-check	voor-wie	3	body	Bureauwerker met rugklachten	code	src/app/mobility-check/MobilityCheckContent.tsx:44	
+mobilitycheck.forwhom.4	/mobility-check	voor-wie	4	body	Ervaren sporter die een plateau raakt	code	src/app/mobility-check/MobilityCheckContent.tsx:45	
+mobilitycheck.forwhom.5	/mobility-check	voor-wie	5	body	Herintreder na een lange pauze	code	src/app/mobility-check/MobilityCheckContent.tsx:46	
+mobilitycheck.forwhom.6	/mobility-check	voor-wie	6	body	Of je nu beginner bent of al jaren traint	code	src/app/mobility-check/MobilityCheckContent.tsx:47	
+mobilitycheck.form.1	/mobility-check	formulier	1	label	Plan je check	code	src/app/mobility-check/MobilityCheckContent.tsx:185	
+mobilitycheck.form.2	/mobility-check	formulier	2	h2	Boek je moment	code	src/app/mobility-check/MobilityCheckContent.tsx:188	
+mobilitycheck.form.3	/mobility-check	formulier	3	body	Vul het formulier in en Marlon neemt binnen 24 uur contact op om een moment te prikken.	code	src/app/mobility-check/MobilityCheckContent.tsx:191-192	
+mobilitycheck.form.4	/mobility-check	formulier	4	label	Voornaam	code	src/app/mobility-check/MobilityCheckContent.tsx:200	
+mobilitycheck.form.5	/mobility-check	formulier	5	label	Achternaam	code	src/app/mobility-check/MobilityCheckContent.tsx:209	
+mobilitycheck.form.6	/mobility-check	formulier	6	label	E-mailadres	code	src/app/mobility-check/MobilityCheckContent.tsx:219	
+mobilitycheck.form.7	/mobility-check	formulier	7	label	Telefoon	code	src/app/mobility-check/MobilityCheckContent.tsx:228	
+mobilitycheck.form.8	/mobility-check	formulier	8	label	Voorkeur dag	code	src/app/mobility-check/MobilityCheckContent.tsx:238	
+mobilitycheck.form.9	/mobility-check	formulier	9	microcopy	Kies een dag	code	src/app/mobility-check/MobilityCheckContent.tsx:247	
+mobilitycheck.form.10	/mobility-check	formulier	10	microcopy	Maandag/Dinsdag/Woensdag/Donderdag/Vrijdag/Zaterdag	code	src/app/mobility-check/MobilityCheckContent.tsx:249-254	
+mobilitycheck.form.11	/mobility-check	formulier	11	label	Voorkeur tijdstip	code	src/app/mobility-check/MobilityCheckContent.tsx:259	
+mobilitycheck.form.12	/mobility-check	formulier	12	microcopy	Kies een tijdstip	code	src/app/mobility-check/MobilityCheckContent.tsx:268	
+mobilitycheck.form.13	/mobility-check	formulier	13	microcopy	Ochtend/Middag/Avond	code	src/app/mobility-check/MobilityCheckContent.tsx:270-272	
+mobilitycheck.form.14	/mobility-check	formulier	14	label	Sportervaring	code	src/app/mobility-check/MobilityCheckContent.tsx:278	
+mobilitycheck.form.15	/mobility-check	formulier	15	microcopy	Kies je niveau	code	src/app/mobility-check/MobilityCheckContent.tsx:287	
+mobilitycheck.form.16	/mobility-check	formulier	16	microcopy	Beginner/Gemiddeld/Gevorderd	code	src/app/mobility-check/MobilityCheckContent.tsx:289-291	
+mobilitycheck.form.17	/mobility-check	formulier	17	label	Klachten of doelen	code	src/app/mobility-check/MobilityCheckContent.tsx:297	
+mobilitycheck.form.18	/mobility-check	formulier	18	cta	Versturen	code	src/app/mobility-check/MobilityCheckContent.tsx:310	
+mobilitycheck.form.19	/mobility-check	formulier	19	microcopy	Volledig gratis en vrijblijvend.	code	src/app/mobility-check/MobilityCheckContent.tsx:313	
+mobilitycheck.faq.1	/mobility-check	faq	1	label	Veelgestelde vragen	code	src/app/mobility-check/MobilityCheckContent.tsx:321	
+mobilitycheck.faq.2	/mobility-check	faq	2	faq-vraag	Is het echt gratis?	code	src/app/mobility-check/MobilityCheckContent.tsx:52	
+mobilitycheck.faq.3	/mobility-check	faq	3	faq-antwoord	Ja, volledig vrijblijvend. Geen verplichtingen, geen verkooppraatje.	code	src/app/mobility-check/MobilityCheckContent.tsx:53	
+mobilitycheck.faq.4	/mobility-check	faq	4	faq-vraag	Moet ik sportkleding aan?	code	src/app/mobility-check/MobilityCheckContent.tsx:56	
+mobilitycheck.faq.5	/mobility-check	faq	5	faq-antwoord	Comfortabele kleding is voldoende. Je hoeft niet te sporten.	code	src/app/mobility-check/MobilityCheckContent.tsx:57	
+mobilitycheck.faq.6	/mobility-check	faq	6	faq-vraag	Hoe lang duurt het?	code	src/app/mobility-check/MobilityCheckContent.tsx:60	
+mobilitycheck.faq.7	/mobility-check	faq	7	faq-antwoord	Ongeveer 20-30 minuten. We nemen de tijd voor een grondige screening.	code	src/app/mobility-check/MobilityCheckContent.tsx:61	
+mobilitycheck.faq.8	/mobility-check	faq	8	faq-vraag	Wat als ik blessures heb?	code	src/app/mobility-check/MobilityCheckContent.tsx:64	
+mobilitycheck.faq.9	/mobility-check	faq	9	faq-antwoord	Juist dan is een screening waardevol. Marlon past alles aan op jouw situatie.	code	src/app/mobility-check/MobilityCheckContent.tsx:65	
+mobilitycheckbedankt.1	/mobility-check/bedankt	bevestiging	1	h1	Je aanvraag is ontvangen!	code	src/app/mobility-check/bedankt/page.tsx:22	
+mobilitycheckbedankt.2	/mobility-check/bedankt	bevestiging	2	body	Marlon neemt binnen 24 uur contact op om een moment te prikken.	code	src/app/mobility-check/bedankt/page.tsx:25	
+mobilitycheckbedankt.3	/mobility-check/bedankt	bevestiging	3	body	We kijken ernaar uit je te ontmoeten in de studio.	code	src/app/mobility-check/bedankt/page.tsx:28	
+mobilitycheckbedankt.4	/mobility-check/bedankt	bevestiging	4	h2	In de tussentijd	code	src/app/mobility-check/bedankt/page.tsx:32	
+mobilitycheckbedankt.5	/mobility-check/bedankt	bevestiging	5	body	Download de gratis Beweeg Beter guide: 5 oefeningen die je vandaag nog kunt doen.	code	src/app/mobility-check/bedankt/page.tsx:35-36	
+mobilitycheckbedankt.6	/mobility-check/bedankt	bevestiging	6	cta	Download de guide	code	src/app/mobility-check/bedankt/page.tsx:38	
+mobilitycheckbedankt.7	/mobility-check/bedankt	bevestiging	7	cta	Terug naar home	code	src/app/mobility-check/bedankt/page.tsx:41	
+rooster.header.1	/rooster	header	1	label	Het rooster	code	src/app/rooster/page.tsx:181	
+rooster.header.2	/rooster	header	2	h1	Twee weken vooruit.	code	src/app/rooster/page.tsx:184	
+rooster.header.3	/rooster	header	3	body	Yoga, kettlebell, kids en senior. Kleine groepen, échte coaching. Kom een keer mee.	code	src/app/rooster/page.tsx:187-188	
+rooster.header.4	/rooster	meta	4	meta-title	Rooster	code	src/app/rooster/page.tsx:23	
+rooster.header.5	/rooster	meta	5	meta-description	Bekijk het wekelijkse rooster van The Movement Club. Yoga, kettlebell, kids en senior sessies in Loosdrecht.	code	src/app/rooster/page.tsx:24-25	
+rooster.login.1	/rooster	login-cta	1	label	Al lid?	code	src/app/rooster/page.tsx:201	
+rooster.login.2	/rooster	login-cta	2	body	Log in om een sessie te boeken.	code	src/app/rooster/page.tsx:204	
+rooster.login.3	/rooster	login-cta	3	cta	Inloggen	code	src/app/rooster/page.tsx:208	
+rooster.login.4	/rooster	login-cta	4	cta	Of plan een proefles	code	src/app/rooster/page.tsx:209	
+rooster.filters.1	/rooster	filters	1	microcopy	Filter op discipline	code	src/app/rooster/_components/PublicFilterChips.tsx:33	
+rooster.filters.2	/rooster	filters	2	label	Alles	code	src/app/rooster/_components/PublicFilterChips.tsx:43	
+rooster.filters.3	/rooster	filters	3	label	Vrij trainen	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.vrij_trainen) — gefilterd weg op /rooster, komt hier niet voor	
+rooster.filters.4	/rooster	filters	4	label	Yoga & mobility	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.yoga_mobility)	
+rooster.filters.5	/rooster	filters	5	label	Kettlebell	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.kettlebell)	
+rooster.filters.6	/rooster	filters	6	label	Kids	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.kids)	
+rooster.filters.7	/rooster	filters	7	label	Senior	code	src/lib/member/plan-coverage.ts (PILLAR_LABELS.senior)	
+rooster.empty.1	/rooster	lege-staat	1	label	Stil deze weken	code	src/app/rooster/page.tsx:224	
+rooster.empty.2	/rooster	lege-staat	2	body	Er zijn momenteel geen sessies ingepland die bij dit filter passen. Probeer een andere discipline of kom later terug.	code	src/app/rooster/page.tsx:227-228	
+rooster.grid.1	/rooster	weekgrid	1	body	Geen sessies.	code	src/app/rooster/_components/PublicWeekGrid.tsx:36	
+rooster.grid.2	/rooster	weekgrid	2	microcopy	—	code	src/app/rooster/_components/PublicWeekGrid.tsx:68	
+rooster.grid.3	/rooster	weekgrid	3	body	{class_type.name}, met {trainer.display_name}, {tijd}	database	tmc.class_sessions (via server component in page.tsx)	
+rooster.card.1	/rooster	sessiekaart	1	microcopy	Geboekt	code	src/app/rooster/_components/PublicSessionCard.tsx:58	
+rooster.card.2	/rooster	sessiekaart	2	microcopy	Vol	code	src/app/rooster/_components/PublicSessionCard.tsx:60	
+rooster.card.3	/rooster	sessiekaart	3	microcopy	Onbeperkt aantal plekken	code	src/app/rooster/_components/PublicSessionCard.tsx:63	COPY: confirm met Marlon
+rooster.card.4	/rooster	sessiekaart	4	microcopy	{n} van {capaciteit} plekken	code	src/app/rooster/_components/PublicSessionCard.tsx:64	
+rooster.card.5	/rooster	sessiekaart	5	body	met {trainerName}	code	src/app/rooster/_components/PublicSessionCard.tsx:46	
+rooster.footer.1	/rooster	cta-footer	1	label	Nog geen lid?	code	src/app/rooster/page.tsx:244	
+rooster.footer.2	/rooster	cta-footer	2	h2	Kom langs voor een proefles.	code	src/app/rooster/page.tsx:247	
+rooster.footer.3	/rooster	cta-footer	3	body	Eén sessie, vrijblijvend. Zo ervaar je hoe klein en persoonlijk het hier echt werkt.	code	src/app/rooster/page.tsx:250-251	
+rooster.footer.4	/rooster	cta-footer	4	cta	Plan je proefles	code	src/app/rooster/page.tsx:254	
+rooster.footer.5	/rooster	cta-footer	5	cta	Naar jouw rooster	code	src/app/rooster/page.tsx:257	
+rooster.footer.6	/rooster	cta-footer	6	cta	Bekijk het aanbod	code	src/app/rooster/page.tsx:265	
+privacy.header.1	/privacybeleid	header	1	label	Privacy	code	src/app/privacybeleid/PrivacybeleidContent.tsx:60	
+privacy.header.2	/privacybeleid	header	2	h1	Privacyverklaring	code	src/app/privacybeleid/PrivacybeleidContent.tsx:61	
+privacy.header.3	/privacybeleid	header	3	body	Hoe The Movement Club omgaat met jouw persoonsgegevens — op deze website, in de member-app en in de studio. Laatst bijgewerkt op 2 juli 2026.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:62,28	
+privacy.s01.1	/privacybeleid	01-verwerkingsverantwoordelijke	1	microcopy	01 · Wie is verantwoordelijk	code	src/app/privacybeleid/PrivacybeleidContent.tsx:73	
+privacy.s01.2	/privacybeleid	01-verwerkingsverantwoordelijke	2	h2	Verwerkingsverantwoordelijke	code	src/app/privacybeleid/PrivacybeleidContent.tsx:74	
+privacy.s01.3	/privacybeleid	01-verwerkingsverantwoordelijke	3	body	The Movement Club, gevestigd aan {adres} (KvK {kvk}), is verwerkingsverantwoordelijke voor de persoonsgegevens die via deze website, de member-app en in de studio worden verzameld.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:77-81	
+privacy.s01.4	/privacybeleid	01-verwerkingsverantwoordelijke	4	body	Voor alle vragen over deze verklaring of over hoe we met je gegevens omgaan, kun je terecht bij {email}.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:83-88	
+privacy.s02.1	/privacybeleid	02-welke-gegevens	1	microcopy	02 · Welke gegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:93	
+privacy.s02.2	/privacybeleid	02-welke-gegevens	2	h2	Welke persoonsgegevens verzamelen we	code	src/app/privacybeleid/PrivacybeleidContent.tsx:94	
+privacy.s02.3	/privacybeleid	02-welke-gegevens	3	body	Afhankelijk van hoe je met ons in aanraking komt, verwerken we:	code	src/app/privacybeleid/PrivacybeleidContent.tsx:96	
+privacy.s02.4	/privacybeleid	02-welke-gegevens	4	body	Profielgegevens — voornaam, achternaam, e-mailadres, telefoonnummer, geboortedatum en adresgegevens, zodra je lid wordt of een account aanmaakt in de member-app.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:99-103	
+privacy.s02.5	/privacybeleid	02-welke-gegevens	5	body	Noodcontactgegevens — naam en telefoonnummer van een contactpersoon die we alleen in een noodsituatie tijdens een sessie benaderen.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:104-108	
+privacy.s02.6	/privacybeleid	02-welke-gegevens	6	body	Boekingsgeschiedenis — welke lessen, personal trainingen of proeflessen je hebt geboekt, gevolgd of geannuleerd.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:109-113	
+privacy.s02.7	/privacybeleid	02-welke-gegevens	7	body	Betaalgegevens — welk bedrag, voor welk abonnement of welke sessie, en de status van die betaling. We slaan zelf geen creditcard- of bankgegevens op; het betaalproces zelf loopt via onze betaalverwerker Mollie (zie hieronder).	code	src/app/privacybeleid/PrivacybeleidContent.tsx:114-120	
+privacy.s02.8	/privacybeleid	02-welke-gegevens	8	body	Device-pushtoken — als je de native app op je telefoon gebruikt en meldingen toestaat, slaan we een technisch token op (gekoppeld aan jouw account en het type toestel, ios of android) om je een pushmelding te kunnen sturen. Geen locatiegegevens, geen toegang tot de rest van je toestel.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:121-128	
+privacy.s02.9	/privacybeleid	02-welke-gegevens	9	body	Op de website (buiten de member-app om) verzamelen we daarnaast voor- en achternaam, e-mailadres, telefoonnummer en je bericht als je een formulier invult — bijvoorbeeld voor een proefles, de gratis Mobility Check, de Beweeg Beter guide of het contactformulier.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:130-136	
+privacy.s03.1	/privacybeleid	03-gezondheidsgegevens	1	microcopy	03 · Bijzondere persoonsgegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:140	
+privacy.s03.2	/privacybeleid	03-gezondheidsgegevens	2	h2	Gezondheidsgegevens uit de intake	code	src/app/privacybeleid/PrivacybeleidContent.tsx:141	
+privacy.s03.3	/privacybeleid	03-gezondheidsgegevens	3	body	Als lid vul je bij aanmelding een intake in over blessures, klachten, medicatiegebruik en eventuele zwangerschap. Dit zijn bijzondere persoonsgegevens in de zin van de AVG — gegevens over je gezondheid — waar we extra zorgvuldig mee omgaan.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:144-149	
+privacy.s03.4	/privacybeleid	03-gezondheidsgegevens	4	body	We vragen hiervoor je uitdrukkelijke toestemming bij het invullen van de intake. Deze gegevens gebruiken we uitsluitend om je training veilig en verantwoord op jou af te stemmen, en zijn alleen zichtbaar voor trainers die daar door ons nadrukkelijk toegang toe hebben gekregen — niet standaard voor iedere trainer. Je kunt je toestemming voor het delen van deze gegevens op elk moment intrekken door contact met ons op te nemen; zie sectie 09 hieronder.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:151-159	
+privacy.s04.1	/privacybeleid	04-waarvoor	1	microcopy	04 · Waarvoor	code	src/app/privacybeleid/PrivacybeleidContent.tsx:163	
+privacy.s04.2	/privacybeleid	04-waarvoor	2	h2	Waarvoor gebruiken we je gegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:164	
+privacy.s04.3	/privacybeleid	04-waarvoor	3	body	Om je lidmaatschap, boekingen en betalingen te kunnen uitvoeren (uitvoering van de overeenkomst).	code	src/app/privacybeleid/PrivacybeleidContent.tsx:168-169	
+privacy.s04.4	/privacybeleid	04-waarvoor	4	body	Om je training veilig en persoonlijk te kunnen begeleiden, op basis van je intake (met jouw uitdrukkelijke toestemming).	code	src/app/privacybeleid/PrivacybeleidContent.tsx:172-175	
+privacy.s04.5	/privacybeleid	04-waarvoor	5	body	Om je een pushmelding of e-mail te sturen over je boeking, abonnement of — als je daarvoor gekozen hebt — over onze content en aanbiedingen.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:177-180	
+privacy.s04.6	/privacybeleid	04-waarvoor	6	body	Om wettelijke verplichtingen na te komen, bijvoorbeeld onze fiscale bewaarplicht voor betaalgegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:182-184	
+privacy.s05.1	/privacybeleid	05-delen-met-derden	1	microcopy	05 · Delen met derden	code	src/app/privacybeleid/PrivacybeleidContent.tsx:189	
+privacy.s05.2	/privacybeleid	05-delen-met-derden	2	h2	Met wie delen we je gegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:190	
+privacy.s05.3	/privacybeleid	05-delen-met-derden	3	body	We verkopen je gegevens nooit. We delen gegevens alleen met partijen die ze nodig hebben om de dienst te kunnen leveren:	code	src/app/privacybeleid/PrivacybeleidContent.tsx:192-195	
+privacy.s05.4	/privacybeleid	05-delen-met-derden	4	body	Supabase — hosting van onze database en het inlogsysteem (authenticatie) voor de member-app.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:198-200	
+privacy.s05.5	/privacybeleid	05-delen-met-derden	5	body	Mollie — verwerkt al onze betalingen. Mollie ontvangt de betaalgegevens die nodig zijn om een betaling te verwerken; wij ontvangen alleen het resultaat (gelukt/mislukt) en een transactie-ID.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:202-207	
+privacy.s05.6	/privacybeleid	05-delen-met-derden	6	body	MailerLite — verstuurt e-mails waarvoor je je actief hebt aangemeld, zoals de Beweeg Beter guide, de Mobility Reset e-mailreeks en overige marketingcommunicatie.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:208-213	
+privacy.s05.7	/privacybeleid	05-delen-met-derden	7	body	MailerSend — verstuurt transactionele e-mails die bij je account of boeking horen, zoals bevestigingen en herinneringen.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:214-218	
+privacy.s05.8	/privacybeleid	05-delen-met-derden	8	body	Firebase (Google) — voor pushmeldingen vanuit de native app. Dit onderdeel is nog niet actief; het Firebase-project moet nog worden aangemaakt.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:219-227	
+privacy.s05.9	/privacybeleid	05-delen-met-derden	9	body	Sanity — ons content-systeem voor de website (teksten, foto's, openingstijden). Hier slaan we geen ledengegevens in op.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:228-232	
+privacy.s05.10	/privacybeleid	05-delen-met-derden	10	body	Vercel — host de website en de member-app.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:233-236	
+privacy.s05.11	/privacybeleid	05-delen-met-derden	11	body	Met elke partij die persoonsgegevens namens ons verwerkt, hebben we (of maken we) afspraken zoals de AVG die voorschrijft.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:239-242	
+privacy.s06.1	/privacybeleid	06-bewaartermijn	1	microcopy	06 · Bewaartermijn	code	src/app/privacybeleid/PrivacybeleidContent.tsx:246	
+privacy.s06.2	/privacybeleid	06-bewaartermijn	2	h2	Hoe lang bewaren we je gegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:247	
+privacy.s06.3	/privacybeleid	06-bewaartermijn	3	body	We bewaren je gegevens niet langer dan nodig is voor het doel waarvoor we ze verzameld hebben, of zolang we daartoe wettelijk verplicht zijn (bijvoorbeeld de fiscale bewaarplicht voor betaalgegevens). Zeg je je lidmaatschap op, dan verwijderen of anonimiseren we je gegevens zodra de wettelijke bewaartermijnen dat toelaten.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:249-261	
+privacy.s07.1	/privacybeleid	07-cookies	1	microcopy	07 · Cookies	code	src/app/privacybeleid/PrivacybeleidContent.tsx:265	
+privacy.s07.2	/privacybeleid	07-cookies	2	h2	Cookies en vergelijkbare technieken	code	src/app/privacybeleid/PrivacybeleidContent.tsx:266	
+privacy.s07.3	/privacybeleid	07-cookies	3	body	Deze website gebruikt alleen analytische cookies (Google Analytics) nadat je daar toestemming voor hebt gegeven via de cookiebanner onderaan de pagina. Zonder jouw toestemming meten we geanonimiseerd en zonder persoonsgegevens te koppelen. Je kunt je keuze op elk moment aanpassen via de cookie-instellingen.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:268-275	
+privacy.s08.1	/privacybeleid	08-beveiliging	1	microcopy	08 · Beveiliging	code	src/app/privacybeleid/PrivacybeleidContent.tsx:279	
+privacy.s08.2	/privacybeleid	08-beveiliging	2	h2	Hoe beveiligen we je gegevens	code	src/app/privacybeleid/PrivacybeleidContent.tsx:280	
+privacy.s08.3	/privacybeleid	08-beveiliging	3	body	We nemen passende technische en organisatorische maatregelen om je gegevens te beschermen tegen verlies of onrechtmatig gebruik. Toegang tot je gegevens in onze database is afgeschermd per gebruiker: als lid kun jij alleen bij je eigen gegevens, en gevoelige gezondheidsinformatie is extra afgeschermd en alleen zichtbaar voor trainers die daar expliciet toegang toe hebben gekregen. Onze systeembeheerders werken volgens het principe van minimale toegang.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:282-292	
+privacy.s09.1	/privacybeleid	09-jouw-rechten	1	microcopy	09 · Jouw rechten	code	src/app/privacybeleid/PrivacybeleidContent.tsx:295	
+privacy.s09.2	/privacybeleid	09-jouw-rechten	2	h2	Jouw rechten onder de AVG	code	src/app/privacybeleid/PrivacybeleidContent.tsx:295	
+privacy.s09.3	/privacybeleid	09-jouw-rechten	3	body	Je hebt altijd het recht op:	code	src/app/privacybeleid/PrivacybeleidContent.tsx:296	
+privacy.s09.4	/privacybeleid	09-jouw-rechten	4	body	Inzage in de gegevens die we van je hebben.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:298	
+privacy.s09.5	/privacybeleid	09-jouw-rechten	5	body	Rectificatie van onjuiste of onvolledige gegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:299	
+privacy.s09.6	/privacybeleid	09-jouw-rechten	6	body	Verwijdering van je gegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:300	
+privacy.s09.7	/privacybeleid	09-jouw-rechten	7	body	Beperking van de verwerking van je gegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:301	
+privacy.s09.8	/privacybeleid	09-jouw-rechten	8	body	Bezwaar tegen de verwerking van je gegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:302	
+privacy.s09.9	/privacybeleid	09-jouw-rechten	9	body	Dataportabiliteit — je gegevens in een overdraagbaar formaat ontvangen.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:303-306	
+privacy.s09.10	/privacybeleid	09-jouw-rechten	10	body	Het intrekken van eerder gegeven toestemming, bijvoorbeeld voor het delen van je health-intake met een trainer of voor marketing-e-mails. Intrekken heeft geen invloed op de rechtmatigheid van de verwerking vóór het intrekken.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:307-312	
+privacy.s09.11	/privacybeleid	09-jouw-rechten	11	body	Wil je een van deze rechten uitoefenen? Stuur een e-mail naar {email}. We reageren zo snel mogelijk, uiterlijk binnen vier weken.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:314-320	
+privacy.s09.12	/privacybeleid	09-jouw-rechten	12	body	Ben je niet tevreden over hoe we met je gegevens omgaan? Dan kun je een klacht indienen bij de Autoriteit Persoonsgegevens.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:321-324	
+privacy.s10.1	/privacybeleid	10-wijzigingen	1	microcopy	10 · Wijzigingen	code	src/app/privacybeleid/PrivacybeleidContent.tsx:328	
+privacy.s10.2	/privacybeleid	10-wijzigingen	2	h2	Wijzigingen in deze verklaring	code	src/app/privacybeleid/PrivacybeleidContent.tsx:329	
+privacy.s10.3	/privacybeleid	10-wijzigingen	3	body	We kunnen deze privacyverklaring van tijd tot tijd aanpassen, bijvoorbeeld als we nieuwe functionaliteit toevoegen. De datum bovenaan deze pagina geeft aan wanneer de verklaring voor het laatst is bijgewerkt.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:331-336	
+privacy.s11.1	/privacybeleid	11-contact	1	microcopy	11 · Contact	code	src/app/privacybeleid/PrivacybeleidContent.tsx:339	
+privacy.s11.2	/privacybeleid	11-contact	2	h2	Vragen?	code	src/app/privacybeleid/PrivacybeleidContent.tsx:339	
+privacy.s11.3	/privacybeleid	11-contact	3	body	Neem gerust contact op via {email} of per post naar {adres}.	code	src/app/privacybeleid/PrivacybeleidContent.tsx:340-347	
+programma12w.hero.1	/12-weken-programma	hero	1	label	Het 12 weken programma	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:142	COPY: confirm met Marlon
+programma12w.hero.2	/12-weken-programma	hero	2	h1	Eerst meten. Dan pas trainen.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:145-150	COPY: confirm met Marlon
+programma12w.hero.3	/12-weken-programma	hero	3	body	Een persoonlijk traject van twaalf weken, opgebouwd rond jouw lichaam. We brengen alles in kaart, van huidplooimeting tot hormonaal profiel, en bouwen daar training, voeding en dagelijkse begeleiding op.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:154-157	COPY: confirm met Marlon
+programma12w.hero.4	/12-weken-programma	hero	4	cta	Plan je intake	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:166,427,484,538	COPY: confirm met Marlon
+programma12w.hero.5	/12-weken-programma	hero	5	cta	Bekijk de aanpak	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:176	COPY: confirm met Marlon
+programma12w.hero.6	/12-weken-programma	hero	6	microcopy	12 / weken begeleiding	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:183-187	COPY: confirm met Marlon
+programma12w.hero.7	/12-weken-programma	hero	7	microcopy	2× / personal training per week	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:190-195	COPY: confirm met Marlon
+programma12w.hero.8	/12-weken-programma	hero	8	microcopy	1-op-1 / volledig op maat	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:198-203	COPY: confirm met Marlon
+programma12w.thesis.1	/12-weken-programma	thesis-strip	1	body	De meeste programma's beginnen bij een schema. Wij beginnen bij jou: wat je lichaam nodig heeft, hoe je voeding opneemt, en waar je energie vandaan komt. Pas als dat helder is, begint het echte werk.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:218-225	COPY: confirm met Marlon
+programma12w.aanpak.1	/12-weken-programma	aanpak	1	label	De aanpak	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:236	COPY: confirm met Marlon
+programma12w.aanpak.2	/12-weken-programma	aanpak	2	h2	Vier stappen naar een compleet beeld	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:239	COPY: confirm met Marlon
+programma12w.aanpak.3	/12-weken-programma	aanpak	3	h3	Intake en meting	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:18	
+programma12w.aanpak.4	/12-weken-programma	aanpak	4	body	We beginnen met een uitgebreide intake en een 12 punts huidplooimeting. Een volledig startpunt: waar je nu staat, en waar je naartoe wilt.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:19-21	
+programma12w.aanpak.5	/12-weken-programma	aanpak	5	label	Uitgebreide intake / 12 punts huidplooimeting	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:21	
+programma12w.aanpak.6	/12-weken-programma	aanpak	6	h3	Jouw hormonaal profiel	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:25	
+programma12w.aanpak.7	/12-weken-programma	aanpak	7	body	Op basis van de metingen stellen we je persoonlijk hormonaal profiel op. Dat bepaalt hoe we voeding en training precies op jou afstemmen.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:26-28	
+programma12w.aanpak.8	/12-weken-programma	aanpak	8	h3	Voeding die je ook echt opneemt	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:32	
+programma12w.aanpak.9	/12-weken-programma	aanpak	9	body	Met een maagzuurtest kijken we hoe goed je je voeding daadwerkelijk opneemt. Je persoonlijk voedings- en supplementenadvies bouwen we daarop.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:33-34	
+programma12w.aanpak.10	/12-weken-programma	aanpak	10	h3	Twaalf weken begeleiding	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:43	
+programma12w.aanpak.11	/12-weken-programma	aanpak	11	body	Twee personal training sessies per week, een motiverende groepsles, en dagelijkse begeleiding richting een duurzame leefstijl.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:44-46	
+programma12w.watjekrijgt.1	/12-weken-programma	wat-je-krijgt	1	label	Wat je krijgt	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:281	COPY: confirm met Marlon
+programma12w.watjekrijgt.2	/12-weken-programma	wat-je-krijgt	2	h2	Alles wat bij het traject hoort	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:284	COPY: confirm met Marlon
+programma12w.watjekrijgt.3	/12-weken-programma	wat-je-krijgt	3	label	Meten en inzicht / Jouw uitgangspunt	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:53-54	
+programma12w.watjekrijgt.4	/12-weken-programma	wat-je-krijgt	4	body	Uitgebreide intake, 12 punts huidplooimeting, Volledig hormonaal profiel, Optimalisatie voeding via maagzuurtest	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:56-59	
+programma12w.watjekrijgt.5	/12-weken-programma	wat-je-krijgt	5	label	Trainen / Beweging op maat	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:63-64	
+programma12w.watjekrijgt.6	/12-weken-programma	wat-je-krijgt	6	body	Twee personal training sessies per week, Deelname aan motiverende groepsles	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:66-68	
+programma12w.watjekrijgt.7	/12-weken-programma	wat-je-krijgt	7	label	Voeding en supplementen / Persoonlijk afgestemd	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:71-72	
+programma12w.watjekrijgt.8	/12-weken-programma	wat-je-krijgt	8	body	Persoonlijk voedingsadvies, Persoonlijk supplementenadvies	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:73	
+programma12w.watjekrijgt.9	/12-weken-programma	wat-je-krijgt	9	label	Begeleiding / Elke dag naast je	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:76-77	
+programma12w.watjekrijgt.10	/12-weken-programma	wat-je-krijgt	10	body	Dagelijkse begeleiding, Duurzame leefstijl begeleiding	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:78	
+programma12w.marlon.1	/12-weken-programma	trainer	1	label	Onder begeleiding van Marlon	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:342	COPY: confirm met Marlon
+programma12w.marlon.2	/12-weken-programma	trainer	2	h2	De trainer achter het programma	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:345	COPY: confirm met Marlon
+programma12w.marlon.3	/12-weken-programma	trainer	3	body	Marlon is hoofdtrainer en Kettlebell Master bij The Movement Club. Zij ontwikkelde dit traject vanuit één overtuiging: dat blijvende verandering begint bij begrijpen hoe jouw lichaam werkt, niet bij een standaardschema.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:349-353	COPY: confirm met Marlon
+programma12w.marlon.4	/12-weken-programma	trainer	4	body	Gedurende twaalf weken werk je persoonlijk met haar samen, van de eerste meting tot de dagelijkse begeleiding.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:356-357	COPY: confirm met Marlon
+programma12w.marlon.5	/12-weken-programma	trainer	5	label	Marlon	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:361	COPY: confirm met Marlon
+programma12w.marlon.6	/12-weken-programma	trainer	6	microcopy	Foto Marlon (4:5)	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:334-337	
+programma12w.investering.1	/12-weken-programma	investering	1	label	Investering	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:374	COPY: confirm met Marlon
+programma12w.investering.2	/12-weken-programma	investering	2	h2	Kies je vorm	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:377	COPY: confirm met Marlon
+programma12w.investering.3	/12-weken-programma	investering	3	label	In de studio	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:387	COPY + prijzen: confirm met Marlon
+programma12w.investering.4	/12-weken-programma	investering	4	h3	12 Weken Studio	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:390	
+programma12w.investering.5	/12-weken-programma	investering	5	body	Volledig begeleid, in Loosdrecht	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:393	
+programma12w.investering.6	/12-weken-programma	investering	6	microcopy	totaal	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:398,448	
+programma12w.investering.7	/12-weken-programma	investering	7	body	Voor het volledige traject van 12 weken	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:402,452	
+programma12w.investering.8	/12-weken-programma	investering	8	label	Early Member bonus	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:406,455	
+programma12w.investering.9	/12-weken-programma	investering	9	body	Onbeperkt groepslessen tijdens je programma	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:409	
+programma12w.investering.10	/12-weken-programma	investering	10	body	Alle metingen en je hormonaal profiel	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:84	COPY + prijzen: confirm met Marlon
+programma12w.investering.11	/12-weken-programma	investering	11	body	2× personal training per week in de studio	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:85	
+programma12w.investering.12	/12-weken-programma	investering	12	body	Motiverende groepsles	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:86	
+programma12w.investering.13	/12-weken-programma	investering	13	body	Voedings- en supplementenadvies	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:87	
+programma12w.investering.14	/12-weken-programma	investering	14	body	Dagelijkse begeleiding	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:88	
+programma12w.investering.15	/12-weken-programma	investering	15	label	Online	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:437	COPY + prijzen: confirm met Marlon
+programma12w.investering.16	/12-weken-programma	investering	16	h3	12 Weken Online	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:440	
+programma12w.investering.17	/12-weken-programma	investering	17	body	Zelfde methode, op afstand begeleid	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:443	
+programma12w.investering.18	/12-weken-programma	investering	18	body	2× vrij trainen + 1× kettlebell per week	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:459	
+programma12w.investering.19	/12-weken-programma	investering	19	body	Intake en hormonaal profiel op afstand	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:93	COPY + prijzen: confirm met Marlon
+programma12w.investering.20	/12-weken-programma	investering	20	body	Persoonlijk trainings- en voedingsplan	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:94	
+programma12w.investering.21	/12-weken-programma	investering	21	body	Supplementenadvies	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:95	
+programma12w.investering.22	/12-weken-programma	investering	22	body	Dagelijkse begeleiding online	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:96	
+programma12w.investering.23	/12-weken-programma	investering	23	body	Vaste prijs, voor iedereen gelijk. De Early Member bonus is een extra bovenop je programma.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:490-492	COPY: confirm met Marlon
+programma12w.investering.24	/12-weken-programma	investering	24	prijs-dynamisch	{formatPriceEuro(studioPriceCents/onlinePriceCents)}	database	tmc.catalogue, via src/app/12-weken-programma/page.tsx	
+programma12w.faq.1	/12-weken-programma	faq	1	label	Veelgestelde vragen	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:503	COPY: confirm met Marlon
+programma12w.faq.2	/12-weken-programma	faq	2	h2	Goed om te weten	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:506	COPY: confirm met Marlon
+programma12w.faq.3	/12-weken-programma	faq	3	faq-vraag	Voor wie is dit programma?	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:102	COPY: confirm met Marlon
+programma12w.faq.4	/12-weken-programma	faq	4	faq-antwoord	Voor iedereen die twaalf weken lang serieus en persoonlijk begeleid wil worden, van beginner tot ervaren sporter. Alles wordt afgestemd op jouw uitgangspunt.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:103-104	
+programma12w.faq.5	/12-weken-programma	faq	5	faq-vraag	Wat is het verschil tussen studio en online?	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:107	
+programma12w.faq.6	/12-weken-programma	faq	6	faq-antwoord	De methode is hetzelfde. In de studio train je twee keer per week persoonlijk met Marlon in Loosdrecht. Online krijg je dezelfde metingen, plannen en dagelijkse begeleiding op afstand.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:108-109	
+programma12w.faq.7	/12-weken-programma	faq	7	faq-vraag	Moet ik al ervaring hebben met trainen?	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:112	
+programma12w.faq.8	/12-weken-programma	faq	8	faq-antwoord	Nee. Het traject start altijd bij een volledige meting, zodat we op jouw niveau beginnen.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:113-114	
+programma12w.faq.9	/12-weken-programma	faq	9	faq-vraag	Wat gebeurt er na mijn aanvraag?	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:117	
+programma12w.faq.10	/12-weken-programma	faq	10	faq-antwoord	Je plant een intake. Dat is een vrijblijvende kennismaking waarin we het programma doornemen en kijken of het bij je past. Pas daarna beslis je.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:118-119	
+programma12w.intakecta.1	/12-weken-programma	intake-cta	1	label	Zet de eerste stap	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:521	COPY: confirm met Marlon
+programma12w.intakecta.2	/12-weken-programma	intake-cta	2	h2	Begin met een intake	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:524	COPY: confirm met Marlon
+programma12w.intakecta.3	/12-weken-programma	intake-cta	3	body	Een vrijblijvende kennismaking. We nemen het programma door en bepalen samen of dit het juiste traject voor je is.	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:528-529	COPY: confirm met Marlon
+programma12w.intakecta.4	/12-weken-programma	intake-cta	4	cta	Liever gebeld worden	code	src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx:548	COPY: confirm met Marlon
+programma12wintake.1	/12-weken-programma/intake	formulier	1	label	Het 12 weken programma	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:84	COPY: confirm met Marlon
+programma12wintake.2	/12-weken-programma/intake	formulier	2	h1	Plan je intake	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:109	COPY: confirm met Marlon
+programma12wintake.3	/12-weken-programma/intake	formulier	3	body	Een vrijblijvende kennismaking met Marlon. Vul je gegevens in en zij neemt binnen 24 uur contact met je op om een moment te prikken.	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:112-115	COPY: confirm met Marlon
+programma12wintake.4	/12-weken-programma/intake	formulier	4	label	Voornaam	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:123	
+programma12wintake.5	/12-weken-programma/intake	formulier	5	label	Achternaam	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:132	
+programma12wintake.6	/12-weken-programma/intake	formulier	6	label	E-mailadres	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:142	
+programma12wintake.7	/12-weken-programma/intake	formulier	7	label	Telefoon	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:151	
+programma12wintake.8	/12-weken-programma/intake	formulier	8	label	Voorkeur dag	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:160	
+programma12wintake.9	/12-weken-programma/intake	formulier	9	microcopy	Kies een dag	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:169	
+programma12wintake.10	/12-weken-programma/intake	formulier	10	microcopy	Maandag/Dinsdag/Woensdag/Donderdag/Vrijdag/Zaterdag	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:171-176	
+programma12wintake.11	/12-weken-programma/intake	formulier	11	label	Bericht	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:181	
+programma12wintake.12	/12-weken-programma/intake	formulier	12	cta	Versturen	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:192	
+programma12wintake.13	/12-weken-programma/intake	formulier	13	cta	Plan mijn intake	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:192	
+programma12wintake.14	/12-weken-programma/intake	formulier	14	microcopy	Volledig vrijblijvend.	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:196	
+programma12wintake.15	/12-weken-programma/intake	bevestiging	15	h1	Bedankt voor je aanvraag	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:91	COPY: confirm met Marlon
+programma12wintake.16	/12-weken-programma/intake	bevestiging	16	body	Marlon neemt binnen 24 uur persoonlijk contact met je op om een moment voor de intake te prikken.	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:94-96	COPY: confirm met Marlon
+programma12wintake.17	/12-weken-programma/intake	bevestiging	17	cta	Terug naar het programma	code	src/app/12-weken-programma/intake/ProgrammaIntakeContent.tsx:102	
+betaal.1	/betaal/[token]	betaalstatus	1	label	Betaalverzoek	code	src/app/betaal/[token]/page.tsx:109,116	COPY: confirm met Marlon
+betaal.2	/betaal/[token]	betaalstatus	2	h1	Hé {voornaam}, alles staat voor je klaar.	code	src/app/betaal/[token]/page.tsx:111	COPY: confirm met Marlon
+betaal.3	/betaal/[token]	betaalstatus	3	h1	Alles staat voor je klaar.	code	src/app/betaal/[token]/page.tsx:112	COPY: confirm met Marlon
+betaal.4	/betaal/[token]	betaalstatus	4	body	Controleer hieronder je bestelling en rond de betaling af via Mollie.	code	src/app/betaal/[token]/page.tsx:113	COPY: confirm met Marlon
+betaal.5	/betaal/[token]	betaalstatus	5	h1	De vorige poging is niet gelukt.	code	src/app/betaal/[token]/page.tsx:117	COPY: confirm met Marlon
+betaal.6	/betaal/[token]	betaalstatus	6	body	Geen zorgen: er is niets afgeschreven. Probeer het hieronder opnieuw.	code	src/app/betaal/[token]/page.tsx:118	COPY: confirm met Marlon
+betaal.7	/betaal/[token]	betaalstatus	7	label	Bijna klaar	code	src/app/betaal/[token]/page.tsx:121	COPY: confirm met Marlon
+betaal.8	/betaal/[token]	betaalstatus	8	h1	Je betaling is ontvangen.	code	src/app/betaal/[token]/page.tsx:122	COPY: confirm met Marlon
+betaal.9	/betaal/[token]	betaalstatus	9	body	We verwerken hem nu. Dit duurt meestal maar een paar minuten; je hoeft niets meer te doen.	code	src/app/betaal/[token]/page.tsx:123	COPY: confirm met Marlon
+betaal.10	/betaal/[token]	betaalstatus	10	label	Gelukt	code	src/app/betaal/[token]/page.tsx:126	COPY: confirm met Marlon
+betaal.11	/betaal/[token]	betaalstatus	11	h1	Je betaling is rond.	code	src/app/betaal/[token]/page.tsx:127	COPY: confirm met Marlon
+betaal.12	/betaal/[token]	betaalstatus	12	body	Welkom bij The Movement Club. Je abonnement is actief; je kunt inloggen en lessen boeken.	code	src/app/betaal/[token]/page.tsx:129	COPY: confirm met Marlon
+betaal.13	/betaal/[token]	betaalstatus	13	body	Je aankoop is verwerkt en je tegoed staat klaar zodra je inlogt.	code	src/app/betaal/[token]/page.tsx:130	COPY: confirm met Marlon
+betaal.14	/betaal/[token]	betaalstatus	14	label	Verlopen	code	src/app/betaal/[token]/page.tsx:133	COPY: confirm met Marlon
+betaal.15	/betaal/[token]	betaalstatus	15	h1	Deze betaallink is verlopen.	code	src/app/betaal/[token]/page.tsx:134	COPY: confirm met Marlon
+betaal.16	/betaal/[token]	betaalstatus	16	body	Neem contact op met Marlon, dan zet zij een nieuwe link voor je klaar.	code	src/app/betaal/[token]/page.tsx:135	COPY: confirm met Marlon
+betaal.17	/betaal/[token]	details	17	label	Jouw abonnement	code	src/app/betaal/[token]/page.tsx:158	
+betaal.18	/betaal/[token]	details	18	label	Jouw bestelling	code	src/app/betaal/[token]/page.tsx:158	
+betaal.19	/betaal/[token]	details	19	label	Eerste betaling	code	src/app/betaal/[token]/page.tsx:164	
+betaal.20	/betaal/[token]	details	20	label	Totaal	code	src/app/betaal/[token]/page.tsx:164	
+betaal.21	/betaal/[token]	details	21	label	Waarvan eenmalige inschrijfkosten	code	src/app/betaal/[token]/page.tsx:169	
+betaal.22	/betaal/[token]	details	22	label	Daarna per 4 weken	code	src/app/betaal/[token]/page.tsx:175	
+betaal.23	/betaal/[token]	details	23	body	Je betaalt de eerste periode nu via Mollie. Daarmee geef je toestemming (SEPA-machtiging) om het abonnementsbedrag daarna per 4 weken automatisch af te schrijven.	code	src/app/betaal/[token]/page.tsx:183-185	
+betaal.24	/betaal/[token]	details	24	body	Deze link is geldig tot {datum}. Betalen gaat veilig via Mollie.	code	src/app/betaal/[token]/page.tsx:191-192	
+betaal.25	/betaal/[token]	details	25	prijs-dynamisch	{itemLabel}, first_charge_cents, signup_fee_cents, recurring_cents	database	tmc.orders + tmc.catalogue, via src/app/betaal/[token]/page.tsx	
+betaal.26	/betaal/[token]	pay-button	26	cta	Even geduld…	code	src/app/betaal/[token]/PayButton.tsx:51	
+betaal.27	/betaal/[token]	pay-button	27	cta	Betaal via Mollie	code	src/app/betaal/[token]/PayButton.tsx:51	
+betaal.28	/betaal/[token]	pay-button	28	body	Deze betaallink is verlopen.	code	src/app/betaal/[token]/PayButton.tsx:9	COPY: confirm met Marlon
+betaal.29	/betaal/[token]	pay-button	29	body	Deze bestelling is al betaald.	code	src/app/betaal/[token]/PayButton.tsx:10	COPY: confirm met Marlon
+betaal.30	/betaal/[token]	pay-button	30	body	Je betaling wordt nog verwerkt. Ververs deze pagina over een paar minuten.	code	src/app/betaal/[token]/PayButton.tsx:11-12	COPY: confirm met Marlon
+betaal.31	/betaal/[token]	pay-button	31	body	Deze betaallink is niet (meer) geldig.	code	src/app/betaal/[token]/PayButton.tsx:13	COPY: confirm met Marlon
+betaal.32	/betaal/[token]	pay-button	32	body	Er ging iets mis. Probeer het opnieuw.	code	src/app/betaal/[token]/PayButton.tsx:14	COPY: confirm met Marlon
+login.1	/login	header	1	cta	← The Movement Club	code	src/app/login/page.tsx:65	
+login.2	/login	header	2	label	Member login	code	src/app/login/page.tsx:70	
+login.3	/login	header	3	h1	Welkom terug	code	src/app/login/page.tsx:73	
+login.4	/login	foutmeldingen	4	body	Deze inloglink is verlopen of al gebruikt. Vraag een nieuwe aan.	code	src/app/login/page.tsx:20	COPY: confirm with Marlon
+login.5	/login	foutmeldingen	5	body	Geen inlog-code ontvangen. Probeer opnieuw.	code	src/app/login/page.tsx:21	COPY: confirm with Marlon
+login.6	/login	foutmeldingen	6	body	Er ging iets mis tijdens het inloggen. Probeer opnieuw.	code	src/app/login/page.tsx:22	COPY: confirm with Marlon
+login.7	/login	formulier-email	7	label	E-mailadres	code	src/app/login/LoginForm.tsx:223	
+login.8	/login	formulier-email	8	microcopy	naam@voorbeeld.nl	code	src/app/login/LoginForm.tsx:234	
+login.9	/login	formulier-email	9	cta	Bezig...	code	src/app/login/LoginForm.tsx:252,189	COPY: confirm with Marlon
+login.10	/login	formulier-email	10	cta	Stuur inlogcode	code	src/app/login/LoginForm.tsx:252	COPY: confirm with Marlon
+login.11	/login	formulier-email	11	body	Geen wachtwoord nodig. Je ontvangt een eenmalige inlogcode per mail.	code	src/app/login/LoginForm.tsx:257	COPY: confirm with Marlon
+login.12	/login	formulier-code	12	microcopy	Check je mail	code	src/app/login/LoginForm.tsx:143	
+login.13	/login	formulier-code	13	body	We hebben een code van {n} cijfers gestuurd naar {email}. De code is 10 minuten geldig.	code	src/app/login/LoginForm.tsx:147-149	COPY: confirm with Marlon
+login.14	/login	formulier-code	14	label	Inlogcode	code	src/app/login/LoginForm.tsx:158	
+login.15	/login	formulier-code	15	cta	Inloggen	code	src/app/login/LoginForm.tsx:189	COPY: confirm with Marlon
+login.16	/login	formulier-code	16	cta	Ander e-mailadres	code	src/app/login/LoginForm.tsx:199	COPY: confirm with Marlon
+login.17	/login	formulier-code	17	cta	Nieuwe code	code	src/app/login/LoginForm.tsx:212	COPY: confirm with Marlon
+login.18	/login	formulier-code	18	cta	Nieuwe code ({n}s)	code	src/app/login/LoginForm.tsx:212	COPY: confirm with Marlon
+login.19	/login	formulier-code	19	body	Er ging iets mis. Probeer het opnieuw.	code	src/app/login/LoginForm.tsx:77	COPY: confirm with Marlon
+yoga.meta.1	/yoga	meta	1	meta-title	Yoga in Loosdrecht, vlakbij Hilversum	code	src/app/yoga/page.tsx:23	
+yoga.meta.2	/yoga	meta	2	meta-description	Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum en het Gooi. Van diepe rust tot dynamische beweging. Schrijf je in voor de wachtlijst.	code	src/app/yoga/page.tsx:24-25	
+yoga.hero.1	/yoga	hero	1	label	Yoga · Loosdrecht & regio Hilversum	code	src/app/yoga/page.tsx:56	
+yoga.hero.2	/yoga	hero	2	h1	Yoga in Loosdrecht bij The Movement Club	code	src/app/yoga/page.tsx:59	
+yoga.hero.3	/yoga	hero	3	body	Binnen yoga zijn er verschillende vormen, elk met een eigen doel en gevoel. Sommige lessen zijn vooral gericht op diepe ontspanning en herstel, andere op beweging, kracht en energie. In onze kleine, persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow. We zitten in Loosdrecht, op zo'n tien minuten van Hilversum, en zijn goed bereikbaar vanuit het hele Gooi.	code	src/app/yoga/page.tsx:62-67	
+yoga.hero.4	/yoga	hero	4	cta	Zet me op de wachtlijst	code	src/app/yoga/page.tsx:70	
+yoga.hero.5	/yoga	hero	5	cta	Bekijk het rooster	code	src/app/yoga/page.tsx:71,123	
+yoga.vergelijk.1	/yoga	vergelijkingstabel	1	label	De vijf vormen	code	src/app/yoga/page.tsx:82	
+yoga.vergelijk.2	/yoga	vergelijkingstabel	2	h2	Vind de vorm die bij je past	code	src/app/yoga/page.tsx:83	
+yoga.vergelijk.3	/yoga	vergelijkingstabel	3	body	Van volledige rust tot dynamische beweging. Verken de vormen op de as van rust naar actief.	code	src/app/yoga/page.tsx:84	
+yoga.docenten.1	/yoga	docentenstrip	1	label	De docenten	code	src/app/yoga/page.tsx:98	
+yoga.docenten.2	/yoga	docentenstrip	2	h2	Wie je begeleidt	code	src/app/yoga/page.tsx:99	
+yoga.docenten.3	/yoga	docentenstrip	3	body	Een klein team met elk een eigen stem en specialisatie.	code	src/app/yoga/page.tsx:100	
+yoga.rooster.1	/yoga	rooster-preview	1	label	Wekelijks rooster	code	src/app/yoga/page.tsx:114	
+yoga.rooster.2	/yoga	rooster-preview	2	h2	Elke dag een moment voor jezelf	code	src/app/yoga/page.tsx:117	
+yoga.rooster.3	/yoga	rooster-preview	3	body	Ochtendlessen van maandag tot en met zaterdag, plus avondlessen vroeg in de week. Bekijk het volledige weekrooster en plan je les.	code	src/app/yoga/page.tsx:120-121	
+yoga.regio.1	/yoga	regio	1	label	Regio	code	src/app/yoga/page.tsx:135	
+yoga.regio.2	/yoga	regio	2	h2	Yoga vlakbij Hilversum en het Gooi	code	src/app/yoga/page.tsx:138	
+yoga.regio.3	/yoga	regio	3	body	De studio staat aan de Industrieweg in Loosdrecht, op zo'n tien minuten rijden vanuit het centrum van Hilversum en even goed bereikbaar vanuit Kortenhoef, Nederhorst den Berg en de rest van Wijdemeren. Er is ruime parkeergelegenheid voor de deur, dus je bent zo van Hilversum op je mat. Voor wie liever dichtbij huis traint, vormen onze kleine yogalessen een rustig alternatief voor de drukkere studio's in Hilversum.	code	src/app/yoga/page.tsx:141-147	
+yoga.styles.1	/yoga	yogaStyles	1	body	Yoga Nidra, iRest, Restorative Yoga, Yin Yoga, Flow Yoga: title, definition, shortDescription, forWho, benefits, body, faqs	sanity	yogaStyle documenten (5x), via YogaComparisonTable	
+yoga.teachers.1	/yoga	yogaTeachers	1	body	Kim, Bionda, Connie (isActive:false), Annouschka: name, specialty, heroQuote, bio	sanity	yogaTeacher documenten, via YogaTeacherStrip	
+yoga.comparison.1	/yoga	vergelijkingstabel-shared	1	microcopy	Rust	code	src/components/blocks/yoga/YogaComparisonTable.tsx:20	
+yoga.comparison.2	/yoga	vergelijkingstabel-shared	2	microcopy	Actief	code	src/components/blocks/yoga/YogaComparisonTable.tsx:25	
+yoga.comparison.3	/yoga	vergelijkingstabel-shared	3	microcopy	Intensiteit {n} van {max}	code	src/components/blocks/yoga/YogaComparisonTable.tsx:46	
+yoga.teacherstrip.1	/yoga	docentenstrip-shared	1	alt	{teacher.name}, yogadocent bij The Movement Club in Loosdrecht	code	src/components/blocks/yoga/YogaTeacherStrip.tsx:33	
+yoga.waitlistcta.1	/yoga	wachtlijst-cta-shared	1	label	Wachtlijst	code	src/components/blocks/yoga/YogaWaitlistCta.tsx:25	
+yoga.waitlistcta.2	/yoga	wachtlijst-cta-shared	2	h2	Wees erbij vanaf de eerste les	code	src/components/blocks/yoga/YogaWaitlistCta.tsx:17 (default heading, override per route mogelijk)	
+yoga.waitlistcta.3	/yoga	wachtlijst-cta-shared	3	body	De studio opent binnenkort. Schrijf je in voor de wachtlijst en je krijgt als eerste bericht zodra de yogalessen starten.	code	src/components/blocks/yoga/YogaWaitlistCta.tsx:18 (default subtext)	
+yoga.waitlistform.1	/yoga	wachtlijst-formulier	1	body	Je staat op de wachtlijst.	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:57	
+yoga.waitlistform.2	/yoga	wachtlijst-formulier	2	body	We laten als eerste van je horen zodra de yogalessen starten.	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:60	
+yoga.waitlistform.3	/yoga	wachtlijst-formulier	3	label	Voornaam	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:72	
+yoga.waitlistform.4	/yoga	wachtlijst-formulier	4	label	E-mailadres	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:81	
+yoga.waitlistform.5	/yoga	wachtlijst-formulier	5	cta	Versturen	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:97	
+yoga.waitlistform.6	/yoga	wachtlijst-formulier	6	cta	Zet me op de wachtlijst	code	src/components/blocks/yoga/YogaWaitlistForm.tsx:97	
+yogastyle.1	/yoga/[style]	meta	1	meta-title	{data.seoTitle} of "{title} in Loosdrecht (regio Hilversum)"	sanity	yogaStyle.seoTitle (fallback template code:src/app/yoga/[style]/page.tsx:41)	
+yogastyle.2	/yoga/[style]	meta	2	meta-description	{data.seoDescription} of "{definition} Volg {title} in onze kleine studio in Loosdrecht, op tien minuten van Hilversum en het Gooi."	sanity	yogaStyle.seoDescription (fallback template code:src/app/yoga/[style]/page.tsx:43-44)	
+yogastyle.3	/yoga/[style]	intro	3	cta	← Alle yogavormen	code	src/app/yoga/[style]/page.tsx:93	
+yogastyle.4	/yoga/[style]	intro	4	h1	{data.title}	sanity	yogaStyle.title	
+yogastyle.5	/yoga/[style]	intro	5	body	{data.definition}	sanity	yogaStyle.definition	
+yogastyle.6	/yoga/[style]	voorwie	6	label	Voor wie	code	src/app/yoga/[style]/page.tsx:112	
+yogastyle.7	/yoga/[style]	voorwie	7	body	{data.forWho}	sanity	yogaStyle.forWho	
+yogastyle.8	/yoga/[style]	voorwie	8	label	Wat het je brengt	code	src/app/yoga/[style]/page.tsx:123	
+yogastyle.9	/yoga/[style]	voorwie	9	body	{data.benefits[]}	sanity	yogaStyle.benefits	
+yogastyle.10	/yoga/[style]	body	10	body	{data.body} (Portable Text, uitgebreide tekst)	sanity	yogaStyle.body	
+yogastyle.11	/yoga/[style]	docenten	11	label	Wie geeft de les	code	src/app/yoga/[style]/page.tsx:168	
+yogastyle.12	/yoga/[style]	docenten	12	label	{teacher.name} · {teacher.specialty}	sanity	yogaTeacher.name / specialty (via style.teachers, alleen isActive)	
+yogastyle.13	/yoga/[style]	faq	13	label	FAQ	code	src/app/yoga/[style]/page.tsx:191	
+yogastyle.14	/yoga/[style]	faq	14	h2	Veelgestelde vragen over {data.title}	code	src/app/yoga/[style]/page.tsx:194	
+yogastyle.15	/yoga/[style]	faq	15	faq-vraag	{data.faqs[].question}	sanity	yogaStyle.faqs[].question	
+yogastyle.16	/yoga/[style]	faq	16	faq-antwoord	{data.faqs[].answer}	sanity	yogaStyle.faqs[].answer	
+yogastyle.17	/yoga/[style]	wachtlijst	17	h2	Klaar voor {data.title}?	code	src/app/yoga/[style]/page.tsx:210	
+yogastyle.18	/yoga/[style]	wachtlijst	18	body	De studio opent binnenkort. Schrijf je in voor de wachtlijst en je krijgt als eerste bericht zodra de lessen starten.	code	src/app/yoga/[style]/page.tsx:211	
+yogadocenten.meta.1	/yoga/docenten	meta	1	meta-title	Yoga docenten in Loosdrecht	code	src/app/yoga/docenten/page.tsx:17	
+yogadocenten.meta.2	/yoga/docenten	meta	2	meta-description	Maak kennis met de yogadocenten van The Movement Club in Loosdrecht. Een klein team met elk een eigen stem en specialisatie, van Yin tot Flow.	code	src/app/yoga/docenten/page.tsx:18-19	
+yogadocenten.hero.1	/yoga/docenten	hero	1	label	De docenten	code	src/app/yoga/docenten/page.tsx:44	
+yogadocenten.hero.2	/yoga/docenten	hero	2	h1	Wie je begeleidt	code	src/app/yoga/docenten/page.tsx:45	
+yogadocenten.hero.3	/yoga/docenten	hero	3	body	Een klein team met elk een eigen stem en specialisatie. Klik door voor het verhaal achter de mat.	code	src/app/yoga/docenten/page.tsx:46	
+yogadocentslug.meta.1	/yoga/docenten/[slug]	meta	1	meta-title	{teacher.name} ({specialty}) | Yoga docent in Loosdrecht	code	src/app/yoga/docenten/[slug]/page.tsx:41	
+yogadocentslug.meta.2	/yoga/docenten/[slug]	meta	2	meta-description	{teacher.heroQuote} of "Maak kennis met {teacher.name}, yogadocent bij The Movement Club in Loosdrecht."	sanity	yogaTeacher.heroQuote (fallback template code:src/app/yoga/docenten/[slug]/page.tsx:43-44)	
+yogadocentslug.hero.1	/yoga/docenten/[slug]	hero	1	cta	← Alle docenten	code	src/app/yoga/docenten/[slug]/page.tsx:94	
+yogadocentslug.hero.2	/yoga/docenten/[slug]	hero	2	label	{teacher.specialty}	sanity	yogaTeacher.specialty	
+yogadocentslug.hero.3	/yoga/docenten/[slug]	hero	3	h1	{teacher.name}	sanity	yogaTeacher.name	
+yogadocentslug.hero.4	/yoga/docenten/[slug]	hero	4	body	"{teacher.heroQuote}"	sanity	yogaTeacher.heroQuote	
+yogadocentslug.hero.5	/yoga/docenten/[slug]	hero	5	alt	{teacher.name}, yogadocent bij The Movement Club in Loosdrecht	code	src/app/yoga/docenten/[slug]/page.tsx:102	
+yogadocentslug.bio.1	/yoga/docenten/[slug]	bio	1	body	{teacher.bio} (Portable Text)	sanity	yogaTeacher.bio	
+yogadocentslug.styles.1	/yoga/docenten/[slug]	lessen	1	label	Lessen van {teacher.name}	code	src/app/yoga/docenten/[slug]/page.tsx:159	
+yogadocentslug.styles.2	/yoga/docenten/[slug]	lessen	2	label	{style.title}	sanity	yogaStyle.title (via reverse-reference)	
+yogadocentslug.styles.3	/yoga/docenten/[slug]	lessen	3	cta	Bekijk het rooster	code	src/app/yoga/docenten/[slug]/page.tsx:170	
+yogarooster.meta.1	/yoga/rooster	meta	1	meta-title	Yoga rooster in Loosdrecht	code	src/app/yoga/rooster/page.tsx:17	
+yogarooster.meta.2	/yoga/rooster	meta	2	meta-description	Het wekelijkse yogarooster van The Movement Club in Loosdrecht. Yin, Restorative, Yoga Nidra, iRest en Flow, in kleine groepen.	code	src/app/yoga/rooster/page.tsx:18-19	
+yogarooster.hero.1	/yoga/rooster	header	1	label	Yoga rooster	code	src/app/yoga/rooster/page.tsx:141	
+yogarooster.hero.2	/yoga/rooster	header	2	h1	Twee weken vooruit.	code	src/app/yoga/rooster/page.tsx:144	
+yogarooster.hero.3	/yoga/rooster	header	3	body	Yin, Restorative, Yoga Nidra, iRest en Flow. Kleine groepen, persoonlijke begeleiding.	code	src/app/yoga/rooster/page.tsx:147-148	
+yogarooster.empty.1	/yoga/rooster	lege-staat	1	label	Binnenkort	code	src/app/yoga/rooster/page.tsx:155	
+yogarooster.empty.2	/yoga/rooster	lege-staat	2	body	Het yogarooster wordt op dit moment ingepland. Schrijf je in voor de wachtlijst, dan laten we het als eerste weten zodra de lessen starten.	code	src/app/yoga/rooster/page.tsx:158-160	
+yogarooster.grid.1	/yoga/rooster	weekgrid	1	body	{class_type.name} ("Yogales" fallback), met {trainer.display_name} ("docent" fallback)	database	tmc.class_sessions (pillar=yoga_mobility), via server component	
+authcallbackimplicit.1	/auth/callback/implicit	redirect	1	microcopy	Inloggen…	code	src/app/auth/callback/implicit/page.tsx:16,27	
+authcallbackimplicit.2	/auth/callback/implicit	redirect	2	microcopy	Fout: {error.message}	code	src/app/auth/callback/implicit/page.tsx:48	
