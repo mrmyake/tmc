@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -469,20 +468,13 @@ export function TwaalfWekenProgrammaContent({
                     </li>
                   ))}
                 </ul>
-                {/*
-                  Bewuste keuze: geen Button-component hier. Button's
-                  "secondary" variant hardcodet text-text/border-text-muted
-                  (bedoeld voor donkere achtergronden) — op deze lichte kaart
-                  geeft dat te weinig contrast. Dit is de mockup's
-                  "btn-ghost.on-light": zelfde maatvoering/typografie als
-                  Button, maar met de on-light kleurtokens.
-                */}
-                <Link
+                <Button
                   href="/12-weken-programma/intake"
-                  className="w-full inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer border border-border-on-light text-on-light hover:border-accent hover:text-accent active:scale-[0.99]"
+                  variant="secondary-light"
+                  className="w-full"
                 >
                   Plan je intake
-                </Link>
+                </Button>
               </div>
             </ScrollReveal>
           </div>
