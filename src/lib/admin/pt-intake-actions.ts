@@ -4,6 +4,10 @@ import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getPtBusy } from "@/lib/admin/pt-busy-actions";
+import { sendEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
+import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import IntakeConfirmation from "@/emails/intake_confirmation";
 
 /**
  * PT-agenda C2: intake inplannen voor een nieuwe klant zonder account
@@ -70,7 +74,7 @@ export async function createPtIntake(
 
   const { data: trainer } = await admin
     .from("trainers")
-    .select("id, is_active")
+    .select("id, is_active, display_name")
     .eq("id", input.trainerId)
     .maybeSingle();
   if (!trainer?.is_active) {
@@ -144,6 +148,30 @@ export async function createPtIntake(
       duration_min: durationMin,
     },
   });
+
+  // PR K: bevestiging naar de prospect (prospect_email), zelfde
+  // sendEmail-patroon als sendCustomerConfirmation bij een gewone
+  // boeking. Een intake is gratis, dus geen prijs- of credit-taal.
+  // Faalt stil: een mail-storing mag de geplande intake niet breken.
+  try {
+    await sendEmail({
+      to: email,
+      toName: name,
+      // COPY: confirm met Marlon
+      subject: "Je intake bij The Movement Club staat gepland",
+      react: IntakeConfirmation({
+        prospectName: name,
+        trainerName: trainer.display_name ?? "je trainer",
+        whenLabel: `${formatWeekdayDate(startAt)} · ${formatTimeRange(startAt, endAt)}`,
+        // COPY: confirm met Marlon
+        durationLabel: `${durationMin} minuten`,
+        locationLabel: "Industrieweg 14P, Loosdrecht",
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[createPtIntake] bevestiging skipped", err);
+  }
 
   return {
     ok: true,
