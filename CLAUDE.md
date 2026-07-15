@@ -4,6 +4,15 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 ---
 
+## Git-veiligheid
+
+- Draai NOOIT een commando dat tracked files in de working tree overschrijft zonder eerst `git status` te lezen en de uitkomst te rapporteren. Dit geldt in elk geval voor `git checkout <ref> -- <pad>`, `git restore`, `git reset --hard` en `git clean`.
+- Wissel van branch alleen vanaf een schone working tree. Is de tree vuil: `git stash push -u` met een beschrijvende message, wissel, en meld expliciet aan Ilja dat er een stash staat en hoe die terug te halen is. Nooit stilzwijgend overschrijven.
+- Maak een nieuwe branch met `git checkout -b <naam>` vanaf de juiste base. Gebruik nooit `git checkout <branch> -- .` om een working tree te "synchroniseren"; dat is geen branch-wissel maar een destructieve overschrijving.
+- Bij twijfel: stop en vraag. Verlies van niet-gecommit werk is nooit een acceptabele bijwerking van een voorbereidende stap.
+
+---
+
 ## Project Status
 
 - **Domein:** themovementclub.nl
