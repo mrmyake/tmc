@@ -6,8 +6,10 @@ import {
   autoMarkNoShows,
   loadParticipants,
   markAttendance,
+  markGuestAttendance,
   refundCredit,
   type AttendanceActionResult,
+  type GuestRow,
   type ParticipantRow,
   type SessionSummary,
 } from "@/lib/admin/attendance-actions";
@@ -29,6 +31,8 @@ type DirtyMap = Map<string, "attended" | "booked" | "no_show">;
 export interface AttendanceListProps {
   session: SessionSummary;
   initialParticipants: ParticipantRow[];
+  /** Gasten van de sessie; apart van leden (ander aanwezigheidsmodel). */
+  initialGuests?: GuestRow[];
   canRefund: boolean;
   embedded?: boolean;
   /**
@@ -41,13 +45,16 @@ export interface AttendanceListProps {
 export function AttendanceList({
   session,
   initialParticipants,
+  initialGuests = [],
   canRefund,
   embedded = false,
   selfFetch = false,
 }: AttendanceListProps) {
   const [participants, setParticipants] =
     useState<ParticipantRow[]>(initialParticipants);
+  const [guests, setGuests] = useState<GuestRow[]>(initialGuests);
   const [dirty, setDirty] = useState<DirtyMap>(new Map());
+  const [guestDirty, setGuestDirty] = useState<DirtyMap>(new Map());
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<
     { tone: "success" | "error"; text: string } | null
@@ -67,6 +74,7 @@ export function AttendanceList({
       if (cancelled) return;
       if (res.ok) {
         setParticipants(res.participants);
+        setGuests(res.guests);
       } else {
         setMessage({ tone: "error", text: res.message });
       }
@@ -129,8 +137,31 @@ export function AttendanceList({
     setDirty(copy);
   }
 
+  function currentGuestStatus(g: GuestRow): AttendanceStatus {
+    return guestDirty.get(g.guestBookingId) ?? g.status;
+  }
+
+  function toggleGuestAttended(g: GuestRow) {
+    if (g.status === "cancelled") return;
+    const next =
+      currentGuestStatus(g) === "attended" ? "booked" : "attended";
+    const copy = new Map(guestDirty);
+    if (next === g.status) copy.delete(g.guestBookingId);
+    else copy.set(g.guestBookingId, next);
+    setGuestDirty(copy);
+  }
+
+  function markGuestNoShow(g: GuestRow) {
+    if (g.status === "cancelled") return;
+    const next = currentGuestStatus(g) === "no_show" ? "booked" : "no_show";
+    const copy = new Map(guestDirty);
+    if (next === g.status) copy.delete(g.guestBookingId);
+    else copy.set(g.guestBookingId, next);
+    setGuestDirty(copy);
+  }
+
   function save() {
-    if (dirty.size === 0) {
+    if (dirty.size === 0 && guestDirty.size === 0) {
       setMessage({ tone: "success", text: "Geen wijzigingen." });
       return;
     }
@@ -139,29 +170,56 @@ export function AttendanceList({
       bookingId,
       status,
     }));
+    const guestPayload = Array.from(guestDirty.entries()).map(
+      ([guestBookingId, status]) => ({ guestBookingId, status }),
+    );
     startTransition(async () => {
-      const res = await markAttendance(session.id, payload);
-      reflect(res);
-      if (res.ok) {
-        // Merge dirty into participants + clear dirty.
-        setParticipants((prev) =>
-          prev.map((p) => {
-            const next = dirty.get(p.bookingId);
-            if (!next) return p;
-            return {
-              ...p,
-              status: next,
-              attendedAt:
-                next === "attended"
-                  ? new Date().toISOString()
-                  : next === "booked"
-                    ? null
-                    : p.attendedAt,
-            };
-          }),
-        );
-        setDirty(new Map());
+      // Twee bronnen, twee actions: leden via markAttendance
+      // (check_ins/attended_at/strikes), gasten via markGuestAttendance
+      // (guest_bookings.status). Eerste fout wint als melding.
+      let failed: AttendanceActionResult | null = null;
+
+      if (payload.length > 0) {
+        const res = await markAttendance(session.id, payload);
+        if (res.ok) {
+          setParticipants((prev) =>
+            prev.map((p) => {
+              const next = dirty.get(p.bookingId);
+              if (!next) return p;
+              return {
+                ...p,
+                status: next,
+                attendedAt:
+                  next === "attended"
+                    ? new Date().toISOString()
+                    : next === "booked"
+                      ? null
+                      : p.attendedAt,
+              };
+            }),
+          );
+          setDirty(new Map());
+        } else {
+          failed = res;
+        }
       }
+
+      if (guestPayload.length > 0) {
+        const res = await markGuestAttendance(session.id, guestPayload);
+        if (res.ok) {
+          setGuests((prev) =>
+            prev.map((g) => {
+              const next = guestDirty.get(g.guestBookingId);
+              return next ? { ...g, status: next } : g;
+            }),
+          );
+          setGuestDirty(new Map());
+        } else {
+          failed = failed ?? res;
+        }
+      }
+
+      reflect(failed ?? { ok: true, message: "Aanwezigheid opgeslagen." });
     });
   }
 
@@ -256,6 +314,9 @@ export function AttendanceList({
 
   const active = participants.filter((p) => p.status !== "cancelled");
   const cancelled = participants.filter((p) => p.status === "cancelled");
+  const activeGuests = guests.filter((g) => g.status !== "cancelled");
+  const cancelledGuests = guests.filter((g) => g.status === "cancelled");
+  const dirtyCount = dirty.size + guestDirty.size;
 
   const paddingClass = embedded ? "" : "px-6 md:px-10 lg:px-12 py-10 md:py-14";
 
@@ -331,7 +392,7 @@ export function AttendanceList({
         </div>
       )}
 
-      {!loading && active.length === 0 && (
+      {!loading && active.length === 0 && activeGuests.length === 0 && (
         <p className="text-text-muted text-sm py-8">
           Nog geen boekingen voor deze sessie.
         </p>
@@ -425,6 +486,94 @@ export function AttendanceList({
         </ul>
       )}
 
+      {/* Gasten: apart blok met eigen markering. Aanwezigheid leeft in
+          guest_bookings.status, dus eigen toggles via markGuestAttendance. */}
+      {!loading && activeGuests.length > 0 && (
+        <div className="mb-8">
+          <span className="tmc-eyebrow block mb-4">
+            {/* COPY: confirm met Marlon */}
+            Gasten ({activeGuests.length})
+          </span>
+          <ul className="flex flex-col divide-y divide-[color:var(--ink-500)]/60">
+            {activeGuests.map((g) => (
+              <li
+                key={g.guestBookingId}
+                className="flex flex-wrap items-center gap-4 py-5"
+              >
+                <AvatarBubble
+                  firstName={g.guestName.split(" ")[0] ?? g.guestName}
+                  lastName={g.guestName.split(" ").slice(1).join(" ")}
+                  avatarUrl={null}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-text text-sm font-medium truncate">
+                    {g.guestName}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
+                      {/* COPY: confirm met Marlon */}
+                      Gast
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {/* COPY: confirm met Marlon */}
+                      gast van {g.invitedByName}
+                    </span>
+                    {currentGuestStatus(g) !== "booked" && (
+                      <StatusBadge
+                        status={currentGuestStatus(g) as SessionStatus}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AttendanceCheckbox
+                    id={`gatt-${g.guestBookingId}`}
+                    label="Aanwezig"
+                    checked={currentGuestStatus(g) === "attended"}
+                    onChange={() => toggleGuestAttended(g)}
+                    disabled={pending}
+                  />
+                  <AttendanceCheckbox
+                    id={`gns-${g.guestBookingId}`}
+                    label="No-show"
+                    tone="danger"
+                    checked={currentGuestStatus(g) === "no_show"}
+                    onChange={() => markGuestNoShow(g)}
+                    disabled={pending}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {cancelledGuests.length > 0 && (
+        <details className="mb-8">
+          <summary className="tmc-eyebrow cursor-pointer text-text-muted hover:text-text transition-colors">
+            {/* COPY: confirm met Marlon */}
+            Geannuleerde gasten ({cancelledGuests.length})
+          </summary>
+          <ul className="mt-4 flex flex-col divide-y divide-[color:var(--ink-500)]/40">
+            {cancelledGuests.map((g) => (
+              <li
+                key={g.guestBookingId}
+                className="flex items-center gap-4 py-3 opacity-60"
+              >
+                <span className="text-sm text-text-muted">{g.guestName}</span>
+                <span className="text-xs text-text-muted">
+                  {/* COPY: confirm met Marlon */}
+                  gast van {g.invitedByName}
+                </span>
+                <span className="ml-auto">
+                  <StatusBadge status="cancelled" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {cancelled.length > 0 && (
         <details className="mb-8">
           <summary className="tmc-eyebrow cursor-pointer text-text-muted hover:text-text transition-colors">
@@ -459,14 +608,14 @@ export function AttendanceList({
         <button
           type="button"
           onClick={save}
-          disabled={pending || dirty.size === 0}
+          disabled={pending || dirtyCount === 0}
           className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
         >
-          {pending && dirty.size > 0
+          {pending && dirtyCount > 0
             ? "Bezig"
-            : dirty.size === 0
+            : dirtyCount === 0
               ? "Opgeslagen"
-              : `Opslaan (${dirty.size})`}
+              : `Opslaan (${dirtyCount})`}
         </button>
         <button
           type="button"

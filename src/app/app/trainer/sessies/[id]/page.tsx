@@ -34,6 +34,7 @@ export default async function TrainerSessionPage(props: {
       <MobileAttendanceList
         session={res.session}
         initialParticipants={res.participants}
+        initialGuests={res.guests}
       />
     </div>
   );
