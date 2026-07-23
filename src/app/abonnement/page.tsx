@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
 import {
-  getCampaignDeadline,
+  getCampaignWindow,
   getCampaignPhase,
   type CampaignPhase,
 } from "@/lib/campaign";
@@ -34,12 +34,12 @@ export default async function AbonnementPage({
       data: { user },
     },
     catalogue,
-    campaignDeadlineIso,
+    campaignWindow,
     { devPhase },
   ] = await Promise.all([
     supabase.auth.getUser(),
     getCatalogue(),
-    getCampaignDeadline(),
+    getCampaignWindow(),
     searchParams,
   ]);
 
@@ -49,11 +49,11 @@ export default async function AbonnementPage({
   // productie, dus deze tak is dood zodra dit gedeployed is — alleen `next
   // dev` lokaal kan hem raken. campaign.ts en de echte fase-logica blijven
   // ongemoeid; dit overschrijft alleen de emActive-prop die naar de
-  // configurator gaat. Rond onder een geforceerde fase geen checkout af: de
-  // server heeft geen eigen ondergrens op de openingsdatum (zie
-  // discovery-producten-tegoed.md), dus create_order zou een geforceerde
-  // open-em serieus nemen.
-  const realPhase = getCampaignPhase(new Date(campaignDeadlineIso));
+  // configurator gaat. Sinds migratie 20260813 heeft de server zijn eigen
+  // ondergrens op de openingsdatum (opens_at in _compute_order_price), dus
+  // een geforceerde open-em kan hooguit een weigering van create_order
+  // opleveren, nooit een te vroege EM-order.
+  const realPhase = getCampaignPhase(campaignWindow);
   const effectivePhase: CampaignPhase =
     process.env.NODE_ENV !== "production" &&
     DEV_PHASES.includes(devPhase as CampaignPhase)

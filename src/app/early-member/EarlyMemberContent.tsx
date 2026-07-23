@@ -26,7 +26,7 @@ export interface EarlyMemberPricing {
 }
 
 interface EarlyMemberContentProps {
-  /** ISO deadline, uit getCampaignDeadline() (src/lib/campaign.ts). */
+  /** ISO deadline (closesAtIso), uit getCampaignWindow() (src/lib/campaign.ts). */
   deadline: string;
   pricing: EarlyMemberPricing;
   /** Eén fasebron (src/lib/campaign.ts), zelfde als de root layout en /prijzen. */

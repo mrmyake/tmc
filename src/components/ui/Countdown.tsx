@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 interface CountdownProps {
-  /** ISO deadline, e.g. from getCampaignDeadline() in src/lib/campaign.ts. */
+  /** ISO deadline (closesAtIso), e.g. from getCampaignWindow() in src/lib/campaign.ts. */
   deadline: string;
   className?: string;
 }
