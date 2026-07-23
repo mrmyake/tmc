@@ -49,8 +49,8 @@ interface StartTrialBookingInput {
  *
  * Volgorde: valideer sessie + capaciteit, insert pending trial_booking,
  * maak een one-off Mollie-betaling (geen sequenceType, dus Mollie's
- * oneoff-modus, zelfde patroon als de crowdfunding-checkout), koppel
- * het payment-id. Bevestiging via de webhook, niet hier.
+ * oneoff-modus), koppel het payment-id. Bevestiging via de webhook,
+ * niet hier.
  */
 export async function startTrialBooking(
   input: StartTrialBookingInput,

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
 import { trackPaymentStart } from "@/lib/analytics";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "./lib";
 

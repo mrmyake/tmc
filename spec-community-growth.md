@@ -25,9 +25,12 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 
 ### Built and live (was: proposed shape)
 
+**Community-growth §1 (proefles zonder account)**: gemerged. Kernflow (directe boeking + betaling): PR #36, merge `4946f55` (2026-07-03). Capaciteitsfix (proefles-boekingen meetellen in `book_class_session`): PR #117, merge `c71462e`. Derde tak, invited trial codes (zie hieronder): PR #116 merge `8355b67`, PR #118 merge `37e6085`, PR #119 merge `2b98dcf`; die reeks staat ook los bijgehouden in de WS-ledger van `spec-membership-flow.md`.
+
 - `tmc.trial_bookings` exists and is in production: `session_id`, `name`, `email`, `phone`, `price_paid_cents`, `mollie_payment_id`, `status: pending|paid|attended|no_show|cancelled`, `cancel_token`, `booked_at`, `cancelled_at` — no `profile_id`, the visitor has no account. Since `20260808000000_trial_codes.sql` also a nullable `trial_code_id` (see the third branch below).
 - Public flow: `/proefles` presents the explicit two-way choice (book instantly vs. request a call), `/proefles/boeken` lists bookable sessions (capacity via `v_session_availability`, which counts trial bookings `pending|paid|attended` alongside member bookings), `startTrialBooking` (`src/lib/actions/trial-booking.ts`) inserts a `pending` row + one-off Mollie payment at the drop-in catalogue price, the webhook flips it to `paid`, and `/proefles/annuleren/[token]` self-service-cancels within the same window as members.
 - Post-attendance upsell mechanics: still not built — that seam remains open.
+- **`attended`/`no_show` op `tmc.trial_bookings.status` worden nergens gezet.** Geen admin-UI, geen server action, geen cron heeft een pad dat deze twee statuswaarden bereikt: de bestaande aanwezigheid-UI (`AttendanceList`/`MobileAttendanceList`, `attendance-actions.ts`) en de no-show-cron (`api/cron/release-no-shows`) werken uitsluitend op `tmc.bookings` en `check_ins`, nooit op `trial_bookings`. Voor de derde tak (invited codes) is dit een expliciete keuze (`20260808000000_trial_codes.sql`: "geen no-show-registratie voor codehouders, gratis, geen account, niets om een strike aan te hangen"), maar voor de betaalde instant-boeking is het simpelweg nooit gebouwd: `attended` en `no_show` zijn dode enum-waarden. Geen van de KPI-queries (`vw_admin_kpis`, het admin-dashboard) mengt hierdoor de twee aanwezigheidsmodellen; `fill_rate_week_pct` en de wekelijkse boekingen-teller op `/app/admin` tellen alleen `tmc.bookings`, dus een proefles-bezoeker vult wel een fysieke plek maar telt niet mee in die cijfers. Geen dubbeltelling gevonden, wel een blinde vlek in wat "bezetting" meet zolang dit ongebouwd blijft.
 
 ### Third branch: invited free trial codes (`20260808000000_trial_codes.sql`)
 
@@ -42,9 +45,11 @@ Next to paid instant booking and the call-me-back request there is a third, **in
 
 **The visitor is presented an explicit choice** — "Book instantly" vs. "I'd rather they call me" — rather than replacing `/proefles` outright or running the two paths unmarked side by side. This preserves the personal-follow-up conversion strength for visitors who want it, without forcing everyone who's already decided through an unnecessary wait. `/proefles`'s existing manual-follow-up flow becomes the second branch of this choice, not a separate, competing entry point.
 
-**Pricing: paid, reusing the existing drop-in price already defined per pillar in `booking_settings`** — no separate "trial price" concept. A paid trial fits a boutique/premium positioning better than a free one, and having money already on the table removes the need to build any no-show enforcement mechanism for someone with no account to attach a strike to.
+**Pricing: paid, reusing the existing drop-in price already defined per pillar in `tmc.catalogue`**: no separate "trial price" concept. The trial flow prices via `getCatalogue()` on the `drop_in`, `drop_in_kids` and `drop_in_senior` slugs; `tmc.catalogue` is de enige bron van waarheid voor prijzen, `booking_settings` bevat alleen planning- en beleidsconfiguratie (annuleringsvenster, no-show-regels), geen tarieven. A paid trial fits a boutique/premium positioning better than a free one, and having money already on the table removes the need to build any no-show enforcement mechanism for someone with no account to attach a strike to.
 
 **Cancellation/no-show policy: identical to the existing member policy.** Same cancellation window as members; a no-show simply forfeits the already-collected payment. No new policy surface, no separate rules to maintain.
+
+**Openstaand, blokkerend vóór studio-opening: de bevestigingsmail aan de bezoeker ontbreekt.** Na een geslaagde betaling krijgt de bezoeker geen e-mail met de boekingsbevestiging of de `cancel_token`; die token bestaat wel in `tmc.trial_bookings` en er wordt wel een annuleringsvenster van 6 uur gehandhaafd, maar zonder mail heeft de bezoeker geen manier om bij `/proefles/annuleren/[token]` te komen. Dit moet gebouwd zijn voordat de studio opengaat.
 
 ---
 
