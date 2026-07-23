@@ -52,10 +52,18 @@ export default async function CancelTrialBookingPage(props: {
         </p>
 
         {summary.status === "cancelled" ? (
-          <p className="text-text-muted">
-            {/* COPY: confirm with Marlon */}
-            Deze proefles is al geannuleerd.
-          </p>
+          <div>
+            <p className="text-text-muted">
+              {/* COPY: confirm with Marlon */}
+              Deze proefles is al geannuleerd.
+            </p>
+            {summary.codeStillUsable && (
+              <p className="text-text-muted text-sm mt-3">
+                {/* COPY: confirm met Marlon */}
+                Je code is weer te gebruiken voor een andere les.
+              </p>
+            )}
+          </div>
         ) : summary.canCancel ? (
           <CancelTrialBookingButton token={token} />
         ) : (
