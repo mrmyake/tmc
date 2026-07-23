@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "secondary-light" | "ghost";
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -16,6 +16,8 @@ const variants: Record<ButtonVariant, string> = {
     "bg-accent text-bg border border-accent hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99]",
   secondary:
     "border border-text-muted/30 text-text hover:border-accent hover:text-accent active:scale-[0.99]",
+  "secondary-light":
+    "border border-border-on-light text-on-light hover:border-accent hover:text-accent active:scale-[0.99]",
   ghost:
     "text-text-muted hover:text-accent",
 };

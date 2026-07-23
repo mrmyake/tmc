@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Countdown } from "@/components/ui/Countdown";
+import { EarlyMemberCallout } from "@/components/ui/EarlyMemberCallout";
 import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import type { CampaignPhase } from "@/lib/campaign";
@@ -32,13 +32,6 @@ interface EarlyMemberContentProps {
   /** Eén fasebron (src/lib/campaign.ts), zelfde als de root layout en /prijzen. */
   campaignPhase: CampaignPhase;
 }
-
-// Ghost-button op een lichte ("stone") sectie. Button's "secondary"-variant
-// hardcodet text-text/border-text-muted (bedoeld voor donkere achtergronden),
-// dus op een lichte kaart geeft dat te weinig contrast — zelfde patroon en
-// motivatie als src/app/12-weken-programma/TwaalfWekenProgrammaContent.tsx.
-const ghostOnLightClasses =
-  "w-full inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer border border-border-on-light text-on-light hover:border-accent hover:text-accent active:scale-[0.99]";
 
 // Copy hieronder volgt de zes-secties rebuild (zie PR-beschrijving). Bewust
 // nergens plek-tellingen, reservering/hold-taal of "1 augustus" meer — de
@@ -167,7 +160,7 @@ export function EarlyMemberContent({
             {/* All Access — dark feature card op de lichte sectie, zelfde
                 patroon als TwaalfWekenProgrammaContent.tsx's Studio-kaart. */}
             <ScrollReveal>
-              <div className="bg-bg text-text border border-bg p-8 md:p-10 h-full flex flex-col">
+              <div className="bg-bg text-text p-8 md:p-10 h-full flex flex-col">
                 {/* COPY: confirm met Marlon */}
                 {emActive && (
                   <span className="text-accent text-xs font-semibold uppercase tracking-[0.16em]">
@@ -225,7 +218,7 @@ export function EarlyMemberContent({
                     <span className="text-text-muted">
                       Onbeperkt
                       {emActive && (
-                        <span className="text-accent text-[10px] uppercase tracking-[0.14em] ml-1">
+                        <span className="text-accent text-[10px] uppercase tracking-[var(--track-label)] ml-1">
                           Early Member
                         </span>
                       )}
@@ -321,9 +314,9 @@ export function EarlyMemberContent({
                     {formatPriceEuro(vrijTrainenAddOnCents)} per 4 weken
                   </li>
                 </ul>
-                <Link href="/abonnement" className={ghostOnLightClasses}>
+                <Button href="/abonnement" variant="secondary-light" className="w-full">
                   {emActive ? "Word Early Member" : "Boek je abonnement"}
-                </Link>
+                </Button>
               </div>
             </ScrollReveal>
           </div>
@@ -445,22 +438,20 @@ export function EarlyMemberContent({
                   leefstijlbegeleiding.
                 </p>
                 {emActive && (
-                  <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
-                    <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                      Early Member bonus
-                    </span>
+                  <EarlyMemberCallout label="Early Member bonus" className="mb-8">
                     {/* COPY: confirm met Marlon */}
                     <span className="text-on-light text-[15px] font-medium leading-snug">
                       Onbeperkt groepslessen tijdens het hele programma
                     </span>
-                  </div>
+                  </EarlyMemberCallout>
                 )}
-                <Link
+                <Button
                   href="/12-weken-programma"
-                  className={`${ghostOnLightClasses} mt-auto`}
+                  variant="secondary-light"
+                  className="w-full mt-auto"
                 >
                   Meer over dit programma
-                </Link>
+                </Button>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={0.1}>
@@ -490,23 +481,21 @@ export function EarlyMemberContent({
                   afstand, met wekelijkse check-ins.
                 </p>
                 {emActive && (
-                  <div className="border border-accent/45 bg-accent/[0.07] px-4 py-3.5 mb-8 flex flex-col gap-1.5">
-                    <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                      Early Member bonus
-                    </span>
+                  <EarlyMemberCallout label="Early Member bonus" className="mb-8">
                     {/* COPY: confirm met Marlon */}
                     <span className="text-on-light text-[15px] font-medium leading-snug">
                       2x per week vrij trainen en 1x per week kettlebell,
                       tijdens het programma
                     </span>
-                  </div>
+                  </EarlyMemberCallout>
                 )}
-                <Link
+                <Button
                   href="/12-weken-programma"
-                  className={`${ghostOnLightClasses} mt-auto`}
+                  variant="secondary-light"
+                  className="w-full mt-auto"
                 >
                   Meer over dit programma
-                </Link>
+                </Button>
               </div>
             </ScrollReveal>
           </div>
