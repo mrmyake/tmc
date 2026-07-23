@@ -83,18 +83,10 @@ export async function adminUpdateSession(
           message: "Capaciteit moet minstens 1 zijn, of leeg voor onbeperkt.",
         };
       }
-      const { count } = await admin
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("session_id", input.id)
-        .eq("status", "booked");
-      const booked = count ?? 0;
-      if (input.capacity < booked) {
-        return {
-          ok: false,
-          message: `Er staan al ${booked} boekingen. Capaciteit moet minstens ${booked} zijn.`,
-        };
-      }
+      // Bewust geen minimum op de huidige bezetting: bij bv. kapot materiaal
+      // moet de capaciteit onder de bezetting kunnen zakken en handelt Marlon
+      // de overboeking zelf af. SessionEditPanel waarschuwt inline; de
+      // boek-gates weigeren nieuwe boekingen zodra bezetting >= capaciteit.
     }
     patch.capacity = input.capacity;
   }

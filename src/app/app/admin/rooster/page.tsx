@@ -114,6 +114,7 @@ type ScheduleTemplateRow = {
 type AvailabilityRow = {
   id: string;
   booked_count: number | null;
+  taken_count: number | null;
 };
 
 export default async function AdminRoosterPage(props: {
@@ -202,11 +203,41 @@ export default async function AdminRoosterPage(props: {
       ? { data: [] as AvailabilityRow[] }
       : await admin
           .from("v_session_availability")
-          .select("id, booked_count")
+          .select("id, booked_count, taken_count")
           .in("id", sessionIds);
   const bookedBy = new Map<string, number>();
+  const takenBy = new Map<string, number>();
   for (const r of availability.data ?? []) {
-    if (r.id) bookedBy.set(r.id, r.booked_count ?? 0);
+    if (r.id) {
+      bookedBy.set(r.id, r.booked_count ?? 0);
+      takenBy.set(r.id, r.taken_count ?? 0);
+    }
+  }
+
+  // Uitsplitsing voor de capaciteitswaarschuwing in SessionEditPanel:
+  // proeflessen en gasten per sessie (leden = booked_count uit de view).
+  // Zelfde statusfilters als taken_count in v_session_availability.
+  const trialBy = new Map<string, number>();
+  const guestBy = new Map<string, number>();
+  if (sessionIds.length > 0) {
+    const [trialsRes, guestsRes] = await Promise.all([
+      admin
+        .from("trial_bookings")
+        .select("session_id")
+        .in("session_id", sessionIds)
+        .in("status", ["pending", "paid", "attended"]),
+      admin
+        .from("guest_bookings")
+        .select("session_id")
+        .in("session_id", sessionIds)
+        .in("status", ["booked", "attended"]),
+    ]);
+    for (const r of trialsRes.data ?? []) {
+      trialBy.set(r.session_id, (trialBy.get(r.session_id) ?? 0) + 1);
+    }
+    for (const r of guestsRes.data ?? []) {
+      guestBy.set(r.session_id, (guestBy.get(r.session_id) ?? 0) + 1);
+    }
   }
 
   // Build 7-day skeleton with Amsterdam-local day keys.
@@ -257,6 +288,9 @@ export default async function AdminRoosterPage(props: {
       ageCategory: s.age_category,
       capacity: s.capacity,
       bookedCount: bookedBy.get(s.id) ?? 0,
+      takenCount: takenBy.get(s.id) ?? 0,
+      trialCount: trialBy.get(s.id) ?? 0,
+      guestCount: guestBy.get(s.id) ?? 0,
       startAt: s.start_at,
       endAt: s.end_at,
       status: s.status,

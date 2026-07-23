@@ -14,7 +14,10 @@ interface SerializedSession {
   pillar: string;
   /** NULL betekent onbeperkt (alleen kettlebell). */
   capacity: number | null;
-  bookedCount: number;
+  /** Totale bezetting (leden + proeflessen + gasten) uit de view. */
+  takenCount: number;
+  /** NULL betekent onbeperkt; bron: v_session_availability. */
+  spotsAvailable: number | null;
   status: SessionRowData["status"];
   bookingId: string | null;
   checkInHint: string | null;
@@ -53,7 +56,8 @@ export function SessionList({
         trainerName: openSerialized.trainerName,
         pillar: openSerialized.pillar,
         capacity: openSerialized.capacity,
-        bookedCount: openSerialized.bookedCount,
+        takenCount: openSerialized.takenCount,
+        spotsAvailable: openSerialized.spotsAvailable,
         status: openSerialized.status,
         bookingId: openSerialized.bookingId,
       }
@@ -85,7 +89,8 @@ export function SessionList({
               trainerName: s.trainerName,
               pillar: s.pillar,
               capacity: s.capacity,
-              bookedCount: s.bookedCount,
+              takenCount: s.takenCount,
+              spotsAvailable: s.spotsAvailable,
               status: s.status,
               bookingId: s.bookingId,
               checkInHint: s.checkInHint,
