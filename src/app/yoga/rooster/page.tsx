@@ -53,7 +53,8 @@ export default async function YogaRoosterPage() {
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * 86400000);
 
   let sessions: SessionRow[] | null = [];
-  const bookedBySession = new Map<string, number>();
+  // Vrije plekken per sessie uit de view (leden + proeflessen + gasten).
+  const spotsBySession = new Map<string, number | null>();
 
   if (admin) {
     const sessionsRes = await admin
@@ -85,10 +86,10 @@ export default async function YogaRoosterPage() {
     if (sessionIds.length > 0) {
       const availabilityRes = await admin
         .from("v_session_availability")
-        .select("id, booked_count")
+        .select("id, spots_available")
         .in("id", sessionIds);
       for (const row of availabilityRes.data ?? []) {
-        if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
+        if (row.id) spotsBySession.set(row.id, row.spots_available);
       }
     }
   }
@@ -101,7 +102,7 @@ export default async function YogaRoosterPage() {
     trainerName: s.trainer?.display_name ?? "docent",
     pillar: s.pillar,
     capacity: s.capacity,
-    bookedCount: bookedBySession.get(s.id) ?? 0,
+    spotsAvailable: spotsBySession.get(s.id) ?? null,
     userHasBooked: false,
   }));
 

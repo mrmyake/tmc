@@ -12,8 +12,10 @@ interface AdminSessionBlockProps {
 export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps) {
   const isCancelled = session.status === "cancelled";
   // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
+  // Totale bezetting (leden + proeflessen + gasten), zelfde telling als de
+  // boek-gates.
   const full =
-    session.capacity !== null && session.bookedCount >= session.capacity;
+    session.capacity !== null && session.takenCount >= session.capacity;
   const tone = pillarBorderLeft(session.pillar);
 
   return (
@@ -45,8 +47,8 @@ export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps)
       >
         {session.capacity === null
           ? // COPY: confirm met Marlon
-            `${session.bookedCount} geboekt`
-          : `${session.bookedCount}/${session.capacity}`}{" "}
+            `${session.takenCount} geboekt`
+          : `${session.takenCount}/${session.capacity}`}{" "}
         · {PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar}
       </span>
     </button>

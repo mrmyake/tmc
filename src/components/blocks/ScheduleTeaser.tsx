@@ -23,7 +23,11 @@ interface TeaserSession {
   trainerName: string;
   pillar: string;
   capacity: number;
-  bookedCount: number;
+  /**
+   * Vrije plekken uit v_session_availability (verrekent leden, proeflessen
+   * en gasten). NULL betekent onbeperkt of geen view-rij.
+   */
+  spotsAvailable: number | null;
 }
 
 interface SessionRow {
@@ -96,11 +100,11 @@ async function fetchTeaserSessions(): Promise<TeaserSession[]> {
   const ids = picked.map((s) => s.id);
   const { data: availability } = await admin
     .from("v_session_availability")
-    .select("id, booked_count")
+    .select("id, spots_available")
     .in("id", ids);
-  const bookedBySession = new Map<string, number>();
+  const spotsBySession = new Map<string, number | null>();
   for (const row of availability ?? []) {
-    if (row.id) bookedBySession.set(row.id, row.booked_count ?? 0);
+    if (row.id) spotsBySession.set(row.id, row.spots_available);
   }
 
   return picked.map((s) => ({
@@ -111,7 +115,7 @@ async function fetchTeaserSessions(): Promise<TeaserSession[]> {
     trainerName: s.trainer?.display_name ?? "coach",
     pillar: s.pillar,
     capacity: s.capacity,
-    bookedCount: bookedBySession.get(s.id) ?? 0,
+    spotsAvailable: spotsBySession.get(s.id) ?? null,
   }));
 }
 
@@ -157,8 +161,10 @@ export async function ScheduleTeaser({
             const start = new Date(s.startAt);
             const pillarLabel =
               PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar;
-            const spotsLeft = Math.max(0, s.capacity - s.bookedCount);
-            const isFull = spotsLeft === 0;
+            // Vrije plekken uit de view; null betekent onbeperkt (of geen
+            // view-rij): nooit vol.
+            const spotsLeft = s.spotsAvailable;
+            const isFull = spotsLeft !== null && Math.max(0, spotsLeft) === 0;
             return (
               <li
                 key={s.id}
@@ -189,7 +195,12 @@ export async function ScheduleTeaser({
                       : "text-text-muted"
                   }`}
                 >
-                  {isFull ? "Vol" : `${spotsLeft} plekken`}
+                  {isFull
+                    ? "Vol"
+                    : spotsLeft === null
+                      ? // COPY: confirm met Marlon
+                        "Onbeperkt"
+                      : `${Math.max(0, spotsLeft)} plekken`}
                 </span>
               </li>
             );

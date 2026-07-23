@@ -376,25 +376,24 @@ export default async function RoosterPage(props: {
       ? {
           data: [] as {
             id: string;
-            booked_count: number | null;
             spots_available: number | null;
-            waitlist_count: number | null;
+            taken_count: number | null;
           }[],
         }
       : await supabase
           .from("v_session_availability")
-          .select("id, booked_count, spots_available, waitlist_count")
+          .select("id, spots_available, taken_count")
           .in("id", sessionIds);
 
   const availabilityBySession = new Map<
     string,
-    { bookedCount: number; spotsAvailable: number | null }
+    { spotsAvailable: number | null; takenCount: number }
   >();
   for (const row of availabilityResult.data ?? []) {
     if (row.id) {
       availabilityBySession.set(row.id, {
-        bookedCount: row.booked_count ?? 0,
         spotsAvailable: row.spots_available,
+        takenCount: row.taken_count ?? 0,
       });
     }
   }
@@ -469,18 +468,13 @@ export default async function RoosterPage(props: {
     const waitlisted = waitlistedSessions.has(s.id);
     const availability = availabilityBySession.get(s.id);
     // Sessie zonder rij in v_session_availability (bv. een race, of een net
-    // niet meer "scheduled" sessie buiten de view): terugvallen op 0 geboekt
+    // niet meer "scheduled" sessie buiten de view): terugvallen op 0 bezet
     // in plaats van te crashen. De RPC blijft sowieso de echte gate.
-    const bookedCount = availability?.bookedCount ?? 0;
     const spotsAvailable = availability?.spotsAvailable ?? null;
-    // Bezetting voor de canBook-prefilter: exact de telling van de view
-    // (leden + proefles-boekingen), afgeleid uit capacity - spots_available.
-    // spots_available null = onbeperkte capaciteit; de capaciteitscheck in
-    // canBook slaat dan sowieso over (capacity is dan ook null).
-    const takenCount =
-      s.capacity !== null && spotsAvailable !== null
-        ? s.capacity - spotsAvailable
-        : bookedCount;
+    // Bezetting voor de canBook-prefilter en de weergave: taken_count uit de
+    // view (leden + proeflessen + gasten), exact de telling van de
+    // schrijf-gates sinds de gast-capaciteitsfix (20260810).
+    const takenCount = availability?.takenCount ?? 0;
     const start = new Date(s.start_at);
     const end = new Date(s.end_at);
     const sessionIso = isoDateAmsterdam(start);
@@ -586,7 +580,7 @@ export default async function RoosterPage(props: {
       trainerBio: s.trainer?.bio ?? null,
       pillar: s.pillar,
       capacity: s.capacity,
-      bookedCount,
+      takenCount,
       spotsAvailable,
       status,
       reasonText,
@@ -717,7 +711,8 @@ export default async function RoosterPage(props: {
           trainerBio: s.trainerBio,
           pillar: s.pillar,
           capacity: s.capacity,
-          bookedCount: s.bookedCount,
+          takenCount: s.takenCount,
+          spotsAvailable: s.spotsAvailable,
           status: s.status,
           bookingId: s.bookingId,
           checkInHint: s.checkInHint,

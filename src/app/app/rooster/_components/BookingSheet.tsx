@@ -304,12 +304,15 @@ export function BookingSheet({
                 <Detail
                   label="Groep"
                   value={
+                    // Bezetting en vrije plekken uit v_session_availability
+                    // (leden + proeflessen + gasten), zelfde bron als de
+                    // vol-status; geen eigen rekensom meer.
                     session.capacity === null
                       ? // COPY: confirm met Marlon
-                        `${session.bookedCount} aangemeld · onbeperkt aantal plekken`
+                        `${session.takenCount} aangemeld · onbeperkt aantal plekken`
                       : isFull
-                        ? `Vol · ${session.bookedCount} / ${session.capacity}`
-                        : `${Math.max(0, session.capacity - session.bookedCount)} plekken nog vrij · max ${session.capacity}`
+                        ? `Vol · ${session.takenCount} / ${session.capacity}`
+                        : `${Math.max(0, session.spotsAvailable ?? session.capacity)} plekken nog vrij · max ${session.capacity}`
                   }
                 />
               </dl>
