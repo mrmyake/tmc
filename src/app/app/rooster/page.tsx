@@ -473,6 +473,14 @@ export default async function RoosterPage(props: {
     // in plaats van te crashen. De RPC blijft sowieso de echte gate.
     const bookedCount = availability?.bookedCount ?? 0;
     const spotsAvailable = availability?.spotsAvailable ?? null;
+    // Bezetting voor de canBook-prefilter: exact de telling van de view
+    // (leden + proefles-boekingen), afgeleid uit capacity - spots_available.
+    // spots_available null = onbeperkte capaciteit; de capaciteitscheck in
+    // canBook slaat dan sowieso over (capacity is dan ook null).
+    const takenCount =
+      s.capacity !== null && spotsAvailable !== null
+        ? s.capacity - spotsAvailable
+        : bookedCount;
     const start = new Date(s.start_at);
     const end = new Date(s.end_at);
     const sessionIso = isoDateAmsterdam(start);
@@ -528,7 +536,7 @@ export default async function RoosterPage(props: {
         },
         memberships: canBookMemberships,
         usage: {
-          bookedCountThisSession: bookedCount,
+          takenCountThisSession: takenCount,
           bookingsSameDay: bookingCountByDate.get(sessionIso) ?? 0,
           bookingsSamePillarThisWeek: weeklyPillarCount.get(weekKey) ?? 0,
           // Alleen relevant binnen de soft-cap-tak (checkInEnabledForPillar),
