@@ -30,6 +30,7 @@ export default async function AdminSessionPage(props: {
       <AttendanceList
         session={res.session}
         initialParticipants={res.participants}
+        initialGuests={res.guests}
         canRefund
       />
     </div>
