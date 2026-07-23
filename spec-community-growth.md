@@ -23,11 +23,20 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 - An architecturally-adjacent pattern already exists: `guest_passes`/`guest_bookings` (migration `20260427100000_guest_passes.sql`) lets an **existing, logged-in member** bring a companion (name + email, no account) to a session for free. The `guest_bookings` table already proves out "attach someone without an account to a session via name/email columns instead of a user FK" — but the trigger is inverted: today a member must already exist to invite a guest; a trial flow needs the opposite, a stranger with no account initiating their own booking.
 - Mollie already supports one-off (non-recurring) charges in this codebase: `api/crowdfunding/checkout/route.ts` calls `mollie.payments.create({...})` with no `sequenceType`, which defaults to Mollie's `oneoff` mode — fully separate machinery from the `SequenceType.first`/`recurring` SEPA-mandate flow used for membership signup. This is the pattern a trial payment would reuse, not the membership checkout code.
 
-### Proposed shape (PROPOSAL, not committed)
+### Built and live (was: proposed shape)
 
-- New table, deliberately **not** named anything with "guest" in it to avoid collision with the existing member-invites-a-companion concept, which means something different. Working name: `tmc.trial_bookings` (`session_id`, `name`, `email`, `phone`, `mollie_payment_id`, `status: pending|paid|attended|no_show|cancelled`, no `profile_id` — the visitor has no account at booking time).
-- Public (non-auth-gated) route showing bookable trial slots for a specific session type, one-off Mollie payment (reusing the crowdfunding checkout pattern) collecting name/email/phone as payment metadata, webhook confirms → row flips to `paid`.
-- Post-attendance: an obvious upsell moment to become a real signup (`/app/abonnement` or a dedicated post-trial nudge) — not building the conversion mechanics here, just noting the seam.
+- `tmc.trial_bookings` exists and is in production: `session_id`, `name`, `email`, `phone`, `price_paid_cents`, `mollie_payment_id`, `status: pending|paid|attended|no_show|cancelled`, `cancel_token`, `booked_at`, `cancelled_at` — no `profile_id`, the visitor has no account. Since `20260808000000_trial_codes.sql` also a nullable `trial_code_id` (see the third branch below).
+- Public flow: `/proefles` presents the explicit two-way choice (book instantly vs. request a call), `/proefles/boeken` lists bookable sessions (capacity via `v_session_availability`, which counts trial bookings `pending|paid|attended` alongside member bookings), `startTrialBooking` (`src/lib/actions/trial-booking.ts`) inserts a `pending` row + one-off Mollie payment at the drop-in catalogue price, the webhook flips it to `paid`, and `/proefles/annuleren/[token]` self-service-cancels within the same window as members.
+- Post-attendance upsell mechanics: still not built — that seam remains open.
+
+### Third branch: invited free trial codes (`20260808000000_trial_codes.sql`)
+
+Next to paid instant booking and the call-me-back request there is a third, **invited** entry: Marlon generates batches of unique codes (`tmc.generate_trial_codes`, 1–50 per batch, admin-only) for one free group class. A code is single-use, for one person, valid 28 days from creation (per-batch configurable), optionally restricted to one pillar (`yoga_mobility`/`kettlebell`; null = either), stored in `tmc.trial_codes` (status `active|redeemed|revoked`; expiry is derived from `expires_at`, deliberately not a status).
+
+- Redeeming (`tmc.redeem_trial_code`, executable by service_role only — the table has no anon/authenticated grants and no non-admin RLS policy, so codes have no PostgREST enumeration surface) produces a **regular `trial_bookings` row** with `price_paid_cents = 0` and `mollie_payment_id = null`, status `paid`. No second bookings table; capacity counting (`v_session_availability`) and the existing cancel path apply unchanged.
+- Cancelling a code-based booking (any path that sets the row to `cancelled`) releases the code back to `active` via a trigger, as long as it has not expired; expired codes stay `redeemed`.
+- Admin can revoke single codes or whole batches (`revoke_trial_code` / `revoke_trial_batch`); already-redeemed codes and their bookings stay intact.
+- No no-show enforcement for code holders (free, no account, nothing to attach a strike to) — consistent with the paid-trial no-show decision below, which relies on money already collected; here the forfeit is simply the spent code.
 
 ### Decided
 
