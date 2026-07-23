@@ -26,7 +26,13 @@ export interface CanBookProfile {
 }
 
 export interface CanBookUsage {
-  bookedCountThisSession: number;
+  /**
+   * Totale bezetting van de sessie zoals v_session_availability die telt
+   * (leden-bookings plus trial_bookings pending/paid/attended), afgeleid
+   * als `capacity - spots_available`. Bewust niet view.booked_count: die
+   * telt alleen leden en zou hier "open" tonen waar de RPC weigert.
+   */
+  takenCountThisSession: number;
   bookingsSameDay: number;
   bookingsSamePillarThisWeek: number;
   /**
@@ -130,7 +136,7 @@ export function canBook(params: {
   // geen waitlist-pad. Zelfde overslag-tak als in de book_class_session RPC.
   if (
     session.capacity !== null &&
-    usage.bookedCountThisSession >= session.capacity
+    usage.takenCountThisSession >= session.capacity
   ) {
     return { allowed: false, reason: "capacity_full", canJoinWaitlist: true };
   }
