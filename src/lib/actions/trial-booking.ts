@@ -1,5 +1,6 @@
 "use server";
 
+import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
@@ -124,6 +125,14 @@ export async function startTrialBooking(
     .single();
 
   if (insertErr || !trial) {
+    // De databasetrigger (enforce_session_capacity, migratie 20260811) is
+    // de harde grens: hij vangt de race af waarin twee bezoekers
+    // tegelijk de laatste plek zagen. De view-check hierboven is alleen
+    // de vriendelijke voorcheck.
+    if (insertErr?.message?.includes("session_capacity_exceeded")) {
+      // COPY: confirm met Marlon
+      return { ok: false, error: "Deze sessie is helaas vol." };
+    }
     console.error("[startTrialBooking] insert failed", insertErr);
     return { ok: false, error: "Kon boeking niet opslaan." };
   }
@@ -138,6 +147,15 @@ export async function startTrialBooking(
       description: "The Movement Club | Proefles",
       redirectUrl: `${url}/proefles/boeken/bedankt?trial=${trial.id}`,
       webhookUrl: `${url}/api/trial-bookings/webhook`,
+      // Een pending-rij houdt een plek bezet tot Mollie de betaling laat
+      // verlopen, en die vervaltijd is per methode: iDEAL 15 min, kaart
+      // 30 min, maar Klarna/in3 48 uur en bankoverschrijving 12+ dagen.
+      // De Payments API kent geen expiresAt-parameter (alleen Payment
+      // Links hebben die), dus we begrenzen de reserveringsduur door de
+      // methodekeuze expliciet te beperken tot iDEAL en kaart: maximaal
+      // 30 min plek-bezetting per betaalpoging. De expire-orders cron is
+      // de backstop voor gemiste webhooks.
+      method: [PaymentMethod.ideal, PaymentMethod.creditcard],
       metadata: {
         trialBookingId: trial.id,
         sessionId: session.id,
