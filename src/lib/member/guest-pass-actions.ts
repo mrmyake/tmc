@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { emitEvent } from "@/lib/events/emit";
 import { sendEmail } from "@/lib/email";
 import GuestConfirmation from "@/emails/guest_confirmation";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
@@ -297,151 +296,134 @@ export async function bookGuest(
     };
   }
 
-  // 3. Session capaciteit.
+  // 3. Atomaire boeking via de DB-gate (tmc.book_guest_session, migratie
+  //    20260810): lockt de pass-rij en de sessie-rij, telt capaciteit over
+  //    leden + trials + gasten via tmc.session_occupancy(), en doet insert,
+  //    passes_used-increment en het guest.booked-event in één transactie.
+  //    Via de user-client, zodat auth.uid() in de RPC klopt.
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "book_guest_session",
+    {
+      p_session_id: input.sessionId,
+      p_guest_pass_id: period.id,
+      p_guest_name: name,
+      p_guest_email: email,
+    },
+  );
+
+  if (rpcError || !rpcData) {
+    console.error("[bookGuest] book_guest_session failed", rpcError);
+    return { ok: false, message: "Gast toevoegen lukte niet." };
+  }
+
+  const result = rpcData as {
+    ok: boolean;
+    reason?: string;
+    guest_booking_id?: string;
+    passes_allocated?: number;
+    passes_used?: number;
+  };
+
+  if (!result.ok) {
+    switch (result.reason) {
+      case "capacity_full":
+        return { ok: false, message: "Deze sessie is vol." };
+      case "already_booked":
+        return { ok: false, message: "Deze gast staat al op deze sessie." };
+      case "session_not_found":
+        return { ok: false, message: "Sessie niet gevonden." };
+      case "session_not_scheduled":
+        return { ok: false, message: "Deze sessie staat niet open." };
+      case "session_in_past":
+        return { ok: false, message: "Sessie is al begonnen of voorbij." };
+      case "no_passes_left":
+        return {
+          ok: false,
+          message: "Je guest passes voor deze periode zijn op.",
+        };
+      case "pass_period_invalid":
+        return {
+          ok: false,
+          message: "Deze pass-periode is verlopen. Probeer het opnieuw.",
+        };
+      default:
+        console.error("[bookGuest] geweigerd", result.reason);
+        return { ok: false, message: "Gast toevoegen lukte niet." };
+    }
+  }
+
+  // 4. Sessie-details puur voor de bevestigingsmail; de gate zat in de RPC.
   const { data: session } = await admin
     .from("class_sessions")
     .select(
-      `id, start_at, end_at, capacity, status, pillar,
+      `start_at, end_at,
        class_type:class_types(name),
        trainer:trainers(display_name)`,
     )
     .eq("id", input.sessionId)
     .maybeSingle();
 
-  if (!session) return { ok: false, message: "Sessie niet gevonden." };
-  if (session.status !== "scheduled") {
-    return { ok: false, message: "Deze sessie staat niet open." };
-  }
-  if (new Date(session.start_at).getTime() <= Date.now()) {
-    return { ok: false, message: "Sessie is al begonnen of voorbij." };
-  }
-
-  const [{ count: bookedCount }, { count: guestCount }] = await Promise.all([
-    admin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", input.sessionId)
-      .eq("status", "booked"),
-    admin
-      .from("guest_bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", input.sessionId)
-      .in("status", ["booked", "attended"]),
-  ]);
-
-  const taken = (bookedCount ?? 0) + (guestCount ?? 0);
-  if (taken >= session.capacity) {
-    return { ok: false, message: "Deze sessie is vol." };
-  }
-
-  // 4. Insert met idempotent-check op unique(session_id, email).
-  const { data: guestBooking, error: insertError } = await admin
-    .from("guest_bookings")
-    .insert({
-      guest_pass_id: period.id,
-      session_id: input.sessionId,
-      booked_by: user.id,
-      guest_name: name,
-      guest_email: email,
-      status: "booked",
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    if (insertError.code === "23505") {
-      return {
-        ok: false,
-        message: "Deze gast staat al op deze sessie.",
-      };
-    }
-    console.error("[bookGuest] insert failed", insertError);
-    return { ok: false, message: "Gast toevoegen lukte niet." };
-  }
-
-  // Geen gast-naam/e-mail in de payload: dat is PII die de event-laag niet
-  // nodig heeft.
-  await emitEvent({
-    type: "guest.booked",
-    actorType: "member",
-    actorId: user.id,
-    subjectType: "guest_booking",
-    subjectId: guestBooking.id,
-    payload: {
-      profile_id: user.id,
-      guest_pass_id: period.id,
-      session_id: input.sessionId,
-    },
-  });
-
-  // 5. Bump passes_used.
-  const { error: updateError } = await admin
-    .from("guest_passes")
-    .update({ passes_used: period.used + 1 })
-    .eq("id", period.id);
-
-  if (updateError) {
-    console.error("[bookGuest] passes_used update failed", updateError);
-  }
-
-  // 6. Fetch member name for the email greeting.
+  // 5. Fetch member name for the email greeting.
   const { data: memberProfile } = await admin
     .from("profiles")
     .select("first_name")
     .eq("id", user.id)
     .maybeSingle();
 
-  // 7. Fire-and-forget guest email. Also mark reminder_sent so follow-up
-  //    crons don't re-send.
-  type Ref<T> = T | T[] | null;
-  const classType = (
-    Array.isArray(session.class_type)
-      ? session.class_type[0]
-      : session.class_type
-  ) as { name: string | null } | null;
-  const trainer = (
-    Array.isArray(session.trainer) ? session.trainer[0] : session.trainer
-  ) as { display_name: string | null } | null;
-  void (0 as unknown as Ref<never>);
+  // 6. Fire-and-forget guest email. Also mark reminder_sent so follow-up
+  //    crons don't re-send. Mail is best-effort: de boeking staat al vast
+  //    in de DB, dus een ontbrekende sessie-rij slaat alleen de mail over.
+  if (session) {
+    const classType = (
+      Array.isArray(session.class_type)
+        ? session.class_type[0]
+        : session.class_type
+    ) as { name: string | null } | null;
+    const trainer = (
+      Array.isArray(session.trainer) ? session.trainer[0] : session.trainer
+    ) as { display_name: string | null } | null;
 
-  const start = new Date(session.start_at);
-  const end = new Date(session.end_at);
-  const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+    const start = new Date(session.start_at);
+    const end = new Date(session.end_at);
+    const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
 
-  void (async () => {
-    try {
-      await sendEmail({
-        to: email,
-        toName: name,
-        subject: `Je staat op de lijst: ${classType?.name ?? "een sessie"} bij The Movement Club`,
-        react: GuestConfirmation({
-          guestFirstName: name.split(" ")[0] ?? name,
-          memberFirstName: memberProfile?.first_name ?? "een lid",
-          className: classType?.name ?? "Sessie",
-          trainerName: trainer?.display_name ?? "je coach",
-          whenLabel,
-          siteUrl: siteUrl(),
-        }),
-      });
-      await admin
-        .from("guest_bookings")
-        .update({ reminder_sent: true })
-        .eq("session_id", input.sessionId)
-        .eq("guest_email", email);
-    } catch (err) {
-      console.error("[bookGuest] guest email failed", err);
-    }
-  })();
+    void (async () => {
+      try {
+        await sendEmail({
+          to: email,
+          toName: name,
+          subject: `Je staat op de lijst: ${classType?.name ?? "een sessie"} bij The Movement Club`,
+          react: GuestConfirmation({
+            guestFirstName: name.split(" ")[0] ?? name,
+            memberFirstName: memberProfile?.first_name ?? "een lid",
+            className: classType?.name ?? "Sessie",
+            trainerName: trainer?.display_name ?? "je coach",
+            whenLabel,
+            siteUrl: siteUrl(),
+          }),
+        });
+        await admin
+          .from("guest_bookings")
+          .update({ reminder_sent: true })
+          .eq("session_id", input.sessionId)
+          .eq("guest_email", email);
+      } catch (err) {
+        console.error("[bookGuest] guest email failed", err);
+      }
+    })();
+  }
 
   revalidatePath("/app/rooster");
   revalidatePath("/app/abonnement");
 
+  const allocated = result.passes_allocated ?? period.allocated;
+  const used = result.passes_used ?? period.used + 1;
   return {
     ok: true,
     message: `${name} staat op de lijst. Bevestiging gaat per mail.`,
-    allocated: period.allocated,
-    used: period.used + 1,
-    remaining: Math.max(0, period.allocated - period.used - 1),
+    allocated,
+    used,
+    remaining: Math.max(0, allocated - used),
     periodEnd: period.periodEnd,
   };
 }
