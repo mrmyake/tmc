@@ -24,24 +24,3 @@ export function getAdminClient(): SupabaseClient | null {
     auth: { persistSession: false },
   }) as unknown as SupabaseClient;
 }
-
-export interface CrowdfundingStats {
-  total_raised: number;
-  total_backers: number;
-}
-
-export interface CrowdfundingTierSlots {
-  id: string;
-  slots_claimed: number;
-}
-
-export interface CrowdfundingBacker {
-  id: string;
-  created_at: string;
-  tier_id: string;
-  tier_name: string;
-  amount: number;
-  name: string;
-  show_on_wall: boolean;
-  payment_status: string;
-}

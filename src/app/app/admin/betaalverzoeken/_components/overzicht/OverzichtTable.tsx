@@ -10,7 +10,7 @@ import { cancelPaymentRequest } from "@/lib/admin/payment-request-cancel-actions
 import { AvatarBubble } from "@/app/app/_shared/attendance/AvatarBubble";
 import { Dialog, DialogFooter } from "@/components/ui/Dialog";
 import { PaymentRequestStatusBadge } from "./PaymentRequestStatusBadge";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { formatShortDateWithYear } from "@/lib/format-date";
 
 // COPY: confirm met Marlon

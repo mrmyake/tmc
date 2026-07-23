@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { emitEvent } from "@/lib/events/emit";
 import { siteUrl } from "@/lib/site-url";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import PaymentRequest from "@/emails/payment_request";
 
 export interface CreatePaymentRequestInput {

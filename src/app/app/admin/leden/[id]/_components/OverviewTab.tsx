@@ -1,4 +1,4 @@
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { formatShortDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";

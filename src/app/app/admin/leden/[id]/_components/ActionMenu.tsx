@@ -35,7 +35,7 @@ import {
   correctCustomerEmail,
   type CorrectEmailResult,
 } from "@/lib/admin/customer-actions";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import type { MemberDetailMembership } from "@/lib/admin/member-detail-query";
 
 interface ActionMenuProps {
