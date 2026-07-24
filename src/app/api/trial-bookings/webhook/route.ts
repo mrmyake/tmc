@@ -43,14 +43,33 @@ export async function POST(request: Request) {
     }
 
     if (newStatus === "paid") {
-      const { error: upErr } = await admin
+      // .select("id") + de rijtelling checken is de eigenlijke guard, niet
+      // upErr: een UPDATE ... WHERE status='pending' die niets raakt geeft
+      // GEEN error terug, alleen nul rijen. Zonder deze check zou een
+      // race met de expire-orders-cron (die dezelfde rij tussen onze read
+      // hierboven en deze update al naar paid kan hebben gereconcilieerd)
+      // hier stilzwijgend doorlopen naar event/ntfy/mail en dus dubbel
+      // versturen. De WHERE-clausule zelf is atomair op rijniveau: als
+      // deze en de cron-update elkaar overlappen, serialiseert Postgres
+      // ze en wint precies één kant de nul-naar-een-rij-overgang; de
+      // ander ziet hier 0 affected rows. Zelfde patroon als de
+      // reconciliatiestap in expire-orders/route.ts.
+      const { data: updated, error: upErr } = await admin
         .from("trial_bookings")
         .update({ status: "paid" })
         .eq("id", trial.id)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .select("id");
 
       if (upErr) {
         console.error("[trial-bookings/webhook] update failed", upErr);
+        return NextResponse.json({ ok: true });
+      }
+      if ((updated?.length ?? 0) === 0) {
+        console.warn(
+          "[trial-bookings/webhook] pending->paid race lost (already reconciled elsewhere), skipping side effects",
+          trial.id,
+        );
         return NextResponse.json({ ok: true });
       }
 
