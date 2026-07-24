@@ -4,6 +4,7 @@ import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,9 @@ export async function GET(req: Request) {
   ).toISOString();
   const { data: stale, error: staleErr } = await admin
     .from("trial_bookings")
-    .select("id, mollie_payment_id, session_id, name, email, phone")
+    .select(
+      "id, mollie_payment_id, session_id, name, email, phone, cancel_token, price_paid_cents",
+    )
     .eq("status", "pending")
     .not("mollie_payment_id", "is", null)
     .lt("booked_at", staleCutoff);
@@ -159,6 +162,11 @@ export async function GET(req: Request) {
           `${trial.name} (${trial.email}, ${trial.phone}) heeft betaald voor een proefles (via reconciliatie).`,
           "muscle,fire",
         );
+        // Zelfde bevestigingsmail als het normale webhook-pad: dit is
+        // precies het scenario waarin de webhook nooit is aangekomen, dus
+        // zonder deze aanroep zou de bezoeker zijn cancel_token nooit
+        // zien — de kern van het probleem dat deze fix oplost.
+        await sendTrialBookingConfirmationEmail(trial);
         trialsPaid += 1;
       } else if (
         payment.status === "failed" ||

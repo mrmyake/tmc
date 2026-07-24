@@ -310,6 +310,13 @@ export async function redeemTrialCodeBooking(
   const cancelToken = result.cancel_token ?? "";
   const cancelUrl = `${siteUrl()}/proefles/annuleren/${cancelToken}`;
 
+  const { data: settings } = await admin
+    .from("booking_settings")
+    .select("cancellation_window_hours")
+    .limit(1)
+    .maybeSingle();
+  const cancellationWindowHours = settings?.cancellation_window_hours ?? 6;
+
   void sendEmail({
     to: email,
     toName: name.split(" ")[0],
@@ -320,6 +327,8 @@ export async function redeemTrialCodeBooking(
       trainerName,
       whenLabel,
       cancelUrl,
+      cancellationWindowHours,
+      // Gratis via code: geen priceLabel, template laat de prijsregel weg.
     }),
   });
 

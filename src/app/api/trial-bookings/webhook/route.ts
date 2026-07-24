@@ -3,6 +3,7 @@ import { getMollieClient } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
+import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
 
     const { data: trial, error: readErr } = await admin
       .from("trial_bookings")
-      .select("id, status, session_id, name, email, phone")
+      .select(
+        "id, status, session_id, name, email, phone, cancel_token, price_paid_cents",
+      )
       .eq("mollie_payment_id", paymentId)
       .maybeSingle();
 
@@ -65,6 +68,11 @@ export async function POST(request: Request) {
         `${trial.name} (${trial.email}, ${trial.phone}) heeft betaald voor een proefles.`,
         "muscle,fire",
       );
+
+      // Bevestiging naar de bezoeker zelf: datum/tijd/lestype, adres,
+      // annuleerlink op cancel_token en het annuleringsvenster. Ontbrak
+      // hiervoor volledig — zie src/lib/trial-booking-email.ts.
+      await sendTrialBookingConfirmationEmail(trial);
     } else if (newStatus === "failed" || newStatus === "canceled" || newStatus === "expired") {
       await admin
         .from("trial_bookings")
