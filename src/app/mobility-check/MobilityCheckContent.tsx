@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { PortableText } from "@portabletext/react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { LeadPageLayout } from "@/components/layout/LeadPageLayout";
@@ -13,6 +14,7 @@ import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { getStoredUtm } from "@/lib/utm";
 import { ChevronDown } from "lucide-react";
+import type { SanityFaq } from "../../../sanity/lib/fetch";
 
 function SelectChevron() {
   return (
@@ -47,26 +49,16 @@ const forWhom = [
   "Of je nu beginner bent of al jaren traint",
 ];
 
-const faqs = [
-  {
-    q: "Is het echt gratis?",
-    a: "Ja, volledig vrijblijvend. Geen verplichtingen, geen verkooppraatje.",
-  },
-  {
-    q: "Moet ik sportkleding aan?",
-    a: "Comfortabele kleding is voldoende. Je hoeft niet te sporten.",
-  },
-  {
-    q: "Hoe lang duurt het?",
-    a: "Ongeveer 20-30 minuten. We nemen de tijd voor een grondige screening.",
-  },
-  {
-    q: "Wat als ik blessures heb?",
-    a: "Juist dan is een screening waardevol. Marlon past alles aan op jouw situatie.",
-  },
-];
+// FAQ-content komt live uit Sanity (faq-document, page == "mobility-check"),
+// opgehaald in page.tsx en als prop doorgegeven. De inhoud stond hiervoor
+// hardcoded gedupliceerd; de Sanity-content bleek woord-voor-woord gelijk
+// (geverifieerd 2026-07-24), dus geen verlies bij het verwijderen.
 
-export function MobilityCheckContent() {
+interface MobilityCheckContentProps {
+  faqs: SanityFaq[];
+}
+
+export function MobilityCheckContent({ faqs }: MobilityCheckContentProps) {
   const [loading, setLoading] = useState(false);
   const tracked = useRef(false);
   const router = useRouter();
@@ -315,25 +307,38 @@ export function MobilityCheckContent() {
               </form>
             </ScrollReveal>
 
-            {/* FAQ */}
+            {/* FAQ, live uit Sanity (page == "mobility-check"). Geen kop
+                zonder inhoud als de fetch leeg terugkomt. */}
             <ScrollReveal delay={0.15}>
               <div className="sticky top-24">
-                <span className="tmc-eyebrow block mb-4">Veelgestelde vragen</span>
-                <div className="border-t border-bg-subtle">
-                  {faqs.map((faq) => (
-                    <div
-                      key={faq.q}
-                      className="py-5 border-b border-bg-subtle"
-                    >
-                      <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
-                        {faq.q}
-                      </h3>
-                      <p className="text-text-muted text-sm leading-relaxed">
-                        {faq.a}
-                      </p>
+                {faqs.length > 0 && (
+                  <>
+                    <span className="tmc-eyebrow block mb-4">
+                      Veelgestelde vragen
+                    </span>
+                    <div className="border-t border-bg-subtle">
+                      {faqs.map((faq) => (
+                        <div
+                          key={faq._id}
+                          className="py-5 border-b border-bg-subtle"
+                        >
+                          <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
+                            {faq.question}
+                          </h3>
+                          <div className="text-text-muted text-sm leading-relaxed prose-invert">
+                            <PortableText
+                              value={
+                                faq.answer as Parameters<
+                                  typeof PortableText
+                                >[0]["value"]
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
                 <GoogleReviewsBadge />
               </div>
             </ScrollReveal>

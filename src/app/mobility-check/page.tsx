@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MobilityCheckContent } from "./MobilityCheckContent";
+import { getFaqs } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "Gratis Mobility Check | 20 Minuten Screening met Marlon",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/mobility-check" },
 };
 
-export default function MobilityCheckPage() {
-  return <MobilityCheckContent />;
+export default async function MobilityCheckPage() {
+  const faqs = await getFaqs("mobility-check");
+  return <MobilityCheckContent faqs={faqs} />;
 }

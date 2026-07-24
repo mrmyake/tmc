@@ -6,6 +6,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
+import { CLASS_CAPACITY } from "@/lib/constants";
 
 type AuthState = "unknown" | "out" | "in";
 
@@ -349,8 +350,9 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
 
             {/* COPY: confirm met Marlon */}
             <p className="text-text-muted text-xs mt-6">
-              Alle bedragen per 4 weken. Klassengrootte: Yoga &amp;
-              Mobility max. 8 personen, Kettlebell geen maximum.
+              Alle bedragen per 4 weken. Klassengrootte: Yoga &amp; Mobility
+              max. {CLASS_CAPACITY.yogaMobility} personen, Kettlebell max.{" "}
+              {CLASS_CAPACITY.kettlebell} personen.
             </p>
 
             {/* Los Vrij Trainen, zonder Groepslessen */}
