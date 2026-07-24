@@ -299,9 +299,8 @@ function addNarrativeRow(ws: ExcelJS.Worksheet, text: string, opts: { bold?: boo
   return row;
 }
 
-function addScenarioRow(ws: ExcelJS.Worksheet, scenario: Scenario, isA0: boolean) {
+function addScenarioRow(ws: ExcelJS.Worksheet, scenario: Scenario) {
   const letOpText = scenario.letOp.map((b) => `- ${b}`).join("\n");
-  const copyValue = isA0 ? "→ via Vercel Comments" : "";
   const row = ws.addRow({
     id: scenario.id,
     titel: scenario.title,
@@ -312,7 +311,7 @@ function addScenarioRow(ws: ExcelJS.Worksheet, scenario: Scenario, isA0: boolean
     neveneffect: scenario.neveneffect,
     gelukt: "",
     twijfel: "",
-    copy: copyValue,
+    copy: "",
     status: "Nog te doen",
   });
 
@@ -440,10 +439,10 @@ const wsSessie1 = workbook.addWorksheet("Sessie 1 - alleen");
 setupScenarioSheet(wsSessie1);
 addBlockHeaderRow(wsSessie1, `Blok A0: ${blokA0Node.title.replace(/^Blok A0:\s*/, "")}`, "K");
 for (const p of paragraphsOf(blokA0Node)) addNarrativeRow(wsSessie1, p);
-for (const s of scenariosA0) addScenarioRow(wsSessie1, s, true);
+for (const s of scenariosA0) addScenarioRow(wsSessie1, s);
 addBlockHeaderRow(wsSessie1, `Blok A: ${blokANode.title.replace(/^Blok A:\s*/, "")}`, "K");
 for (const p of paragraphsOf(blokANode)) addNarrativeRow(wsSessie1, p);
-for (const s of scenariosA) addScenarioRow(wsSessie1, s, false);
+for (const s of scenariosA) addScenarioRow(wsSessie1, s);
 addConditionalFormattingToScenarioSheet(wsSessie1, wsSessie1.rowCount);
 
 // --- Tab 3: Sessie 2 - samen -------------------------------------------------
@@ -455,7 +454,7 @@ const waarschuwing = addNarrativeRow(wsSessie2, paragraphsOf(blokBNode).join("\n
   bold: true,
 });
 waarschuwing.font = { name: FONT_NAME, bold: true, size: 11, color: { argb: "FF7A1F13" } };
-for (const s of scenariosB) addScenarioRow(wsSessie2, s, false);
+for (const s of scenariosB) addScenarioRow(wsSessie2, s);
 addConditionalFormattingToScenarioSheet(wsSessie2, wsSessie2.rowCount);
 
 // --- Tab 4: Na 15 augustus ---------------------------------------------------

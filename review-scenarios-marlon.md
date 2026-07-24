@@ -12,9 +12,9 @@ Noteer je antwoorden direct bij elk scenario, ook als het antwoord simpelweg "ge
 
 ### Hoe je feedback geeft
 
-Voor de pagina's in Blok A0 (de publieke website) geef je tekstopmerkingen via Vercel Comments, rechtstreeks op de zin waar het over gaat: [PREVIEW-URL INVULLEN]. Open die link, activeer de commentaartoolbar, druk op de letter c, klik op de zin waar je iets over kwijt wilt en typ je opmerking. Zo weten we precies welke tekst je bedoelt.
+Al je feedback, dus ook opmerkingen over de teksten op de publieke pagina's uit Blok A0, vul je in het werkboek in, in de kolom "Copy die niet klopt". Blijkt niet al uit de rij zelf op welke pagina de tekst staat, noteer dat er dan even bij.
 
-De antwoordvelden per scenario (Gelukt zonder hulp, Waar twijfelde je, Copy die niet klopt) vul je niet in op deze pagina, maar in een aparte kopie van dit document. Ilja stuurt je die kopie.
+Ilja stuurt je het werkboek toe. Vul ook de andere antwoordvelden (Gelukt zonder hulp, Waar twijfelde je, Status) in diezelfde sheet in.
 
 ---
 
@@ -29,7 +29,7 @@ Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet i
 #### A0.1: Maak kennis met de studio
 
 **Doel:** beoordelen of de homepage en de aanbodpagina overkomen zoals jij The Movement Club wilt presenteren.
-**Startpunt:** de homepage (themovementclub.nl), klik door naar de aanbodpagina.
+**Startpunt:** de homepage (themovementclub.nl), klik door naar de aanbodpagina (themovementclub.nl/aanbod).
 **Opdracht:** bekijk de site zoals een nieuwe bezoeker die voor het eerst van de studio hoort. Vorm je een beeld van wat er wordt aangeboden en voor wie.
 **Let op:**
 - Is dit jouw toon, jouw woorden?
@@ -41,7 +41,7 @@ Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet i
 #### A0.2: Bekijk de tarieven
 
 **Doel:** beoordelen of de tarievenpagina duidelijk en correct is.
-**Startpunt:** /prijzen
+**Startpunt:** themovementclub.nl/prijzen
 **Opdracht:** zoek uit wat een abonnement kost en wat het verschil is tussen de opties.
 **Let op:**
 - De pagina toont nu (rechtstreeks uit de live catalogus) onder meer Groepslessen Onbeperkt voor €119 per 4 weken, Vrij Trainen Onbeperkt voor €69 per 4 weken en All Access Onbeperkt voor €149 per 4 weken. Kloppen deze bedragen met wat jij voor ogen hebt?
@@ -54,7 +54,7 @@ Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet i
 #### A0.3: Stel een abonnement samen (zonder af te rekenen)
 
 **Doel:** beoordelen of het samenstellen van een abonnement logisch en overtuigend aanvoelt.
-**Startpunt:** de configurator die je vanaf /prijzen bereikt.
+**Startpunt:** de configurator die je vanaf themovementclub.nl/prijzen bereikt.
 **Opdracht:** stel een abonnement samen zoals jij dat zelf zou willen, tot op het scherm waar de knop "Betaal nu" staat. Klik die knop niet aan, dat opent een echte betaalpagina.
 **Let op:**
 - Is op elk moment duidelijk wat je precies kiest en wat het gaat kosten?
@@ -66,7 +66,7 @@ Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet i
 #### A0.4: Meld je aan voor een proefles
 
 **Doel:** beoordelen of het aanmelden voor een gratis proefles laagdrempelig en duidelijk is.
-**Startpunt:** /proefles
+**Startpunt:** themovementclub.nl/proefles
 **Opdracht:** meld je aan voor een proefles, met je eigen e-mailadres.
 **Let op:**
 - Snap je vooraf wat er na het versturen gebeurt (bevestiging, wie neemt contact op)?
