@@ -10,6 +10,12 @@ Belangrijk: alles wat je doet gebeurt tegen de echte database, dezelfde die stra
 
 Noteer je antwoorden direct bij elk scenario, ook als het antwoord simpelweg "gelukt, geen probleem" is.
 
+### Hoe je feedback geeft
+
+Voor de pagina's in Blok A0 (de publieke website) geef je tekstopmerkingen via Vercel Comments, rechtstreeks op de zin waar het over gaat: [PREVIEW-URL INVULLEN]. Open die link, activeer de commentaartoolbar, druk op de letter c, klik op de zin waar je iets over kwijt wilt en typ je opmerking. Zo weten we precies welke tekst je bedoelt.
+
+De antwoordvelden per scenario (Gelukt zonder hulp, Waar twijfelde je, Copy die niet klopt) vul je niet in op deze pagina, maar in een aparte kopie van dit document. Ilja stuurt je die kopie.
+
 ---
 
 ## Sessie 1: alleen (ongeveer 30 minuten)
@@ -39,6 +45,7 @@ Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet i
 **Opdracht:** zoek uit wat een abonnement kost en wat het verschil is tussen de opties.
 **Let op:**
 - De pagina toont nu (rechtstreeks uit de live catalogus) onder meer Groepslessen Onbeperkt voor €119 per 4 weken, Vrij Trainen Onbeperkt voor €69 per 4 weken en All Access Onbeperkt voor €149 per 4 weken. Kloppen deze bedragen met wat jij voor ogen hebt?
+  *(Prijzen opgehaald uit tmc.catalogue op 24-07-2026. Wijkt het scherm af van wat hier staat, dan is de catalogue leidend, niet dit document.)*
 - Deze pagina noemt bij Mobility "max. 8 personen", terwijl de aanbodpagina bij Small Group Training "maximaal 6 personen" noemt. Zijn dit voor jou twee verschillende dingen met elk hun eigen aantal, of hoort dit hetzelfde getal te zijn?
 - Snap je zonder uitleg het verschil tussen de opties?
 **Neveneffect:** veilig. Alleen bekijken.
@@ -325,3 +332,4 @@ Deze onderdelen nemen we mee in een vervolgronde, dichter bij of na de opening.
 - **Lid verwijderen** (harde delete van een account): onomkeerbaar, geen self-service scenario, buiten scope van deze review.
 - **Trainer uitnodigen**: maakt een echt inlogaccount aan en verstuurt een echte uitnodigingsmail, buiten scope van deze review.
 - **Pakket of tienrittenkaart kopen** (de knop "Betaal nu" in de abonnementsconfigurator, of "Koop" op de productenpagina): stuurt door naar een echte Mollie-checkout. Alleen samen doen, en alleen nadat de testmodus van Mollie bevestigd is. Is het onverhoopt toch een live sleutel, dan doen we dit scenario niet of accepteren we vooraf dat het een echte, kleine transactie is die we handmatig terugstorten.
+- De opzeg- en pauzescenario's (A1, A2) draaien op een testlidmaatschap met `mollie_subscription_id` en `mollie_customer_id` op NULL, waardoor het Mollie-pad niet wordt geraakt. Deze scenario's valideren de flow en de copy, niet het daadwerkelijk stoppen van een incasso. Dat laatste blijft openstaan en hoort bij de handmatige Mollie-controle in de open-em fase.
