@@ -7,7 +7,7 @@ import { formatCampaignDeadline, type CampaignPhase } from "@/lib/campaign";
 
 interface CampaignTeaserProps {
   phase: CampaignPhase;
-  /** ISO deadline, uit getCampaignDeadline() (src/lib/campaign.ts). */
+  /** ISO deadline (closesAtIso), uit getCampaignWindow() (src/lib/campaign.ts). */
   deadline: string;
 }
 

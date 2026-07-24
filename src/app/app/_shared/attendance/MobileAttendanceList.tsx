@@ -5,6 +5,8 @@ import { Check, UserX } from "lucide-react";
 import {
   autoMarkNoShows,
   markAttendance,
+  markGuestAttendance,
+  type GuestRow,
   type ParticipantRow,
   type SessionSummary,
 } from "@/lib/admin/attendance-actions";
@@ -31,13 +33,17 @@ function hasEnded(endAt: string): boolean {
 export interface MobileAttendanceListProps {
   session: SessionSummary;
   initialParticipants: ParticipantRow[];
+  /** Gasten van de sessie; apart van leden (ander aanwezigheidsmodel). */
+  initialGuests?: GuestRow[];
 }
 
 export function MobileAttendanceList({
   session,
   initialParticipants,
+  initialGuests = [],
 }: MobileAttendanceListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>(initialParticipants);
+  const [guestRows, setGuestRows] = useState<GuestRow[]>(initialGuests);
   const [syncByBooking, setSyncByBooking] = useState<Record<string, SyncState>>(
     {},
   );
@@ -53,6 +59,8 @@ export function MobileAttendanceList({
 
   const active = rows.filter((r) => r.status !== "cancelled");
   const cancelled = rows.filter((r) => r.status === "cancelled");
+  const activeGuests = guestRows.filter((g) => g.status !== "cancelled");
+  const cancelledGuests = guestRows.filter((g) => g.status === "cancelled");
 
   const stats = useMemo(() => {
     const attended = active.filter((r) => r.status === "attended").length;
@@ -126,6 +134,66 @@ export function MobileAttendanceList({
     persist(row.bookingId, next, previous);
   }
 
+  // Gasten: zelfde optimistische per-rij flow, maar via markGuestAttendance
+  // (guest_bookings.status i.p.v. check_ins). Sync-state deelt de maps met
+  // leden; uuid-sleutels botsen niet.
+  function setGuestStatusLocal(guestBookingId: string, status: LocalStatus) {
+    setGuestRows((prev) =>
+      prev.map((g) =>
+        g.guestBookingId === guestBookingId ? { ...g, status } : g,
+      ),
+    );
+  }
+
+  function persistGuest(
+    guestBookingId: string,
+    next: LocalStatus,
+    previous: LocalStatus,
+  ) {
+    setSyncByBooking((s) => ({ ...s, [guestBookingId]: "saving" }));
+    setErrorByBooking((e) => {
+      const copy = { ...e };
+      delete copy[guestBookingId];
+      return copy;
+    });
+
+    void (async () => {
+      const res = await markGuestAttendance(session.id, [
+        { guestBookingId, status: next },
+      ]);
+      if (res.ok) {
+        setSyncByBooking((s) => ({ ...s, [guestBookingId]: "saved" }));
+        window.setTimeout(() => {
+          setSyncByBooking((s) => {
+            const copy = { ...s };
+            if (copy[guestBookingId] === "saved") delete copy[guestBookingId];
+            return copy;
+          });
+        }, 1500);
+      } else {
+        setSyncByBooking((s) => ({ ...s, [guestBookingId]: "error" }));
+        setErrorByBooking((e) => ({ ...e, [guestBookingId]: res.message }));
+        setGuestStatusLocal(guestBookingId, previous);
+      }
+    })();
+  }
+
+  function toggleGuestAttended(g: GuestRow) {
+    if (g.status === "cancelled") return;
+    const next: LocalStatus = g.status === "attended" ? "booked" : "attended";
+    const previous = g.status as LocalStatus;
+    setGuestStatusLocal(g.guestBookingId, next);
+    persistGuest(g.guestBookingId, next, previous);
+  }
+
+  function toggleGuestNoShow(g: GuestRow) {
+    if (g.status === "cancelled") return;
+    const next: LocalStatus = g.status === "no_show" ? "booked" : "no_show";
+    const previous = g.status as LocalStatus;
+    setGuestStatusLocal(g.guestBookingId, next);
+    persistGuest(g.guestBookingId, next, previous);
+  }
+
   function runAutoNoShows() {
     setBulkMessage(null);
     startBulkTransition(async () => {
@@ -179,11 +247,11 @@ export function MobileAttendanceList({
         <Stat label="No-show" value={String(stats.noShow)} tone="danger" />
       </div>
 
-      {active.length === 0 ? (
+      {active.length === 0 && activeGuests.length === 0 ? (
         <p className="text-text-muted text-sm py-8 text-center">
           Nog geen boekingen voor deze sessie.
         </p>
-      ) : (
+      ) : active.length === 0 ? null : (
         <ul className="flex flex-col gap-3 mb-8">
           {active.map((row) => {
             const sync = syncByBooking[row.bookingId] ?? "idle";
@@ -277,6 +345,119 @@ export function MobileAttendanceList({
             );
           })}
         </ul>
+      )}
+
+      {/* Gasten: apart blok met eigen markering; status via
+          markGuestAttendance (guest_bookings.status). */}
+      {activeGuests.length > 0 && (
+        <div className="mb-8">
+          <span className="tmc-eyebrow block mb-3">
+            {/* COPY: confirm met Marlon */}
+            Gasten ({activeGuests.length})
+          </span>
+          <ul className="flex flex-col gap-3">
+            {activeGuests.map((g) => {
+              const sync = syncByBooking[g.guestBookingId] ?? "idle";
+              const error = errorByBooking[g.guestBookingId];
+              const isAttended = g.status === "attended";
+              const isNoShow = g.status === "no_show";
+              return (
+                <li
+                  key={g.guestBookingId}
+                  className={`flex items-center gap-4 p-4 bg-bg-elevated border transition-colors duration-300 ${
+                    isAttended
+                      ? "border-[color:var(--success)]/40"
+                      : isNoShow
+                        ? "border-[color:var(--danger)]/40"
+                        : "border-[color:var(--ink-500)]"
+                  }`}
+                >
+                  <AvatarBubble
+                    firstName={g.guestName.split(" ")[0] ?? g.guestName}
+                    lastName={g.guestName.split(" ").slice(1).join(" ")}
+                    avatarUrl={null}
+                    size={48}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text text-base font-medium truncate">
+                      {g.guestName}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
+                        {/* COPY: confirm met Marlon */}
+                        Gast
+                      </span>
+                      <span className="text-[11px] text-text-muted">
+                        {/* COPY: confirm met Marlon */}
+                        gast van {g.invitedByName}
+                      </span>
+                    </div>
+                    <SyncLine state={sync} error={error} />
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleGuestAttended(g)}
+                      aria-label={
+                        isAttended
+                          ? `Markeer ${g.guestName} als niet aanwezig`
+                          : `Markeer ${g.guestName} als aanwezig`
+                      }
+                      aria-pressed={isAttended}
+                      className={`w-[52px] h-[52px] rounded-full border-2 flex items-center justify-center transition-colors duration-300 cursor-pointer ${
+                        isAttended
+                          ? "bg-[color:var(--success)] border-[color:var(--success)] text-bg"
+                          : "bg-transparent border-text-muted/40 text-text-muted hover:border-accent hover:text-accent"
+                      }`}
+                    >
+                      <Check size={24} strokeWidth={2.2} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleGuestNoShow(g)}
+                      aria-label={
+                        isNoShow
+                          ? `Herstel status voor ${g.guestName}`
+                          : `Markeer ${g.guestName} als no-show`
+                      }
+                      aria-pressed={isNoShow}
+                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors duration-300 cursor-pointer ${
+                        isNoShow
+                          ? "bg-[color:var(--danger)]/10 border-[color:var(--danger)]/60 text-[color:var(--danger)]"
+                          : "bg-transparent border-text-muted/30 text-text-muted hover:border-[color:var(--danger)]/60 hover:text-[color:var(--danger)]"
+                      }`}
+                    >
+                      <UserX size={15} strokeWidth={1.8} aria-hidden />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {cancelledGuests.length > 0 && (
+        <details className="mb-8 opacity-80">
+          <summary className="tmc-eyebrow cursor-pointer text-text-muted hover:text-text transition-colors">
+            {/* COPY: confirm met Marlon */}
+            Geannuleerde gasten ({cancelledGuests.length})
+          </summary>
+          <ul className="mt-3 flex flex-col gap-2">
+            {cancelledGuests.map((g) => (
+              <li
+                key={g.guestBookingId}
+                className="flex items-center gap-3 text-sm text-text-muted"
+              >
+                <span>{g.guestName}</span>
+                <span className="text-xs">
+                  {/* COPY: confirm met Marlon */}
+                  gast van {g.invitedByName}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {cancelled.length > 0 && (

@@ -1,5 +1,6 @@
 "use server";
 
+import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
@@ -124,6 +125,14 @@ export async function startTrialBooking(
     .single();
 
   if (insertErr || !trial) {
+    // De databasetrigger (enforce_session_capacity, migratie 20260811) is
+    // de harde grens: hij vangt de race af waarin twee bezoekers
+    // tegelijk de laatste plek zagen. De view-check hierboven is alleen
+    // de vriendelijke voorcheck.
+    if (insertErr?.message?.includes("session_capacity_exceeded")) {
+      // COPY: confirm met Marlon
+      return { ok: false, error: "Deze sessie is helaas vol." };
+    }
     console.error("[startTrialBooking] insert failed", insertErr);
     return { ok: false, error: "Kon boeking niet opslaan." };
   }
@@ -138,6 +147,15 @@ export async function startTrialBooking(
       description: "The Movement Club | Proefles",
       redirectUrl: `${url}/proefles/boeken/bedankt?trial=${trial.id}`,
       webhookUrl: `${url}/api/trial-bookings/webhook`,
+      // Een pending-rij houdt een plek bezet tot Mollie de betaling laat
+      // verlopen, en die vervaltijd is per methode: iDEAL 15 min, kaart
+      // 30 min, maar Klarna/in3 48 uur en bankoverschrijving 12+ dagen.
+      // De Payments API kent geen expiresAt-parameter (alleen Payment
+      // Links hebben die), dus we begrenzen de reserveringsduur door de
+      // methodekeuze expliciet te beperken tot iDEAL en kaart: maximaal
+      // 30 min plek-bezetting per betaalpoging. De expire-orders cron is
+      // de backstop voor gemiste webhooks.
+      method: [PaymentMethod.ideal, PaymentMethod.creditcard],
       metadata: {
         trialBookingId: trial.id,
         sessionId: session.id,
@@ -187,6 +205,13 @@ interface TrialBookingSummary {
   sessionClassName: string;
   cancellationWindowHours: number;
   canCancel: boolean;
+  /**
+   * True wanneer deze boeking via een trial_code is ontstaan en die code
+   * (na de release-trigger uit community-growth PR B) weer 'active' en
+   * niet verlopen is. Community-growth PR D §7: de annuleerpagina moet
+   * expliciet tonen dat de code weer bruikbaar is.
+   */
+  codeStillUsable: boolean;
 }
 
 export async function getTrialBookingByToken(
@@ -194,12 +219,20 @@ export async function getTrialBookingByToken(
 ): Promise<TrialBookingSummary | null> {
   const admin = createAdminClient();
 
+  // trial_bookings en trial_codes hebben twee FK's naar elkaar
+  // (trial_bookings.trial_code_id en trial_codes.trial_booking_id);
+  // PostgREST kan de relatie niet raden zonder de expliciete FK-naam
+  // (zie PR #118). Deze select gaat van trial_bookings naar trial_codes
+  // via trial_bookings.trial_code_id, dus de constraint hier is
+  // trial_bookings_trial_code_id_fkey (niet de omgekeerde
+  // trial_codes_trial_booking_id_fkey uit PR #118).
   const { data: trial } = await admin
     .from("trial_bookings")
     .select(
       `
         id, name, status, cancelled_at,
-        session:class_sessions(start_at, end_at, class_type:class_types(name))
+        session:class_sessions(start_at, end_at, class_type:class_types(name)),
+        trial_code:trial_codes!trial_bookings_trial_code_id_fkey(status, expires_at)
       `,
     )
     .eq("cancel_token", token)
@@ -230,6 +263,17 @@ export async function getTrialBookingByToken(
   const hoursUntil =
     (new Date(startAt).getTime() - Date.now()) / (1000 * 60 * 60);
 
+  type TrialCodeRel = { status: string; expires_at: string } | { status: string; expires_at: string }[] | null;
+  const trialCodeRaw = trial.trial_code as unknown as TrialCodeRel;
+  const trialCode = Array.isArray(trialCodeRaw)
+    ? (trialCodeRaw[0] ?? null)
+    : trialCodeRaw;
+  const codeStillUsable = Boolean(
+    trialCode &&
+      trialCode.status === "active" &&
+      new Date(trialCode.expires_at) > new Date(),
+  );
+
   return {
     id: trial.id,
     name: trial.name,
@@ -243,6 +287,7 @@ export async function getTrialBookingByToken(
       trial.status === "paid" &&
       !trial.cancelled_at &&
       hoursUntil >= windowHours,
+    codeStillUsable,
   };
 }
 
@@ -296,5 +341,14 @@ export async function cancelTrialBooking(
     payload: {},
   });
 
-  return { ok: true, message: "Je proefles is geannuleerd." };
+  // Verse read na de update: de release-trigger (PR B) heeft de code
+  // intussen al teruggezet naar 'active' als hij niet verlopen was.
+  const refreshed = await getTrialBookingByToken(token);
+  const message = refreshed?.codeStillUsable
+    ? // COPY: confirm met Marlon
+      "Je proefles is geannuleerd. Je code is weer te gebruiken voor een andere les."
+    : // COPY: confirm met Marlon
+      "Je proefles is geannuleerd.";
+
+  return { ok: true, message };
 }

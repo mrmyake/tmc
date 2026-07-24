@@ -77,16 +77,16 @@ export default async function TrainerSessiesPage() {
     .order("start_at")
     .returns<SessionRow[]>();
 
-  // Booked-count per session
+  // Totale bezetting (leden + proeflessen + gasten) per sessie.
   const ids = (sessions ?? []).map((s) => s.id);
-  const bookedBy = new Map<string, number>();
+  const takenBy = new Map<string, number>();
   if (ids.length > 0) {
     const { data: avail } = await admin
       .from("v_session_availability")
-      .select("id, booked_count")
+      .select("id, taken_count")
       .in("id", ids);
     for (const r of avail ?? []) {
-      if (r.id) bookedBy.set(r.id, r.booked_count ?? 0);
+      if (r.id) takenBy.set(r.id, r.taken_count ?? 0);
     }
   }
 
@@ -159,7 +159,7 @@ export default async function TrainerSessiesPage() {
                 {b.sessions.map((s) => {
                   const start = new Date(s.start_at);
                   const end = new Date(s.end_at);
-                  const booked = bookedBy.get(s.id) ?? 0;
+                  const taken = takenBy.get(s.id) ?? 0;
                   const cancelled = s.status === "cancelled";
                   return (
                     <li
@@ -181,8 +181,8 @@ export default async function TrainerSessiesPage() {
                           {PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar} ·{" "}
                           {s.capacity === null
                             ? // COPY: confirm met Marlon
-                              `${booked} geboekt`
-                            : `${booked}/${s.capacity} geboekt`}
+                              `${taken} geboekt`
+                            : `${taken}/${s.capacity} geboekt`}
                         </p>
                       </div>
                       <Link

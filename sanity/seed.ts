@@ -179,61 +179,7 @@ async function seed() {
   }
   console.log("✓ offerings (4)");
 
-  // 5. Pricing Tiers
-  const tiers = [
-    {
-      _id: "pricing-essentials",
-      name: "Essentials",
-      subtitle: "2x per week groepstraining",
-      features: [
-        "2 groepstrainingen per week",
-        "Toegang tot de studio",
-        "Trainingsschema op maat",
-      ],
-      ctaText: "Vraag tarieven aan",
-      ctaLink: "/contact",
-      highlighted: false,
-      order: 1,
-    },
-    {
-      _id: "pricing-premium",
-      name: "Premium",
-      subtitle: "Onbeperkt groep + 1x PT per maand",
-      features: [
-        "Onbeperkt groepstrainingen",
-        "1x personal training per maand",
-        "Voedingsadvies op maat",
-        "Prioriteit bij boekingen",
-      ],
-      ctaText: "Vraag tarieven aan",
-      ctaLink: "/contact",
-      highlighted: true,
-      order: 2,
-    },
-    {
-      _id: "pricing-private",
-      name: "Private",
-      subtitle: "Volledig PT-traject op maat",
-      features: [
-        "Wekelijkse personal training",
-        "Volledig gepersonaliseerd programma",
-        "Voedings- en herstelplan",
-        "Direct contact met Marlon",
-        "Flexibele planning",
-      ],
-      ctaText: "Plan een kennismaking",
-      ctaLink: "/contact",
-      highlighted: false,
-      order: 3,
-    },
-  ];
-
-  for (const t of tiers) {
-    await client.createOrReplace({ ...t, _type: "pricingTier" });
-  }
-  console.log("✓ pricingTiers (3)");
-
-  // 6. FAQs
+  // 5. FAQs
   const faqs = [
     { q: "Heb ik ervaring nodig om te starten?", a: "Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.", page: "aanbod", order: 1 },
     { q: "Kan ik verschillende trainingsvormen combineren?", a: "Absoluut. Veel leden combineren bijvoorbeeld small group training met een maandelijkse personal training sessie of mobility sessions.", page: "aanbod", order: 2 },
@@ -310,7 +256,7 @@ async function seed() {
   }
   console.log(`✓ faqs (${allFaqs.length})`);
 
-  // 7. Crowdfunding Settings
+  // 6. Crowdfunding Settings
   await client.createOrReplace({
     _id: "crowdfundingSettings",
     _type: "crowdfundingSettings",
@@ -369,7 +315,7 @@ async function seed() {
   });
   console.log("✓ crowdfundingSettings");
 
-  // 8. Crowdfunding Tiers
+  // 7. Crowdfunding Tiers
   const crowdfundingTiers = [
     {
       tierId: "first-move",

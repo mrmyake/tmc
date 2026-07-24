@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { PortableText } from "@portabletext/react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -8,7 +9,8 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { urlFor } from "../../../sanity/lib/client";
-import type { SanityImage } from "../../../sanity/lib/fetch";
+import type { SanityImage, SanityFaq } from "../../../sanity/lib/fetch";
+import { CLASS_CAPACITY } from "@/lib/constants";
 
 interface AanbodImages {
   personalTraining?: SanityImage;
@@ -49,9 +51,11 @@ const trainings = [
   {
     id: "small-group" as TrainingId,
     title: "Small Group Training",
-    subtitle: "Maximaal 6 personen",
+    // COPY: confirm met Marlon
+    subtitle: `Yoga & Mobility tot ${CLASS_CAPACITY.yogaMobility}, Kettlebell tot ${CLASS_CAPACITY.kettlebell}`,
+    // COPY: confirm met Marlon
     description:
-      "De energie van samen trainen, met de aandacht van personal training. In groepen van maximaal 6 personen garanderen we dat iedereen gezien wordt en de juiste techniek hanteert.",
+      `De energie van samen trainen, met de aandacht van personal training. Yoga- en mobility-groepen tellen maximaal ${CLASS_CAPACITY.yogaMobility} personen, Kettlebell-groepen maximaal ${CLASS_CAPACITY.kettlebell}, zodat iedereen gezien wordt en de juiste techniek hanteert.`,
     forWhom: "Voor wie de balans zoekt tussen persoonlijke aandacht en groepsdynamiek.",
     expect: [
       "Gevarieerde workouts die uitdagen",
@@ -93,34 +97,17 @@ const trainings = [
   },
 ];
 
-const faqs = [
-  {
-    q: "Heb ik ervaring nodig om te starten?",
-    a: "Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.",
-  },
-  {
-    q: "Kan ik verschillende trainingsvormen combineren?",
-    a: "Absoluut. Veel leden combineren bijvoorbeeld small group training met een maandelijkse personal training sessie of mobility sessions.",
-  },
-  {
-    q: "Hoe groot zijn de groepen bij Small Group Training?",
-    a: "Maximaal 6 personen. Zo garanderen we dat iedereen persoonlijke aandacht krijgt en de techniek correct wordt uitgevoerd.",
-  },
-  {
-    q: "Wat als ik een blessure heb?",
-    a: "Bij een blessure passen we het programma aan. We werken samen met fysiotherapeuten in de regio voor een geïntegreerde aanpak.",
-  },
-  {
-    q: "Zijn er vaste contracten?",
-    a: "We werken met flexibele lidmaatschappen. Neem contact op voor de mogelijkheden die bij jou passen.",
-  },
-];
+// FAQ-content komt live uit Sanity (faq-document, page == "aanbod"),
+// opgehaald in page.tsx en als prop doorgegeven. De inhoud stond hiervoor
+// hardcoded gedupliceerd; de Sanity-content bleek woord-voor-woord gelijk
+// (geverifieerd 2026-07-24), dus geen verlies bij het verwijderen.
 
 interface AanbodContentProps {
   images: AanbodImages;
+  faqs: SanityFaq[];
 }
 
-export function AanbodContent({ images }: AanbodContentProps) {
+export function AanbodContent({ images, faqs }: AanbodContentProps) {
   return (
     <>
       {/* Header */}
@@ -310,36 +297,45 @@ export function AanbodContent({ images }: AanbodContentProps) {
         </Container>
       </Section>
 
-      {/* FAQ */}
-      <Section>
-        <Container className="max-w-3xl">
-          <ScrollReveal>
-            <SectionHeading
-              label="Veelgestelde vragen"
-              heading="Nog vragen?"
-            />
-          </ScrollReveal>
-          <div className="border-t border-bg-subtle">
-            {faqs.map((faq, i) => (
-              <ScrollReveal key={faq.q} delay={i * 0.06}>
-                <div className="py-6 border-b border-bg-subtle flex gap-8">
-                  <span className="tmc-eyebrow text-text-muted/70 shrink-0 pt-1">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
-                      {faq.q}
-                    </h3>
-                    <p className="text-text-muted text-sm leading-relaxed">
-                      {faq.a}
-                    </p>
+      {/* FAQ, live uit Sanity (page == "aanbod"). Geen sectie als de fetch
+          leeg terugkomt, in plaats van een lege kop zonder inhoud. */}
+      {faqs.length > 0 && (
+        <Section>
+          <Container className="max-w-3xl">
+            <ScrollReveal>
+              <SectionHeading
+                label="Veelgestelde vragen"
+                heading="Nog vragen?"
+              />
+            </ScrollReveal>
+            <div className="border-t border-bg-subtle">
+              {faqs.map((faq, i) => (
+                <ScrollReveal key={faq._id} delay={i * 0.06}>
+                  <div className="py-6 border-b border-bg-subtle flex gap-8">
+                    <span className="tmc-eyebrow text-text-muted/70 shrink-0 pt-1">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <h3 className="text-text font-medium text-base mb-2 tracking-[-0.01em]">
+                        {faq.question}
+                      </h3>
+                      <div className="text-text-muted text-sm leading-relaxed prose-invert">
+                        <PortableText
+                          value={
+                            faq.answer as Parameters<
+                              typeof PortableText
+                            >[0]["value"]
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </Container>
-      </Section>
+                </ScrollReveal>
+              ))}
+            </div>
+          </Container>
+        </Section>
+      )}
 
       {/* CTA */}
       <Section bg="elevated">

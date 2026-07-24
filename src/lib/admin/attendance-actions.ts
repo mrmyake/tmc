@@ -61,6 +61,22 @@ export type AttendanceActionResult =
   | { ok: true; message: string; data?: unknown }
   | { ok: false; message: string };
 
+/**
+ * Gast op de aanwezigenlijst. Bewust een eigen shape naast ParticipantRow:
+ * een gast heeft geen profiel, membership, credits of blessure-vlag, en de
+ * aanwezigheid leeft in guest_bookings.status in plaats van check_ins.
+ * Geen e-mail of telefoon in deze payload, ook niet voor admin: de
+ * aanwezigenlijst heeft die gastgegevens niet nodig.
+ */
+export interface GuestRow {
+  guestBookingId: string;
+  guestName: string;
+  /** Naam van het uitnodigende lid ("gast van ..."). */
+  invitedByName: string;
+  status: AttendanceStatus;
+  bookedAt: string;
+}
+
 // ----------------------------------------------------------------------------
 // Authorization: admin OR trainer-of-this-session
 // ----------------------------------------------------------------------------
@@ -140,7 +156,12 @@ async function authorizeForSession(
 export async function loadParticipants(
   sessionId: string,
 ): Promise<
-  | { ok: true; session: SessionSummary; participants: ParticipantRow[] }
+  | {
+      ok: true;
+      session: SessionSummary;
+      participants: ParticipantRow[];
+      guests: GuestRow[];
+    }
   | { ok: false; message: string }
 > {
   const auth = await authorizeForSession(sessionId);
@@ -148,7 +169,7 @@ export async function loadParticipants(
 
   const admin = createAdminClient();
 
-  const [sessionRes, bookingsRes, checkInsRes] = await Promise.all([
+  const [sessionRes, bookingsRes, checkInsRes, guestsRes] = await Promise.all([
     admin
       .from("class_sessions")
       .select(
@@ -177,6 +198,16 @@ export async function loadParticipants(
       .from("check_ins")
       .select("profile_id, checked_in_at")
       .eq("session_id", sessionId),
+    // Gasten van deze sessie. Bewust zonder guest_email/telefoon (zie
+    // GuestRow); de uitnodiger komt mee voor de "gast van ..."-regel.
+    admin
+      .from("guest_bookings")
+      .select(
+        `id, guest_name, status, booked_at,
+         inviter:profiles!guest_bookings_booked_by_fkey(first_name, last_name)`,
+      )
+      .eq("session_id", sessionId)
+      .order("booked_at", { ascending: true }),
   ]);
 
   const checkInByProfile = new Map<string, string>();
@@ -270,7 +301,24 @@ export async function loadParticipants(
     };
   });
 
-  return { ok: true, session, participants };
+  type InviterRef = { first_name: string | null; last_name: string | null };
+  const guests: GuestRow[] = (guestsRes.data ?? []).map((g) => {
+    const inviter = (
+      Array.isArray(g.inviter) ? g.inviter[0] : g.inviter
+    ) as InviterRef | null;
+    return {
+      guestBookingId: g.id,
+      guestName: g.guest_name,
+      invitedByName:
+        `${inviter?.first_name ?? ""} ${inviter?.last_name ?? ""}`.trim() ||
+        // COPY: confirm met Marlon
+        "een lid",
+      status: g.status as AttendanceStatus,
+      bookedAt: g.booked_at,
+    };
+  });
+
+  return { ok: true, session, participants, guests };
 }
 
 // ----------------------------------------------------------------------------
@@ -523,6 +571,107 @@ export async function markAttendance(
   revalidatePath(`/app/admin/sessies/${sessionId}`);
   revalidatePath(`/app/trainer/sessies/${sessionId}`);
 
+  return { ok: true, message: "Aanwezigheid opgeslagen." };
+}
+
+// ----------------------------------------------------------------------------
+// Mark guest attendance (bulk)
+//
+// Gast-aanwezigheid leeft in guest_bookings.status ('attended'/'no_show'),
+// niet in check_ins: check_ins.profile_id is NOT NULL en een gast heeft geen
+// profiel. Consequentie voor aggregaties: een aanwezigheids-KPI moet
+// check_ins/attended_at (leden) en guest_bookings.status (gasten) unioneren
+// en op de sessiedatum (class_sessions.start_at) filteren. Geen strikes voor
+// gasten; de 2x-per-kwartaal-rate-limit in bookGuest is de gast-rem.
+// ----------------------------------------------------------------------------
+
+interface GuestAttendanceInput {
+  guestBookingId: string;
+  status: "attended" | "booked" | "no_show";
+}
+
+export async function markGuestAttendance(
+  sessionId: string,
+  updates: GuestAttendanceInput[],
+): Promise<AttendanceActionResult> {
+  if (!sessionId) return { ok: false, message: "Geen sessie." };
+  if (updates.length === 0) {
+    return { ok: true, message: "Geen wijzigingen." };
+  }
+
+  // Zelfde guard als markAttendance: admin of de trainer van deze sessie.
+  const auth = await authorizeForSession(sessionId);
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+
+  const ids = updates.map((u) => u.guestBookingId);
+  const { data: rows, error: fetchErr } = await admin
+    .from("guest_bookings")
+    .select("id, session_id, status")
+    .in("id", ids);
+
+  if (fetchErr) {
+    console.error("[markGuestAttendance] fetch failed", fetchErr);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Kon gastboekingen niet laden." };
+  }
+
+  const byId = new Map(
+    (rows ?? []).map((g) => [
+      g.id,
+      { sessionId: g.session_id as string, status: g.status as string },
+    ]),
+  );
+
+  for (const u of updates) {
+    const cur = byId.get(u.guestBookingId);
+    if (!cur) {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Gastboeking niet gevonden." };
+    }
+    if (cur.sessionId !== sessionId) {
+      // COPY: confirm met Marlon
+      return {
+        ok: false,
+        message: "Gastboeking hoort niet bij deze sessie.",
+      };
+    }
+    if (cur.status === "cancelled") continue;
+    if (cur.status === u.status) continue;
+
+    const { error: updateErr } = await admin
+      .from("guest_bookings")
+      .update({ status: u.status })
+      .eq("id", u.guestBookingId);
+
+    if (updateErr) {
+      console.error("[markGuestAttendance] update failed", updateErr);
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Bijwerken lukte niet." };
+    }
+
+    // Geen gast-PII in de payload (zelfde afweging als guest.booked).
+    await emitEvent({
+      type: "guest.attendance_marked",
+      actorType: auth.ctx.role,
+      actorId: auth.ctx.userId,
+      subjectType: "guest_booking",
+      subjectId: u.guestBookingId,
+      payload: {
+        session_id: sessionId,
+        guest_booking_id: u.guestBookingId,
+        status: u.status,
+      },
+    });
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rooster");
+  revalidatePath(`/app/admin/sessies/${sessionId}`);
+  revalidatePath(`/app/trainer/sessies/${sessionId}`);
+
+  // COPY: confirm met Marlon
   return { ok: true, message: "Aanwezigheid opgeslagen." };
 }
 

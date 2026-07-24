@@ -7,6 +7,10 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { urlFor } from "../../../sanity/lib/client";
 import type { SanityTrainer } from "../../../sanity/lib/fetch";
+import {
+  TRAINER_ROLE_LABELS,
+  TRAINER_ROLE_FALLBACK_LABEL,
+} from "@/lib/constants";
 
 interface TrainerSpotlightProps {
   trainer: SanityTrainer;
@@ -17,6 +21,11 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
   // without forcing a non-null assertion. `hasImage` is only the
   // JSX guard; the photo variable carries the type narrowing.
   const photo = trainer.photo?.asset ? trainer.photo : null;
+  // trainer.role is de ruwe Sanity-waarde (bv. "head_trainer"); nooit
+  // rechtstreeks renderen. Onbekende waarde valt terug op een neutraal
+  // label in plaats van de code te tonen.
+  const roleLabel =
+    TRAINER_ROLE_LABELS[trainer.role] ?? TRAINER_ROLE_FALLBACK_LABEL;
 
   return (
     <Section>
@@ -25,7 +34,7 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
           {/* Text first on mobile, but visually second on desktop */}
           <ScrollReveal className="order-2 lg:order-1">
             <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              02 · {trainer.role}
+              02 · {roleLabel}
             </span>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-6">
               Maak kennis met {trainer.name}

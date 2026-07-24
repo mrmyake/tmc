@@ -10,7 +10,11 @@ export interface PublicSessionCardData {
   pillar: string;
   /** NULL betekent onbeperkt (alleen kettlebell). */
   capacity: number | null;
-  bookedCount: number;
+  /**
+   * Vrije plekken uit v_session_availability (verrekent leden, proeflessen
+   * en gasten). NULL betekent onbeperkt of geen view-rij.
+   */
+  spotsAvailable: number | null;
   userHasBooked: boolean;
 }
 
@@ -22,10 +26,11 @@ export function PublicSessionCard({ session }: PublicSessionCardProps) {
   const start = new Date(session.startAt);
   const end = new Date(session.endAt);
   // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
+  // Ontbreekt de view-rij (race): terugvallen op volledige capaciteit.
   const spotsLeft =
     session.capacity === null
       ? null
-      : Math.max(0, session.capacity - session.bookedCount);
+      : Math.max(0, session.spotsAvailable ?? session.capacity);
   const isFull = spotsLeft === 0;
   const pillarLabel =
     PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar;

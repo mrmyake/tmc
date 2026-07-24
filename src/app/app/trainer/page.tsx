@@ -205,16 +205,16 @@ export default async function TrainerHomePage() {
     }
   }
 
-  // Booked counts for today's rows
+  // Totale bezetting (leden + proeflessen + gasten) voor de rijen van vandaag.
   const sessionIds = todaySessions.map((s) => s.id);
-  const bookedBy = new Map<string, number>();
+  const takenBy = new Map<string, number>();
   if (sessionIds.length > 0) {
     const { data: avail } = await admin
       .from("v_session_availability")
-      .select("id, booked_count")
+      .select("id, taken_count")
       .in("id", sessionIds);
     for (const r of avail ?? []) {
-      if (r.id) bookedBy.set(r.id, r.booked_count ?? 0);
+      if (r.id) takenBy.set(r.id, r.taken_count ?? 0);
     }
   }
 
@@ -291,9 +291,9 @@ export default async function TrainerHomePage() {
               const start = new Date(s.start_at);
               const end = new Date(s.end_at);
               const p = amsterdamParts(start);
-              const booked = bookedBy.get(s.id) ?? 0;
+              const taken = takenBy.get(s.id) ?? 0;
               // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol.
-              const full = s.capacity !== null && booked >= s.capacity;
+              const full = s.capacity !== null && taken >= s.capacity;
               return (
                 <li
                   key={s.id}
@@ -324,8 +324,8 @@ export default async function TrainerHomePage() {
                       >
                         {s.capacity === null
                           ? // COPY: confirm met Marlon
-                            `${booked} deelnemers`
-                          : `${booked}/${s.capacity} deelnemers`}
+                            `${taken} deelnemers`
+                          : `${taken}/${s.capacity} deelnemers`}
                       </span>
                     </p>
                   </div>

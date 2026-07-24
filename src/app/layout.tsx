@@ -5,7 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
-import { getCampaignDeadline, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
@@ -141,11 +141,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getSiteSettings();
-  // getCampaignDeadline() is getagd + 300s-gecached (src/lib/campaign.ts),
+  // getCampaignWindow() is getagd + 300s-gecached (src/lib/campaign.ts),
   // dus dit voegt geen per-request DB-call toe: de root layout blijft
   // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
-  const campaignDeadlineIso = await getCampaignDeadline();
-  const campaignPhase = getCampaignPhase(new Date(campaignDeadlineIso));
+  const campaignWindow = await getCampaignWindow();
+  const campaignDeadlineIso = campaignWindow.closesAtIso;
+  const campaignPhase = getCampaignPhase(campaignWindow);
 
   return (
     <html

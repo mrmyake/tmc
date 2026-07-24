@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AanbodContent } from "./AanbodContent";
-import { getSiteImages } from "../../../sanity/lib/fetch";
+import { getSiteImages, getFaqs } from "../../../sanity/lib/fetch";
 
 export const metadata: Metadata = {
   title: "Trainingsaanbod | Personal Training & Small Group",
@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AanbodPage() {
-  const images = await getSiteImages();
+  const [images, faqs] = await Promise.all([
+    getSiteImages(),
+    getFaqs("aanbod"),
+  ]);
   return (
     <AanbodContent
       images={{
@@ -24,6 +27,7 @@ export default async function AanbodPage() {
         mobility: images.offeringMobility,
         strength: images.offeringStrength,
       }}
+      faqs={faqs}
     />
   );
 }

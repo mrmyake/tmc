@@ -21,6 +21,41 @@ export const SITE_URL = resolveSiteUrl();
 // Early Member-actie zelf verandert.
 export const STUDIO_OPENING_DATE = new Date("2026-08-15T00:00:00+02:00");
 
+/**
+ * Groepsgrootte per discipline. Bron van waarheid is
+ * tmc.class_sessions.capacity (gekopieerd uit tmc.schedule_templates.capacity
+ * bij het genereren van sessies, zie migratie
+ * 20260812000000_capacity_business_rule_values.sql). Er is geen enkel getal
+ * dat overal geldt, dus geen losse scalar: kettlebell heeft een hogere
+ * capaciteit dan de rest. Marketingpagina's zijn statisch (geen live
+ * DB-read), dus deze constante en tmc.schedule_templates.capacity moeten
+ * samen bijgewerkt worden bij een capaciteitswijziging.
+ */
+export const CLASS_CAPACITY = {
+  yogaMobility: 8,
+  kettlebell: 20,
+  kids: 8,
+  senior: 6,
+} as const;
+
+/**
+ * Nederlandse label per trainer.role-waarde uit het Sanity trainer-schema
+ * (sanity/schemas/trainer.ts). De ruwe waarde (bv. "head_trainer") mag
+ * nooit rechtstreeks naar bezoekers renderen. Onbekende waarden (nieuwe
+ * rol in Sanity, nog niet hier toegevoegd) vallen terug op "Trainer" in
+ * plaats van de ruwe code door te lekken.
+ */
+export const TRAINER_ROLE_LABELS: Record<string, string> = {
+  // COPY: confirm met Marlon
+  head_trainer: "Head Trainer",
+  personal_trainer: "Personal Trainer",
+  yoga_mobility: "Yoga & Mobility",
+  kids: "Kids Coach",
+  senior: "Senior Coach",
+};
+// COPY: confirm met Marlon
+export const TRAINER_ROLE_FALLBACK_LABEL = "Trainer";
+
 export const SITE = {
   name: "The Movement Club",
   tagline: "Where Strength Meets Movement",
@@ -122,8 +157,9 @@ export const OFFERINGS = [
   },
   {
     title: "Small Group Training",
+    // COPY: confirm met Marlon
     description:
-      "Train in een kleine groep van maximaal 6 personen. Persoonlijke aandacht, gedeelde energie.",
+      `Train in een kleine groep, Yoga & Mobility tot ${CLASS_CAPACITY.yogaMobility}, Kettlebell tot ${CLASS_CAPACITY.kettlebell} personen. Persoonlijke aandacht, gedeelde energie.`,
     href: "/aanbod#small-group",
   },
   {

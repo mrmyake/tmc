@@ -8,7 +8,14 @@ export interface AdminSessionBlockData {
   ageCategory: string;
   /** NULL betekent onbeperkt (alleen kettlebell). */
   capacity: number | null;
+  /** Leden-boekingen (status 'booked'); voor deelnemerslijst en annuleer-copy. */
   bookedCount: number;
+  /** Totale bezetting uit de view: leden + proeflessen + gasten. */
+  takenCount: number;
+  /** Proeflessen (pending/paid/attended), voor de capaciteitswaarschuwing. */
+  trialCount: number;
+  /** Gasten (booked/attended), voor de capaciteitswaarschuwing. */
+  guestCount: number;
   startAt: string;
   endAt: string;
   status: "scheduled" | "cancelled" | "completed";

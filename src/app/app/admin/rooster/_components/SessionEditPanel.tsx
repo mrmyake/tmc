@@ -265,7 +265,7 @@ export function SessionEditPanel({
                 <AdminField
                   label="Capaciteit"
                   // COPY: confirm met Marlon
-                  hint={`${session.bookedCount} boeking(en) nu. Nieuwe waarde moet minstens ${session.bookedCount} zijn; leeg betekent onbeperkt.`}
+                  hint={`Nu ${session.takenCount} bezet. Leeg betekent onbeperkt.`}
                 >
                   <AdminInput
                     type="number"
@@ -283,6 +283,22 @@ export function SessionEditPanel({
                     }
                     disabled={sessionIsCancelled || pending}
                   />
+                  {/* Geen harde blokkade: bij kapot materiaal moet Marlon de
+                      capaciteit kunnen verlagen en de overschrijding zelf
+                      afhandelen. Alleen signaleren, opslaan blijft mogelijk. */}
+                  {capacity !== null &&
+                    capacity >= 1 &&
+                    capacity < session.takenCount && (
+                      <p className="text-[color:var(--warning)] text-xs leading-relaxed">
+                        {/* COPY: confirm met Marlon */}
+                        Let op: er zijn al {session.takenCount} plekken bezet
+                        ({session.bookedCount} leden, {session.trialCount}{" "}
+                        proeflessen, {session.guestCount} gasten). Met
+                        capaciteit {capacity} zit deze sessie dus over de
+                        limiet. Opslaan kan gewoon; de overboeking handel je
+                        zelf af.
+                      </p>
+                    )}
                 </AdminField>
 
                 <AdminField label="Notities">

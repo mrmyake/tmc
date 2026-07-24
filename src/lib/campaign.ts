@@ -2,56 +2,67 @@ import { unstable_cache } from "next/cache";
 import { STUDIO_OPENING_DATE } from "@/lib/constants";
 import { getPublicClient } from "@/lib/supabase";
 
-// OPENING_DATE blijft een statische constante: deliberately decoupled van de
-// Early Member-deadline (zie spec-membership-flow.md), bepaalt alleen de
-// pre-open vs. open framing, geen checkout-gate.
-export const OPENING_DATE = STUDIO_OPENING_DATE;
-
-// Outage-only fallback, nooit de bron van waarheid: zelfde instant als de
-// live tmc.early_member_pools.closes_at op het moment van schrijven. Wordt
-// alleen gebruikt als de Supabase-call hieronder faalt.
+// Outage-only fallbacks, nooit de bron van waarheid: zelfde instants als de
+// live tmc.early_member_pools-rijen (opens_at, closes_at) op het moment van
+// schrijven. Worden alleen gebruikt als de Supabase-call hieronder faalt.
+// STUDIO_OPENING_DATE (constants.ts) is sinds migratie 20260813 gedegradeerd
+// tot deze fallback-rol; de database is de enige bron van waarheid voor
+// beide campagnedatums.
 const FALLBACK_DEADLINE_ISO = "2026-10-01T00:00:00+02:00";
+const FALLBACK_OPENS_ISO = STUDIO_OPENING_DATE.toISOString();
 
-async function fetchCampaignDeadline(): Promise<string> {
+export interface CampaignWindow {
+  opensAtIso: string;
+  closesAtIso: string;
+}
+
+const FALLBACK_WINDOW: CampaignWindow = {
+  opensAtIso: FALLBACK_OPENS_ISO,
+  closesAtIso: FALLBACK_DEADLINE_ISO,
+};
+
+async function fetchCampaignWindow(): Promise<CampaignWindow> {
   const supabase = getPublicClient();
-  if (!supabase) return FALLBACK_DEADLINE_ISO;
-  const { data, error } = await supabase.rpc("get_campaign_deadline");
-  if (error || !data) {
-    console.error("[campaign] get_campaign_deadline fetch failed:", error);
-    return FALLBACK_DEADLINE_ISO;
+  if (!supabase) return FALLBACK_WINDOW;
+  const { data, error } = await supabase.rpc("get_campaign_window");
+  const row = data as { opens_at?: string; closes_at?: string } | null;
+  if (error || !row?.opens_at || !row?.closes_at) {
+    console.error("[campaign] get_campaign_window fetch failed:", error);
+    return FALLBACK_WINDOW;
   }
-  return data as string;
+  return { opensAtIso: row.opens_at, closesAtIso: row.closes_at };
 }
 
 /**
- * Single source of truth voor de campagne-deadline: tmc.early_member_pools
- * .closes_at, via de get_campaign_deadline() RPC (WS-1). De echte
+ * Single source of truth voor het campagnevenster: tmc.early_member_pools
+ * (opens_at, closes_at) via de get_campaign_window() RPC. De echte
  * checkout-poort is server-side tmc.create_order, dat via
- * _compute_order_price tegen dezelfde closes_at checkt, dus weergave en
- * handhaving kunnen niet uiteenlopen.
+ * _compute_order_price tegen dezelfde twee grenzen checkt (sinds migratie
+ * 20260813 ook de ondergrens), dus weergave en handhaving kunnen niet
+ * uiteenlopen.
  *
  * Getagd + met een 300s-venster gecached zodat de root layout (ISR,
  * revalidate=60) geen per-request DB-call krijgt: deze call gebeurt hooguit
  * eens per 300s ongeacht hoeveel ISR-renders er binnen dat venster vallen.
- * De fase klapt vanzelf om zodra de deadline verstrijkt (elke ISR-render
+ * De fase klapt vanzelf om zodra een grens verstrijkt (elke ISR-render
  * herberekent getCampaignPhase() tegen de huidige tijd); alleen als Marlon
- * de datum zelf verzet is een revalidateTag("campaign") nodig, dat is nog
+ * een datum zelf verzet is een revalidateTag("campaign") nodig, dat is nog
  * niet gebouwd (zie ws1-catalogue-design.md §5, WS-2).
  */
-export const getCampaignDeadline = unstable_cache(
-  fetchCampaignDeadline,
-  ["campaign-deadline"],
+export const getCampaignWindow = unstable_cache(
+  fetchCampaignWindow,
+  ["campaign-window"],
   { revalidate: 300, tags: ["campaign"] },
 );
 
 export type CampaignPhase = "pre-open" | "open-em" | "closed";
 
 export function getCampaignPhase(
-  deadline: Date,
+  window: CampaignWindow,
   now: Date = new Date(),
 ): CampaignPhase {
-  if (now < OPENING_DATE) return "pre-open";
-  if (now < deadline) return "open-em";
+  if (now < new Date(window.opensAtIso)) return "pre-open";
+  if (now < new Date(window.closesAtIso)) return "open-em";
   return "closed";
 }
 

@@ -13,7 +13,10 @@ export interface SessionRowData {
   pillar: string;
   /** NULL betekent onbeperkt (alleen kettlebell). */
   capacity: number | null;
-  bookedCount: number;
+  /** Totale bezetting (leden + proeflessen + gasten) uit de view. */
+  takenCount: number;
+  /** NULL betekent onbeperkt; bron: v_session_availability. */
+  spotsAvailable: number | null;
   status: SessionStatus;
   bookingId: string | null;
   /** "Ingecheckt 09:14" (post-check-in) of "Check in bij de tablet" (pre). */
@@ -151,9 +154,11 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
       <StatusBadge
         status={session.status}
         spotsAvailable={
+          // Zelfde bron als de vol-status en de RPC-gate; ontbreekt de
+          // view-rij (race), val dan terug op volledige capaciteit.
           session.capacity === null
             ? null
-            : Math.max(0, session.capacity - session.bookedCount)
+            : Math.max(0, session.spotsAvailable ?? session.capacity)
         }
         reasonText={session.reasonText}
       />

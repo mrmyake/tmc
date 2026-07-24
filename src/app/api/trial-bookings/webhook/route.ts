@@ -3,6 +3,7 @@ import { getMollieClient } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
+import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
 
     const { data: trial, error: readErr } = await admin
       .from("trial_bookings")
-      .select("id, status, session_id, name, email, phone")
+      .select(
+        "id, status, session_id, name, email, phone, cancel_token, price_paid_cents",
+      )
       .eq("mollie_payment_id", paymentId)
       .maybeSingle();
 
@@ -40,14 +43,33 @@ export async function POST(request: Request) {
     }
 
     if (newStatus === "paid") {
-      const { error: upErr } = await admin
+      // .select("id") + de rijtelling checken is de eigenlijke guard, niet
+      // upErr: een UPDATE ... WHERE status='pending' die niets raakt geeft
+      // GEEN error terug, alleen nul rijen. Zonder deze check zou een
+      // race met de expire-orders-cron (die dezelfde rij tussen onze read
+      // hierboven en deze update al naar paid kan hebben gereconcilieerd)
+      // hier stilzwijgend doorlopen naar event/ntfy/mail en dus dubbel
+      // versturen. De WHERE-clausule zelf is atomair op rijniveau: als
+      // deze en de cron-update elkaar overlappen, serialiseert Postgres
+      // ze en wint precies één kant de nul-naar-een-rij-overgang; de
+      // ander ziet hier 0 affected rows. Zelfde patroon als de
+      // reconciliatiestap in expire-orders/route.ts.
+      const { data: updated, error: upErr } = await admin
         .from("trial_bookings")
         .update({ status: "paid" })
         .eq("id", trial.id)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .select("id");
 
       if (upErr) {
         console.error("[trial-bookings/webhook] update failed", upErr);
+        return NextResponse.json({ ok: true });
+      }
+      if ((updated?.length ?? 0) === 0) {
+        console.warn(
+          "[trial-bookings/webhook] pending->paid race lost (already reconciled elsewhere), skipping side effects",
+          trial.id,
+        );
         return NextResponse.json({ ok: true });
       }
 
@@ -65,6 +87,11 @@ export async function POST(request: Request) {
         `${trial.name} (${trial.email}, ${trial.phone}) heeft betaald voor een proefles.`,
         "muscle,fire",
       );
+
+      // Bevestiging naar de bezoeker zelf: datum/tijd/lestype, adres,
+      // annuleerlink op cancel_token en het annuleringsvenster. Ontbrak
+      // hiervoor volledig — zie src/lib/trial-booking-email.ts.
+      await sendTrialBookingConfirmationEmail(trial);
     } else if (newStatus === "failed" || newStatus === "canceled" || newStatus === "expired") {
       await admin
         .from("trial_bookings")

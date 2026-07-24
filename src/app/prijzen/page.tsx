@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCatalogue, commit24mDiscountPercent } from "@/lib/catalogue";
-import { getCampaignDeadline, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
 import { PrijzenContent, type PrijzenPricing } from "./PrijzenContent";
 
 export const metadata: Metadata = {
@@ -31,16 +31,16 @@ export const metadata: Metadata = {
 // verzonnen bedrag.
 
 async function getPricing(): Promise<PrijzenPricing> {
-  const [catalogue, campaignDeadlineIso] = await Promise.all([
+  const [catalogue, campaignWindow] = await Promise.all([
     getCatalogue(),
-    getCampaignDeadline(),
+    getCampaignWindow(),
   ]);
 
   if (catalogue.size === 0) {
     throw new Error("[prijzen] catalogue fetch returned no rows");
   }
 
-  const phase = getCampaignPhase(new Date(campaignDeadlineIso));
+  const phase = getCampaignPhase(campaignWindow);
   const emActive = phase === "open-em";
 
   const price = (slug: string): number | null => catalogue.get(slug)?.price_cents ?? null;

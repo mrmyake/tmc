@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCatalogue } from "@/lib/catalogue";
-import { getCampaignDeadline, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
 import { EarlyMemberContent, type EarlyMemberPricing } from "./EarlyMemberContent";
 
 // ISR: prijzen en de countdown-deadline mogen maximaal een minuut achterlopen.
@@ -70,15 +70,16 @@ async function getPricing(): Promise<EarlyMemberPricing> {
 }
 
 export default async function EarlyMemberPage() {
-  const [pricing, deadlineIso] = await Promise.all([
+  const [pricing, campaignWindow] = await Promise.all([
     getPricing(),
-    getCampaignDeadline(),
+    getCampaignWindow(),
   ]);
   // Eén fasebron voor de hele pagina (pre-open / open-em / closed), zelfde
-  // getCampaignPhase() als de root layout en /prijzen. Vervangt de eerdere
-  // losse `hasOpened`-check op OPENING_DATE: die fase zit al in dit
-  // resultaat (phase === 'pre-open' <=> !hasOpened), dus één minder bron.
-  const campaignPhase = getCampaignPhase(new Date(deadlineIso));
+  // getCampaignPhase() als de root layout en /prijzen. Beide grenzen komen
+  // sinds migratie 20260813 uit tmc.early_member_pools (opens_at plus
+  // closes_at), dezelfde bron waar _compute_order_price tegen handhaaft.
+  const deadlineIso = campaignWindow.closesAtIso;
+  const campaignPhase = getCampaignPhase(campaignWindow);
 
   return (
     <EarlyMemberContent
