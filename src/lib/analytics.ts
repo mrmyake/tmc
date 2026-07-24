@@ -56,63 +56,6 @@ export const trackOutbound = (destination: string) => {
   });
 };
 
-// ---- Crowdfunding ----
-
-export const trackViewItemList = (listName: string) => {
-  trackEvent("view_item_list", {
-    event_category: "crowdfunding",
-    item_list_name: listName,
-  });
-};
-
-export const trackSelectItem = (tierId: string, tierName: string) => {
-  trackEvent("select_item", {
-    event_category: "crowdfunding",
-    event_label: tierName,
-    tier_id: tierId,
-  });
-};
-
-export const trackBeginCheckout = (
-  tierId: string,
-  tierName: string,
-  value: number
-) => {
-  trackEvent("begin_checkout", {
-    event_category: "crowdfunding",
-    event_label: tierName,
-    tier_id: tierId,
-    value,
-    currency: "EUR",
-  });
-};
-
-export const trackPurchase = (params: {
-  transactionId: string;
-  tierId: string;
-  tierName: string;
-  value: number;
-}) => {
-  trackEvent("purchase", {
-    event_category: "crowdfunding",
-    transaction_id: params.transactionId,
-    tier_id: params.tierId,
-    event_label: params.tierName,
-    value: params.value,
-    currency: "EUR",
-  });
-};
-
-export const trackShare = (
-  method: "whatsapp" | "instagram" | "facebook" | "copy"
-) => {
-  trackEvent("share", {
-    event_category: "crowdfunding",
-    event_label: `share_${method}`,
-    method,
-  });
-};
-
 // ---- Member app ----
 
 export const trackScheduleDayView = (daysAhead: number) => {

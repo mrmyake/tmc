@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
 
 export interface HistoryItem {

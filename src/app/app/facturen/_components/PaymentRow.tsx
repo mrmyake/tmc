@@ -1,4 +1,4 @@
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
 import {
   PaymentStatusBadge,

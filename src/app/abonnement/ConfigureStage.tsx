@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EarlyMemberCallout } from "@/components/ui/EarlyMemberCallout";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { trackCTA } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
 import {

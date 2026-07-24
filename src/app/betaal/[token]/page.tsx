@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { isValidOrderToken } from "@/lib/orders/payment-link-core";
 import { PayButton } from "./PayButton";
 

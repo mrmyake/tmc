@@ -1,4 +1,4 @@
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { BuyButton } from "./BuyButton";
 

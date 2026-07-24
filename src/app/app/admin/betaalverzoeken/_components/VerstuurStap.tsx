@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Copy } from "lucide-react";
 import { AdminField, AdminSelect } from "@/components/ui/AdminField";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import {
   createPaymentRequest,
   type CreatePaymentRequestInput,

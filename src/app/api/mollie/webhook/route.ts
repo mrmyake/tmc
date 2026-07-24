@@ -7,7 +7,7 @@ import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import PaymentFailed from "@/emails/payment_failed";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
 
 /** Fire-and-forget payment-failed email. Never throws. */
@@ -50,7 +50,7 @@ async function notifyMemberPaymentFailed(args: {
 
 /**
  * Mollie webhook voor het member-system. Ontvangt payment-id's via form
- * encoded body. Apart van /api/crowdfunding/webhook omdat die al een
+ * encoded body. Apart van /api/trial-bookings/webhook omdat die al een
  * eigen flow heeft.
  *
  * Handled:

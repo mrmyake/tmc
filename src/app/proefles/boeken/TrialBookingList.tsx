@@ -6,7 +6,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { trackLead, trackFormStart } from "@/lib/analytics";

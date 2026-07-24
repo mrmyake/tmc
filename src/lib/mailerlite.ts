@@ -77,9 +77,6 @@ export const GROUPS = {
   YOGA_WAITLIST: "189279848522319599",
   // "Intake" groep voor de aanvraag-form op /12-weken-programma/intake.
   PROGRAMMA_INTAKE: "192439209143830447",
-  // Env-driven: maak de group in MailerLite Studio en zet het ID in .env.local
-  // als MAILERLITE_CROWDFUNDING_BACKER_GROUP_ID. Leeg = geen MailerLite sync.
-  CROWDFUNDING_BACKER: process.env.MAILERLITE_CROWDFUNDING_BACKER_GROUP_ID ?? "",
   // Members group voor marketing opt-in toggle vanuit /app/profiel.
   // Zet in .env.local als MAILERLITE_MEMBERS_GROUP_ID. Leeg = DB-only
   // toggle zonder MailerLite sync.

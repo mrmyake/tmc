@@ -1,4 +1,4 @@
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { amsterdamParts, DAY_SHORT_NL } from "@/lib/format-date";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { KpiCard } from "./_components/KpiCard";

@@ -8,7 +8,7 @@ import { PlanBadge } from "@/app/app/_shared/attendance/PlanBadge";
 import { MembershipStatusBadge } from "./MembershipStatusBadge";
 import { SortableHeader } from "./SortableHeader";
 import { BulkActions } from "./BulkActions";
-import { formatEuro } from "@/lib/crowdfunding-helpers";
+import { formatEuro } from "@/lib/format";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
 
 interface MembersTableProps {
