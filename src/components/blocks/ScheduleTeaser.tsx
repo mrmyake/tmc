@@ -136,9 +136,10 @@ export async function ScheduleTeaser({
   const body = (
     <>
       {sessions.length === 0 ? (
+        // COPY: confirm met Marlon
         <p className="py-12 text-text-muted text-base text-center">
-          Momenteel staan er geen sessies gepland. Kijk straks terug of bekijk
-          het rooster in Sanity.
+          Momenteel staan er geen sessies gepland. Kijk straks nog eens terug
+          of bekijk het volledige rooster.
         </p>
       ) : (
         <ul
