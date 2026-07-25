@@ -124,11 +124,19 @@ export interface MemberStats {
  * zijn door `_compute_order_price` uit `tmc.catalogue` geschreven en zijn
  * exact wat Mollie incasseert; hier wordt niets herrekend. De catalogus
  * wordt uitsluitend geraadpleegd voor de leesbare plannaam.
+ *
+ * `currentPlanName` en `billingCycleWeeks` horen bij de membership waar het
+ * verzoek daadwerkelijk aan hangt (`membership_id` op de rij), niet bij de
+ * primaire membership uit `pickPrimary()`. Een lid met zowel een abonnement
+ * als een rittenkaart heeft die twee niet gelijk: `pickPrimary()` geeft
+ * voorrang aan status `active`, wat de rittenkaart kan zijn, terwijl het
+ * verzoek per definitie aan het abonnement hangt.
  */
 export interface MemberPendingChangeRow {
   id: string;
   status: "pending" | "failed";
   currentPlanName: string;
+  billingCycleWeeks: number;
   targetSlug: string;
   targetPlanName: string;
   targetExtendedAccess: boolean;
@@ -305,7 +313,7 @@ export async function loadMemberDetail(
       admin
         .from("membership_change_requests")
         .select(
-          `id, status, target_slug, target_extended_access,
+          `id, membership_id, status, target_slug, target_extended_access,
            current_recurring_cents, new_recurring_cents,
            effective_date, requested_via, failure_reason, created_at`,
         )
@@ -510,6 +518,7 @@ export async function loadMemberDetail(
   // gedrag als de plannamen elders op deze pagina.
   type ChangeRequestRow = {
     id: string;
+    membership_id: string;
     status: string;
     target_slug: string;
     target_extended_access: boolean;
@@ -524,14 +533,22 @@ export async function loadMemberDetail(
   let pendingChange: MemberPendingChangeRow | null = null;
   if (changeRow) {
     const catalogue = await getCatalogue();
+    // De membership waar het verzoek aan hangt, niet de primaire: zie de
+    // toelichting bij MemberPendingChangeRow. `memberships` is hierboven al
+    // volledig geladen voor dit profiel, dus dit kost geen extra query.
+    const subject = memberships.find((m) => m.id === changeRow.membership_id);
     pendingChange = {
       id: changeRow.id,
       status: changeRow.status === "failed" ? "failed" : "pending",
       // COPY: confirm met Marlon
-      currentPlanName: primary?.planVariant
-        ? (catalogue.get(primary.planVariant)?.display_name ??
-          primary.planVariant)
+      currentPlanName: subject?.planVariant
+        ? (catalogue.get(subject.planVariant)?.display_name ??
+          subject.planVariant)
         : "Huidig abonnement",
+      // Een wijzigingsverzoek bestaat alleen op een doorlopend abonnement
+      // (`request_membership_change` weigert billing_cycle_weeks = 0), dus 4
+      // is hier een veilige terugval als de membership onverwacht ontbreekt.
+      billingCycleWeeks: subject?.billingCycleWeeks ?? 4,
       targetSlug: changeRow.target_slug,
       targetPlanName:
         catalogue.get(changeRow.target_slug)?.display_name ??

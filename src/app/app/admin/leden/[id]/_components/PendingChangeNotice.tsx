@@ -15,8 +15,31 @@ import type { MemberPendingChangeRow } from "@/lib/admin/member-detail-query";
 interface PendingChangeNoticeProps {
   profileId: string;
   change: MemberPendingChangeRow;
-  billingCycleWeeks: number;
 }
+
+/**
+ * Advies per `failure_reason`, want "opnieuw indienen" klopt lang niet
+ * altijd. De cron zet precies deze drie waarden
+ * (`process_due_membership_change_requests`), en
+ * `request_membership_change` weigert een nieuwe indiening zolang de
+ * membership niet `active` is. Zelfde vorm als de reason-map in
+ * `member-actions.ts`, met een terugval voor onbekende codes.
+ */
+const FAILURE_ADVICE: Record<string, string> = {
+  // COPY: confirm met Marlon
+  subscription_changed:
+    "De incasso van dit lid was gewisseld toen de wijziging aan de beurt was. Opnieuw indienen werkt: het nieuwe verzoek pakt de actuele incasso.",
+  // COPY: confirm met Marlon
+  membership_not_active:
+    "Het abonnement stond niet op actief toen de wijziging aan de beurt was. Opnieuw indienen wordt geweigerd. Zeg dit abonnement op en maak een nieuw abonnement aan op het gewenste plan.",
+  // COPY: confirm met Marlon
+  membership_missing:
+    "Het abonnement bestaat niet meer. Opnieuw indienen kan niet; herstel het bedrag handmatig bij Mollie.",
+};
+
+// COPY: confirm met Marlon
+const FAILURE_ADVICE_FALLBACK =
+  "Zoek uit waarom de verwerking niet lukte voordat je de wijziging opnieuw indient.";
 
 /**
  * Toont een nog niet verwerkte abonnementswijziging op de ledendetailpagina.
@@ -32,10 +55,10 @@ interface PendingChangeNoticeProps {
 export function PendingChangeNotice({
   profileId,
   change,
-  billingCycleWeeks,
 }: PendingChangeNoticeProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const isFailed = change.status === "failed";
+  const billingCycleWeeks = change.billingCycleWeeks;
 
   const toneClass = isFailed
     ? "border-[color:var(--danger)]/40 border-l-4 border-l-[color:var(--danger)]"
@@ -101,25 +124,36 @@ export function PendingChangeNotice({
           </div>
         </dl>
 
-        <p className="text-text-muted text-sm leading-relaxed">
-          {/* COPY: confirm met Marlon */}
-          {isFailed ? (
-            <>
+        {isFailed ? (
+          <div className="flex flex-col gap-3 text-sm leading-relaxed">
+            <p className="text-text-muted">
+              {/* COPY: confirm met Marlon */}
               De verwerking is niet gelukt, dus de rechten van dit lid zijn
-              niet gewisseld. Het incassobedrag bij Mollie is bij het indienen
-              wel al verhoogd naar het nieuwe tarief, dus dit lid betaalt nu
-              meer dan het krijgt. Zet het bedrag handmatig terug bij Mollie of
-              dien de wijziging opnieuw in.
-              {change.failureReason ? ` Reden: ${change.failureReason}.` : ""}
-            </>
-          ) : (
-            <>
-              Het incassobedrag bij Mollie is al aangepast naar het nieuwe
-              tarief; de rechten wisselen op de ingangsdatum hierboven.
-              Annuleren zet het bedrag terug naar het huidige tarief.
-            </>
-          )}
-        </p>
+              niet gewisseld.
+            </p>
+            <p className="text-text-muted">
+              {change.failureReason
+                ? (FAILURE_ADVICE[change.failureReason] ??
+                  FAILURE_ADVICE_FALLBACK)
+                : FAILURE_ADVICE_FALLBACK}
+            </p>
+            <p className="text-text-muted">
+              {/* COPY: confirm met Marlon */}
+              Let op: het incassobedrag bij Mollie is bij het indienen al
+              verhoogd naar het nieuwe tarief en blijft verhoogd, totdat een
+              geslaagde herindiening de wijziging alsnog toepast of iemand het
+              bedrag handmatig terugzet. Tot die tijd betaalt dit lid meer dan
+              het krijgt.
+            </p>
+          </div>
+        ) : (
+          <p className="text-text-muted text-sm leading-relaxed">
+            {/* COPY: confirm met Marlon */}
+            Het incassobedrag bij Mollie is al aangepast naar het nieuwe
+            tarief; de rechten wisselen op de ingangsdatum hierboven.
+            Annuleren zet het bedrag terug naar het huidige tarief.
+          </p>
+        )}
 
         {!isFailed && (
           <button

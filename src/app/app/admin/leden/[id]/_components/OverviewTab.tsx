@@ -50,7 +50,6 @@ export function OverviewTab({ detail }: OverviewTabProps) {
         <PendingChangeNotice
           profileId={profile.id}
           change={detail.pendingChange}
-          billingCycleWeeks={primaryMembership?.billingCycleWeeks ?? 4}
         />
       )}
 

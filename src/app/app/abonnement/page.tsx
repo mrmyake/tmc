@@ -135,10 +135,17 @@ export default async function AbonnementPage() {
     // op de ledendetailpagina oppakt, niet iets waar het lid zelf iets mee
     // kan. Ongeacht `requested_via`, want een door de studio ingediende
     // wijziging verhoogt de incasso van dit lid net zo goed.
+    // De facturatiecyclus komt uit de membership waar het verzoek aan hangt
+    // (embedded join op membership_change_requests_membership_id_fkey), niet
+    // uit de membership die deze pagina toont. Die twee zijn niet altijd
+    // dezelfde: de selectie hierboven pakt de nieuwste in ACTIVE_STATUSES,
+    // wat een rittenkaart met cyclus 0 kan zijn, terwijl een wijziging altijd
+    // op een doorlopend abonnement hangt.
     supabase
       .from("membership_change_requests")
       .select(
-        "id, target_slug, target_extended_access, new_recurring_cents, effective_date",
+        `id, target_slug, target_extended_access, new_recurring_cents,
+         effective_date, membership:memberships(billing_cycle_weeks)`,
       )
       .eq("profile_id", user.id)
       .eq("status", "pending")
@@ -156,6 +163,18 @@ export default async function AbonnementPage() {
 
   // Build a set of plan_variants we need display names for.
   const pendingChange = changeResult.data;
+  // Supabase levert een embedded to-one relatie soms als array; normaliseren.
+  const pendingChangeCycleWeeks = (() => {
+    const ref = pendingChange?.membership as
+      | { billing_cycle_weeks: number | null }
+      | { billing_cycle_weeks: number | null }[]
+      | null
+      | undefined;
+    const row = Array.isArray(ref) ? ref[0] : ref;
+    // Een wijziging bestaat alleen op een doorlopend abonnement, dus 4 is
+    // een veilige terugval als de relatie onverwacht leeg is.
+    return row?.billing_cycle_weeks || 4;
+  })();
 
   const variants = new Set<string>();
   if (membership?.plan_variant) variants.add(membership.plan_variant);
@@ -304,8 +323,8 @@ export default async function AbonnementPage() {
             {formatEuro(
               Math.round(pendingChange.new_recurring_cents / 100),
             )}{" "}
-            per {membership.billing_cycle_weeks} weken. Klopt dit niet, neem
-            dan contact met ons op.
+            per {pendingChangeCycleWeeks} weken. Klopt dit niet, neem dan
+            contact met ons op.
           </p>
         </aside>
       )}
