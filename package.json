@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "types:supabase": "supabase gen types typescript --project-id xoivleieyfcxcfawgveh --schema tmc > types/supabase.ts",
     "seed:dummies": "node --env-file=.env.local scripts/seed-dummy-members.mjs",
+    "build:review-workbook": "node scripts/build-review-workbook.ts",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android"
@@ -55,6 +56,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
+    "exceljs": "^4.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
