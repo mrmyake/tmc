@@ -1,18 +1,29 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const COOKIE_NAME = "tmc_admin_unlock";
 const LOCK_TTL_SECONDS = 5 * 60;
 
+/** Echte client-IP: op Vercel is de eerste entry van x-forwarded-for
+ *  het IP van de bezoeker. */
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+}
+
 /**
  * Ontgrendel admin-modus op de tablet. Verifieert PIN tegen bcrypt-hash
  * in booking_settings. Bij succes: httpOnly cookie met 5-min TTL.
  *
- * Deze action is publiek aanroepbaar (tablet zonder auth). Rate-limit
- * via PIN-hash-verify zelf — elk attempt doet een bcrypt-roundtrip,
- * wat brute-force onaantrekkelijk maakt.
+ * Deze action is publiek aanroepbaar (tablet zonder auth). Brute-force
+ * wordt afgeremd via tmc.register_checkin_pin_attempt: per IP tien
+ * pogingen per venster, daarna vijftien minuten lockout. Het IP is dat
+ * van het studiowifi, dus iedereen op de tablet deelt een teller; een
+ * goede PIN reset hem. Ingelogde staf heeft de PIN niet nodig
+ * (requireStaff() accepteert ook een stafsessie), vandaar de hint in de
+ * lockout-melding.
  */
 export async function unlockAdminMode(
   pin: string,
@@ -22,6 +33,29 @@ export async function unlockAdminMode(
   }
 
   const admin = createAdminClient();
+  const ip = await clientIp();
+
+  const { data: attempt, error: attemptError } = await admin.rpc(
+    "register_checkin_pin_attempt",
+    { p_ip: ip },
+  );
+  if (attemptError) {
+    // Fail-closed: zonder werkende teller geen verify.
+    console.error("[unlockAdminMode] throttle RPC", attemptError);
+    return { ok: false, message: "Er ging iets mis." };
+  }
+  if (!attempt?.allowed) {
+    const minutes = Math.max(
+      1,
+      Math.ceil((attempt?.retry_after_seconds ?? 900) / 60),
+    );
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: `Te veel foute pogingen. Probeer het over ${minutes} ${minutes === 1 ? "minuut" : "minuten"} opnieuw. Ingelogde staf kan intussen gewoon doorwerken via de normale login.`,
+    };
+  }
+
   const { data, error } = await admin.rpc("verify_admin_checkin_pin", {
     p_pin: pin.trim(),
   });
@@ -32,6 +66,16 @@ export async function unlockAdminMode(
   }
   if (!data) {
     return { ok: false, message: "Onjuiste PIN." };
+  }
+
+  // Goede PIN: teller weg, zodat het gedeelde studiowifi-IP niet met
+  // oude foute pogingen blijft zitten.
+  const { error: resetError } = await admin
+    .from("checkin_pin_attempts")
+    .delete()
+    .eq("ip", ip);
+  if (resetError) {
+    console.error("[unlockAdminMode] teller-reset", resetError);
   }
 
   const store = await cookies();
