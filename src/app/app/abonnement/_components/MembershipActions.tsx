@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import { PauseDialog } from "./PauseDialog";
 import { CancellationDialog } from "./CancellationDialog";
-import { trackMembershipCancelAttempt } from "@/lib/analytics";
 
 interface MembershipActionsProps {
   membershipId: string;
@@ -29,10 +28,7 @@ export function MembershipActions({
 
   if (!canPause && !canCancel) return null;
 
-  const withinLockIn = new Date(commitEndDate) > new Date();
-
   function openCancel() {
-    trackMembershipCancelAttempt({ withinLockIn, currentPlan });
     cancelRef.current?.showModal();
   }
 

@@ -11,7 +11,6 @@ import {
   type HistoryItem,
 } from "./_components/MembershipHistory";
 import { MembershipActions } from "./_components/MembershipActions";
-import { MembershipViewTracker } from "./_components/MembershipViewTracker";
 import { GuestPassesSection } from "./_components/GuestPassesSection";
 import { getGuestPassStatus } from "@/lib/member/guest-pass-actions";
 
@@ -263,8 +262,6 @@ export default async function AbonnementPage() {
       {guestPassStatus.eligible && (
         <GuestPassesSection status={guestPassStatus} />
       )}
-
-      <MembershipViewTracker currentPlan={membership.plan_variant} />
 
       <div className="mb-16">
         <MembershipActions
