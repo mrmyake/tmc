@@ -1,7 +1,6 @@
 "use client";
 
-import { trackContact, trackCTA } from "@/lib/analytics";
-import { usePathname } from "next/navigation";
+import { trackContact } from "@/lib/analytics";
 
 interface TrackedContactLinkProps {
   method: "phone" | "whatsapp" | "email";
@@ -24,31 +23,6 @@ export function TrackedContactLink({
       {...(method === "whatsapp"
         ? { target: "_blank", rel: "noopener noreferrer" }
         : {})}
-    >
-      {children}
-    </a>
-  );
-}
-
-interface TrackedCTAProps {
-  label: string;
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function TrackedCTA({
-  label,
-  href,
-  children,
-  className,
-}: TrackedCTAProps) {
-  const pathname = usePathname();
-  return (
-    <a
-      href={href}
-      onClick={() => trackCTA(label, pathname)}
-      className={className}
     >
       {children}
     </a>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
-import { trackPaymentStart } from "@/lib/analytics";
+import { trackCheckoutRejected, trackPaymentStart } from "@/lib/analytics";
 import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "./lib";
@@ -53,6 +53,9 @@ export function PayStage({
       });
       if (!res.ok) {
         setError(res.error);
+        // Tegenhanger van begin_checkout: zonder dit event is een server-side
+        // weigering in GA4 niet te onderscheiden van vrijwillig afhaken.
+        trackCheckoutRejected({ itemId: plan.slug, reason: res.reason });
         return;
       }
       trackPaymentStart({

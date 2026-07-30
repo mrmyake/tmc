@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
+import { trackConfiguratorStageView } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { ConfigureStage } from "./ConfigureStage";
 import { IdentifyStage } from "./IdentifyStage";
@@ -42,6 +43,13 @@ export function AbonnementConfigurator({
   const [identified, setIdentified] = useState(loggedIn);
 
   const plan = plans[planSlug(selection.family, selection.frequency)];
+
+  // Vuurt óók bij mount (stage "configure"), wat meteen het ontbrekende
+  // view-event op pagina-load van /abonnement oplevert. Geen URL-state:
+  // de stage blijft puur React-state.
+  useEffect(() => {
+    trackConfiguratorStageView(stage);
+  }, [stage]);
 
   function handleConfigured(next: Selection) {
     setSelection(next);
