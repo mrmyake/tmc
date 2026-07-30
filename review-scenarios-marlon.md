@@ -4,7 +4,7 @@
 
 We willen dat je de app en het admin cockpit een keer echt gebruikt, niet er even doorheen klikken. Daarom krijg je hieronder concrete opdrachten in plaats van "kijk eens rond". Elke opdracht beschrijft een doel, niet de knoppen die je moet indrukken. Vind je zelf niet meteen de weg naar dat doel? Dat is precies waardevolle informatie voor ons, geen fout van jou. Hoe meer je vastloopt of twijfelt, hoe meer we leren.
 
-Dit document is ingedeeld op rol, niet op sessie. Je doorloopt achtereenvolgens Klant, Trainer en Admin, elk met een eigen account.
+Dit document is ingedeeld op rol, niet op sessie. Je doorloopt achtereenvolgens Klant, Trainer en Admin, elk met een eigen account. Houd die volgorde aan, ook al lijkt het alsof je vrij kan kiezen: een paar scenario's zetten iets klaar dat je in een later blok afhandelt. Begin je bij Admin, dan staat de helft daarvan nog niet klaar.
 
 Belangrijk over het wisselen tussen die rollen: elke rolwissel kost een uitlogactie plus een nieuwe inlogcode die per mail binnenkomt. Je logt dus uit, vult het volgende e-mailadres in, wacht op de code en typt die over. Maak daarom eerst een heel blok af voordat je naar het volgende account wisselt. Halverwege heen en weer springen kost je onnodig veel tijd.
 
@@ -100,7 +100,8 @@ Dit blok doorloop je als gewoon lid. Je ziet hier precies wat een lid ziet, niet
 - Is duidelijk wat er met je toegang gebeurt tijdens de pauze?
 - Snap je wanneer de pauze weer stopt en wat daarna gebeurt?
 - Is duidelijk of iemand dit nog moet goedkeuren?
-**Neveneffect:** terug te draaien, dit testlidmaatschap heeft geen echte betaling erachter. Het verzoek dat je hier indient handel je in A6 zelf af als admin.
+- Dit scenario zet iets klaar voor later: het verzoek dat je hier indient handel je in A6 zelf af, als admin. Sla dit dus niet over.
+**Neveneffect:** terug te draaien, dit testlidmaatschap heeft geen echte betaling erachter.
 
 ---
 
@@ -267,6 +268,7 @@ Dit blok doen we samen, niet solo. Enkele acties hier mailen echte adressen of z
 **Startpunt:** pauzes in het admin cockpit.
 **Opdracht:** handel het pauzeverzoek af dat je in K7 als klant hebt ingediend.
 **Let op:**
+- Dit werkt alleen als je K7 hebt gedaan. Heb je dat overgeslagen, dan is er niets aan te vinken en zie je een leeg overzicht zonder openstaande verzoeken. Doe K7 dan alsnog eerst.
 - Is in één oogopslag duidelijk wat het lid gevraagd heeft en per wanneer?
 - Snap je wat er na jouw goedkeuring gebeurt, en of het lid daar iets van merkt?
 - Is duidelijk wat dit voor de incasso betekent?
