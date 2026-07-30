@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EarlyMemberCallout } from "@/components/ui/EarlyMemberCallout";
 import { formatEuro } from "@/lib/format";
-import { trackCTA } from "@/lib/analytics";
+import { trackBeginCheckout, trackConfiguratorSelect } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
 import {
   planSlug,
@@ -165,55 +165,114 @@ export function ConfigureStage({
   const allAccessPlan = plans[planSlug("all_inclusive", "unl")];
 
   function toggleVt(id: BasisCardId) {
-    setCardToggles((prev) => {
-      const current = prev[id] ?? DEFAULT_TOGGLE;
-      const nextVt = !current.vt;
-      // Uitzetten van de plus-30 reset ook de plus-10: zonder vt-toggle
-      // heeft de kaart geen addon-modus meer, dus geen stale ext-state.
-      return {
-        ...prev,
-        [id]: { vt: nextVt, ext: nextVt ? current.ext : false },
-      };
-    });
+    const current = cardToggles[id] ?? DEFAULT_TOGGLE;
+    const nextVt = !current.vt;
+    // Uitzetten van de plus-30 reset ook de plus-10: zonder vt-toggle
+    // heeft de kaart geen addon-modus meer, dus geen stale ext-state.
+    const next: CardToggleState = {
+      vt: nextVt,
+      ext: nextVt ? current.ext : false,
+    };
+    setCardToggles((prev) => ({ ...prev, [id]: next }));
+    emitSelect(id, next, commit24m);
   }
 
   function toggleExt(id: BasisCardId) {
-    setCardToggles((prev) => {
-      const current = prev[id] ?? DEFAULT_TOGGLE;
-      return { ...prev, [id]: { ...current, ext: !current.ext } };
-    });
+    const current = cardToggles[id] ?? DEFAULT_TOGGLE;
+    const next: CardToggleState = { ...current, ext: !current.ext };
+    setCardToggles((prev) => ({ ...prev, [id]: next }));
+    emitSelect(id, next, commit24m);
   }
 
-  /** Enige resolutie naar een catalogus-rij: planSlug(), geen optelling. */
-  function planForSelection(id: CardId): CatalogueRow | undefined {
+  /** Enige resolutie naar een catalogus-rij: planSlug(), geen optelling.
+   *
+   * De optionele overrides bestaan puur voor analytics: een click-handler moet
+   * de rij kunnen resolven die hoort bij de state die hij zojuist heeft gezet,
+   * en React-state is binnen diezelfde tick nog stale. Zonder override is het
+   * gedrag identiek aan voorheen. */
+  function planForSelection(
+    id: CardId,
+    toggleOverride?: CardToggleState,
+  ): CatalogueRow | undefined {
     if (id === "all-access") return allAccessPlan;
     const meta = CARD_META[id];
-    const toggle = cardToggles[id] ?? DEFAULT_TOGGLE;
+    const toggle = toggleOverride ?? cardToggles[id] ?? DEFAULT_TOGGLE;
     return plans[planSlug(familyForCard(id, toggle), meta.frequency)];
   }
 
-  function extendedAccessForSelection(id: CardId): boolean {
-    const plan = planForSelection(id);
+  function extendedAccessForSelection(
+    id: CardId,
+    toggleOverride?: CardToggleState,
+  ): boolean {
+    const plan = planForSelection(id, toggleOverride);
     if (id === "all-access" || !plan || plan.extended_access_mode !== "addon") {
       return false;
     }
-    const toggle = cardToggles[id] ?? DEFAULT_TOGGLE;
+    const toggle = toggleOverride ?? cardToggles[id] ?? DEFAULT_TOGGLE;
     return toggle.ext;
   }
 
   /** Spiegelt computeBreakdown ongewijzigd (lib.ts) — geen herimplementatie
    * van de EM/24m-phase-gate hier. */
-  function breakdownForSelection(id: CardId): PriceBreakdown | null {
-    const plan = planForSelection(id);
+  function breakdownForSelection(
+    id: CardId,
+    toggleOverride?: CardToggleState,
+    commit24mOverride?: boolean,
+  ): PriceBreakdown | null {
+    const plan = planForSelection(id, toggleOverride);
     if (!plan) return null;
     return computeBreakdown({
       plan,
       extendedAccessAddon: extendedAccessAddon ?? undefined,
       signupFee: signupFee ?? undefined,
-      extendedAccess: extendedAccessForSelection(id),
-      commit24m,
+      extendedAccess: extendedAccessForSelection(id, toggleOverride),
+      commit24m: commit24mOverride ?? commit24m,
       emActive,
     });
+  }
+
+  /**
+   * Vuurt `configurator_select` voor één expliciete configuratie.
+   *
+   * Alles komt uit de bestaande resolutie: `item_id` is de catalogus-slug die
+   * `planForSelection` teruggeeft (exact de rij die PayStage straks aan
+   * create_order meegeeft) en `commitment_months` komt uit `computeBreakdown`,
+   * die de EM/24m-gate ongewijzigd spiegelt. Hier wordt niets herberekend en
+   * gaat geen enkel bedrag mee.
+   */
+  function emitSelect(
+    id: CardId,
+    toggle: CardToggleState,
+    commitFlag: boolean,
+  ): void {
+    const plan = planForSelection(id, toggle);
+    const breakdown = breakdownForSelection(id, toggle, commitFlag);
+    if (!plan || !breakdown) return;
+    const isAllAccess = id === "all-access";
+    trackConfiguratorSelect({
+      itemId: plan.slug,
+      family: isAllAccess ? "all_inclusive" : familyForCard(id, toggle),
+      frequency: isAllAccess ? "unl" : CARD_META[id].frequency,
+      commitmentMonths: breakdown.commitMonths,
+      addonVrijTrainen: isAllAccess ? false : toggle.vt,
+      addonExtendedAccess: extendedAccessForSelection(id, toggle),
+    });
+  }
+
+  function selectCard(id: CardId): void {
+    setSelectedCardId(id);
+    const toggle =
+      id === "all-access" ? DEFAULT_TOGGLE : cardToggles[id] ?? DEFAULT_TOGGLE;
+    emitSelect(id, toggle, commit24m);
+  }
+
+  function selectCommit(next: boolean): void {
+    setCommit24m(next);
+    const toggle =
+      selectedCardId === "all-access"
+        ? DEFAULT_TOGGLE
+        : cardToggles[selectedCardId] ?? DEFAULT_TOGGLE;
+    emitSelect(selectedCardId, toggle, next);
   }
 
   function titleForCard(id: CardId): string {
@@ -239,7 +298,15 @@ export function ConfigureStage({
       selectedCardId === "all-access"
         ? "unl"
         : CARD_META[selectedCardId].frequency;
-    trackCTA("Ga verder", "/abonnement");
+    // Vervangt de oude cta_click("Ga verder"), die de gekozen variant niet
+    // bevatte. selectedPlan is exact de rij die PayStage aan create_order
+    // meegeeft, dus item_id is de daadwerkelijk gefactureerde slug. Geen
+    // bedrag: dat blijft bij payment_start.
+    trackBeginCheckout({
+      itemId: selectedPlan.slug,
+      itemName: selectedPlan.display_name,
+      family,
+    });
     onContinue({
       family,
       frequency,
@@ -366,7 +433,7 @@ export function ConfigureStage({
 
         <button
           type="button"
-          onClick={() => setSelectedCardId(id)}
+          onClick={() => selectCard(id)}
           className={`mt-auto pt-4 text-xs uppercase tracking-[var(--track-label)] font-medium border cursor-pointer transition-colors duration-300 px-4 py-3 ${
             isSelected
               ? "bg-accent text-bg border-accent"
@@ -430,7 +497,7 @@ export function ConfigureStage({
           )}
           <button
             type="button"
-            onClick={() => setSelectedCardId("all-access")}
+            onClick={() => selectCard("all-access")}
             className={`mt-4 text-xs uppercase tracking-[0.14em] font-medium border cursor-pointer transition-colors duration-300 px-5 py-3 ${
               isSelected
                 ? "bg-accent text-bg border-accent"
@@ -488,7 +555,7 @@ export function ConfigureStage({
             <div className="inline-flex border border-text-muted/25">
               <button
                 type="button"
-                onClick={() => setCommit24m(false)}
+                onClick={() => selectCommit(false)}
                 className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 ${
                   !commit24m
                     ? "bg-bg-elevated text-text"
@@ -500,7 +567,7 @@ export function ConfigureStage({
               </button>
               <button
                 type="button"
-                onClick={() => setCommit24m(true)}
+                onClick={() => selectCommit(true)}
                 className={`px-4 py-2 text-xs uppercase tracking-[0.1em] cursor-pointer transition-colors duration-300 flex items-center gap-2 ${
                   commit24m
                     ? "bg-bg-elevated text-text"

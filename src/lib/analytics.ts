@@ -6,14 +6,27 @@ declare global {
 
 const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
 
+/**
+ * GA4 e-commerce item. Bewust zonder `price`/`quantity`/`currency`: de
+ * configurator-events dragen géén bedragen — de enige autoritatieve prijs
+ * komt server-side uit tmc.create_order (zie ConfigureStage/PayStage).
+ */
+type AnalyticsItem = {
+  item_id: string;
+  item_name: string;
+  item_category: string;
+};
+
 type EventParams = {
   event_category?: string;
   event_label?: string;
   value?: number;
-  [key: string]: string | number | boolean | undefined;
+  items?: AnalyticsItem[];
+  [key: string]: string | number | boolean | AnalyticsItem[] | undefined;
 };
 
-export const trackEvent = (eventName: string, params?: EventParams) => {
+/** Module-privaat: alle call-sites gaan via de getypeerde helpers hieronder. */
+const trackEvent = (eventName: string, params?: EventParams) => {
   if (typeof window !== "undefined" && window.gtag) {
     window.gtag("event", eventName, params);
   }
@@ -49,10 +62,89 @@ export const trackFormStart = (formName: string) => {
   });
 };
 
-export const trackOutbound = (destination: string) => {
-  trackEvent("click_outbound", {
-    event_category: "navigation",
-    event_label: destination,
+// ---- Abonnement-configurator (/abonnement) ----
+
+/**
+ * Stap-weergave in de stage-machine ("configure" | "identify" | "pay").
+ * Vult het gat dat de configurator tot nu toe volledig stil maakte tussen
+ * pagina-load en `payment_start`.
+ */
+export const trackConfiguratorStageView = (stage: string): void => {
+  trackEvent("configurator_stage_view", {
+    event_category: "configurator",
+    stage,
+  });
+};
+
+/**
+ * Eén expliciete configuratie-keuze: kaartselectie, de plus-30 vrij-trainen-
+ * swap, de verlengde-toegang-addon of de 12/24-maanden-looptijd.
+ *
+ * `itemId` is de tmc.catalogue-slug van de rij die daadwerkelijk gefactureerd
+ * wordt, gelezen uit de bestaande catalogus-resolutie — nooit zelf afgeleid.
+ * Bevat bewust geen bedragen.
+ */
+export const trackConfiguratorSelect = (params: {
+  itemId: string;
+  family: string;
+  frequency: string;
+  commitmentMonths: number;
+  addonVrijTrainen: boolean;
+  addonExtendedAccess: boolean;
+}): void => {
+  trackEvent("configurator_select", {
+    event_category: "configurator",
+    item_id: params.itemId,
+    family: params.family,
+    frequency: params.frequency,
+    commitment_months: params.commitmentMonths,
+    addon_vrij_trainen: params.addonVrijTrainen,
+    addon_extended_access: params.addonExtendedAccess,
+  });
+};
+
+/**
+ * Vervangt de oude `cta_click("Ga verder")`, die de gekozen variant niet
+ * bevatte. Geen `value`/`currency`: dit event draagt bewust geen bedrag, dus
+ * GA4 rapporteert hier €0 omzet — de betaalwaarde blijft bij `payment_start`
+ * / `payment_success`.
+ */
+export const trackBeginCheckout = (params: {
+  itemId: string;
+  itemName: string;
+  family: string;
+}): void => {
+  trackEvent("begin_checkout", {
+    event_category: "configurator",
+    items: [
+      {
+        item_id: params.itemId,
+        item_name: params.itemName,
+        item_category: params.family,
+      },
+    ],
+  });
+};
+
+/**
+ * Een checkout-poging die server-side geweigerd is: `create_order` gaf
+ * {ok:false} (bv. `existing_membership`, `existing_open_order`, de EM/24m-
+ * conflictgate), of de flow strandde vóór Mollie. Zonder dit event is die
+ * uitval niet eens als uitval zichtbaar — GA4 ziet dan alleen een
+ * `begin_checkout` zonder `payment_start`, precies zoals bij iemand die uit
+ * eigen beweging afhaakt.
+ *
+ * `reason` is de machine-leesbare code uit createOrderAndCheckout, nooit de
+ * Nederlandse foutcopy die de gebruiker ziet.
+ */
+export const trackCheckoutRejected = (params: {
+  itemId: string;
+  reason: string;
+}): void => {
+  trackEvent("checkout_rejected", {
+    event_category: "configurator",
+    item_id: params.itemId,
+    reason: params.reason,
   });
 };
 

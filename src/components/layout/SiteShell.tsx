@@ -62,7 +62,24 @@ export function SiteShell({
   if (isStudio || isApp || isLogin || isCheckin || isProgramma || isBetaal) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
-    return <>{children}</>;
+    //
+    // UtmTracker hoort hier wél op de twee kale routes waar een campagne
+    // rechtstreeks op kan landen: /login (MailerLite-mails) en
+    // /betaal/<token> (WS-5 betaallink via mail/WhatsApp). Zonder deze mount
+    // leest signInWithOtp een lege sessionStorage en schrijft de signup lege
+    // acquisition_*-velden weg — door ON CONFLICT DO NOTHING in
+    // handle_new_auth_user zijn die daarna permanent leeg. UtmTracker rendert
+    // niets en raakt geen consent-state aan (sessionStorage, geen cookie).
+    //
+    // Bewust NIET op /app/**: de consent-architectuur voor de member-app is
+    // een aparte, nog open beslissing. CookieConsent blijft hier op elke
+    // route ongewijzigd afwezig.
+    return (
+      <>
+        {children}
+        {(isLogin || isBetaal) && <UtmTracker />}
+      </>
+    );
   }
 
   return (
