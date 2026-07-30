@@ -3,15 +3,32 @@
 import { useEffect } from "react";
 
 /**
- * Wired in de root layout. Luistert op auth state changes en vuurt bij
- * SIGNED_IN `portal_login` — het conversie-moment, niet het gedrag daarna.
+ * Wired in de root layout. Doet op dit moment GEEN analytics meer.
  *
- * Zet bewust géén GA4 `user_id` meer. Onder de meetgrens (zie
+ * Vuurde eerder `portal_login` op het Supabase-event `SIGNED_IN`. Dat was
+ * fout: `SIGNED_IN` vuurt niet alleen bij een verse login maar ook bij
+ * sessieherstel uit storage (`_recoverAndRefresh` vanuit `_initialize`) en
+ * bij elke tab-refocus (`visibilitychange`). Omdat deze component in de
+ * root layout hangt, telde het event daardoor "sessies bevestigd" in plaats
+ * van logins — opgeblazen op elke pagina-boot, ook publiek voor een al
+ * ingelogde bezoeker. Eén echte login leverde er minstens twee op, want
+ * `LoginForm` vuurt 'm zelf al en navigeert daarna hard.
+ *
+ * `portal_login` leeft nu uitsluitend in `src/app/login/LoginForm.tsx`, na
+ * een geslaagde `verifyLoginOtp` — een echte gebruikershandeling. Zie het
+ * principe in `spec-analytics.md`: events hangen aan handelingen, nooit aan
+ * mount, auth-state of visibility.
+ *
+ * Zet ook bewust géén GA4 `user_id` meer. Onder de meetgrens (zie
  * `src/lib/analytics.ts`) meet GA4 alleen acquisitie op de publieke site;
  * gedrag achter login gaat naar `tmc.events`, waar het al aan een
- * `profile_id` hangt. Een GA4-identiteit koppelen aan iemand die daar toch
- * niet meer gemeten wordt, levert niets op en breidt alleen de
- * PII-oppervlakte uit.
+ * `profile_id` hangt.
+ *
+ * Wat overblijft is een lege auth-state-listener. Die staat er bewust nog:
+ * of deze component nog bestaansrecht heeft — hij importeert de forse
+ * Supabase-browserclient op elke publieke pagina zonder er nog iets mee te
+ * doen — is een auth-vraag, niet een analytics-vraag, en hoort in een
+ * aparte PR thuis.
  *
  * Performance: de Supabase-browserclient (+ @supabase/ssr) is een fors
  * bundle die alleen voor ingelogde flows nodig is. We importeren 'm
@@ -25,22 +42,15 @@ export function AuthListener() {
     let unsubscribe: (() => void) | null = null;
 
     const start = async () => {
-      const [{ createClient }, { trackPortalLogin }] = await Promise.all([
-        import("@/lib/supabase/client"),
-        import("@/lib/analytics"),
-      ]);
+      const { createClient } = await import("@/lib/supabase/client");
       if (!mounted) return;
 
       const supabase = createClient();
 
-      const { data: sub } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          if (!mounted) return;
-          if (event === "SIGNED_IN" && session?.user) {
-            trackPortalLogin("otp");
-          }
-        },
-      );
+      // Geen handler-body: zie de toelichting bovenaan. De subscription blijft
+      // staan zodat de auth-PR die over deze component gaat een intacte
+      // structuur aantreft, niet een half weggehaalde.
+      const { data: sub } = supabase.auth.onAuthStateChange(() => {});
       unsubscribe = () => sub.subscription.unsubscribe();
     };
 
