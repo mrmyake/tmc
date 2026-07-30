@@ -17,14 +17,6 @@ import { urlFor } from "../../sanity/lib/client";
 
 const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
 
-// Chrome/Safari cachen het tab-favicon los van de normale HTTP-cache en
-// negeren daarbij vaak Cache-Control — na een icoonwijziging blijft het
-// oude icoon soms dagenlang hangen op een domein dat al eerder bezocht is
-// (preview-URLs zijn altijd vers, dus daar valt dit nooit op). Bump deze
-// versie bij elke favicon-wijziging zodat de URL verandert en browsers
-// het als een nieuwe resource ophalen.
-const FAVICON_VERSION = "2";
-
 /**
  * Consent Mode v2 defaults — MOET geïnjecteerd worden vóór gtag.js
  * loadt. Inline in <head> zodat dataLayer bestaat voordat
@@ -106,19 +98,16 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: SITE_URL,
     },
+    // Er staat bewust GEEN favicon.ico in src/app/ — die file-convention
+    // injecteert z'n eigen gehashte <link> én bedient de route /favicon.ico,
+    // en wint van public/favicon.ico. Chrome cachet het tab-icoon bovendien
+    // in een aparte database die Cache-Control negeert; de ?v= dwingt daar
+    // een refetch af. Bump 'm bij elke icoonwijziging.
     icons: {
-      // SVG eerst voor moderne browsers; de .ico in /app blijft de fallback
-      // voor clients die hardcoded /favicon.ico opvragen. Query param
-      // voorkomt stale browser-favicon-cache na een icoonwijziging, zie
-      // FAVICON_VERSION hierboven.
       icon: [
-        {
-          url: `/images/tmc-favicon.svg?v=${FAVICON_VERSION}`,
-          type: "image/svg+xml",
-        },
-        { url: `/favicon.ico?v=${FAVICON_VERSION}`, sizes: "256x256" },
+        { url: "/images/tmc-favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico?v=3", sizes: "any" },
       ],
-      shortcut: `/favicon.ico?v=${FAVICON_VERSION}`,
     },
   };
 }
