@@ -89,11 +89,7 @@ export default async function BedanktPage({
     <>
       {copy.showConfetti && <Confetti />}
       {order && (
-        <PaymentTracker
-          status={status}
-          amount={Math.round(order.base_price_cents / 100)}
-          transactionId={order.id}
-        />
+        <PaymentTracker status={status} transactionId={order.id} />
       )}
       <Container className="py-20 max-w-2xl text-center">
         <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-4">

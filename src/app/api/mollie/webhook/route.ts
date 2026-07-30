@@ -3,6 +3,7 @@ import { SequenceType } from "@mollie/api-client";
 import { getMollieClient } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
+import { sendPurchaseToGa4 } from "@/lib/orders/ga-purchase";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
@@ -336,6 +337,16 @@ export async function POST(request: Request) {
             payment_id: payment.id,
           },
         });
+        // Conversiebrug (spec-analytics.md): server-side GA4 purchase,
+        // fire-and-forget en buiten het idempotentiepad. Deze
+        // !already_activated-tak is het exactly-once-signaal (rijlock +
+        // statusovergang in tmc.activate_order); de helper voegt daar geen
+        // eigen dedupe aan toe. Geen await — een GA4-storing mag de
+        // betaalverwerking nooit blokkeren. De helper throwt zelf nooit;
+        // de .catch is de laatste vangrail.
+        void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
+          console.error("[mollie/webhook] sendPurchaseToGa4", e),
+        );
       }
 
       // Subscription-order: maak de Mollie-subscription één cyclus na de

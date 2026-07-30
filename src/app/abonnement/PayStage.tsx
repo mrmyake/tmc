@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
 import { trackCheckoutRejected, trackPaymentStart } from "@/lib/analytics";
+import { readGaIds } from "@/lib/ga-ids";
 import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "./lib";
@@ -45,11 +46,19 @@ export function PayStage({
   function handlePay() {
     setError(null);
     startTransition(async () => {
+      // Conversiebrug (spec-analytics.md): GA4 client/session-id van deze
+      // sessie meesturen zodat de Mollie-webhook het purchase-event
+      // server-side aan de juiste sessie kan hangen. Best-effort met harde
+      // timeout — bij consent denied of niet-geladen gtag zijn beide
+      // undefined en gaat de checkout gewoon door.
+      const gaIds = await readGaIds();
       const res = await createOrderAndCheckout({
         slug: plan.slug,
         extendedAccess: selection.extendedAccess,
         commit24m: selection.commit24m,
         earlyMember: breakdown.emOpen,
+        gaClientId: gaIds.clientId,
+        gaSessionId: gaIds.sessionId,
       });
       if (!res.ok) {
         setError(res.error);

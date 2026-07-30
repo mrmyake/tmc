@@ -39,6 +39,15 @@ export interface CreateOrderSelection {
    * right now, checked server-side in the same transaction as the price.
    */
   earlyMember?: boolean;
+  /**
+   * Conversiebrug (spec-analytics.md): GA4 client/session-id van de
+   * checkout-sessie, alleen gezet vanaf de publieke site (PayStage).
+   * BuyButton (/app/producten) stuurt ze bewust niet mee — achter de
+   * meetgrens. Ze gaan met een losse update op de orderrij (route (b),
+   * niet door create_order), en ontbreken is de normale situatie.
+   */
+  gaClientId?: string;
+  gaSessionId?: string;
 }
 
 // Vertaalt create_order()'s {ok:false, reason} naar klanttaal. Onbekende
@@ -153,6 +162,29 @@ export async function createOrderAndCheckout(
     const isSubscription = orderResult.recurring_cents !== null;
 
     admin = createAdminClient();
+
+    // Conversiebrug: GA4-attributie op de orderrij, ná create_order als
+    // losse write (route (b), spec-analytics.md) — analytics-metadata hoort
+    // niet door de autoritatieve prijsfunctie. Mag de checkout nooit
+    // blokkeren: eigen try/catch (de omhullende catch zou de order
+    // abandonnen, en dat mag een analytics-write nooit veroorzaken),
+    // error alleen gelogd, flow gaat door.
+    if (selection.gaClientId) {
+      try {
+        const { error: gaError } = await admin
+          .from("orders")
+          .update({
+            ga_client_id: selection.gaClientId,
+            ga_session_id: selection.gaSessionId ?? null,
+          })
+          .eq("id", orderId);
+        if (gaError) {
+          console.error("[createOrderAndCheckout] ga attribution write", gaError);
+        }
+      } catch (gaErr) {
+        console.error("[createOrderAndCheckout] ga attribution write", gaErr);
+      }
+    }
 
     const mollie = getMollieClient();
     if (!mollie) {
