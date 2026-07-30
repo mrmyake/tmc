@@ -66,6 +66,14 @@ export const trackCTA = (buttonText: string, page: string) => {
   });
 };
 
+/**
+ * Publiek-gevormd, en op dit moment zonder call-site — dat is opzet, geen
+ * dode code. De helper wacht op een mount op de footer-`tel:`/`mailto:`-links
+ * van de publieke site (audit gap #4, `docs/analytics-audit-2026-07.md`).
+ *
+ * Niet achter login mounten: de vorige enige call-site zat op `/app/support`
+ * en is verwijderd omdat die aan de verkeerde kant van de meetgrens stond.
+ */
 export const trackContact = (method: "phone" | "whatsapp" | "email") => {
   trackEvent(`click_${method}`, {
     event_category: "contact",

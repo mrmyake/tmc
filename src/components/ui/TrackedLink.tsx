@@ -1,6 +1,15 @@
 "use client";
 
-import { trackContact } from "@/lib/analytics";
+/**
+ * Vuurt bewust geen `trackContact` meer. De enige mount van deze component
+ * zit op `/app/support`, dus achter de meetgrens — daar hoort geen GA4-event
+ * te vuren (zie de header van `src/lib/analytics.ts`).
+ *
+ * De component blijft staan als vehikel voor de publieke footer-`tel:`/
+ * `mailto:`-links (audit gap #4). Zet bij die mount de
+ * `onClick={() => trackContact(method)}` terug: dáár is het event wél op zijn
+ * plek, want dat is acquisitie.
+ */
 
 interface TrackedContactLinkProps {
   method: "phone" | "whatsapp" | "email";
@@ -18,7 +27,6 @@ export function TrackedContactLink({
   return (
     <a
       href={href}
-      onClick={() => trackContact(method)}
       className={className}
       {...(method === "whatsapp"
         ? { target: "_blank", rel: "noopener noreferrer" }
