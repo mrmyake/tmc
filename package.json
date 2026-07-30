@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "types:supabase": "supabase gen types typescript --project-id xoivleieyfcxcfawgveh --schema tmc > types/supabase.ts",
     "seed:dummies": "node --env-file=.env.local scripts/seed-dummy-members.mjs",
+    "route-smoke": "node scripts/route-smoke.ts",
     "build:review-workbook": "node scripts/build-review-workbook.ts",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
