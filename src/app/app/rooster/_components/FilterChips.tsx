@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
-import { trackRoosterFilter } from "@/lib/analytics";
 
 interface FilterChipsProps {
   pillars: Pillar[];
@@ -15,7 +14,6 @@ export function FilterChips({ pillars }: FilterChipsProps) {
   const active = searchParams.get("pijler");
 
   function select(pillar: string | null) {
-    if (pillar !== active) trackRoosterFilter(pillar);
     const next = new URLSearchParams(searchParams);
     if (pillar) next.set("pijler", pillar);
     else next.delete("pijler");

@@ -4,7 +4,6 @@ import { forwardRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { requestMembershipCancellation } from "@/lib/member/membership-actions";
 import { formatDateLong } from "@/lib/format-date";
-import { trackMembershipCancelComplete } from "@/lib/analytics";
 
 interface CancellationDialogProps {
   membershipId: string;
@@ -65,18 +64,6 @@ export const CancellationDialog = forwardRef<
         setError(res.message);
       } else {
         setSuccess(res.message);
-        const effectiveDate = estEffective;
-        const daysUntil = Math.max(
-          0,
-          Math.round(
-            (new Date(effectiveDate).getTime() - Date.now()) / 86_400_000,
-          ),
-        );
-        trackMembershipCancelComplete({
-          currentPlan,
-          effectiveDate,
-          daysUntilEffective: daysUntil,
-        });
         window.setTimeout(() => {
           onDone?.();
         }, 1600);

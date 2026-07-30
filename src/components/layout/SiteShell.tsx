@@ -63,17 +63,28 @@ export function SiteShell({
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
     //
-    // UtmTracker hoort hier wél op de twee kale routes waar een campagne
-    // rechtstreeks op kan landen: /login (MailerLite-mails) en
-    // /betaal/<token> (WS-5 betaallink via mail/WhatsApp). Zonder deze mount
-    // leest signInWithOtp een lege sessionStorage en schrijft de signup lege
-    // acquisition_*-velden weg — door ON CONFLICT DO NOTHING in
-    // handle_new_auth_user zijn die daarna permanent leeg. UtmTracker rendert
-    // niets en raakt geen consent-state aan (sessionStorage, geen cookie).
+    // ── De meetgrens ──────────────────────────────────────────────────
+    // Dat /app/**, /login, /checkin en /betaal/* hier geen CookieConsent
+    // krijgen is een ARCHITECTUURBESLISSING, geen bug en geen omissie.
+    // GA4 meet uitsluitend acquisitie op de publieke site: hoe iemand
+    // binnenkomt, wat 'm overtuigt, en of 'ie converteert. Achter die grens
+    // gaat productgedrag naar `tmc.events` — server-side, gekoppeld aan een
+    // profile_id, en niet afhankelijk van cookie-consent. Vandaar dat je
+    // hier geen banner nodig hebt: er valt op deze routes niets te meten
+    // waarvoor toestemming vereist is.
     //
-    // Bewust NIET op /app/**: de consent-architectuur voor de member-app is
-    // een aparte, nog open beslissing. CookieConsent blijft hier op elke
-    // route ongewijzigd afwezig.
+    // Voeg hier dus GEEN CookieConsent toe om "het gat te dichten". Zie
+    // spec-analytics.md en de header van src/lib/analytics.ts.
+    //
+    // UtmTracker is de uitzondering, en hoort hier wél op de twee kale
+    // routes waar een campagne rechtstreeks op kan landen: /login
+    // (MailerLite-mails) en /betaal/<token> (WS-5 betaallink via mail/
+    // WhatsApp). Dat is acquisitie-data, geen productgedrag. Zonder deze
+    // mount leest signInWithOtp een lege sessionStorage en schrijft de
+    // signup lege acquisition_*-velden weg — door ON CONFLICT DO NOTHING in
+    // handle_new_auth_user zijn die daarna permanent leeg. UtmTracker
+    // rendert niets en raakt geen consent-state aan (sessionStorage, geen
+    // cookie).
     return (
       <>
         {children}

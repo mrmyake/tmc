@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { trackMyBookingsTabSwitch } from "@/lib/analytics";
 
 export type BoekingenView = "komend" | "historie";
 
@@ -17,13 +16,11 @@ function Tab({
   label,
   active,
   href,
-  onClick,
   role,
 }: {
   label: string;
   active: boolean;
   href: string;
-  onClick: () => void;
   role: "tab";
 }) {
   return (
@@ -33,7 +30,6 @@ function Tab({
       role={role}
       aria-selected={active}
       aria-current={active ? "page" : undefined}
-      onClick={onClick}
       className={`group relative inline-block py-3 text-[11px] font-medium uppercase tracking-[0.2em] transition-colors duration-300 ${clubEase} ${
         active ? "text-text" : "text-text-muted"
       }`}
@@ -65,14 +61,12 @@ export function BoekingenTabs({
         label="Komend"
         active={active === "komend"}
         href={upcomingHref}
-        onClick={() => trackMyBookingsTabSwitch("upcoming")}
       />
       <Tab
         role="tab"
         label="Historie"
         active={active === "historie"}
         href={historyHref}
-        onClick={() => trackMyBookingsTabSwitch("history")}
       />
     </nav>
   );
