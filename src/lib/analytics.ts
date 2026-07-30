@@ -35,6 +35,17 @@ type AnalyticsItem = {
   item_category: string;
 };
 
+/**
+ * GA4 e-commerce item. Bewust zonder `price`/`quantity`/`currency`: de
+ * configurator-events dragen géén bedragen — de enige autoritatieve prijs
+ * komt server-side uit tmc.create_order (zie ConfigureStage/PayStage).
+ */
+type AnalyticsItem = {
+  item_id: string;
+  item_name: string;
+  item_category: string;
+};
+
 type EventParams = {
   event_category?: string;
   event_label?: string;
