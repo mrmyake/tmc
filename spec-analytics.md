@@ -58,11 +58,13 @@ Eén uitzondering: `UtmTracker` mount wél op `/login` en `/betaal/<token>`. Dat
 
 ---
 
-## Principe: events hangen aan handelingen
+## Principe: vuurt deze haak ook als er niets gebeurd is?
 
-> **Een analytics-event hangt aan een gebruikershandeling — een klik, een submit, een focus. Nooit aan een mount, aan auth-state, of aan visibility.**
+> **De test is niet of een event aan een lifecycle-hook hangt. De test is of die haak ook vuurt wanneer er niets gebeurd is. Zo ja: verkeerde haak.**
 
-Een handeling gebeurt één keer en betekent iets. Een lifecycle-hook vuurt zo vaak als het framework of de browser dat wil, en betekent daardoor niets. Wie een event aan het tweede hangt, meet niet wat 'ie denkt te meten — en dat is van buitenaf niet te zien, want het event ziet er in GA4 volkomen normaal uit.
+"Nooit een `useEffect`" is de verkeerde regel — te grof, en 'ie keurt legitieme aankomst-events af terwijl 'ie de echte fout niet vangt. Een `onFocus` is bijvoorbeeld een gebruikershandeling, tot het veld `autoFocus` heeft; dan vuurt 'ie bij mount en is het precies dezelfde fout als `portal_login`, alleen vermomd als user-event. Omgekeerd is een `useEffect` die exact één keer per stage-wissel vuurt volkomen in orde.
+
+Stel bij elke nieuwe call-site dus niet de vraag "werkt het" maar: **noem één situatie waarin deze haak vuurt terwijl de gebruiker niets deed.** Kun je er een noemen — tab-refocus, token-refresh, remount bij client-side navigatie, achtergrond-hydratie, StrictMode-dubbelmount, `autoFocus` — dan meet het event iets anders dan de naam belooft. Dat is van buitenaf niet te zien: het event ziet er in GA4 volkomen normaal uit, en de telling is stilletjes opgeblazen.
 
 ### Het gedocumenteerde voorbeeld: `portal_login`
 
@@ -78,19 +80,22 @@ De aanroep leeft nu uitsluitend in `src/app/login/LoginForm.tsx`, direct achter 
 
 ### De enige toegestane uitzondering: aankomst-events
 
-Een "iemand heeft deze stap of pagina bereikt"-event heeft per definitie geen handeling om aan te hangen; de aankomst *is* de gebeurtenis. Zo'n event mag aan een mount hangen, op twee voorwaarden:
+Een "iemand heeft deze stap of pagina bereikt"-event heeft per definitie geen handeling om aan te hangen; de aankomst *is* de gebeurtenis. Zo'n event mag aan een mount hangen, op drie voorwaarden:
 
 1. De mount valt 1-op-1 samen met de gebeurtenis die je meet — dus geen haak die ook bij refocus, token-refresh of achtergrond-hydratie vuurt.
 2. Er is dedupe als herhaald vuren de telling zou vervuilen.
+3. **Het event draagt geen bedrag.** Geen `value`, geen `currency`. Een aankomst is per definitie client-side vastgesteld, en de browser kent de autoritatieve prijs niet — die komt uit `tmc.create_order` — en is bovendien manipuleerbaar. Bedragen gaan uitsluitend server-side mee, vanuit de Mollie-webhook (zie "De conversiebrug").
 
-Twee bestaande gevallen vallen hieronder, allebei bewust:
+Twee bestaande gevallen vallen hieronder:
 
-| Call-site | Event | Waarom toegestaan |
+| Call-site | Event | Status |
 |---|---|---|
-| `src/app/abonnement/AbonnementConfigurator.tsx:51` | `configurator_stage_view` | `useEffect` op `[stage]`; de component mount alleen op `/abonnement` en een stage-wissel *is* de gebeurtenis. Geen refocus-haak. |
-| `src/app/app/abonnement/bedankt/PaymentTracker.tsx:22,28` | `payment_success` / `payment_failed` | Aankomst op de bedankpagina; gededupliceerd per `transactionId` via `sessionStorage`, dus refresh telt niet dubbel. |
+| `src/app/abonnement/AbonnementConfigurator.tsx:51` | `configurator_stage_view` | ✅ Voldoet. `useEffect` op `[stage]`; de component mount alleen op `/abonnement` en een stage-wissel *is* de gebeurtenis. Geen refocus-haak, geen bedrag. |
+| `src/app/app/abonnement/bedankt/PaymentTracker.tsx:22,28` | `payment_success` / `payment_failed` | ⚠️ Voldoet aan 1 en 2 (gededupliceerd per `transactionId` via `sessionStorage`), **niet aan 3**: beide events dragen `value` en `currency`. Bekende afwijking, zie hieronder. |
 
-Alles daarbuiten hangt aan `onSubmit`, `onClick` of `onFocus`. Wijkt een nieuw event daarvan af, dan is de vraag niet "werkt het" maar "vuurt deze haak ook wanneer er niets gebeurd is".
+**De afwijking bij `payment_*` is bewust en tijdelijk.** Deze events zijn de enige plek waar vandaag nog een bedrag client-side meegaat, en ze zijn precies wat de conversiebrug moet vervangen: `PaymentTracker` vuurt alleen bij order-status `activated`, mist dus de webhook-race, en meet productorders helemaal niet. Voorwaarde 3 is de regel waar de brug naartoe werkt; deze twee call-sites zijn de laatste uitzondering erop en verdwijnen met die PR. Neem er geen nieuwe bij.
+
+Alles daarbuiten hangt aan `onSubmit`, `onClick` of `onFocus` — geverifieerd, inclusief de controle dat geen van die `onFocus`-velden `autoFocus` draagt of programmatisch gefocust wordt.
 
 ---
 
