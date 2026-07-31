@@ -122,6 +122,90 @@ De enige verbinding tussen de twee systemen: één server-side `purchase`-event 
 
 ---
 
+## Evaluatieplicht bij nieuwe features
+
+Elke nieuwe pagina, feature of uitbreiding wordt expliciet geëvalueerd op meting. **"Niet meten" is een geldige uitkomst**, maar geen stilzwijgende: hij wordt net zo goed vastgelegd als een nieuw event. Wat deze plicht voorkomt is niet te weinig meten, maar per ongeluk niet meten en dat pas maanden later ontdekken in een rapportage die er compleet uitzag.
+
+De evaluatie loopt langs vier poorten, in volgorde. Zodra een poort een uitkomst geeft ben je klaar.
+
+### Poort 1: ligt het achter login?
+
+Ja, dan **geen GA4**. Punt. Overweeg in plaats daarvan een `tmc.events`-entry volgens de `noun.verb`-conventie hieronder, met het werkwoord als voltooid deelwoord. Die rijen hangen al aan een `profile_id`, zijn niet consent-afhankelijk en niet te blokkeren door een adblocker. Klaar.
+
+### Poort 2: publiek, maar markeert het iets?
+
+De vraag is niet "kan ik hier een event op hangen" maar: **markeert deze gebruikershandeling een stap in de acquisitiefunnel?**
+
+Nee, dan **geen tracking**, met de reden vastgelegd in de PR-body. Voorbeelden van een terechte "nee": een accordeon die opengaat, een fotogalerij die doorschuift, een taalwissel, een terug-link. Enhanced Measurement dekt pageviews, scroll en outbound clicks al; daar hoeft niets bij.
+
+### Poort 3: ja, dus het event hangt aan de handeling
+
+Het event hangt aan de **gebruikershandeling** (een klik, een submit, een focus), niet aan mount, auth-state of visibility. Uitzondering: het voldoet aan de drie arrival-voorwaarden hierboven, en dan alle drie, niet twee van de drie.
+
+Toets met de vraag uit het principe: noem één situatie waarin deze haak vuurt terwijl de gebruiker niets deed. Kun je er een noemen, dan is het de verkeerde haak.
+
+**Het event draagt geen bedrag.** Geen `value`, geen `currency`.
+
+### Poort 4: gaat er geld om?
+
+Dan komt de `value` **uitsluitend server-side vanuit de Mollie-webhook**. Niet uit de browser, niet uit een prop, niet herberekend. De browser kent de autoritatieve prijs niet en is manipuleerbaar.
+
+### Handhaving: de "Analytics:"-regel
+
+**Elke PR-body bevat een regel die begint met `Analytics:`**, met precies één van drie uitkomsten:
+
+| Uitkomst | Vorm |
+|---|---|
+| Geen meting | `Analytics: geen. <reden>` |
+| Nieuw event | `Analytics: nieuw event <naam> (<parameters>), regel toegevoegd aan het eventregister.` |
+| Ongewijzigd | `Analytics: bestaand event <naam> ongewijzigd.` |
+
+Bij "nieuw event" is de regel in het eventregister onderdeel van dezelfde PR, niet van een opruim-PR daarna.
+
+### Beperking: Sanity omzeilt deze plicht
+
+Deze plicht hangt aan PR's. **Content die via Sanity wordt toegevoegd doorloopt hem niet**, want daar komt geen PR aan te pas.
+
+Voor pure contentpagina's is dat acceptabel: Enhanced Measurement dekt pageviews en scroll, en er valt verder niets te meten. Het is **niet** acceptabel voor een Sanity-pagina met een formulier of een CTA. Zodra er een handeling op staat die een funnelstap markeert, is er alsnog een PR-evaluatie nodig, ook al is de pagina zelf in het CMS gemaakt. Wie zo'n pagina publiceert zonder die stap, levert een funnel op waarvan het begin gemeten wordt en het eind niet.
+
+---
+
+## Eventregister
+
+Alle levende GA4-events. **Elk nieuw event krijgt hier een regel in dezelfde PR waarin het gebouwd wordt.** Een event dat hier niet staat, bestaat wat dit project betreft niet: dit register is de bron waartegen een rapportage gecontroleerd wordt.
+
+Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uitzondering: `purchase` gaat server-side via het Measurement Protocol (`src/lib/orders/ga-purchase.ts`). Parameters zijn de daadwerkelijk verzonden sleutels.
+
+| Event | Trigger | Parameters | Surface | Status |
+|---|---|---|---|---|
+| `generate_lead` | Submit van een lead-formulier | `event_category: lead_magnet`, `event_label` (type), `value` | 12 publieke formulieren | Levend |
+| `cta_click` | Klik op een CTA-knop | `event_category: engagement`, `event_label` (knoptekst), `page_location` | `/proefles`, `/app/producten` | Levend |
+| `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 13 formulieren, publiek plus `/abonnement` | Levend |
+| `click_phone` · `click_whatsapp` · `click_email` | Klik op een contactlink | `event_category: contact`, `event_label` | Geen | **Helper aanwezig, nul call-sites.** Wacht op mount op de footer-`tel:`/`mailto:`-links, audit gap #4 |
+| `configurator_stage_view` | Stage-wissel in de configurator, inclusief mount | `event_category: configurator`, `stage` | `/abonnement` | Levend, arrival-event |
+| `configurator_select` | Kaartselectie, vrij-trainen-swap, verlengde toegang, 12/24 maanden | `event_category: configurator`, `item_id`, `family`, `frequency`, `commitment_months`, `addon_vrij_trainen`, `addon_extended_access` | `/abonnement` | Levend |
+| `begin_checkout` | Klik op "Ga verder" | `event_category: configurator`, `items[0]` met `item_id`, `item_name`, `item_category` | `/abonnement` | Levend, bewust zonder bedrag |
+| `checkout_rejected` | Server-side weigering van `create_order` | `event_category: configurator`, `item_id`, `reason` | `/abonnement` | Levend |
+| `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | `/login` | Levend |
+| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` | ⚠️ **Uitzondering, zie hieronder** |
+| `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/app/producten` | ⚠️ **Uitzondering, zie hieronder** |
+| `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | `/app/abonnement/bedankt` | Levend, arrival-event. Verving `payment_success` en `payment_failed` in #139 |
+| `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0].item_id` | Server-side (Measurement Protocol) | Levend. Enige plek met een bedrag; zie "De conversiebrug" |
+
+Daarnaast levert GA4 Enhanced Measurement automatisch `page_view`, scroll, outbound clicks en file downloads. Die staan niet in dit register: ze zijn een admin-instelling, niet iets dat in deze repo geschreven of gewijzigd wordt.
+
+### De twee `payment_start`-uitzonderingen (tijdelijk, vastgelegd 2026-07-31)
+
+Eén event, twee call-sites, twee verschillende overtredingen. Beide zijn bewuste, tijdelijke uitzonderingen die in een opvolg-PR verdwijnen, opgenomen op dezelfde manier als de `PaymentTracker`-afwijking hierboven.
+
+**`PayStage.tsx` op `/abonnement`: draagt een bedrag client-side.** Het event zelf is in orde (poort 1 tot en met 3 gehaald: publieke route, echte gebruikershandeling, geen mount-haak), maar het stuurt `value` en `currency` mee en dat is in strijd met poort 4. Bedragen komen uitsluitend server-side uit de Mollie-webhook. **Oplossing: het bedrag wordt verwijderd, het event blijft.** Zonder `value` blijft het precies wat het hoort te zijn, een intentiesignaal aan het begin van de checkout.
+
+**`BuyButton.tsx` op `/app/producten`: vuurt achter login.** Dit faalt poort 1: de route ligt achter de meetgrens en hoort helemaal geen GA4-event te hebben. Erger nog, het event landt in de praktijk nergens. `/app/**` valt binnen de `SiteShell`-uitsluiting, dus daar staat geen `CookieConsent`, blijft `analytics_storage` op `denied` en komt de hit hooguit cookieless binnen zonder bruikbare sessie. Het kost onderhoud en levert niets. **Oplossing: de call-site wordt verwijderd.** Wat daar gemeten moet worden hoort in `tmc.events`.
+
+**Geen nieuwe uitzonderingen.** Deze twee plus de `PaymentTracker`-afwijking zijn de volledige lijst. Een nieuw event dat een poort niet haalt, wordt niet gebouwd; het wordt aangepast tot het wel door de poorten komt, of het wordt niet gemeten en dat wordt vastgelegd. Een uitzondering toevoegen aan deze lijst vraagt een expliciet besluit, geen PR-voetnoot.
+
+---
+
 ## Naamconventie `tmc.events`
 
 `noun.verb` waarbij het werkwoord een **voltooid deelwoord** is — het event beschrijft iets dat is gebeurd, niet iets dat gaat gebeuren. Conform de bestaande `checkin.recorded`.

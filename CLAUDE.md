@@ -1,6 +1,6 @@
 # CLAUDE.md — The Movement Club
 
-Context document voor Claude Code sessies op het TMC project. Dekt de volledige website (design, pagina's, lead funnel, analytics, SEO, CMS). De crowdfunding module zelf staat in een aparte spec (`tmc-crowdfunding-module.md`), maar de analytics events voor de crowdfunding flow zijn hier wél opgenomen zodat de tracking compleet is.
+Context document voor Claude Code sessies op het TMC project. Dekt de volledige website (design, pagina's, lead funnel, analytics, SEO, CMS). Analytics staat volledig in `spec-analytics.md`; hieronder alleen de meetgrens in het kort.
 
 ---
 
@@ -10,6 +10,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - Wissel van branch alleen vanaf een schone working tree. Is de tree vuil: `git stash push -u` met een beschrijvende message, wissel, en meld expliciet aan Ilja dat er een stash staat en hoe die terug te halen is. Nooit stilzwijgend overschrijven.
 - Maak een nieuwe branch met `git checkout -b <naam>` vanaf de juiste base. Gebruik nooit `git checkout <branch> -- .` om een working tree te "synchroniseren"; dat is geen branch-wissel maar een destructieve overschrijving.
 - Bij twijfel: stop en vraag. Verlies van niet-gecommit werk is nooit een acceptabele bijwerking van een voorbereidende stap.
+- Geef bij `gh pr create` altijd expliciet `--head <branch>` mee zolang er parallelle sessies draaien. Zonder die vlag leidt `gh` de branch af uit de checkout waarin het commando toevallig draait, en dat is bij een worktree-workflow niet jouw branch.
 
 ---
 
@@ -39,7 +40,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 ### Wat nog gebouwd moet worden
 
 - [ ] **Lead magnet pagina's** (`/beweeg-beter`, `/mobility-reset`, `/mobility-check`)
-- [ ] **Analytics event tracking** (custom events op formulieren, CTAs, crowdfunding flow)
+- [ ] **Analytics event tracking** (custom events op formulieren en CTAs; zie `spec-analytics.md`)
 - [ ] **Cookie consent banner** (AVG/GDPR, Consent Mode v2)
 - [ ] **GA4 script integratie** via `@next/third-parties` (als nog niet actief)
 - [ ] **MailerLite automations** (PDF → 7-dagen sequence → Mobility Check CTA)
@@ -109,10 +110,8 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
       beweeg-beter/page.tsx     -- NIEUW
       mobility-reset/page.tsx   -- NIEUW
       mobility-check/page.tsx   -- NIEUW
-      crowdfunding/
-        page.tsx                 -- uit crowdfunding spec
-        bedankt/page.tsx         -- uit crowdfunding spec
       studio/[[...tool]]/page.tsx  -- Sanity Studio
+      abonnement/page.tsx       -- configurator (publiek)
       api/
         contact/route.ts
         proefles/route.ts
@@ -284,6 +283,8 @@ Per oefening: foto/illustratie, 3-4 zinnen uitleg, sets/duur, "let op" tip.
 
 ## Analytics & Measurement
 
+> **De meetgrens.** GA4 meet uitsluitend acquisitie op de publieke site, tot en met de conversie; productgedrag achter login gaat naar `tmc.events`. Elke nieuwe pagina, feature of uitbreiding wordt expliciet geëvalueerd op meting, en "niet meten" is een geldige uitkomst mits vastgelegd. Elke PR-body bevat daarom een regel die begint met `Analytics:` met één van drie uitkomsten: geen (plus reden), nieuw event (plus naam, parameters en een regel in het eventregister), of bestaand event ongewijzigd. De vier poorten, het volledige eventregister en de conversiebrug staan in `spec-analytics.md`.
+
 ### GA4 Script Setup
 
 Gebruik `@next/third-parties/google` voor optimale performance:
@@ -330,150 +331,6 @@ gtag('consent', 'update', {
 ```
 
 Bewaar keuze in `localStorage` key `tmc-cookie-consent` (`'accepted'` | `'declined'`).
-
-### Analytics Helper (`src/lib/analytics.ts`)
-
-Centrale helper voor alle custom events. CC bouwt dit één keer en hergebruikt overal.
-
-```typescript
-type EventParams = {
-  event_category?: string;
-  event_label?: string;
-  value?: number;
-  [key: string]: string | number | undefined;
-};
-
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
-
-export const trackEvent = (eventName: string, params?: EventParams) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', eventName, params);
-  }
-};
-
-// Lead conversion (PDF, email sequence, booking, contact)
-export const trackLead = (type: string, value: number = 1) => {
-  trackEvent('generate_lead', {
-    event_category: 'lead_magnet',
-    event_label: type,
-    value,
-  });
-};
-
-// CTA button clicks
-export const trackCTA = (buttonText: string, page: string) => {
-  trackEvent('cta_click', {
-    event_category: 'engagement',
-    event_label: buttonText,
-    page_location: page,
-  });
-};
-
-// Contact method clicks
-export const trackContact = (method: 'phone' | 'whatsapp' | 'email') => {
-  trackEvent(`click_${method}`, {
-    event_category: 'contact',
-    event_label: `${method}_click`,
-  });
-};
-
-// Form started (first field interaction)
-export const trackFormStart = (formName: string) => {
-  trackEvent('form_start', {
-    event_category: 'engagement',
-    event_label: formName,
-  });
-};
-
-// Outbound link clicks (Instagram, Google Maps)
-export const trackOutbound = (destination: string) => {
-  trackEvent('click_outbound', {
-    event_category: 'navigation',
-    event_label: destination,
-  });
-};
-
-// Crowdfunding — tier CTA clicked, redirect naar Mollie
-export const trackBeginCheckout = (tierId: string, tierName: string, value: number) => {
-  trackEvent('begin_checkout', {
-    event_category: 'crowdfunding',
-    event_label: tierName,
-    tier_id: tierId,
-    value,
-    currency: 'EUR',
-  });
-};
-
-// Crowdfunding — betaling bevestigd op /crowdfunding/bedankt
-export const trackPurchase = (params: {
-  transactionId: string;
-  tierId: string;
-  tierName: string;
-  value: number;
-}) => {
-  trackEvent('purchase', {
-    event_category: 'crowdfunding',
-    transaction_id: params.transactionId,
-    tier_id: params.tierId,
-    event_label: params.tierName,
-    value: params.value,
-    currency: 'EUR',
-  });
-};
-
-// Crowdfunding — social share op bedankpagina
-export const trackShare = (method: 'whatsapp' | 'instagram' | 'facebook' | 'copy') => {
-  trackEvent('share', {
-    event_category: 'crowdfunding',
-    event_label: `share_${method}`,
-    method,
-  });
-};
-```
-
-### Events om te tracken
-
-**Lead events — markeren als conversies in GA4:**
-
-| Event | Trigger | Label | Value |
-|---|---|---|---|
-| `generate_lead` | PDF download form submit | `pdf_beweeg_beter` | 1 |
-| `generate_lead` | Mobility Reset opt-in submit | `mobility_reset_optin` | 5 |
-| `generate_lead` | Mobility Check form submit | `mobility_check_booking` | 25 |
-| `generate_lead` | Contact form submit | `contact_form` | 10 |
-| `generate_lead` | Proefles form submit | `proefles_booking` | 20 |
-
-**Engagement events:**
-
-| Event | Trigger | Details |
-|---|---|---|
-| `cta_click` | Alle gold CTA buttons | button text + page |
-| `click_phone` | Telefoon link klik | — |
-| `click_whatsapp` | WhatsApp link klik | — |
-| `click_email` | Email link klik | — |
-| `form_start` | Eerste interactie met formulier | form name |
-| `section_view` | Homepage sectie in viewport | section name (via Intersection Observer) |
-| `click_outbound` | Instagram / Google Maps link | destination |
-
-**Crowdfunding events — markeren als conversies (alleen `purchase`):**
-
-| Event | Trigger | Label/Params |
-|---|---|---|
-| `page_view` | `/crowdfunding` page load | auto via GA4 |
-| `view_item_list` | Tier grid komt in viewport | `item_list_name: 'crowdfunding_tiers'` |
-| `select_item` | Tier card click (niet CTA) | `tier_id`, `tier_name` |
-| `begin_checkout` | Tier "Kies deze tier" CTA click | `tier_id`, `tier_name`, `value`, `currency: 'EUR'` |
-| `purchase` | `/crowdfunding/bedankt` na Mollie webhook succes | `transaction_id` (Mollie payment ID), `tier_id`, `value`, `currency: 'EUR'` |
-| `share` | Social share buttons op bedankpagina | `method: whatsapp/instagram/facebook/copy` |
-
-**Implementatie hints voor crowdfunding purchase event:**
-- Vuur `purchase` alleen op de bedankpagina, niet in de webhook (die draait server-side, geen GA toegang)
-- Geef transaction details mee via URL params of server component props vanuit Supabase lookup op Mollie payment ID
-- Voorkom dubbel-vuren bij page refresh: check `sessionStorage.getItem('purchase_fired_' + transactionId)` en zet na vuur
 
 ### Enhanced Measurement (GA4 Admin)
 
@@ -533,15 +390,6 @@ Bewaar UTM's in `sessionStorage` bij eerste pageview zodat ze later meegestuurd 
 | `/beweeg-beter` conversieratio | >25% | GA4 funnel |
 | Email open rate (Reset sequence) | >50% | MailerLite |
 | Email click rate dag 7 CTA | >10% | MailerLite |
-
-**Crowdfunding specifiek (tijdens campagne):**
-
-| KPI | Bron |
-|---|---|
-| `/crowdfunding` unieke pageviews per kanaal | GA4 + UTM |
-| Checkout conversion (begin_checkout → purchase) | GA4 funnel |
-| Gem. orderwaarde per tier | GA4 `purchase` event |
-| Top traffic source voor `purchase` events | GA4 attribution |
 
 ### Vercel Analytics (aanvullend)
 
@@ -718,15 +566,6 @@ vercel env pull .env.local
 - [ ] Event tracking op alle gold CTA buttons (`cta_click`)
 - [ ] Event tracking op footer telefoon/WhatsApp/email links
 - [ ] UTM parameters opslaan in `sessionStorage` bij eerste pageview
-- [ ] Section view tracking op homepage via Intersection Observer
-
-**Crowdfunding analytics (prioriteit 2 — vóór campagne launch):**
-- [ ] `begin_checkout` bij tier CTA klik (op `/crowdfunding`)
-- [ ] `view_item_list` bij tier grid in viewport
-- [ ] `purchase` op `/crowdfunding/bedankt` met Mollie transaction ID
-- [ ] `share` events op bedankpagina social buttons
-- [ ] Dedupe `purchase` fire bij refresh via sessionStorage
-- [ ] GA4 Admin: markeer `generate_lead` en `purchase` als conversies
 
 **Lead magnet pagina's:**
 - [ ] `/beweeg-beter` landing + slide-in popup op homepage
@@ -827,7 +666,8 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 
 ## Gerelateerde documenten
 
-- `tmc-crowdfunding-module.md` — volledige spec voor `/crowdfunding` module (tiers, Mollie, Supabase schema, Sanity tier CMS). De analytics events voor die pagina's staan in dít document, in de Analytics sectie.
+- `spec-analytics.md`: de meetgrens, de vier poorten van de evaluatieplicht, het eventregister en de conversiebrug. Leidend voor alles wat met meting te maken heeft.
+- `tmc-crowdfunding-module.md`: historische spec voor de `/crowdfunding` module. De endpoints en de bijbehorende analytics-helpers zijn verwijderd in #120; het document staat er nog als achtergrond, niet als beschrijving van de huidige codebase.
 - `the-movement-club-sanity-cms.md` — volledige CMS migratie plan en onboarding voor Marlon.
 - `navigation-refactor-spec.md` — refactor-spec voor member/trainer/admin role-scoped layouts.
 
