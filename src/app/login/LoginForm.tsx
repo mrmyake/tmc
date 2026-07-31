@@ -113,7 +113,18 @@ export function LoginForm({ initialError, next }: Props) {
     setBusy(true);
     setErrorMsg("");
 
-    const result = await verifyLoginOtp(email, code, next);
+    // Zelfde UTM-set als requestCode meestuurt. Die route vult alleen een
+    // nieuw profiel (via de trigger); deze vult een bestaand profiel waar de
+    // velden nog leeg zijn — first-touch blijft bewaakt, server-side.
+    const utm = getStoredUtm();
+    const result = await verifyLoginOtp(email, code, next, {
+      acquisitionSource: utm.utm_source,
+      acquisitionMedium: utm.utm_medium,
+      acquisitionCampaign: utm.utm_campaign,
+      acquisitionContent: utm.utm_content,
+      signupPath: window.location.pathname,
+      firstTouchAt: new Date().toISOString(),
+    });
 
     if (!result.ok) {
       setBusy(false);
