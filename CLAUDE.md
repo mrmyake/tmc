@@ -10,6 +10,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - Wissel van branch alleen vanaf een schone working tree. Is de tree vuil: `git stash push -u` met een beschrijvende message, wissel, en meld expliciet aan Ilja dat er een stash staat en hoe die terug te halen is. Nooit stilzwijgend overschrijven.
 - Maak een nieuwe branch met `git checkout -b <naam>` vanaf de juiste base. Gebruik nooit `git checkout <branch> -- .` om een working tree te "synchroniseren"; dat is geen branch-wissel maar een destructieve overschrijving.
 - Bij twijfel: stop en vraag. Verlies van niet-gecommit werk is nooit een acceptabele bijwerking van een voorbereidende stap.
+- Geef bij `gh pr create` altijd expliciet `--head <branch>` mee zolang er parallelle sessies draaien. Zonder die vlag leidt `gh` de branch af uit de checkout waarin het commando toevallig draait, en dat is bij een worktree-workflow niet jouw branch.
 
 ---
 
@@ -283,6 +284,10 @@ Per oefening: foto/illustratie, 3-4 zinnen uitleg, sets/duur, "let op" tip.
 ---
 
 ## Analytics & Measurement
+
+> **De meetgrens.** GA4 meet uitsluitend acquisitie op de publieke site, tot en met de conversie; productgedrag achter login gaat naar `tmc.events`. Elke nieuwe pagina, feature of uitbreiding wordt expliciet geëvalueerd op meting, en "niet meten" is een geldige uitkomst mits vastgelegd. Elke PR-body bevat daarom een regel die begint met `Analytics:` met één van drie uitkomsten: geen (plus reden), nieuw event (plus naam, parameters en een regel in het eventregister), of bestaand event ongewijzigd.
+>
+> **`spec-analytics.md` is leidend.** De sectie hieronder is ouder en op onderdelen achterhaald (de crowdfunding-helpers bestaan niet meer); bij tegenspraak wint de spec.
 
 ### GA4 Script Setup
 
