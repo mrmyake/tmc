@@ -174,7 +174,7 @@ Voor pure contentpagina's is dat acceptabel: Enhanced Measurement dekt pageviews
 
 Alle levende GA4-events. **Elk nieuw event krijgt hier een regel in dezelfde PR waarin het gebouwd wordt.** Een event dat hier niet staat, bestaat wat dit project betreft niet: dit register is de bron waartegen een rapportage gecontroleerd wordt.
 
-Alle events hieronder zijn client-side tenzij anders vermeld. Parameters zijn de daadwerkelijk verzonden sleutels uit `src/lib/analytics.ts`.
+Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uitzondering: `purchase` gaat server-side via het Measurement Protocol (`src/lib/orders/ga-purchase.ts`). Parameters zijn de daadwerkelijk verzonden sleutels.
 
 | Event | Trigger | Parameters | Surface | Status |
 |---|---|---|---|---|
@@ -189,8 +189,8 @@ Alle events hieronder zijn client-side tenzij anders vermeld. Parameters zijn de
 | `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | `/login` | Levend |
 | `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` | ⚠️ **Uitzondering, zie hieronder** |
 | `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/app/producten` | ⚠️ **Uitzondering, zie hieronder** |
-| `payment_success` | Bedankpagina bij order-status `activated` | `event_category: payment`, `value`, `currency`, `context`, `transaction_id` | `/app/abonnement/bedankt` | **Wordt vervangen door `payment_return_view` in PR #139 (open)** |
-| `payment_failed` | Bedankpagina bij order-status `expired` of `cancelled` | `event_category: payment`, `value`, `currency`, `context`, `reason` | `/app/abonnement/bedankt` | **Wordt vervangen door `payment_return_view` in PR #139 (open)** |
+| `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | `/app/abonnement/bedankt` | Levend, arrival-event. Verving `payment_success` en `payment_failed` in #139 |
+| `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0].item_id` | Server-side (Measurement Protocol) | Levend. Enige plek met een bedrag; zie "De conversiebrug" |
 
 Daarnaast levert GA4 Enhanced Measurement automatisch `page_view`, scroll, outbound clicks en file downloads. Die staan niet in dit register: ze zijn een admin-instelling, niet iets dat in deze repo geschreven of gewijzigd wordt.
 
