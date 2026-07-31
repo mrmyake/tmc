@@ -14,8 +14,10 @@
  * Bedragen gaan uitsluitend server-side mee, vanuit de Mollie-webhook —
  * nooit client-side. De browser kent de autoritatieve prijs niet (die komt
  * uit `tmc.create_order`) en is bovendien manipuleerbaar. De conversiebrug
- * die de omzet naar GA4 stuurt is nog niet gebouwd; tot die er is dragen
- * de client-events bewust geen `value`.
+ * die de omzet naar GA4 stuurt is `sendPurchaseToGa4`
+ * (`src/lib/orders/ga-purchase.ts`), aangeroepen vanuit de Mollie-webhook;
+ * de client-events hier dragen bewust geen `value`. Enige rest-uitzondering:
+ * `payment_start` (herziening volgt).
  */
 
 declare global {
@@ -201,30 +203,22 @@ export const trackPaymentStart = (params: {
   });
 };
 
-export const trackPaymentSuccess = (params: {
-  amount: number;
-  context: string;
-  transactionId: string;
+/**
+ * Aankomst op de bedankpagina na een Mollie-checkout. Arrival-event
+ * conform de drie voorwaarden in spec-analytics.md: geen `value`, geen
+ * `currency` — de omzet gaat uitsluitend server-side, via het Measurement
+ * Protocol purchase-event uit de Mollie-webhook (sendPurchaseToGa4).
+ * `order_status` als dimensie houdt de webhook-race zichtbaar: wie
+ * terugkeert vóór activatie, komt hier binnen met "pending".
+ *
+ * Verving payment_success/payment_failed (client-side, mét bedrag) — de
+ * laatste uitzondering op voorwaarde 3, opgeheven door de conversiebrug.
+ */
+export const trackPaymentReturnView = (params: {
+  orderStatus: string;
 }): void => {
-  trackEvent("payment_success", {
+  trackEvent("payment_return_view", {
     event_category: "payment",
-    value: params.amount,
-    currency: "EUR",
-    context: params.context,
-    transaction_id: params.transactionId,
-  });
-};
-
-export const trackPaymentFailed = (params: {
-  amount: number;
-  context: string;
-  reason: string;
-}): void => {
-  trackEvent("payment_failed", {
-    event_category: "payment",
-    value: params.amount,
-    currency: "EUR",
-    context: params.context,
-    reason: params.reason,
+    order_status: params.orderStatus,
   });
 };
