@@ -8,6 +8,7 @@ import { cancelMollieSubscription } from "@/lib/mollie";
 import { sendNotification } from "@/lib/ntfy";
 import {
   cancelMembershipCore,
+  cancelMembershipChangeCore,
   pauseMembershipCore,
   resumeMembershipCore,
   requestMembershipChangeCore,
@@ -315,6 +316,103 @@ export async function requestPlanChange(
 
   revalidateDetail(input.profileId);
   return { ok: true, message: result.message };
+}
+
+// ----------------------------------------------------------------------------
+// Cancel a pending plan change
+// ----------------------------------------------------------------------------
+
+/**
+ * Leesbare tekst per weigeringsgrond van dit ene pad.
+ *
+ * `tmc.cancel_membership_change_request` kent maar twee gronden
+ * (`request_not_found` en `not_cancellable`, geverifieerd via
+ * `pg_get_functiondef`); `rpc_failed` komt uit de TS-laag eromheen. Bewust
+ * beperkt tot deze drie: de andere lifecycle-functies interpoleren hun
+ * ruwe reden nog in de melding (bevinding GEDEELD-3 in
+ * `docs/evaluatie-admin-leden.md`) en die worden hier niet meegenomen.
+ */
+const CANCEL_CHANGE_REASON_COPY: Record<string, string> = {
+  // COPY: confirm met Marlon
+  request_not_found:
+    "Dit verzoek bestaat niet meer. Ververs de pagina om de actuele stand te zien.",
+  // COPY: confirm met Marlon
+  not_cancellable:
+    "Dit verzoek is niet meer te annuleren; het is inmiddels verwerkt of al geannuleerd. Ververs de pagina.",
+  // COPY: confirm met Marlon
+  rpc_failed: "Annuleren lukte niet. Probeer het opnieuw.",
+};
+
+interface CancelPlanChangeInput {
+  profileId: string;
+  requestId: string;
+}
+
+/**
+ * Dunne voorkant op `cancelMembershipChangeCore`: die doet de RPC en zet
+ * daarna het Mollie-bedrag terug. Hier alleen de admin-gate, de koppeling
+ * aan dit profiel, en het audit-spoor.
+ *
+ * De statuscontrole hieronder is UX, geen poort. De RPC draait onder een
+ * rijlock en is de autoriteit; verliest deze aanroep een race (twee
+ * tabbladen die tegelijk annuleren), dan weigert de RPC en vertaalt de map
+ * hierboven die weigering naar een leesbare zin.
+ */
+export async function cancelPlanChange(
+  input: CancelPlanChangeInput,
+): Promise<MemberActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { data: request } = await admin
+    .from("membership_change_requests")
+    .select("id, profile_id, status, target_slug")
+    .eq("id", input.requestId)
+    .maybeSingle();
+
+  // COPY: confirm met Marlon
+  if (!request) return { ok: false, message: "Verzoek niet gevonden." };
+  if (request.profile_id !== input.profileId) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Verzoek hoort niet bij dit lid." };
+  }
+  if (request.status !== "pending") {
+    return {
+      ok: false,
+      message: CANCEL_CHANGE_REASON_COPY.not_cancellable,
+    };
+  }
+
+  const result = await cancelMembershipChangeCore({
+    requestId: input.requestId,
+  });
+  if (!result.ok) {
+    const copy = result.reason
+      ? CANCEL_CHANGE_REASON_COPY[result.reason]
+      : undefined;
+    return { ok: false, message: copy ?? result.message };
+  }
+
+  await admin.from("admin_audit_log").insert({
+    admin_id: auth.userId,
+    action: "plan_change_cancelled",
+    target_type: "profile",
+    target_id: input.profileId,
+    details: {
+      request_id: input.requestId,
+      target_slug: request.target_slug,
+    },
+  });
+
+  revalidateDetail(input.profileId);
+  revalidatePath("/app/abonnement");
+  // COPY: confirm met Marlon
+  return {
+    ok: true,
+    message:
+      "De wijziging is geannuleerd en het incassobedrag is teruggezet naar het huidige tarief.",
+  };
 }
 
 // ----------------------------------------------------------------------------

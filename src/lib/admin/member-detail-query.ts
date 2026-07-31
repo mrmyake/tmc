@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCatalogue } from "@/lib/catalogue";
 import type { MemberStatus } from "./members-query";
 
 export interface MemberDetailProfile {
@@ -108,6 +109,45 @@ export interface MemberStats {
   activeStrikes: number;
 }
 
+/**
+ * Een nog niet verwerkte abonnementswijziging (`tmc.membership_change_requests`).
+ *
+ * Twee statussen komen hier binnen en ze betekenen iets heel anders:
+ *   - `pending`: staat gepland voor `effectiveDate`, nog te annuleren.
+ *   - `failed`  : de cron kon de wijziging niet toepassen. Het Mollie-bedrag
+ *                 is bij het indienen al verhoogd, dus de klant betaalt het
+ *                 nieuwe tarief terwijl de rechten nog de oude zijn. Niet
+ *                 annuleerbaar via de RPC (die accepteert alleen `pending`),
+ *                 wel zichtbaar, want anders blijft dat verschil onopgemerkt.
+ *
+ * Bedragen komen ongewijzigd uit de snapshot-kolommen op de rij zelf. Die
+ * zijn door `_compute_order_price` uit `tmc.catalogue` geschreven en zijn
+ * exact wat Mollie incasseert; hier wordt niets herrekend. De catalogus
+ * wordt uitsluitend geraadpleegd voor de leesbare plannaam.
+ *
+ * `currentPlanName` en `billingCycleWeeks` horen bij de membership waar het
+ * verzoek daadwerkelijk aan hangt (`membership_id` op de rij), niet bij de
+ * primaire membership uit `pickPrimary()`. Een lid met zowel een abonnement
+ * als een rittenkaart heeft die twee niet gelijk: `pickPrimary()` geeft
+ * voorrang aan status `active`, wat de rittenkaart kan zijn, terwijl het
+ * verzoek per definitie aan het abonnement hangt.
+ */
+export interface MemberPendingChangeRow {
+  id: string;
+  status: "pending" | "failed";
+  currentPlanName: string;
+  billingCycleWeeks: number;
+  targetSlug: string;
+  targetPlanName: string;
+  targetExtendedAccess: boolean;
+  currentRecurringCents: number;
+  newRecurringCents: number;
+  effectiveDate: string;
+  requestedVia: string;
+  failureReason: string | null;
+  createdAt: string;
+}
+
 export interface MemberDetail {
   profile: MemberDetailProfile;
   memberships: MemberDetailMembership[];
@@ -119,6 +159,7 @@ export interface MemberDetail {
   notes: MemberNoteRow[];
   audit: MemberAuditRow[];
   stats: MemberStats;
+  pendingChange: MemberPendingChangeRow | null;
 }
 
 function pickPrimary(
@@ -193,6 +234,7 @@ export async function loadMemberDetail(
     notesRes,
     strikesRes,
     checkInsRes,
+    changeRequestRes,
   ] = await Promise.all([
       admin
         .from("profiles")
@@ -264,6 +306,22 @@ export async function loadMemberDetail(
         .eq("profile_id", profileId)
         .order("checked_in_at", { ascending: false })
         .limit(200),
+      // Nog niet verwerkte abonnementswijziging. Een partiele unieke index
+      // dwingt af dat er hooguit een `pending`-rij per membership bestaat;
+      // `failed`-rijen kennen die beperking niet, dus we nemen bewust de
+      // meest recente en tonen die.
+      admin
+        .from("membership_change_requests")
+        .select(
+          `id, membership_id, status, target_slug, target_extended_access,
+           current_recurring_cents, new_recurring_cents,
+           effective_date, requested_via, failure_reason, created_at`,
+        )
+        .eq("profile_id", profileId)
+        .in("status", ["pending", "failed"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const profile = profileRes.data;
@@ -455,6 +513,56 @@ export async function loadMemberDetail(
     healthNotes: parseHealthNotes(profile.health_notes),
   };
 
+  // Plannaam uit de catalogus, uitsluitend voor de weergave. Ontbreekt de
+  // rij (inactief of hernoemd), dan valt hij terug op de ruwe slug, zelfde
+  // gedrag als de plannamen elders op deze pagina.
+  type ChangeRequestRow = {
+    id: string;
+    membership_id: string;
+    status: string;
+    target_slug: string;
+    target_extended_access: boolean;
+    current_recurring_cents: number;
+    new_recurring_cents: number;
+    effective_date: string;
+    requested_via: string;
+    failure_reason: string | null;
+    created_at: string;
+  };
+  const changeRow = changeRequestRes.data as ChangeRequestRow | null;
+  let pendingChange: MemberPendingChangeRow | null = null;
+  if (changeRow) {
+    const catalogue = await getCatalogue();
+    // De membership waar het verzoek aan hangt, niet de primaire: zie de
+    // toelichting bij MemberPendingChangeRow. `memberships` is hierboven al
+    // volledig geladen voor dit profiel, dus dit kost geen extra query.
+    const subject = memberships.find((m) => m.id === changeRow.membership_id);
+    pendingChange = {
+      id: changeRow.id,
+      status: changeRow.status === "failed" ? "failed" : "pending",
+      // COPY: confirm met Marlon
+      currentPlanName: subject?.planVariant
+        ? (catalogue.get(subject.planVariant)?.display_name ??
+          subject.planVariant)
+        : "Huidig abonnement",
+      // Een wijzigingsverzoek bestaat alleen op een doorlopend abonnement
+      // (`request_membership_change` weigert billing_cycle_weeks = 0), dus 4
+      // is hier een veilige terugval als de membership onverwacht ontbreekt.
+      billingCycleWeeks: subject?.billingCycleWeeks ?? 4,
+      targetSlug: changeRow.target_slug,
+      targetPlanName:
+        catalogue.get(changeRow.target_slug)?.display_name ??
+        changeRow.target_slug,
+      targetExtendedAccess: changeRow.target_extended_access,
+      currentRecurringCents: changeRow.current_recurring_cents,
+      newRecurringCents: changeRow.new_recurring_cents,
+      effectiveDate: changeRow.effective_date,
+      requestedVia: changeRow.requested_via,
+      failureReason: changeRow.failure_reason,
+      createdAt: changeRow.created_at,
+    };
+  }
+
   return {
     profile: detailProfile,
     memberships,
@@ -465,6 +573,7 @@ export async function loadMemberDetail(
     payments,
     notes,
     audit,
+    pendingChange,
     stats: {
       totalSessions: bookings.length,
       attendedSessions: attendedList.length,

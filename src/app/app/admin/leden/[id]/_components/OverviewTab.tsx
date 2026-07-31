@@ -3,6 +3,7 @@ import { formatShortDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";
 import { StatTile } from "@/app/app/_components/StatTile";
+import { PendingChangeNotice } from "./PendingChangeNotice";
 
 interface OverviewTabProps {
   detail: MemberDetail;
@@ -44,6 +45,13 @@ export function OverviewTab({ detail }: OverviewTabProps) {
           }
         />
       </div>
+
+      {detail.pendingChange && (
+        <PendingChangeNotice
+          profileId={profile.id}
+          change={detail.pendingChange}
+        />
+      )}
 
       {stats.activeStrikes > 0 && (
         <aside

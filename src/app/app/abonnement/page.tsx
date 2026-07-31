@@ -13,6 +13,8 @@ import {
 import { MembershipActions } from "./_components/MembershipActions";
 import { GuestPassesSection } from "./_components/GuestPassesSection";
 import { getGuestPassStatus } from "@/lib/member/guest-pass-actions";
+import { formatEuro } from "@/lib/format";
+import { formatDateLong } from "@/lib/format-date";
 
 export const metadata = {
   title: "Abonnement | The Movement Club",
@@ -88,7 +90,8 @@ export default async function AbonnementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [currentResult, historyResult, guestPassStatus] = await Promise.all([
+  const [currentResult, historyResult, changeResult, guestPassStatus] =
+    await Promise.all([
     supabase
       .from("memberships")
       .select(
@@ -125,17 +128,58 @@ export default async function AbonnementPage() {
       .in("status", HISTORY_STATUSES)
       .order("end_date", { ascending: false })
       .limit(20),
+    // Geplande abonnementswijziging. Leesbaar met de gewone user-client via
+    // de RLS-policy `mcr_self_read` (profile_id = auth.uid()). Bewust alleen
+    // `pending`: een mislukte toepassing is een studio-probleem dat Marlon
+    // op de ledendetailpagina oppakt, niet iets waar het lid zelf iets mee
+    // kan. Ongeacht `requested_via`, want een door de studio ingediende
+    // wijziging verhoogt de incasso van dit lid net zo goed.
+    // De facturatiecyclus komt uit de membership waar het verzoek aan hangt
+    // (embedded join op membership_change_requests_membership_id_fkey), niet
+    // uit de membership die deze pagina toont. Die twee zijn niet altijd
+    // dezelfde: de selectie hierboven pakt de nieuwste in ACTIVE_STATUSES,
+    // wat een rittenkaart met cyclus 0 kan zijn, terwijl een wijziging altijd
+    // op een doorlopend abonnement hangt.
+    supabase
+      .from("membership_change_requests")
+      .select(
+        `id, target_slug, target_extended_access, new_recurring_cents,
+         effective_date, membership:memberships(billing_cycle_weeks)`,
+      )
+      .eq("profile_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     getGuestPassStatus(),
   ]);
 
   logIfError("current membership", currentResult.error);
   logIfError("history", historyResult.error);
+  logIfError("change request", changeResult.error);
 
   const membership = currentResult.data;
 
   // Build a set of plan_variants we need display names for.
+  const pendingChange = changeResult.data;
+  // Supabase levert een embedded to-one relatie soms als array; normaliseren.
+  const pendingChangeCycleWeeks = (() => {
+    const ref = pendingChange?.membership as
+      | { billing_cycle_weeks: number | null }
+      | { billing_cycle_weeks: number | null }[]
+      | null
+      | undefined;
+    const row = Array.isArray(ref) ? ref[0] : ref;
+    // Een wijziging bestaat alleen op een doorlopend abonnement, dus 4 is
+    // een veilige terugval als de relatie onverwacht leeg is.
+    return row?.billing_cycle_weeks || 4;
+  })();
+
   const variants = new Set<string>();
   if (membership?.plan_variant) variants.add(membership.plan_variant);
+  // Doelplan meenemen in dezelfde catalogus-read, zodat de naam uit
+  // dezelfde bron komt als alle andere plannamen op deze pagina.
+  if (pendingChange?.target_slug) variants.add(pendingChange.target_slug);
   for (const row of historyResult.data ?? []) {
     if (row.plan_variant) variants.add(row.plan_variant);
   }
@@ -248,6 +292,41 @@ export default async function AbonnementPage() {
           )}
         </div>
       </div>
+
+      {pendingChange && (
+        <aside
+          role="note"
+          className="mb-12 p-6 border border-accent/30 border-l-4 border-l-accent bg-bg-elevated"
+        >
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
+            {/* COPY: confirm met Marlon */}
+            Wijziging gepland
+          </span>
+          <p className="text-text text-base leading-relaxed mb-4">
+            {/* COPY: confirm met Marlon */}
+            Je stapt over naar{" "}
+            <span className="text-accent">
+              {planByVariant.get(pendingChange.target_slug)?.display_name ??
+                pendingChange.target_slug}
+            </span>
+            {pendingChange.target_extended_access
+              ? " inclusief verlengde toegang"
+              : ""}
+            . Vanaf{" "}
+            {formatDateLong(new Date(pendingChange.effective_date))} gelden de
+            nieuwe voorwaarden.
+          </p>
+          <p className="text-text-muted text-sm leading-relaxed">
+            {/* COPY: confirm met Marlon */}
+            Je incasso is al aangepast naar{" "}
+            {formatEuro(
+              Math.round(pendingChange.new_recurring_cents / 100),
+            )}{" "}
+            per {pendingChangeCycleWeeks} weken. Klopt dit niet, neem dan
+            contact met ons op.
+          </p>
+        </aside>
+      )}
 
       {currentPlan?.includes && currentPlan.includes.length > 0 && (
         <div className="mb-14">
