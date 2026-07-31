@@ -181,11 +181,22 @@ Alle events hieronder zijn client-side tenzij anders vermeld. Parameters zijn de
 | `begin_checkout` | Klik op "Ga verder" | `event_category: configurator`, `items[0]` met `item_id`, `item_name`, `item_category` | `/abonnement` | Levend, bewust zonder bedrag |
 | `checkout_rejected` | Server-side weigering van `create_order` | `event_category: configurator`, `item_id`, `reason` | `/abonnement` | Levend |
 | `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | `/login` | Levend |
-| `payment_start` | Klik op "Betaal nu" of "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement`, `/app/producten` | Levend. Laatste client-side event met een bedrag; herziening volgt |
+| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` | ⚠️ **Uitzondering, zie hieronder** |
+| `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/app/producten` | ⚠️ **Uitzondering, zie hieronder** |
 | `payment_success` | Bedankpagina bij order-status `activated` | `event_category: payment`, `value`, `currency`, `context`, `transaction_id` | `/app/abonnement/bedankt` | **Wordt vervangen door `payment_return_view` in PR #139 (open)** |
 | `payment_failed` | Bedankpagina bij order-status `expired` of `cancelled` | `event_category: payment`, `value`, `currency`, `context`, `reason` | `/app/abonnement/bedankt` | **Wordt vervangen door `payment_return_view` in PR #139 (open)** |
 
 Daarnaast levert GA4 Enhanced Measurement automatisch `page_view`, scroll, outbound clicks en file downloads. Die staan niet in dit register: ze zijn een admin-instelling, niet iets dat in deze repo geschreven of gewijzigd wordt.
+
+### De twee `payment_start`-uitzonderingen (tijdelijk, vastgelegd 2026-07-31)
+
+Eén event, twee call-sites, twee verschillende overtredingen. Beide zijn bewuste, tijdelijke uitzonderingen die in een opvolg-PR verdwijnen, opgenomen op dezelfde manier als de `PaymentTracker`-afwijking hierboven.
+
+**`PayStage.tsx` op `/abonnement`: draagt een bedrag client-side.** Het event zelf is in orde (poort 1 tot en met 3 gehaald: publieke route, echte gebruikershandeling, geen mount-haak), maar het stuurt `value` en `currency` mee en dat is in strijd met poort 4. Bedragen komen uitsluitend server-side uit de Mollie-webhook. **Oplossing: het bedrag wordt verwijderd, het event blijft.** Zonder `value` blijft het precies wat het hoort te zijn, een intentiesignaal aan het begin van de checkout.
+
+**`BuyButton.tsx` op `/app/producten`: vuurt achter login.** Dit faalt poort 1: de route ligt achter de meetgrens en hoort helemaal geen GA4-event te hebben. Erger nog, het event landt in de praktijk nergens. `/app/**` valt binnen de `SiteShell`-uitsluiting, dus daar staat geen `CookieConsent`, blijft `analytics_storage` op `denied` en komt de hit hooguit cookieless binnen zonder bruikbare sessie. Het kost onderhoud en levert niets. **Oplossing: de call-site wordt verwijderd.** Wat daar gemeten moet worden hoort in `tmc.events`.
+
+**Geen nieuwe uitzonderingen.** Deze twee plus de `PaymentTracker`-afwijking zijn de volledige lijst. Een nieuw event dat een poort niet haalt, wordt niet gebouwd; het wordt aangepast tot het wel door de poorten komt, of het wordt niet gemeten en dat wordt vastgelegd. Een uitzondering toevoegen aan deze lijst vraagt een expliciet besluit, geen PR-voetnoot.
 
 ---
 
