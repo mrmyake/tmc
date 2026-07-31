@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
+import { TrainerScopePicker } from "@/components/trainer/TrainerScopePicker";
 import { formatShortDate } from "@/lib/format-date";
 import { UrenForm } from "./_components/UrenForm";
 import { StatTile } from "@/app/app/_components/StatTile";
@@ -58,35 +59,34 @@ function startOfMonthIso(): string {
 }
 
 export default async function TrainerUrenPage(props: {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{ week?: string; trainerId?: string }>;
 }) {
-  const { week: weekParam } = await props.searchParams;
+  const { week: weekParam, trainerId: requestedTrainerId } =
+    await props.searchParams;
   const weekHint = parseWeekParam(weekParam);
   const defaultDate = weekHint
     ? isoWeekMondayIso(weekHint.year, weekHint.week)
     : null;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) notFound();
+
+  const scope = await resolveTrainerScope(requestedTrainerId);
+  if (!scope.ok) redirect("/app");
 
   const admin = createAdminClient();
-  const { data: trainer } = await admin
-    .from("trainers")
-    .select("id, is_active")
-    .eq("profile_id", user.id)
-    .maybeSingle();
 
-  if (!trainer) {
+  if (!scope.selectedTrainerId) {
     return (
       <div className="px-6 md:px-10 lg:px-12 py-14">
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-sm">
-          Geen trainer-profiel gevonden. Check met admin.
+          {scope.isAdmin
+            ? "Er zijn nog geen actieve trainers om uren voor te tonen."
+            : "Geen trainer-profiel gevonden. Check met admin."}
         </p>
       </div>
     );
   }
+
+  const selectedTrainerId = scope.selectedTrainerId;
 
   const { data: rows } = await admin
     .from("trainer_hours")
@@ -95,7 +95,7 @@ export default async function TrainerUrenPage(props: {
        approved_at, rejection_reason, submitted_at,
        approver:profiles!approved_by(first_name, last_name)`,
     )
-    .eq("trainer_id", trainer.id)
+    .eq("trainer_id", selectedTrainerId)
     .order("work_date", { ascending: false })
     .limit(60);
 
@@ -135,17 +135,26 @@ export default async function TrainerUrenPage(props: {
         Terug
       </Link>
 
-      <header className="mb-12">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Urenregistratie
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
-          Uren indienen.
-        </h1>
-        <p className="text-text-muted mt-4 max-w-xl">
-          Registreer wat je hebt gewerkt. Admin keurt goed of wijst af. Je
-          kunt ze pas aanpassen na admin-actie.
-        </p>
+      <header className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div>
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+            Urenregistratie
+          </span>
+          {/* COPY: confirm met Marlon */}
+          <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
+            {scope.isOwnData ? "Uren indienen." : "Uren bekijken."}
+          </h1>
+          <p className="text-text-muted mt-4 max-w-xl">
+            {scope.isOwnData
+              ? "Registreer wat je hebt gewerkt. Admin keurt goed of wijst af. Je kunt ze pas aanpassen na admin-actie."
+              : "Je bekijkt de uren van een andere trainer. Uren indienen kan alleen voor jezelf; goedkeuren gaat via de admin-cockpit."}
+          </p>
+        </div>
+        <TrainerScopePicker
+          isAdmin={scope.isAdmin}
+          options={scope.options}
+          selectedTrainerId={selectedTrainerId}
+        />
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-14">
@@ -169,21 +178,31 @@ export default async function TrainerUrenPage(props: {
         />
       </div>
 
-      <section className="mb-14">
-        <header className="mb-6">
-          <span className="tmc-eyebrow block mb-2">Nieuwe invoer</span>
-          <h2 className="text-xl md:text-2xl text-text font-medium tracking-[-0.01em]">
-            {weekHint ? `Voor week ${weekHint.week}` : "Voeg uren toe"}
-          </h2>
-          {weekHint && (
-            <p className="text-text-muted text-sm mt-1">
-              Datum start op maandag van week {weekHint.week}. Pas aan waar
-              nodig.
-            </p>
-          )}
-        </header>
-        <UrenForm defaultDate={defaultDate ?? undefined} />
-      </section>
+      {/*
+        Het invoerformulier verschijnt alleen bij de eigen uren.
+        submitOwnHours schrijft altijd naar de trainers-rij van de
+        ingelogde gebruiker (en RLS trainer_hours_self_insert dwingt dat
+        af), dus uren indienen namens een andere trainer bestaat niet.
+        Het formulier tonen bij andermans uren zou suggereren dat het wel
+        kan.
+      */}
+      {scope.isOwnData && (
+        <section className="mb-14">
+          <header className="mb-6">
+            <span className="tmc-eyebrow block mb-2">Nieuwe invoer</span>
+            <h2 className="text-xl md:text-2xl text-text font-medium tracking-[-0.01em]">
+              {weekHint ? `Voor week ${weekHint.week}` : "Voeg uren toe"}
+            </h2>
+            {weekHint && (
+              <p className="text-text-muted text-sm mt-1">
+                Datum start op maandag van week {weekHint.week}. Pas aan waar
+                nodig.
+              </p>
+            )}
+          </header>
+          <UrenForm defaultDate={defaultDate ?? undefined} />
+        </section>
+      )}
 
       <section>
         <header className="mb-6">
@@ -195,8 +214,11 @@ export default async function TrainerUrenPage(props: {
           </h2>
         </header>
         {(rows ?? []).length === 0 ? (
+          // COPY: confirm met Marlon
           <p className="text-text-muted text-sm">
-            Dien je eerste uren in via het formulier hierboven.
+            {scope.isOwnData
+              ? "Dien je eerste uren in via het formulier hierboven."
+              : "Deze trainer heeft nog geen uren ingediend."}
           </p>
         ) : (
           <ul className="flex flex-col border-t border-[color:var(--ink-500)]/60">

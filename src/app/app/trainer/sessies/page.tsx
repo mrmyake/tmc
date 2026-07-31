@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
+import { TrainerScopePicker } from "@/components/trainer/TrainerScopePicker";
 import {
   amsterdamParts,
   DAY_SHORT_NL,
@@ -37,31 +38,29 @@ interface DayBucket {
   sessions: SessionRow[];
 }
 
-export default async function TrainerSessiesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) notFound();
+export default async function TrainerSessiesPage(props: {
+  searchParams: Promise<{ trainerId?: string }>;
+}) {
+  const { trainerId: requestedTrainerId } = await props.searchParams;
+  const scope = await resolveTrainerScope(requestedTrainerId);
+  if (!scope.ok) redirect("/app");
 
   const admin = createAdminClient();
 
-  const { data: trainer } = await admin
-    .from("trainers")
-    .select("id, display_name")
-    .eq("profile_id", user.id)
-    .maybeSingle();
-
-  if (!trainer) {
+  if (!scope.selectedTrainerId) {
     return (
       <div className="px-6 md:px-10 lg:px-12 py-14">
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-sm">
-          Je hebt geen trainer-profiel.
+          {scope.isAdmin
+            ? "Er zijn nog geen actieve trainers om sessies voor te tonen."
+            : "Je hebt geen trainer-profiel."}
         </p>
       </div>
     );
   }
 
+  const selectedTrainerId = scope.selectedTrainerId;
   const now = new Date();
   const horizon = new Date(now.getTime() + 28 * 86_400_000);
 
@@ -71,7 +70,7 @@ export default async function TrainerSessiesPage() {
       `id, start_at, end_at, status, pillar, capacity,
        class_type:class_types(name)`,
     )
-    .eq("trainer_id", trainer.id)
+    .eq("trainer_id", selectedTrainerId)
     .gte("start_at", now.toISOString())
     .lt("start_at", horizon.toISOString())
     .order("start_at")
@@ -120,16 +119,25 @@ export default async function TrainerSessiesPage() {
         <ChevronLeft size={14} strokeWidth={1.5} />
         Terug
       </Link>
-      <header className="mb-10">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Mijn sessies
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
-          Komende 4 weken.
-        </h1>
-        <p className="tmc-eyebrow mt-4">
-          {sessions?.length ?? 0} sessie{(sessions?.length ?? 0) === 1 ? "" : "s"}
-        </p>
+      <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div>
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+            {/* COPY: confirm met Marlon */}
+            {scope.isOwnData ? "Mijn sessies" : "Sessies"}
+          </span>
+          <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
+            Komende 4 weken.
+          </h1>
+          <p className="tmc-eyebrow mt-4">
+            {sessions?.length ?? 0} sessie
+            {(sessions?.length ?? 0) === 1 ? "" : "s"}
+          </p>
+        </div>
+        <TrainerScopePicker
+          isAdmin={scope.isAdmin}
+          options={scope.options}
+          selectedTrainerId={selectedTrainerId}
+        />
       </header>
 
       {buckets.length === 0 ? (
@@ -137,9 +145,11 @@ export default async function TrainerSessiesPage() {
           <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
             Stil
           </span>
+          {/* COPY: confirm met Marlon */}
           <p className="text-text-muted text-sm max-w-md mx-auto">
-            Er staan geen geplande sessies voor jou. Check met admin of de
-            templates kloppen.
+            {scope.isOwnData
+              ? "Er staan geen geplande sessies voor jou. Check met admin of de templates kloppen."
+              : "Er staan geen geplande sessies voor deze trainer."}
           </p>
         </div>
       ) : (

@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Container } from "@/components/layout/Container";
-import { AdminField, AdminSelect } from "@/components/ui/AdminField";
+import { TrainerScopePicker } from "@/components/trainer/TrainerScopePicker";
 import { WeekGrid } from "./WeekGrid";
 import { MonthGrid } from "./MonthGrid";
 import { SessionDetailPanel } from "./SessionDetailPanel";
@@ -78,7 +77,6 @@ export function AgendaScreen({
   isCurrentRangeToday,
   cancelWindowHours,
 }: AgendaScreenProps) {
-  const router = useRouter();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
@@ -104,15 +102,6 @@ export function AgendaScreen({
     const params = new URLSearchParams({ view: nextView, date: anchorIso });
     if (isAdmin) params.set("trainerId", selectedTrainerId);
     return `/app/trainer/agenda?${params.toString()}`;
-  }
-
-  function handleTrainerChange(trainerId: string) {
-    const params = new URLSearchParams({
-      view,
-      date: anchorIso,
-      trainerId,
-    });
-    router.push(`/app/trainer/agenda?${params.toString()}`);
   }
 
   return (
@@ -200,22 +189,11 @@ export function AgendaScreen({
           {/* COPY: confirm met Marlon */}+ Blok toevoegen
         </button>
 
-        {isAdmin && trainerOptions.length > 0 && (
-          <div className="max-w-xs w-full sm:w-56">
-            <AdminField label="Trainer">
-              <AdminSelect
-                value={selectedTrainerId}
-                onChange={(e) => handleTrainerChange(e.target.value)}
-              >
-                {trainerOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.displayName}
-                  </option>
-                ))}
-              </AdminSelect>
-            </AdminField>
-          </div>
-        )}
+        <TrainerScopePicker
+          isAdmin={isAdmin}
+          options={trainerOptions}
+          selectedTrainerId={selectedTrainerId}
+        />
       </div>
 
       {trainerOptions.length === 0 ? (
