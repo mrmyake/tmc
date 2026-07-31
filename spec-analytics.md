@@ -2,7 +2,7 @@
 
 ## Status
 
-**Besloten, deels gebouwd.** De meetgrens zelf is geïmplementeerd (deze PR). De conversiebrug — het server-side `purchase`-event vanuit de Mollie-webhook — is nog te bouwen en is de enige openstaande post. Vervangt `TRACKING.md`, dat in dezelfde PR is verwijderd omdat het crowdfunding-helpers beschreef die in #120 al waren weggehaald en negen slug-routes die niet bestaan.
+**Besloten en gebouwd.** De meetgrens is geïmplementeerd (#134), en de conversiebrug — het server-side `purchase`-event vanuit de Mollie-webhook — is gebouwd in PR C (`sendPurchaseToGa4`, zie "De conversiebrug" hieronder). Enige open rest: de herziening van `payment_start`. Dit document vervangt `TRACKING.md`, dat verwijderd is omdat het crowdfunding-helpers beschreef die in #120 al waren weggehaald en negen slug-routes die niet bestaan.
 
 Achtergrond en de feitelijke nulmeting: `docs/analytics-audit-2026-07.md`.
 
@@ -38,11 +38,11 @@ Alles op de publieke marketingsite, tot het moment dat iemand klant wordt.
 | Contactklik | `click_phone` · `click_whatsapp` · `click_email` |
 | Configurator (`/abonnement`) | `configurator_stage_view` · `configurator_select` · `begin_checkout` · `checkout_rejected` |
 | Login-conversie | `portal_login` |
-| Betaling (voorlopig) | `payment_start` · `payment_success` · `payment_failed` |
+| Betaling | `payment_start` (voorlopig, herziening volgt) · `payment_return_view` (arrival, geen bedrag) · `purchase` (server-side, Measurement Protocol) |
 
 De configurator staat bewust aan de GA4-kant: `/abonnement` is een publieke route en de productkeuze dáár is een acquisitiebeslissing, geen productgebruik.
 
-De `payment_*`-events staan hier met een asterisk. Ze zijn client-side en dus onbetrouwbaar (zie "De conversiebrug"). Ze blijven staan tot de webhook-brug er is; dan worden ze herzien.
+`payment_start` staat hier met een asterisk: client-side mét bedrag, de laatste in zijn soort. Herziening volgt; de omzetmeting zelf leunt er sinds de conversiebrug niet meer op.
 
 ### Wat naar `tmc.events` gaat
 
@@ -91,28 +91,34 @@ Twee bestaande gevallen vallen hieronder:
 | Call-site | Event | Status |
 |---|---|---|
 | `src/app/abonnement/AbonnementConfigurator.tsx:51` | `configurator_stage_view` | ✅ Voldoet. `useEffect` op `[stage]`; de component mount alleen op `/abonnement` en een stage-wissel *is* de gebeurtenis. Geen refocus-haak, geen bedrag. |
-| `src/app/app/abonnement/bedankt/PaymentTracker.tsx:22,28` | `payment_success` / `payment_failed` | ⚠️ Voldoet aan 1 en 2 (gededupliceerd per `transactionId` via `sessionStorage`), **niet aan 3**: beide events dragen `value` en `currency`. Bekende afwijking, zie hieronder. |
-
-**De afwijking bij `payment_*` is bewust en tijdelijk.** Deze events zijn de enige plek waar vandaag nog een bedrag client-side meegaat, en ze zijn precies wat de conversiebrug moet vervangen: `PaymentTracker` vuurt alleen bij order-status `activated`, mist dus de webhook-race, en meet productorders helemaal niet. Voorwaarde 3 is de regel waar de brug naartoe werkt; deze twee call-sites zijn de laatste uitzondering erop en verdwijnen met die PR. Neem er geen nieuwe bij.
+| `src/app/app/abonnement/bedankt/PaymentTracker.tsx` | `payment_return_view` | ✅ Voldoet aan alle drie. Aankomst op de bedankpagina, gededupliceerd per `transactionId` via `sessionStorage`, geen bedrag; `order_status` als dimensie houdt de webhook-race zichtbaar. Verving in PR C de oude `payment_success`/`payment_failed`, die `value`/`currency` droegen en de laatste uitzondering op voorwaarde 3 waren. |
 
 Alles daarbuiten hangt aan `onSubmit`, `onClick` of `onFocus` — geverifieerd, inclusief de controle dat geen van die `onFocus`-velden `autoFocus` draagt of programmatisch gefocust wordt.
 
 ---
 
-## De conversiebrug (nog te bouwen)
+## De conversiebrug (gebouwd, PR C)
 
 De enige verbinding tussen de twee systemen: één server-side `purchase`-event dat vanuit de Mollie-webhook naar GA4 gaat, zodat de omzet toegerekend kan worden aan het kanaal dat de klant bracht. Zonder die brug meet GA4 wel wie er converteert, maar niet wat het opleverde.
 
-**Waarom server-side.** De browser kent de autoritatieve prijs niet — die komt uit `tmc.create_order` — en client-side bedragen zijn manipuleerbaar. De webhook is het enige punt waar een betaling bevestigd én het bedrag bekend is.
+**Waarom server-side.** De browser kent de autoritatieve prijs niet — die komt uit `tmc.create_order` — en client-side bedragen zijn manipuleerbaar. De webhook is het enige punt waar een betaling bevestigd én het bedrag bekend is. De oude client-side variant (`PaymentTracker` met `payment_success`) vuurde bovendien alleen bij order-status `activated`, miste dus de webhook-race, en mat productorders helemaal niet.
 
-**Waarom niet client-side op de bedankpagina.** Dat is de huidige `PaymentTracker`, en die vuurt alleen bij order-status `activated`. Wie terugkeert terwijl de webhook nog niet verwerkt is, ziet `pending` of `paid` en er vuurt niets, zonder herkansing. Dat is de normale race, geen randgeval. Product-orders redirecten bovendien naar `/app/producten?tab=tegoed`, waar helemaal geen tracker staat.
+### Hoe hij loopt
 
-### Twee harde regels voor de bouw
+1. **Uitlezen** — `readGaIds()` (`src/lib/ga-ids.ts`) leest in `PayStage.handlePay()` de GA4 `client_id` en `session_id` via `gtag('get')`, met een harde timeout van 300 ms en een `_ga`-cookie-fallback voor de client_id. Bij consent denied of timeout: `undefined`, checkout gaat door.
+2. **Meedragen** — `createOrderAndCheckout` zet ze ná de `create_order`-RPC met een losse update op `tmc.orders.ga_client_id` / `ga_session_id` (migratie `20260816000000`; route (b) — analytics-metadata loopt niet door de autoritatieve prijsfunctie). `NULL` is de normale toestand voor member-app-aankopen, admin-betaallinks en consent-denied-orders.
+3. **Vuren** — de Mollie-webhook roept binnen de `!activation.already_activated`-tak, direct ná `emitEvent("order.activated")`, fire-and-forget `sendPurchaseToGa4` aan (`src/lib/orders/ga-purchase.ts`). Die leest de orderrij zelf, slaat over zonder fout als `ga_client_id` ontbreekt, en POST anders één Measurement Protocol `purchase`-event: `transaction_id` = order-id, `currency` EUR, `value` = het door Mollie verwerkte bedrag, `items[0].item_id` = `catalogue_slug` (de join key met `begin_checkout`), `session_id` als event-parameter. **Geen `user_id`** — zie "Wat bewust niet gebeurt".
 
-1. **De webhook mag nooit op analytics falen.** Een mislukte GA4-call mag de betalingsverwerking niet blokkeren, vertragen of doen retryen. Zelfde contract als `emitEvent()`: nooit throwen, bij falen alleen `console.error` naar de Vercel-logs. Een gemiste meting is een rapportageprobleem; een gemiste order-activatie is een klantprobleem.
+**Exactly-once** komt uit `tmc.activate_order` (rijlock + statusovergang): precies één webhook-aanroep ziet `already_activated: false`. De helper voegt daar geen eigen dedupe aan toe. Strikt genomen is het at-most-once: crasht de functie tussen activatie en het MP-verzoek, dan is dat ene event weg (Mollie's retry ziet `already_activated: true` en vuurt terecht niet). Geaccepteerd compromis — durability zou een write in de geldpijplijn vragen.
+
+**Dekking**: alle orders door de order-pijplijn — abonnementen, productorders (`/app/producten?tab=tegoed`-redirect) en WS-5-betaallinks — al vuren de laatste twee in de praktijk nooit (geen `ga_client_id`). Trial bookings lopen door een aparte webhook en vallen erbuiten.
+
+### Twee harde regels (gehandhaafd in de bouw)
+
+1. **De webhook mag nooit op analytics falen.** `sendPurchaseToGa4` throwt nooit, wordt zonder `await` aangeroepen, en staat buiten het idempotentiepad. Zelfde contract als `emitEvent()`: bij falen alleen `console.error` naar de Vercel-logs. Een gemiste meting is een rapportageprobleem; een gemiste order-activatie is een klantprobleem.
 2. **Bedragen gaan uitsluitend hierlangs.** Client-side events dragen geen `value`. Dat is de reden dat `begin_checkout` en `configurator_select` bewust geen bedrag meesturen en GA4 daar €0 rapporteert.
 
-Verder nodig bij de bouw: de GA4 `client_id` moet vanaf de publieke site meegedragen worden tot in de webhook, anders is de purchase niet aan de oorspronkelijke sessie te koppelen en verliest het event zijn attributiewaarde. Hoe dat precies loopt, is onderdeel van die PR.
+**Env:** `GA4_API_SECRET` (GA4 Admin → Data Streams → web-stream → Measurement Protocol API secrets), in Vercel als **Sensitive** voor Production en Preview. Nooit in code of logs — de MP-URL bevat het secret, dus ook die URL nooit loggen.
 
 ---
 
@@ -219,7 +225,7 @@ waitlist.promoted         pt_booking.rescheduled    member.created
 
 ## Wat bewust niet gebeurt
 
-- **Measurement Protocol** — nog geen besluit. De conversiebrug bepaalt straks welk mechanisme gebruikt wordt.
+- **Measurement Protocol voor iets anders dan `purchase`** — de conversiebrug is de enige MP-call. Geen server-side events voor gedrag; dat blijft `tmc.events`.
 - **Consent-banner op `/app/**`** — niet nodig onder deze architectuur, en het toevoegen ervan zou de meetgrens juist ondermijnen.
 - **GA4 `user_id`** — verwijderd. Een GA4-identiteit koppelen aan iemand wiens gedrag daar toch niet meer gemeten wordt levert niets op en vergroot alleen de PII-oppervlakte. Cohort- en lifecycle-analyse hoort thuis op `tmc.events`, waar het `profile_id` al staat.
 - **Nieuwe `tmc.events` call-sites** — deze spec legt de grens vast; hij vult de gaten aan de `tmc.events`-kant niet. Die zijn geïnventariseerd in `docs/analytics-audit-2026-07.md` §8.
