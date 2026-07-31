@@ -90,7 +90,17 @@ export function IdentifyStage({ onDone, onBack }: Props) {
     e.preventDefault();
     setBusy(true);
     setErrorMsg("");
-    const result = await verifyLoginOtp(email, code);
+    // Zie LoginForm: dezelfde UTM-set, zodat een bestaand profiel dat via de
+    // configurator inlogt alsnog een campagnebron krijgt als die nog ontbreekt.
+    const utm = getStoredUtm();
+    const result = await verifyLoginOtp(email, code, undefined, {
+      acquisitionSource: utm.utm_source,
+      acquisitionMedium: utm.utm_medium,
+      acquisitionCampaign: utm.utm_campaign,
+      acquisitionContent: utm.utm_content,
+      signupPath: window.location.pathname,
+      firstTouchAt: new Date().toISOString(),
+    });
     setBusy(false);
     if (!result.ok) {
       setErrorMsg(result.error);
