@@ -1,0 +1,1683 @@
+# Spec: Facturatie en omzetrapportage (greenfield, zonder boekhoudkoppeling)
+
+## Status
+
+Ontwerp, nog niet gebouwd. Geschreven op basis van een read-only discovery tegen de live
+database (`xoivleieyfcxcfawgveh`, schema `tmc`) en de codebase op `main` @ `9a4a9b5`.
+Alle live-definities in dit document komen uit `pg_get_functiondef` en
+`information_schema`, niet uit de migratiebestanden.
+
+Dit document is leidend voor alles wat met facturen, BTW en gerealiseerde omzet te maken
+heeft. Voor de prijsketen zelf blijft `spec-membership-flow.md` leidend; deze spec haakt
+daarop aan en vervangt hem niet.
+
+## Build status en openstaande gates (living)
+
+| Gate | Status | Blokkeert |
+|---|---|---|
+| BTW-tarieven per productgroep bevestigd door accountant | open | oplevering, niet de bouw |
+| KvK- en BTW-nummer van TMC in het systeem | open | oplevering, niet de bouw |
+| Creditnota in dezelfde reeks of een eigen reeks | besloten: dezelfde reeks | nee |
+| `/app/facturen` uitbreiden of nieuwe route | besloten: uitbreiden | nee |
+| Twee Mollie-keys aangemaakt en in Vercel gezet | open | PR 4 |
+| Bucket `tmc-invoices` aangemaakt | open | PR 6 |
+
+## Waar dit op rust: een idee
+
+**Omzet leeft in `tmc.payments`. Facturen zijn documenten die daaruit ontstaan. De factuur
+is nooit de bron van de omzet.**
+
+Dat is de hele spec in een zin, en het is de reden dat consumentenproducten zonder factuur
+gewoon in de rapportage meetellen. Wie het omdraait en de omzet uit de facturen optelt,
+mist per definitie alles wat nooit gefactureerd werd, en dat is bij TMC de meerderheid van
+de transacties.
+
+Uit die keuze volgt de rest vanzelf:
+
+- Een factuur is een bevroren document. Zodra hij gefinaliseerd is verandert er niets meer
+  aan, ook niet als het profiel, de catalogus of de prijs daarna wijzigt. Daarom staat de
+  NAW in de factuurrij en niet achter een join.
+- Een correctie is nooit een mutatie. Terugbetalen levert een creditnota op met negatieve
+  regels plus een bedrag op de oorspronkelijke betaalregel, niet een overschreven status.
+- Testdata leeft naast productiedata in dezelfde tabellen, maar op eigen profielen en in
+  een eigen nummerreeks, en is uit elke rapportage en elke ledenweergave gefilterd.
+
+## Scope en niet-scope
+
+**Wel in scope**
+
+- BTW-snapshot in de prijsketen en op elke betaalregel
+- Ad-hoc facturen, handmatig aangemaakt door een admin
+- Creditnota's, inclusief deels crediteren
+- Testmodus met een eigen Mollie-key, eigen profielen en eigen nummerreeks
+- Omzetrapportage per periode en per productgroep, netto, BTW en bruto
+- Transactieoverzicht voor leden met download waar een factuur bestaat
+
+**Niet in scope**
+
+- Koppeling met een extern boekhoudpakket
+- Automatisch factureren bij elke incasso
+- ICP-opgave, OSS, buitenlandse BTW, verlegging
+- Meerdere valuta
+- Aanmaningen en incassotrajecten
+
+## 1. Fiscale uitgangspunten
+
+Deze sectie legt vast wat we aannemen. Elke aanname met de markering hieronder moet door de
+accountant bevestigd worden voordat er een echte factuur de deur uit gaat.
+
+### 1.1 BTW-tarieven per productgroep
+
+Overgenomen uit de discovery, niet definitief:
+
+| `revenue_category` | Slugs | `vat_rate_bp` | |
+|---|---|---|---|
+| `abonnement` | `vrij_trainen_*`, `groepslessen_*`, `all_inclusive_*`, `kids_*`, `senior_*` | `900` | `// FISCAAL: bevestigen door accountant` |
+| `addon` | `extended_access` | `900` | `// FISCAAL: bevestigen door accountant` |
+| `inschrijfgeld` | `signup_fee` | `900` | `// FISCAAL: bevestigen door accountant` |
+| `les_tegoed` | `drop_in`, `drop_in_kids`, `drop_in_senior`, `ten_ride_card*` | `900` | `// FISCAAL: bevestigen door accountant` |
+| `personal_training` | `pt_single`, `pt_10`, `duo_single`, `duo_10` | `2100` | `// FISCAAL: bevestigen door accountant` |
+| `programma` | `program_studio_12w`, `program_online_12w` | `2100` | `// FISCAAL: bevestigen door accountant` |
+
+De redenering achter de voorlopige indeling: sportbeoefening en het gebruik van een
+sportaccommodatie vallen onder het lage tarief, individuele personal training door een
+zelfstandige waarschijnlijk niet. Het inschrijfgeld en de add-on volgen de hoofddienst.
+Dat is de gangbare lijn, maar de kwalificatie hangt af van hoe TMC's diensten fiscaal
+zijn ingedeeld en dat is geen technische beslissing.
+
+Het datamodel is bewust onverschillig voor de uitkomst: `vat_rate_bp` staat per
+catalogusrij en de BTW staat per factuurregel, dus 9 procent en 21 procent kunnen op
+dezelfde factuur staan zonder dat er iets aan het model verandert.
+
+### 1.2 Factuurplicht: consument versus zakelijke klant
+
+Aan een particulier hoeft geen factuur verstrekt te worden. Aan een ondernemer wel. De
+administratie van de omzet is in beide gevallen verplicht.
+
+Consequentie voor het ontwerp: facturen worden ad hoc aangemaakt, niet automatisch bij
+elke betaling. Een lid dat een factuur nodig heeft vraagt erom, of een admin ziet dat het
+een zakelijke klant is. Alles wat niet gefactureerd wordt telt gewoon mee in de
+omzetrapportage, want die draait op `tmc.payments`.
+
+### 1.3 Wat een verkoopfactuur moet bevatten
+
+Vastgelegd zodat het PDF-sjabloon compleet is:
+
+- Factuurnummer, opeenvolgend
+- Factuurdatum
+- Naam, adres en BTW-nummer van TMC
+- Naam en adres van de afnemer, plus diens BTW-nummer als het een zakelijke klant is
+- Per regel: omschrijving, aantal, bedrag exclusief BTW, BTW-tarief
+- Totaal exclusief BTW, BTW-bedrag per tarief, totaal inclusief BTW
+- Bij een creditnota: verwijzing naar het gecrediteerde factuurnummer
+
+### 1.4 Aaneengesloten nummering en bewaarplicht
+
+De nummering moet aaneengesloten zijn. Gaten zijn verdacht, want een gat suggereert een
+verdwenen factuur. Dit is de enige reden dat de teller een gewone tabelrij is en geen
+Postgres `SEQUENCE`; zie 4.3.
+
+Bewaartermijn zeven jaar. Praktisch betekent dat: een gefinaliseerde factuur wordt nooit
+verwijderd en nooit gewijzigd, en de PDF blijft in de storage-bucket staan.
+
+### 1.5 Opleverblocker: KvK- en BTW-nummer ontbreken
+
+`src/lib/constants.ts` bevat:
+
+```
+kvk: "00000000",              // TODO
+btw: "NL000000000B01",        // TODO
+```
+
+Deze waarden worden gerenderd in `src/components/layout/Footer.tsx` en zijn ook de fallback
+voor het Sanity-veld `siteSettings.btwNumber` (`sanity/lib/fetch.ts`), dat op zijn beurt
+dezelfde placeholder krijgt uit `sanity/seed.ts`.
+
+**Dit is een opleverblocker, geen bouwblocker.** De hele keten kan gebouwd, getest en
+gereviewd worden met de placeholder erin. Wat niet mag: een factuur met
+`NL000000000B01` naar een klant sturen. Het PDF-sjabloon leest de waarde uit Sanity met de
+constante als fallback, precies zoals de footer dat nu doet, dus zodra het echte nummer in
+Sanity staat is de factuur correct zonder codewijziging.
+
+## 2. Datamodel
+
+### 2.1 tmc.catalogue
+
+Twee nieuwe kolommen, allebei `NOT NULL` **zonder default**:
+
+| Kolom | Type | Toelichting |
+|---|---|---|
+| `vat_rate_bp` | `integer NOT NULL` | Basispunten. `900` is 9,00 procent, `2100` is 21,00 procent. `CHECK (vat_rate_bp between 0 and 2100)` |
+| `revenue_category` | `text NOT NULL` | `CHECK (revenue_category in ('abonnement','les_tegoed','personal_training','programma','inschrijfgeld','addon'))` |
+
+**Waarom geen default.** Een default classificeert een nieuwe catalogusrij stil en
+plausibel verkeerd. Wie over een half jaar een product toevoegt en het BTW-tarief vergeet,
+krijgt dan negen procent zonder dat iemand ernaar gekeken heeft, en dat is precies het
+soort fout dat pas bij een controle boven water komt. Zonder default weigert de insert en
+moet de auteur een keuze maken.
+
+Praktisch gevolg voor de migratie: `ADD COLUMN ... NOT NULL` zonder default faalt op een
+gevulde tabel. De migratie doet dus drie stappen in dezelfde transactie: kolom nullable
+toevoegen, per slug backfillen met een expliciete `update ... where slug = ...` per rij
+(geen `case`-expressie over een patroon, want dan is niet zichtbaar wat er met een rij
+gebeurt die niemand heeft bekeken), en daarna `SET NOT NULL`. De backfill is meteen de
+plek waar de tabel uit 1.1 letterlijk in de migratie staat.
+
+Basispunten als integer, niet `numeric`: exact, vergelijkbaar zonder cast, en geen
+drijvende komma in een bedragberekening.
+
+Een derde kolom die overwogen is en niet doorgaat: `price_includes_vat`. Zie besluitenlog.
+
+### 2.2 tmc.payments
+
+`amount_cents` blijft ongewijzigd het brutobedrag, zodat elke bestaande query blijft werken.
+
+| Kolom | Type | Toelichting |
+|---|---|---|
+| `is_test` | `boolean NOT NULL DEFAULT false` | Afgeleid snapshot, gezet bij het schrijven van de rij |
+| `vat_rate_bp` | `integer` | Nullable: historische rijen hebben geen bekend tarief |
+| `net_amount_cents` | `integer` | |
+| `vat_amount_cents` | `integer` | `CHECK`: als beide gevuld, `net_amount_cents + vat_amount_cents = amount_cents` |
+| `refunded_amount_cents` | `integer NOT NULL DEFAULT 0` | |
+| `refunded_at` | `timestamptz` | Tijdstip van de laatste refund-melding |
+| `kind` | `text` | `order`, `recurring`, `trial_booking`, `manual` |
+| `trial_booking_id` | `uuid REFERENCES tmc.trial_bookings(id)` | Dicht het omzetlek uit 2.9 |
+
+Voor een betaling die meerdere BTW-tarieven mengt (een eerste incasso met abonnement plus
+inschrijfgeld, beide 9 procent, is dat niet, maar een toekomstige gemengde order wel) is
+`vat_rate_bp` op de betaalregel per definitie te grof. De opsplitsing per tarief staat in
+`orders.pricing_snapshot` en op de factuurregels; `payments.vat_rate_bp` is een
+rapportagegemak voor het eenvoudige geval en mag `NULL` zijn zodra de order meerdere
+tarieven bevat. De rapportage in 7.2 rekent daarom primair via
+`catalogue.revenue_category`, niet via `payments.vat_rate_bp`.
+
+### 2.3 tmc.profiles
+
+Eén nieuwe kolom, plus de NAW-aanvulling die de factuur nodig heeft:
+
+| Kolom | Type | Toelichting |
+|---|---|---|
+| `is_test` | `boolean NOT NULL DEFAULT false` | **De enige plek waar de testmodus wordt vastgelegd.** Zie sectie 6 |
+| `company_name` | `text` | Voor zakelijke klanten |
+| `vat_number` | `text` | BTW-nummer van de afnemer |
+
+Bestaand en herbruikbaar: `street_address`, `postal_code`, `city`, `country` (`NOT NULL
+DEFAULT 'NL'`), `member_code` (`NOT NULL`, bruikbaar als klantnummer op de factuur).
+
+Bekende beperking: `street_address` is één tekstveld, er is geen apart huisnummer. Voor een
+Nederlandse factuur is dat acceptabel. Niet oplossen in deze spec.
+
+`tmc.orders`, `tmc.memberships`: **geen** `is_test`-kolom. Zie 6.3.
+
+### 2.4 tmc.invoice_series
+
+De teller. Eén rij per combinatie van reeks en boekjaar.
+
+```
+id            uuid primary key default gen_random_uuid()
+code          text not null                    -- 'LIVE' | 'TEST'
+fiscal_year   integer not null
+is_test       boolean not null
+prefix        text not null                    -- '' | 'TEST-'
+next_number   integer not null default 1
+created_at    timestamptz not null default now()
+
+unique (code, fiscal_year)
+check (is_test = (code = 'TEST'))
+check (prefix = case when is_test then 'TEST-' else '' end)
+```
+
+De jaarreset is hiermee structureel in plaats van een berekening: een nieuw boekjaar is een
+nieuwe rij en die begint bij 1. Er is geen code die "als het januari is, zet de teller
+terug" hoeft te doen, en er is dus ook geen moment waarop die code te vroeg of te laat kan
+lopen.
+
+`TEST` en `LIVE` zijn aparte rijen, dus de reeksen kunnen elkaar nooit raken.
+
+### 2.5 tmc.invoices
+
+```
+id                     uuid primary key default gen_random_uuid()
+series_id              uuid not null references tmc.invoice_series(id)
+fiscal_year            integer not null
+number                 integer                       -- null zolang draft
+invoice_number         text                          -- '2026.001' / 'TEST-2026.001'
+is_test                boolean not null
+status                 text not null default 'draft' -- 'draft' | 'finalised'
+issued_at              date
+profile_id             uuid not null references tmc.profiles(id)
+
+-- bevroren afnemergegevens
+bill_to_name           text
+bill_to_company        text
+bill_to_vat_number     text
+bill_to_street         text
+bill_to_postal_code    text
+bill_to_city           text
+bill_to_country        text
+bill_to_email          text
+
+-- bevroren bedragen
+subtotal_net_cents     integer
+vat_total_cents        integer
+total_gross_cents      integer
+currency               text not null default 'EUR'
+
+-- herkomst
+payment_id             uuid references tmc.payments(id)
+order_id               uuid references tmc.orders(id)
+credit_of_invoice_id   uuid references tmc.invoices(id)
+
+-- pdf, write-once
+pdf_path               text
+pdf_generated_at       timestamptz
+
+notes                  text
+created_by_profile_id  uuid references tmc.profiles(id)
+created_at             timestamptz not null default now()
+updated_at             timestamptz not null default now()
+
+unique (series_id, number)
+unique (invoice_number)
+check (status in ('draft','finalised'))
+check (status = 'draft' or (number is not null
+                            and invoice_number is not null
+                            and issued_at is not null
+                            and bill_to_name is not null
+                            and bill_to_email is not null
+                            and total_gross_cents is not null))
+check (credit_of_invoice_id is null or credit_of_invoice_id <> id)
+```
+
+Alles wat op een gefinaliseerde factuur staat is bevroren in de rij zelf. Er wordt bij
+weergave niet gejoind naar `profiles` of `catalogue`. Dat is niet uit prestatie-overweging
+maar omdat het precies is wat een factuur tot een document maakt in plaats van een view:
+het adres op factuur `2026.001` is het adres van toen, ook als het lid volgende maand
+verhuist.
+
+`status` kent bewust maar twee waarden. Zie 4.6.
+
+### 2.6 tmc.invoice_lines
+
+```
+id                uuid primary key default gen_random_uuid()
+invoice_id        uuid not null references tmc.invoices(id) on delete cascade
+line_no           integer not null
+catalogue_slug    text                          -- geen foreign key
+description       text not null                 -- bevroren
+quantity          numeric(10,2) not null default 1
+unit_net_cents    integer not null
+vat_rate_bp       integer not null
+net_cents         integer not null
+vat_cents         integer not null
+gross_cents       integer not null
+revenue_category  text
+
+unique (invoice_id, line_no)
+check (gross_cents = net_cents + vat_cents)
+```
+
+`catalogue_slug` heeft opzettelijk **geen** foreign key naar `tmc.catalogue`. De catalogus
+mag wijzigen, rijen mogen op `is_active = false`, en een slug mag in theorie verdwijnen.
+Een factuur uit 2026 moet in 2031 nog leesbaar zijn. De slug staat er als herkomstspoor,
+niet als verwijzing.
+
+BTW staat per regel omdat één factuur negen en eenentwintig procent kan mengen. Het
+totaalbedrag per tarief op de PDF komt uit een `group by vat_rate_bp` over de regels.
+
+### 2.7 RLS-beleid
+
+| Tabel | Policy | Regel |
+|---|---|---|
+| `invoices` | `invoices_self_read` | `SELECT`: `profile_id = auth.uid() and status = 'finalised' and is_test = false` |
+| `invoices` | `invoices_admin_all` | `ALL`: `tmc.is_admin()` |
+| `invoice_lines` | `invoice_lines_self_read` | `SELECT`: `exists (select 1 from tmc.invoices i where i.id = invoice_id and i.profile_id = auth.uid() and i.status = 'finalised' and i.is_test = false)` |
+| `invoice_lines` | `invoice_lines_admin_all` | `ALL`: `tmc.is_admin()` |
+| `invoice_series` | `invoice_series_admin_all` | `ALL`: `tmc.is_admin()` |
+
+Een lid ziet dus nooit een concept en nooit een testfactuur. De `is_test = false` in de
+policy is een tweede laag naast het filter in de query, want een vergeten filter in een
+nieuwe pagina mag geen testdata lekken.
+
+Grants volgens hetzelfde patroon als `tmc.orders`: `SELECT` voor `authenticated`, niets
+voor `anon`, alles voor `service_role`.
+
+### 2.8 Grant-opruiming op tmc.payments
+
+Bestaande situatie, geverifieerd via `information_schema.role_table_grants`:
+
+```
+anon:          SELECT, INSERT, UPDATE, DELETE
+authenticated: SELECT, INSERT, UPDATE, DELETE
+```
+
+RLS houdt het tegen, want er is geen `INSERT`- of `UPDATE`-policy, dus schrijven wordt
+geweigerd. Maar `tmc.orders` geeft `authenticated` alleen `SELECT` en `anon` niets, en die
+inconsistentie is puur historisch. Meenemen in de eerste migratie:
+
+```
+revoke insert, update, delete on tmc.payments from anon, authenticated;
+revoke select on tmc.payments from anon;
+```
+
+Dit verandert geen enkel gedrag, want geen enkele policy stond die operaties toe. Het haalt
+alleen de tweede verdedigingslinie terug die er bij `orders` wel is.
+
+### 2.9 Het trial_bookings-lek
+
+`/api/trial-bookings/webhook` schrijft nooit naar `tmc.payments`. Geverifieerd tegen de
+data: twee betaalde `trial_bookings` met een `mollie_payment_id`, allebei afwezig in
+`tmc.payments`. Betaalde proeflessen zijn daarmee onzichtbaar in elke rapportage die op
+`payments` leunt.
+
+Ter vergelijking, dezelfde controle op de andere tabellen met een eigen
+`mollie_payment_id`: `pt_bookings` nul rijen (die lopen allemaal via de order-pipeline),
+`crowdfunding_backers` nul rijen (endpoints verwijderd in #120).
+
+Oplossing: de trial-webhook schrijft dezelfde upsert als de hoofdwebhook, met
+`kind = 'trial_booking'` en `trial_booking_id` gevuld. Zie PR 5.
+
+## 3. BTW-snapshot in de prijsketen
+
+### 3.1 Bruto is leidend
+
+Alle prijzen in `tmc.catalogue` zijn brutobedragen: wat de klant betaalt. Dat was tot nu
+toe impliciete conventie en wordt hiermee expliciet vastgelegd.
+
+De berekening, in deze volgorde en nooit andersom:
+
+```
+vat_cents = round(gross_cents * vat_rate_bp / (10000 + vat_rate_bp))
+net_cents = gross_cents - vat_cents
+```
+
+**Waarom nooit netto eerst.** Als je netto opslaat of eerst berekent en daarna bruto
+terugrekent, introduceer je een afrondingsstap tussen de getoonde prijs en het
+geïncasseerde bedrag. Een abonnement van 109,00 euro wordt dan netto 100,00 en bruto weer
+109,00, maar bij 12,90 wordt netto 11,83 en bruto 12,89. Dat is een cent verschil tussen
+wat op `/prijzen` staat en wat er van de rekening gaat, en die cent is niet te verdedigen.
+Bruto is wat de klant is beloofd, dus bruto is de waarheid en de BTW is de afgeleide.
+
+`net_cents = gross_cents - vat_cents` in plaats van een tweede `round`-expressie, zodat de
+twee getallen per definitie optellen tot het bruto.
+
+### 3.2 Inhaakpunt in _compute_order_price
+
+Live signatuur:
+
+```
+tmc._compute_order_price(p_slug text, p_extended_access boolean, p_commit_24m boolean,
+                         p_early_member boolean, p_admin_context boolean default false)
+  returns jsonb  language plpgsql  stable security definer
+  set search_path to 'tmc','extensions'
+```
+
+Dit is de enige plek in het systeem waar de drie catalogusrijen tegelijk beschikbaar zijn:
+
+- `v_row` levert `v_base_price`
+- `v_ext` (slug `extended_access`) levert `v_ext_price`
+- `v_fee` (slug `signup_fee`) levert `v_fee_cents`
+
+De valkuil om te vermijden: de functie retourneert al `'catalogue', to_jsonb(v_row)`, dus
+een `vat_rate_bp`-kolom op `tmc.catalogue` komt gratis mee in het snapshot. Maar alleen die
+van `v_row`. Het tarief van de add-on en van het inschrijfgeld zit er dan niet in, en
+precies die twee zitten wel in het te incasseren bedrag. Daarom expliciete top-level keys.
+
+**Subscription-tak**, in te voegen vlak na
+`v_first_charge := v_recurring + v_fee_cents;`, vóór de `return jsonb_build_object(...)`:
+
+```
+vat_rate_bp                        -- v_row.vat_rate_bp
+vat_amount_cents                   -- over v_base_price
+extended_access_vat_rate_bp        -- v_ext.vat_rate_bp, null als v_ext_price = 0
+extended_access_vat_amount_cents
+signup_fee_vat_rate_bp             -- v_fee.vat_rate_bp
+signup_fee_vat_amount_cents
+first_charge_vat_amount_cents      -- som van de drie
+recurring_vat_amount_cents         -- base + extended_access
+revenue_category                   -- v_row.revenue_category
+```
+
+**Product-tak**, in de bestaande `return`:
+
+```
+vat_rate_bp
+vat_amount_cents
+first_charge_vat_amount_cents      -- gelijk aan vat_amount_cents
+revenue_category
+```
+
+Let op: de add-on met `extended_access_mode = 'included'` heeft `v_ext_price = 0`. De
+BTW daarover is nul en het tarief is dan `null`, niet `0`, om onderscheid te houden tussen
+"geen add-on" en "add-on van nul euro".
+
+De functie blijft `STABLE`: er wordt niets geschreven, alleen gelezen en gerekend.
+
+### 3.3 Doorgifte naar orders en payments
+
+`tmc.create_order` en `tmc.admin_create_order` schrijven het resultaat al integraal weg in
+`orders.pricing_snapshot jsonb NOT NULL`. Het snapshot-precedent staat er dus al en er is
+geen nieuwe kolom nodig om de BTW-uitsplitsing te bewaren.
+
+Wel toe te voegen aan `tmc.orders`: `vat_amount_cents integer`, als goedkope
+rapportagekolom naast het snapshot, gevuld met `first_charge_vat_amount_cents`.
+
+Van order naar payment: de webhook leest `orders.vat_amount_cents` en
+`orders.pricing_snapshot` en vult `payments.vat_amount_cents`, `payments.net_amount_cents`
+en `payments.vat_rate_bp`. Bij een recurring-incasso is er geen order; daar komt het tarief
+uit de catalogusrij die hoort bij `memberships.plan_variant`, herberekend over
+`payment.amount`.
+
+### 3.4 Afronding bij meerdere regels
+
+De regel: **reken per regel af, tel daarna op. Bereken een totaal nooit opnieuw uit het
+bruto totaal.**
+
+Dus `vat_total_cents = sum(invoice_lines.vat_cents)` en niet
+`round(total_gross_cents * rate / (10000 + rate))`. Bij drie regels van 12,90 met negen
+procent geeft de eerste methode 3 x 1,07 = 3,21 en de tweede
+`round(3870 * 900 / 10900) = 320`. Een cent verschil, elke keer als er meer dan één regel
+op de factuur staat, en de PDF telt zichtbaar niet op.
+
+`finalize_invoice` dwingt dit af door de header-totalen te herberekenen uit de regels en
+door de `CHECK` op regelniveau (`gross_cents = net_cents + vat_cents`).
+
+### 3.5 Backfill
+
+Vijf rijen in `tmc.payments`, zeven in `tmc.orders`, negen in `tmc.memberships`. De
+backfill is nu vrijwel gratis en over een jaar niet meer.
+
+Voor bestaande `payments`-rijen: `vat_rate_bp`, `net_amount_cents` en `vat_amount_cents`
+vullen via de order en de catalogusrij waar die te herleiden is, en op `NULL` laten waar
+dat niet kan. `NULL` is hier het eerlijke antwoord en de rapportage in 7.2 telt zulke rijen
+apart op als "tarief onbekend" in plaats van ze stil op nul te zetten.
+
+## 4. Facturen
+
+### 4.1 Levenscyclus
+
+```
+draft  ──finalize_invoice()──>  finalised
+  │                                 │
+  │                                 ├── pdf gerenderd en geüpload (write-once)
+  │                                 │
+  └── vrij te wijzigen              └── onveranderlijk
+      en te verwijderen                 crediteringsstand is afgeleid
+```
+
+Een concept is gewoon een rij zonder nummer. Er is geen reservering, geen "nummer alvast
+toekennen", geen tijdelijk nummer. Zolang de factuur `draft` is heeft hij geen plek in de
+reeks, en dat is precies waarom een verwijderd concept geen gat achterlaat.
+
+### 4.2 tmc.finalize_invoice
+
+```
+tmc.finalize_invoice(
+  p_invoice_id uuid,
+  p_issued_at  date default current_date
+) returns jsonb
+language plpgsql security definer
+set search_path to 'tmc','extensions'
+```
+
+Stappen, in deze volgorde:
+
+1. **Autorisatie.** `if not tmc.is_admin() then raise exception 'Alleen voor admins.'
+   using errcode = '42501'; end if;` Zelfde laagdeling als `tmc.admin_cancel_order`: de
+   aanroepende server action doet daarnaast `requireAdmin()` in TypeScript.
+
+2. **Rijlock op de factuur.**
+   `select * into v_inv from tmc.invoices where id = p_invoice_id for update;`
+   Niet gevonden: `return jsonb_build_object('ok', false, 'reason', 'invoice_not_found')`.
+
+3. **Idempotentie.** `if v_inv.status = 'finalised' then return jsonb_build_object('ok',
+   true, 'already_finalised', true, 'invoice_number', v_inv.invoice_number); end if;`
+   Een dubbelklik of een dubbel ingediend formulier levert geen tweede nummer op. Zelfde
+   patroon als `already_activated` in `tmc.activate_order`.
+
+4. **Regels valideren.** Weigeren bij nul regels
+   (`reason: 'no_lines'`). Totalen herberekenen uit `tmc.invoice_lines`:
+   `sum(net_cents)`, `sum(vat_cents)`, `sum(gross_cents)`. Weigeren als
+   `gross <> net + vat` (`reason: 'totals_mismatch'`).
+
+5. **Boekjaar bepalen uit `p_issued_at`**, niet uit `now()`. Een factuur die je op 2 januari
+   uitschrijft over december hoort in het boekjaar van december, en `now()` zou hem in het
+   verkeerde jaar en dus in de verkeerde tellerrij zetten.
+
+6. **Chronologie bewaken.** Zie 4.4. Weigeren als `p_issued_at` vóór de `issued_at` van de
+   laatst gefinaliseerde factuur in dezelfde reeks ligt.
+
+7. **Nummer trekken.** Zie 4.3. Eén statement.
+
+8. **Nummer samenstellen.**
+   `v_invoice_number := v_series.prefix || v_year::text || '.' || lpad(v_number::text, 3, '0')`
+   Levert `2026.001` en degradeert netjes naar `2026.1000` voorbij 999.
+
+9. **Afnemergegevens bevriezen.** Kopiëren uit `tmc.profiles`, maar **alleen waar het
+   `bill_to_*`-veld nog `null` is.** Een admin mag ze op het concept gecorrigeerd hebben en
+   die correctie mag niet overschreven worden. Weigeren als na het invullen
+   `bill_to_name` of `bill_to_email` nog leeg is (`reason: 'incomplete_bill_to'`).
+
+10. **Wegschrijven.** `status = 'finalised'`, plus `number`, `invoice_number`,
+    `fiscal_year`, `issued_at`, `series_id` en de drie totaalbedragen.
+
+11. **Return.** `jsonb_build_object('ok', true, 'already_finalised', false, 'invoice_id',
+    ..., 'invoice_number', ...)`.
+
+**Wat bewust niet in de RPC zit: de PDF.** Die is Node-werk (`@react-pdf/renderer`). De RPC
+kent het nummer toe en bevriest de gegevens; een aparte server action rendert, uploadt en
+stempelt `pdf_path`. Faalt de PDF-stap, dan is de factuur nog steeds correct genummerd en
+opnieuw te renderen. De omgekeerde volgorde zou PDF's zonder nummer kunnen opleveren, en
+een PDF zonder nummer is geen factuur.
+
+### 4.3 Het nummer trekken: één statement
+
+```sql
+insert into tmc.invoice_series (code, fiscal_year, is_test, prefix, next_number)
+values (v_code, v_year, v_is_test, v_prefix, 2)
+on conflict (code, fiscal_year)
+do update set next_number = tmc.invoice_series.next_number + 1
+returning next_number - 1
+into v_number;
+```
+
+Hoe het leest:
+
+- **Eerste factuur van een boekjaar.** De insert slaagt met `next_number = 2`.
+  `returning next_number - 1` geeft `1`. De factuur krijgt nummer 1 en de teller staat al
+  klaar op 2.
+- **Elke volgende factuur.** De insert botst op de unique constraint, de `do update` zet
+  `next_number` op oud plus één, en `returning next_number - 1` geeft de oude waarde terug.
+  Dat is precies het nummer dat deze factuur moet krijgen.
+
+Eén statement, dus één atomaire operatie. Het slot op de rij wordt genomen door de
+`INSERT`/`UPDATE` zelf en er is geen enkel venster tussen "kijken wat de teller is" en
+"de teller ophogen". Bij een rollback van de omliggende transactie wordt de ophoging
+teruggedraaid en is het nummer weer beschikbaar, dus de reeks blijft aaneengesloten.
+
+**Waarom `insert ... on conflict do nothing` gevolgd door `select ... for update` fout is.**
+
+Die variant heeft een NULL-race bij rollback. Twee transacties, T1 en T2, willen allebei de
+eerste factuur van een nieuw boekjaar finaliseren:
+
+1. T1 doet de insert en slaagt. De rij bestaat, maar is nog niet gecommit.
+2. T2 doet dezelfde insert. Die botst op de unique index en blokkeert tot T1 klaar is.
+3. T1 rolt terug, bijvoorbeeld omdat stap 9 van 4.2 faalt op een leeg `bill_to_email`.
+4. T2 deblokkeert. De conflicterende rij is verdwenen, en `ON CONFLICT DO NOTHING` heeft de
+   insert al als conflict afgehandeld: er wordt niets ingevoegd en er wordt niets
+   geretourneerd.
+5. T2 doet vervolgens `select ... for update` en vindt **geen rij**.
+6. `v_series` is `NULL`. `v_series.next_number` is `NULL`, `v_series.prefix` is `NULL`, en
+   het samengestelde `invoice_number` wordt `NULL` of een string als `.001`.
+
+Het faalt dus niet luidruchtig op een lock-conflict maar stil op een NULL, en wat eruit
+komt is een factuur zonder bruikbaar nummer. `DO NOTHING` neemt bovendien geen slot op de
+conflicterende rij, dus zelfs het gelukkige pad leunt op de aanname dat de rij er na de
+insert gegarandeerd staat, en die aanname is bij een gelijktijdige rollback simpelweg niet
+waar. De `do update`-variant heeft dit probleem niet: die retourneert altijd exact één rij,
+of hij nu invoegde of bijwerkte.
+
+**Waarom geen `SEQUENCE`.** Een Postgres-sequence is niet-transactioneel. Een teruggedraaide
+transactie verbrandt een nummer en laat een gat achter. Voor een technische sleutel is dat
+prima, voor een factuurreeks niet: een gat suggereert een verdwenen factuur. Een tellerrij
+in een gewone tabel volgt de transactie wel, en dat is hier de hele reden van bestaan.
+
+### 4.4 Nummerformaat en chronologie
+
+Formaat: `{prefix}{jaar}.{volgnummer met drie posities}`, dus `2026.001` en `TEST-2026.001`.
+
+De chronologie-eis uit stap 6 van 4.2:
+
+```sql
+select max(issued_at) into v_last_issued
+from tmc.invoices
+where series_id = v_series.id and status = 'finalised';
+
+if v_last_issued is not null and p_issued_at < v_last_issued then
+  return jsonb_build_object('ok', false, 'reason', 'issued_at_before_last',
+                            'last_issued_at', v_last_issued);
+end if;
+```
+
+Waarom: een oplopende nummering waarbij de datums door elkaar lopen is intern
+inconsistent. Als `2026.007` op 3 maart staat en `2026.008` op 28 februari, dan is niet
+meer te zeggen welke factuur eerder was. Gelijke datums zijn wel toegestaan, want meerdere
+facturen op één dag is normaal.
+
+Praktisch gevolg: een factuur met terugwerkende kracht kan alleen zolang er nog niets
+later in dezelfde reeks gefinaliseerd is. Dat is een echte beperking en het is de bedoeling.
+
+### 4.5 Onveranderlijkheid na finaliseren
+
+Trigger `invoices_finalised_immutable`, `BEFORE UPDATE ON tmc.invoices FOR EACH ROW`:
+
+- `OLD.status = 'draft'`: alles toegestaan.
+- `OLD.status = 'finalised'`: alleen `pdf_path`, `pdf_generated_at` en `updated_at` mogen
+  wijzigen. Elke andere kolomwijziging geeft
+  `raise exception 'Gefinaliseerde factuur is onveranderlijk.' using errcode = 'P0001'`.
+
+**`pdf_path` en `pdf_generated_at` zijn write-once.** De trigger weigert een tweede
+schrijfactie:
+
+```
+if OLD.pdf_path is not null and NEW.pdf_path is distinct from OLD.pdf_path then
+  raise exception 'pdf_path is write-once.' using errcode = 'P0001';
+end if;
+```
+
+De reden: een tweede render kan een andere PDF opleveren dan de klant ontving, bijvoorbeeld
+omdat het sjabloon, het logo of het adres van TMC intussen is aangepast. Zodra de PDF er is
+is dat het document, en het pad ernaartoe verandert niet meer. Moet er echt opnieuw
+gerenderd worden, dan is dat een nieuwe factuur of een creditnota plus een nieuwe factuur,
+en dat is een boekhoudkundige handeling, geen technische.
+
+Een trigger `BEFORE DELETE`: `finalised` mag niet verwijderd worden. `draft` wel.
+
+### 4.6 Crediteren
+
+**`invoices.status` kent alleen `draft` en `finalised`.** Er is geen status `credited`.
+
+De crediteringsstand is afgeleid uit de gekoppelde creditnota's:
+
+```sql
+create or replace view tmc.v_invoice_credit_state as
+select
+  i.id                                             as invoice_id,
+  i.total_gross_cents,
+  coalesce(-sum(c.total_gross_cents), 0)           as credited_gross_cents,
+  case
+    when coalesce(-sum(c.total_gross_cents), 0) = 0                     then 'none'
+    when coalesce(-sum(c.total_gross_cents), 0) >= i.total_gross_cents  then 'full'
+    else 'partial'
+  end                                              as credit_state
+from tmc.invoices i
+left join tmc.invoices c
+  on c.credit_of_invoice_id = i.id and c.status = 'finalised'
+where i.status = 'finalised' and i.credit_of_invoice_id is null
+group by i.id, i.total_gross_cents;
+```
+
+**Waarom afgeleid en niet als status.** Deels crediteren bestaat: een lid betaalt 149,00
+voor een abonnement en krijgt 40,00 terug omdat de studio twee weken dicht was. Met een
+statuskolom moet je dan kiezen tussen `credited` (onwaar, er staat nog 109,00 open) en
+`finalised` (onvolledig, er is wel degelijk gecrediteerd). Elke keuze is fout en de derde
+optie is een extra status plus een bedrag, en dan heb je twee bronnen van waarheid die
+kunnen gaan afwijken. Afleiden uit de creditnota's kan per definitie niet afwijken, want de
+creditnota's zijn het bewijs.
+
+Een creditnota is verder een volstrekt gewone factuurrij:
+
+- `credit_of_invoice_id` verwijst naar de oorspronkelijke factuur
+- alle bedragen op de regels zijn negatief
+- het nummer komt uit dezelfde reeks
+- hij wordt gefinaliseerd met dezelfde `finalize_invoice`
+
+Geen aparte tabel, geen aparte RPC, geen aparte PDF-route. Alleen het sjabloon zet een
+andere kop en toont de verwijzing naar het gecrediteerde nummer.
+
+### 4.7 Van Mollie-refund naar creditnota naar omzetregel
+
+Zie sectie 6 van het discovery-rapport en de bevinding in 4.8. Het pad:
+
+1. Admin betaalt terug in het Mollie-dashboard, of via een latere admin-actie in het cockpit.
+2. Mollie roept de webhook van de betaling aan zodra de refund-status verandert.
+3. De webhook haalt de payment op, leest `payment.amountRefunded` en schrijft
+   `payments.refunded_amount_cents` en `payments.refunded_at`. **`payments.status` blijft
+   `paid`.**
+4. Als er een gefinaliseerde factuur aan die payment hangt, komt er een signaal in het
+   cockpit: "betaling gedeeltelijk of volledig terugbetaald, factuur `2026.014` is nog
+   niet gecrediteerd."
+5. De admin maakt de creditnota aan en finaliseert die. **Nooit automatisch.** Crediteren is
+   een boekhoudkundige handeling met een datum en een bedrag die iemand moet willen.
+6. De omzetrapportage trekt het terugbetaalde bedrag af in de periode van de refund, niet
+   in de periode van de oorspronkelijke betaling. Zie 7.4.
+
+### 4.8 Bevinding: wat een refund in Mollie API v2 werkelijk doet
+
+Geverifieerd tegen `@mollie/api-client` versie 4.5.0 zoals geïnstalleerd
+(`package.json`: `^4.5.0`, `node_modules/@mollie/api-client/package.json`: `4.5.0`).
+
+`PaymentStatus` in `dist/types/data/payments/data.d.ts` regel 1023 kent zeven waarden:
+
+```
+open, canceled, pending, authorized, expired, failed, paid
+```
+
+Er is **geen** `refunded`. Die waarde bestond in API v1 en is in v2 verdwenen.
+
+`PaymentData` heeft wel `amountRefunded?: Amount` (regel 103) en `amountRemaining?: Amount`
+(regel 109), met de documentatie erbij: "The total amount that is already refunded. Only
+available when refunds are available for this payment."
+
+De refund zelf is een aparte resource met een eigen `RefundStatus`
+(`dist/types/data/refunds/data.d.ts` regel 92): `queued`, `pending`, `canceled`,
+`processing`, `failed`, `refunded`. De client heeft er binders voor
+(`paymentRefunds`, `refunds`).
+
+**Conclusie: een refund laat de payment-status ongemoeid en vult alleen `amountRefunded`.**
+De payment blijft `paid`.
+
+Consequenties voor het ontwerp:
+
+- De zorg uit het discovery-rapport dat een refund-webhook de `paid`-regel zou overschrijven
+  met `refunded` en zo de historie zou wissen, is **onjuist voor API v2**. Dat kan niet
+  gebeuren.
+- Het werkelijke probleem is subtieler en stiller: de webhook vuurt wel, de code haalt de
+  payment opnieuw op, `payment.status` is nog steeds `paid`, de upsert schrijft dezelfde rij
+  ongewijzigd terug en `amountRefunded` valt op de grond. **Restituties zijn nu onzichtbaar,
+  niet destructief.**
+- De waarde `refunded` in `payments_status_check` is daarmee dode ruimte: Mollie kan hem
+  nooit produceren. De constraint blijft ongewijzigd (verwijderen levert niets op en kost
+  een migratie), maar de webhook schrijft hem nooit. De restitutiestand woont in
+  `refunded_amount_cents`, niet in `status`.
+- `PaymentStatusBadge` in `src/app/app/facturen/_components/` heeft een label "Teruggestort"
+  voor status `refunded`. Dat label wordt nooit getoond. De badge moet in plaats daarvan op
+  `refunded_amount_cents > 0` reageren.
+
+## 5. PDF-generatie en uitlevering
+
+### 5.1 Waarom de PDF buiten de RPC blijft
+
+Zie de toelichting bij 4.2. Kort: nummer eerst, document daarna. Een mislukte render laat
+een correct genummerde factuur achter die opnieuw gerenderd kan worden; een mislukte
+nummertoekenning na een geslaagde render laat een PDF zonder nummer achter.
+
+### 5.2 Sjabloon
+
+Basis: `src/pdfs/TrainerInvoicePdf.tsx` (`@react-pdf/renderer` 4.5.1), dat aantoonbaar werkt
+op de Vercel Node-runtime via `src/app/api/admin/trainers/[id]/invoice/route.ts`
+(`renderToBuffer`, `runtime = "nodejs"`).
+
+Nieuw bestand `src/pdfs/CustomerInvoicePdf.tsx`, met wat de trainer-declaratie niet heeft:
+
+- BTW-uitsplitsing per tarief, uit een `group by vat_rate_bp` over de regels
+- KvK en BTW-nummer van TMC, uit Sanity met `src/lib/constants.ts` als fallback (zie 1.5)
+- Afnemergegevens uit de bevroren `bill_to_*`-kolommen
+- Creditnota-variant: andere kop en een regel "Creditnota bij factuur 2026.014"
+
+Belangrijk onderscheid dat in de code een comment verdient: de bestaande
+`TrainerInvoicePdf` is een declaratie van een zelfstandige aan TMC en geen verkoopfactuur.
+Het nummerformaat daar (`TMC-202603-A1B2C3D4`) is deterministisch per trainer per maand,
+geen reeks, en is uitdrukkelijk **geen** precedent voor de nummering in deze spec.
+
+### 5.3 Bucket tmc-invoices
+
+Nieuwe bucket, `public = false`.
+
+- Pad: `{profile_id}/{invoice_number}.pdf`
+- Geen RLS-policies op `storage.objects` voor deze bucket, dus uitsluitend bereikbaar via
+  `service_role`. Dat is hetzelfde patroon als de bestaande `tmc-medical-attestations`.
+- `allowed_mime_types: ['application/pdf']`, `file_size_limit` op een paar MB.
+
+Let op bij het aanmaken: het Supabase-project is gedeeld met andere projecten (`tvmuur-*`,
+`cinewall-previews`, `offerte-tekeningen`). De `tmc-`-prefix is daar de scheiding en die
+houden we aan.
+
+### 5.4 Signed-URL-patroon
+
+Dit wordt het eerste signed-URL-patroon in de codebase: er is op dit moment nul voorkomens
+van `createSignedUrl`, het enige storage-gebruik is `getPublicUrl("tmc-avatars")` in
+`src/lib/actions/profile.ts`.
+
+Server action `getInvoiceDownloadUrl(invoiceId)`:
+
+1. Cookie-client, `auth.getUser()`.
+2. Factuur ophalen via de cookie-client, zodat RLS de autorisatie doet: een lid krijgt
+   alleen zijn eigen gefinaliseerde niet-test-factuur, een admin krijgt alles.
+3. Geen `pdf_path`: nette foutmelding terug, geen 500.
+4. `createAdminClient().storage.from('tmc-invoices').createSignedUrl(pdf_path, 300)`.
+5. URL teruggeven.
+
+Vijf minuten TTL. De URL wordt direct gevolgd, hij hoeft niet gedeeld te kunnen worden, en
+een korte TTL beperkt de schade als hij in een logbestand of een chatgeschiedenis belandt.
+
+Nadrukkelijk niet: de bucket publiek maken en het pad raden onmogelijk maken met een UUID.
+Facturen bevatten NAW-gegevens en een raadbaar-maar-lang pad is geen autorisatie.
+
+### 5.5 E-mail: link in plaats van bijlage
+
+`src/lib/email.ts` (`sendEmail({ to, toName, subject, react })`) ondersteunt HTML en
+plaintext. De MailerSend-SDK kent `.setAttachments()`, maar dat is niet aangesloten en geen
+van de vijftien templates in `src/emails/` heeft een bijlage.
+
+Voorstel: **niet aansluiten.** De factuurmail bevat een knop naar `/app/facturen`, waar de
+download achter de signed URL zit. Redenen:
+
+- De PDF staat toch al in de portal, dus een bijlage is een tweede kopie die kan verouderen.
+- Bijlagen drukken de deliverability, en dit is transactionele post die aan moet komen.
+- Geen PDF in de mailbox van MailerSend en niet in de doorstuurketen van de ontvanger.
+
+Wie later toch een bijlage wil: `sendEmail` uitbreiden met een optionele `attachments`-array
+is een kleine wijziging, maar hij hoort niet in deze spec thuis.
+
+## 6. Testmodus
+
+### 6.1 Het uitgangspunt: tmc.profiles.is_test
+
+**De testmodus draait op `tmc.profiles.is_test`. Een testorder is uitsluitend toegestaan op
+een testprofiel.**
+
+Dat is de enige invariant die deze sectie nodig heeft. Alles wat volgt is een gevolg.
+
+Afgedwongen in `tmc.create_order` en `tmc.admin_create_order`: bij het aanmaken van een
+order wordt `profiles.is_test` gelezen en dat bepaalt de modus. Er is geen parameter
+waarmee een aanroeper de modus kan kiezen, dus er is geen manier om per ongeluk een
+testorder op een echt profiel te zetten.
+
+`payments.is_test` en `invoices.is_test` blijven bestaan als **afgeleide snapshotkolom**.
+Ze worden gevuld uit het profiel op het moment van schrijven. Dat is redundant, en dat is
+de bedoeling: een rapportagequery over miljoenen betaalregels wil niet elke keer naar
+`profiles` joinen, en een factuur moet zijn eigen `is_test` dragen omdat hij een bevroren
+document is.
+
+### 6.2 Waarom een testmembership op een echt profiel gevaarlijk is
+
+Dit is de kern van de correctie en het verdient uitschrijven, want "het is netjes
+gescheiden" is een te zwak argument voor een structurele keuze.
+
+Een membership is geen administratieve rij. Het is een **entitlement** dat rechten uitdeelt
+in drie systemen die niets van een testvlag weten:
+
+**Entitlements en boekingsrechten.** `tmc.memberships` draagt `frequency_cap`,
+`covered_pillars`, `credits_remaining` en `credits_expires_at`. De boekingslogica in
+`src/lib/member/booking-actions.ts` en `tmc.book_class_session` leest die velden en beslist
+of iemand mag boeken. Een testmembership op een echt profiel geeft dat lid dus echte
+boekingsrechten die het niet gekocht heeft, of, bij een testmembership met een lagere
+`frequency_cap` dan het echte, ontneemt het rechten die wel betaald zijn. Beide kanten zijn
+fout en geen van beide valt op tot een lid klaagt.
+
+**Boekingscapaciteit.** Een boeking gemaakt vanuit een testmembership bezet een echte plek
+in `class_sessions.capacity`. Bij maximaal zes deelnemers per groep is dat direct merkbaar:
+een echt lid komt op de wachtlijst voor een sessie die vol lijkt maar het niet is. De
+capaciteitsbewaking (`20260811000000_enforce_session_capacity.sql`) telt rijen, niet
+bedoelingen. En de wachtlijst-promotiecron zou vervolgens een echt lid promoveren op basis
+van een geannuleerde testboeking, met een e-mail erachteraan.
+
+**Fysieke toegang via Akiles.** Zie `spec-akiles-access.md`. Toegang tot de studio hangt aan
+een actief membership. Een testmembership op een echt profiel is daarmee geen
+administratief detail maar een sleutel tot het pand. En omgekeerd: als iemand een
+testmembership opruimt terwijl het echte membership van datzelfde profiel per ongeluk
+meegaat, staat een betalend lid voor een dichte deur.
+
+Met `profiles.is_test` bestaat geen van deze scenario's, want een testprofiel is een ander
+profiel. Het heeft geen echte boekingen, komt niet in de rooster-capaciteit van echte leden
+terecht behalve waar je dat expliciet test, en krijgt hooguit toegang tot de studio via een
+testpasje dat je bewust uitgeeft of niet.
+
+### 6.3 De propagatieketen
+
+```
+tmc.profiles.is_test                    de bron, handmatig gezet op testaccounts
+        │
+        ├── create_order / admin_create_order lezen het profiel
+        │        │
+        │        └── de modus bepaalt welke Mollie-key en welke webhook-URL
+        │
+        ├── webhook schrijft payments.is_test           (snapshot)
+        │
+        └── finalize_invoice schrijft invoices.is_test  (snapshot)
+```
+
+`tmc.orders` en `tmc.memberships` krijgen **geen** `is_test`-kolom. Ze hebben er geen nodig:
+`orders.profile_id` en `memberships.profile_id` zijn verplicht, dus de modus is één join
+ver. En omdat de rapportage niet over orders of memberships gaat maar over payments, is die
+join nergens op een heet pad.
+
+### 6.4 Wat hierdoor niet meer nodig is
+
+Het eerdere voorstel wilde `is_test` op `orders` en `memberships` en moest daarom twee
+bestaande structuren aanpassen. Met `profiles.is_test` vervallen allebei:
+
+**`tmc.orders_one_open_subscription_idx` blijft ongewijzigd.**
+
+```
+CREATE UNIQUE INDEX orders_one_open_subscription_idx ON tmc.orders
+  USING btree (profile_id)
+  WHERE ((kind = 'subscription') AND (status = ANY (ARRAY['draft','pending'])))
+```
+
+De index is uniek op `profile_id`. Een testprofiel en een echt profiel zijn verschillende
+`profile_id`'s, dus een openstaande testorder en een openstaande echte order kunnen per
+definitie niet op dezelfde indexrij botsen. De invariant die de index bewaakt, namelijk
+"één open abonnementsorder per persoon", blijft in beide modi exact even scherp. Met
+`is_test` op `orders` had de index-key uitgebreid moeten worden en was die invariant
+opgerekt tot "één per persoon per modus", wat zwakker is dan wat er nu staat.
+
+**De duplicate-membership-guard in `tmc.activate_order` blijft ongewijzigd.**
+
+```
+select id into v_existing_id
+from tmc.memberships
+where profile_id = v_order.profile_id
+  and status in ('pending','active','paused','cancellation_requested')
+limit 1;
+```
+
+Dezelfde redenering: de guard is gescopet op `profile_id`. Een testprofiel heeft alleen
+testmemberships, een echt profiel alleen echte. De guard vindt nooit een membership uit de
+andere modus, dus hij blokkeert nooit ten onrechte en laat nooit ten onrechte door. Met
+`is_test` op `memberships` had de guard een extra conditie gekregen en daarmee een tweede
+manier om fout te gaan, precies in de functie die geld verwerkt.
+
+Dit is de winst van de correctie: twee bestaande, werkende, geld-kritieke structuren blijven
+onaangeraakt.
+
+### 6.5 Webhook-modusrouting
+
+**Het probleem.** Een Mollie payment-id verraadt de modus niet. Zowel een testbetaling als
+een echte betaling heeft een id van de vorm `tr_xxxxxxxx`. De webhook krijgt alleen dat id
+binnen (form-encoded veld `id`) en moet dan al weten met welke key hij
+`mollie.payments.get(id)` moet aanroepen.
+
+Beide keys proberen is geen oplossing: een live payment ophalen met een testkey geeft een
+404 en andersom ook, dus je zou op een 404 moeten terugvallen op de andere key. Dat is twee
+API-calls op het hete pad, het maakt een echte 404 (verwijderde payment, verkeerde id)
+ononderscheidbaar van een modus-mismatch, en het laat een aanvaller de andere key
+aanroepen door een willekeurig id te posten.
+
+**De oplossing: wij bepalen de webhook-URL zelf.** Mollie roept exact de URL aan die wij bij
+het aanmaken van de payment of de subscription hebben meegegeven, en slaat die per resource
+op. Dus zetten we de modus in die URL.
+
+`src/lib/site-url.ts` krijgt een parameter:
+
+```ts
+export type MollieMode = "live" | "test";
+
+export function mollieWebhookUrl(mode: MollieMode): string
+```
+
+Opbouw met `URLSearchParams` in plaats van string-concatenatie, want er staat al een
+query-parameter op preview en `?`-versus-`&` met de hand is precies waar dit soort dingen
+misgaat:
+
+```
+base = `${siteUrl()}/api/mollie/webhook`
+params = new URLSearchParams()
+if (mode === "test") params.set("mode", "test")
+if (VERCEL_ENV === "preview" && VERCEL_AUTOMATION_BYPASS_SECRET)
+    params.set("x-vercel-protection-bypass", VERCEL_AUTOMATION_BYPASS_SECRET)
+return params.size ? `${base}?${params}` : base
+```
+
+Twee eigenschappen die bewust zo zijn:
+
+- **`mode` wordt alleen gezet voor `test`.** De afwezigheid van de parameter betekent live.
+  Dat is nodig voor achterwaartse compatibiliteit: elke bestaande subscription in Mollie
+  heeft een opgeslagen webhook-URL zonder `mode`, en die subscriptions blijven jaren lopen.
+  Zou de route een verplichte parameter eisen, dan brak elke lopende incasso op het moment
+  van deployen.
+- **De bypass-parameter blijft ongewijzigd werken** en kan naast `mode` staan. De
+  `URLSearchParams`-opbouw dekt alle vier de combinaties zonder speciale gevallen.
+
+**In de route.** `src/app/api/mollie/webhook/route.ts` leest de modus uit de eigen URL:
+
+```
+const mode = new URL(request.url).searchParams.get("mode") === "test" ? "test" : "live";
+const mollie = getMollieClient(mode);
+```
+
+Whitelist, geen vrije doorgifte: alles wat niet exact `test` is, is `live`.
+
+**Is dit veilig?** De parameter staat in een publieke URL en is dus door iedereen te zetten.
+Dat is geen probleem, want de parameter selecteert alleen met welke key we de payment bij
+Mollie **ophalen**. Wie `?mode=test` erop plakt met een live payment-id, krijgt van Mollie
+een 404 en de handler stopt. Er wordt niets geschreven op basis van de parameter zelf; alles
+wat de handler daarna doet komt uit het antwoord van Mollie. Er is geen pad waarlangs een
+gemanipuleerde `mode` een rij aanmaakt of wijzigt.
+
+Wat wel moet: de handler mag bij een mislukte `payments.get` niet stil doorlopen. Nu vangt
+de buitenste `try/catch` dat af en retourneert `{ ok: true }`. Dat blijft zo (Mollie mag
+niet gaan retryen), maar er komt een `console.error` met het id en de gekozen modus bij,
+zodat een modus-mismatch in de logs zichtbaar is in plaats van als stilte.
+
+### 6.6 Twee env-vars en een Map in plaats van een cache
+
+`src/lib/mollie.ts` heeft nu:
+
+```ts
+let cached: MollieClient | null = null;
+
+export function getMollieClient(): MollieClient | null {
+  if (cached) return cached;
+  const apiKey = process.env.MOLLIE_API_KEY;
+  if (!apiKey) return null;
+  cached = createMollieClient({ apiKey });
+  return cached;
+}
+```
+
+Die module-level `cached` maakt twee modi in één proces onmogelijk: de eerste aanroep wint
+en elke volgende krijgt diezelfde client, ongeacht wat er gevraagd wordt. Vervangen door een
+`Map` op modus:
+
+```ts
+const clients = new Map<MollieMode, MollieClient>();
+
+export function getMollieClient(mode: MollieMode): MollieClient | null {
+  const existing = clients.get(mode);
+  if (existing) return existing;
+  const apiKey = mode === "test"
+    ? process.env.MOLLIE_API_KEY_TEST
+    : process.env.MOLLIE_API_KEY_LIVE;
+  if (!apiKey) return null;
+  const client = createMollieClient({ apiKey });
+  clients.set(mode, client);
+  return client;
+}
+```
+
+**Twee env-vars:** `MOLLIE_API_KEY_LIVE` en `MOLLIE_API_KEY_TEST`. De oude `MOLLIE_API_KEY`
+verdwijnt. Geen fallback van `MOLLIE_API_KEY_LIVE` naar `MOLLIE_API_KEY`, want een stille
+fallback op een key waarvan niemand meer weet of hij test of live is, is precies het
+probleem dat we oplossen.
+
+`isMollieConfigured()` krijgt dezelfde parameter.
+
+**Alle aanroepplaatsen krijgen een modus.** Dit is de grootste mechanische wijziging van
+deze spec, dus hier de volledige lijst zoals aanwezig op `main`:
+
+| Bestand | Regel | Waar de modus vandaan komt |
+|---|---|---|
+| `src/app/api/mollie/webhook/route.ts` | 81 | query-parameter `mode` |
+| `src/app/api/trial-bookings/webhook/route.ts` | 17 | query-parameter `mode`, zelfde patroon |
+| `src/lib/orders/create-order.ts` | 189 | `profiles.is_test` van de koper |
+| `src/lib/orders/payment-link.ts` | 24 | `profiles.is_test` via `orders.profile_id` |
+| `src/lib/actions/trial-booking.ts` | 109 | altijd `live` (proefles kent geen testprofiel) |
+| `src/app/betaal/[token]/page.tsx` | 81 | `profiles.is_test` via de order achter het token |
+| `src/app/api/cron/expire-orders/route.ts` | 123 | per order, uit `profiles.is_test` |
+| `src/lib/admin/membership-lifecycle.ts` | 730 | `isMollieConfigured(mode)`, modus uit het membership |
+
+Plus de vijf helpers binnen `src/lib/mollie.ts` zelf (`cancelMollieSubscription`,
+`getMollieSubscriptionInfo`, `hasValidMollieMandate`, `updateMollieSubscriptionAmount`,
+`createMollieRecurringSubscription`), die allemaal een `mode`-parameter krijgen en
+doorgeven.
+
+Let op bij `expire-orders`: die cron loopt over meerdere orders in één run en die kunnen in
+verschillende modi zitten. De modus moet daar per order bepaald worden, niet één keer per
+run.
+
+En bij `createMollieRecurringSubscription`: de `webhookUrl` die daar wordt meegegeven moet
+de modus dragen, anders komen recurring-incasso's van een testabonnement binnen op de
+live-route.
+
+### 6.7 De TEST-reeks
+
+Rij in `tmc.invoice_series` met `code = 'TEST'`, `prefix = 'TEST-'`, `is_test = true`, per
+boekjaar. `finalize_invoice` kiest de reeks op `v_inv.is_test`, dus er is geen aparte code
+en geen aparte RPC.
+
+Resultaat: `TEST-2026.001` naast `2026.001`, met onafhankelijke tellers.
+
+### 6.8 Zichtbaarheid: waar testdata mag verschijnen
+
+| Plek | Testdata |
+|---|---|
+| `/app/facturen` (lid) | nooit, dubbel gefilterd: RLS-policy en query |
+| Ledenlijst en ledendetail admin | wel, met een zichtbare markering op de rij |
+| Omzetrapportage en CSV-export | nooit, tenzij de admin de toggle expliciet omzet |
+| `tmc.vw_admin_kpis` | nooit |
+| ntfy-meldingen | wel, met `[TEST]` in de titel |
+| Transactionele e-mail naar het lid | wel, want dat is precies wat je wil testen |
+
+De ntfy-markering is geen detail: zonder die prefix is een testbetaling in het meldingskanaal
+niet te onderscheiden van een echte verkoop, en dan leert het team het kanaal te wantrouwen.
+
+### 6.9 Testdata opruimen
+
+Geen cron, geen automatiek. Een gedocumenteerd script dat op `profiles.is_test = true`
+selecteert en de afhankelijke rijen in de juiste volgorde verwijdert.
+
+Wat er niet gebeurt: gefinaliseerde testfacturen verwijderen. Die blijven staan, met hun
+nummer, in hun eigen reeks. De TEST-reeks is dan aaneengesloten en dat is nuttig, want als
+je de reeks van de testmodus mag doorbreken test je niet meer wat de echte reeks doet.
+
+## 7. Omzetrapportage
+
+### 7.1 Waarom vw_admin_kpis niet de plek is
+
+`tmc.vw_admin_kpis` is een materialized view (in `pg_matviews`, schema `tmc`) met negen
+CTE's die één rij oplevert. `mrr_cents` daarin is:
+
+```
+sum(price_per_cycle_cents * 30.4375 / (billing_cycle_weeks * 7)) over memberships met status 'active'
+```
+
+Dat is contractwaarde: wat de lopende abonnementen per maand zouden opleveren als er niets
+verandert. Het is een vooruitblik en het is nuttig. Het is alleen geen omzet: het raakt
+`tmc.payments` nergens aan, telt een mislukte incasso gewoon mee, en weet niets van
+losse producten, PT-pakketten of proeflessen.
+
+Er is op dit moment dus geen enkele gerealiseerde-omzetrapportage in het systeem. Die komt
+naast de KPI-view te staan, niet erin.
+
+### 7.2 De omzetview
+
+Nieuwe view `tmc.v_revenue_lines`, één rij per betaalde betaalregel, verrijkt met de
+productgroep:
+
+```
+period_month      date              -- date_trunc('month', paid_at)
+paid_at           timestamptz
+payment_id        uuid
+profile_id        uuid
+revenue_category  text              -- uit catalogue via order.catalogue_slug of membership.plan_variant
+vat_rate_bp       integer           -- null waar onbekend
+gross_cents       integer           -- payments.amount_cents
+vat_cents         integer           -- payments.vat_amount_cents
+net_cents         integer           -- payments.net_amount_cents
+refunded_cents    integer           -- payments.refunded_amount_cents
+kind              text
+```
+
+Met `where status = 'paid' and is_test = false` als basisfilter.
+
+De rapportagequery in het cockpit groepeert daarover op maand en `revenue_category`, en
+toont netto, BTW en bruto per groep plus een totaal.
+
+Rijen met `vat_rate_bp is null` (historische betalingen uit 3.5) komen als aparte groep
+"tarief onbekend" in beeld. Ze verstoppen zich niet in een van de bestaande groepen en ze
+worden niet stil op negen procent gezet.
+
+### 7.3 Consumentenproducten zonder factuur
+
+Die tellen gewoon mee. De view leest `payments`, niet `invoices`. Dat is de hele reden voor
+de keuze in "Waar dit op rust".
+
+In de rapportage-UI staat per groep wel hoeveel van de omzet gefactureerd is
+(`count(*) filter (where exists (select 1 from tmc.invoices ...))`), zodat zichtbaar is wat
+er aan documenten tegenover staat. Dat is informatie, geen controle.
+
+### 7.4 Creditnota's en restituties als negatieve regels
+
+Twee bewegingen, allebei negatief, allebei in de periode waarin ze plaatsvonden:
+
+- **Restitutie**: `refunded_cents` op de betaalregel, meegeteld in de maand van
+  `refunded_at`, niet in de maand van `paid_at`. Een terugbetaling in april van een betaling
+  uit februari drukt april, want anders verandert een al gerapporteerde maand met
+  terugwerkende kracht.
+- **Creditnota**: de gefinaliseerde creditnota levert eigen negatieve regels op met
+  `issued_at` als datum.
+
+De twee kunnen naast elkaar bestaan voor dezelfde betaling en dat is dubbeltellen. De
+rapportage rekent daarom met de restitutie als bron en gebruikt de creditnota alleen als
+document, tenzij er een creditnota is zonder bijbehorende restitutie (bijvoorbeeld een
+correctie die met een tegoed is afgehandeld). De regel in de view:
+
+```
+neem refunded_cents; tel een creditnota alleen mee waar credit_of_invoice_id.payment_id
+geen refunded_amount_cents > 0 heeft
+```
+
+Dit is de plek waar de rapportage het meest kan verrassen en hij verdient een expliciete
+test in 11.
+
+### 7.5 Het trial_bookings-lek dichten
+
+Zie 2.9. Zonder dit blijven proeflessen buiten elke omzetregel.
+
+### 7.6 CSV-export
+
+Bestaand patroon om te hergebruiken:
+`src/app/app/admin/leden/_components/BulkActions.tsx` (client-side `Blob`, quoting via
+`"…".replace(/"/g,'""')`). Twee bestaande exports, geen van beide financieel.
+
+Nieuwe export op de rapportagepagina: één regel per maand per `revenue_category`, met
+netto, BTW, bruto en gerestitueerd. Bestandsnaam
+`omzet-{jaar}-{maand}-tot-{jaar}-{maand}.csv`.
+
+Belangrijk: de export volgt exact de filters van het scherm, inclusief het is_test-filter.
+Een export die stiekem meer of minder bevat dan wat er op het scherm stond is erger dan
+geen export.
+
+### 7.7 Ververs-strategie
+
+De omzetview wordt een gewone view, geen materialized view. Reden: het datavolume is klein
+(vijf betaalregels nu, realistisch een paar duizend per jaar), de pagina wordt zelden
+geopend, en een gewone view is altijd actueel. Een materialized view zou een tweede
+refresh-cron vereisen en een tweede manier om verouderde cijfers te tonen.
+
+`tmc.vw_admin_kpis` blijft wel materialized en blijft op zijn eigen dagelijkse cron
+(`50 3 * * *` in `vercel.json`, via `src/app/api/cron/refresh-kpis/route.ts` en
+`tmc.refresh_admin_kpis()`).
+
+### 7.8 Harde regel: wijzigen van vw_admin_kpis
+
+**Elke wijziging aan `tmc.vw_admin_kpis` vereist drop en recreate van zowel de matview als
+`tmc.get_admin_kpis()`, in dezelfde transactie, met herstelde execute grants.**
+
+De reden staat in de live definitie:
+
+```
+tmc.get_admin_kpis()  RETURNS tmc.vw_admin_kpis  SECURITY DEFINER
+```
+
+De functie retourneert het **composiettype van de matview**. Dat maakt haar een harde
+afhankelijkheid: een `DROP MATERIALIZED VIEW` zonder meer faalt, en een `DROP ... CASCADE`
+sloopt `get_admin_kpis()` stil mee. Wat er dan gebeurt is dat de matview netjes opnieuw
+wordt aangemaakt, de migratie slaagt, en de admin-cockpit pas bij de volgende paginaload
+stukloopt op een functie die niet meer bestaat.
+
+De verplichte volgorde in één transactie:
+
+```sql
+begin;
+  drop function if exists tmc.get_admin_kpis();
+  drop materialized view if exists tmc.vw_admin_kpis;
+
+  create materialized view tmc.vw_admin_kpis as ...;
+  create unique index vw_admin_kpis_singleton_idx on tmc.vw_admin_kpis ((1));
+
+  create function tmc.get_admin_kpis() returns tmc.vw_admin_kpis
+    language sql security definer set search_path to 'tmc','extensions'
+  as $$ select * from tmc.vw_admin_kpis limit 1 $$;
+
+  grant execute on function tmc.get_admin_kpis() to anon, authenticated, service_role;
+  grant execute on function tmc.refresh_admin_kpis() to anon, authenticated, service_role;
+commit;
+```
+
+Drie dingen die vergeten worden en het daarom expliciet verdienen:
+
+1. **De unique index.** `refresh materialized view concurrently` (wat
+   `tmc.refresh_admin_kpis()` doet) vereist een unique index op de matview. Vergeet je die
+   bij het opnieuw aanmaken, dan faalt de cron pas de volgende ochtend om 03:50.
+2. **De execute grants.** Live staan die op `anon`, `authenticated`, `service_role`,
+   `postgres` en `PUBLIC`. Een nieuw aangemaakte functie heeft ze niet.
+3. **Eén transactie.** Anders bestaat er een venster waarin de cockpit een functie aanroept
+   die er niet is.
+
+Voor deze spec betekent dit concreet: het `is_test`-filter toevoegen aan de KPI-view is geen
+`ALTER`, het is de bovenstaande blok in zijn geheel. Dat staat in PR 8.
+
+## 8. Ledenkant: uitbreiding van /app/facturen
+
+### 8.1 Geen nieuwe route
+
+**Er komt geen `/app/transacties`.** `/app/facturen` bestaat, staat al in `MemberMoreMenu`,
+doet al vrijwel alles wat een transactieoverzicht moet doen, en wordt uitgebreid.
+
+Twee routes op dezelfde tabel zouden betekenen: twee plekken die uit elkaar lopen, twee
+navigatie-ingangen die hetzelfde beloven, en een lid dat moet raden waar zijn factuur staat.
+
+Wat `src/app/app/facturen/page.tsx` nu al heeft:
+
+- `payments` op `profile_id`, paginering met `PAGE_SIZE = 50` en `.range()`
+- `PaymentRow` en `PaymentStatusBadge` met alle acht statussen
+- `MandateStatusCard` met plannaam en berekende volgende incassodatum
+- Nette lege staat
+
+### 8.2 Wat erbij komt
+
+**Downloadkolom.** Per rij: als er een gefinaliseerde, niet-test factuur aan de payment
+hangt, een downloadknop die `getInvoiceDownloadUrl` aanroept (5.4). Anders niets. Geen
+grijze knop, geen tooltip met "nog niet beschikbaar": een lid dat geen factuur heeft, hoeft
+niet te weten dat andere leden die wel hebben.
+
+De query erbij, in dezelfde `Promise.all` als de bestaande drie:
+
+```
+supabase.from("invoices")
+  .select("id, invoice_number, payment_id")
+  .eq("profile_id", user.id)
+  .eq("status", "finalised")
+  .eq("is_test", false)
+  .in("payment_id", <payment-ids van deze pagina>)
+```
+
+Alleen voor de payments op de huidige pagina, dus maximaal vijftig ids.
+
+**Beschrijving verrijken.** `payments.description` is nu de ruwe string die bij het aanmaken
+is gezet, bijvoorbeeld `Order 8f3c... - ten_ride_card`. Dat is geen tekst voor een lid.
+
+Overnemen uit `src/app/app/producten/page.tsx` (regel 96 tot 128): orders ophalen voor de
+betreffende payment-ids, `slugByOrderId` bouwen, en de omschrijving via
+`getCatalogue().get(slug)?.display_name` tonen. Voor een recurring-incasso zonder order komt
+de naam uit `memberships.plan_variant` via dezelfde catalogus-lookup. Valt alles weg, dan
+blijft `payments.description` de fallback.
+
+Let op: `/app/producten` beperkt zich tot `kind = 'product'`. Die beperking gaat hier **niet**
+mee over; `/app/facturen` toont alles.
+
+**Testrijen filteren.** `.eq("is_test", false)` op beide payments-queries (rijen en telling).
+
+### 8.3 Migratie van de bestaande copy
+
+Onderaan `src/app/app/facturen/page.tsx` staat nu:
+
+> "PDF-facturen komen binnenkort. Heb je nu al een factuur nodig voor je administratie? Mail
+> Marlon met het betalingsnummer, we sturen 'm je toe."
+
+Die belofte wordt met deze spec ingelost, dus de tekst verdwijnt. Maar niet zomaar, want de
+situatie erna is genuanceerder dan "het kan nu": de meeste transacties krijgen nog steeds
+geen factuur, want dat hoeft niet voor particulieren (1.2).
+
+Vervangende tekst, onderaan dezelfde plek:
+
+> "Niet elke betaling krijgt een factuur: voor particulieren is dat niet nodig. Heb je er
+> toch een nodig voor je administratie, bijvoorbeeld omdat je zakelijk traint? Vraag het aan
+> en we maken hem voor je."
+
+Met de vraag-het-aan als `mailto` naar hetzelfde adres als nu. Een aanvraagformulier in de
+app is een nette vervolgstap en staat bewust niet in deze spec.
+
+Volgorde: de nieuwe tekst gaat pas live in dezelfde PR als de downloadkolom (PR 9). Tot die
+tijd blijft de oude tekst staan, want "komen binnenkort" is dan nog waar.
+
+Ook aan te passen in dezelfde PR: `PaymentStatusBadge` reageert op
+`refunded_amount_cents > 0` in plaats van op de statuswaarde `refunded`, die Mollie nooit
+stuurt (4.8).
+
+## 9. Adminkant: facturen aanmaken
+
+### 9.1 Vanaf een betaling
+
+Vanuit de ledendetail (`src/app/app/admin/leden/[id]/_components/PaymentsTab.tsx`) en vanuit
+de nieuwe rapportagepagina: knop "Factuur maken" op een `paid`-betaalregel.
+
+Vult automatisch: `profile_id`, `payment_id`, `order_id`, en één regel per component uit
+`orders.pricing_snapshot` (basis, add-on, inschrijfgeld), elk met eigen tarief en
+omschrijving. Bedragen uit het snapshot, niet uit de huidige catalogus.
+
+Status `draft`. Er is nog geen nummer.
+
+### 9.2 Handmatig, zonder betaling
+
+Voor het geval dat er buiten Mollie om is betaald, of voor een correctie. Admin kiest een
+profiel, voegt regels toe, finaliseert. `payment_id` blijft leeg.
+
+Deze factuur telt niet mee in de omzetrapportage uit 7.2, want die leest `payments`. Dat is
+bewust en het staat als waarschuwing in de UI: "deze factuur hangt niet aan een betaling en
+verschijnt niet in de omzetrapportage."
+
+### 9.3 Regels toevoegen
+
+Twee manieren:
+
+- **Uit de catalogus**: slug kiezen, aantal invullen. `description`, `vat_rate_bp` en
+  `revenue_category` worden overgenomen uit de catalogusrij en zijn daarna vrij te
+  bewerken op het concept, want de catalogus is een startpunt en geen keurslijf.
+- **Vrij**: omschrijving, aantal, bedrag en tarief met de hand. `catalogue_slug` blijft leeg.
+
+Het bedrag wordt bruto ingevoerd, want dat is wat iemand voor zich heeft. Netto en BTW
+worden berekend volgens 3.1 en getoond terwijl je typt.
+
+### 9.4 Finaliseren, PDF, versturen
+
+Drie losse acties, in deze volgorde en zichtbaar als drie stappen:
+
+1. **Finaliseren.** Roept `tmc.finalize_invoice` aan. Onomkeerbaar, dus met een
+   bevestigingsdialoog waarin het toe te kennen nummer nog niet staat (dat weet je pas na
+   afloop) maar wel de reeks en het boekjaar.
+2. **PDF genereren.** Rendert en uploadt. Write-once (4.5), dus de knop verdwijnt erna.
+3. **Versturen.** Mail met een link naar `/app/facturen` (5.5).
+
+Stap 2 en 3 zijn opnieuw uit te voeren als ze falen; stap 1 niet, en de UI moet dat verschil
+duidelijk maken.
+
+### 9.5 Crediteren
+
+Knop op een gefinaliseerde factuur: "Creditnota maken". Opent een concept-creditnota met
+`credit_of_invoice_id` gezet en alle regels van het origineel gekopieerd met omgekeerd
+teken. De admin mag regels verwijderen of bedragen aanpassen voor een gedeeltelijke
+creditering.
+
+Daarna hetzelfde pad: finaliseren, PDF, versturen.
+
+De crediteringsstand op de oorspronkelijke factuur (`none`, `partial`, `full`) komt uit
+`tmc.v_invoice_credit_state` (4.6) en staat als badge op de factuurrij.
+
+### 9.6 Audit-logging
+
+Elke handeling in `tmc.admin_audit_log`, hetzelfde patroon als het bestaande
+`trainer_invoice_generated`:
+
+| `action` | `details` |
+|---|---|
+| `invoice_finalised` | `invoice_number`, `total_gross_cents`, `is_test` |
+| `invoice_pdf_generated` | `invoice_number`, `pdf_path` |
+| `invoice_sent` | `invoice_number`, `to` |
+| `invoice_credited` | `invoice_number`, `credit_of`, `total_gross_cents` |
+
+`target_type = 'invoice'`, `target_id` = de factuur-id.
+
+## 10. Migratieplan
+
+### 10.1 Volgorde en omkeerbaarheid
+
+| Stap | Inhoud | Omkeerbaar |
+|---|---|---|
+| 1 | `catalogue.vat_rate_bp`, `catalogue.revenue_category` (nullable, backfill, `SET NOT NULL`) | ja, drop kolommen |
+| 2 | `profiles.is_test`, `profiles.company_name`, `profiles.vat_number` | ja |
+| 3 | `payments`-kolommen uit 2.2, grant-opruiming uit 2.8 | ja |
+| 4 | `orders.vat_amount_cents` | ja |
+| 5 | `_compute_order_price` uitbreiden, `create_order` en `admin_create_order` aanpassen | ja, `CREATE OR REPLACE` terug |
+| 6 | `invoice_series`, `invoices`, `invoice_lines`, RLS, triggers | ja zolang er geen gefinaliseerde factuur is |
+| 7 | `finalize_invoice`, `v_invoice_credit_state`, `v_revenue_lines` | ja |
+| 8 | `vw_admin_kpis` drop en recreate volgens 7.8 | ja, met dezelfde procedure |
+
+Stap 6 is het kantelpunt: zodra er één gefinaliseerde factuur bestaat is terugdraaien geen
+technische maar een boekhoudkundige vraag.
+
+### 10.2 Backfill
+
+Volumes bij het schrijven van deze spec: `payments` 5, `orders` 7, `memberships` 9,
+`trial_bookings` 3, `catalogue` 29. Alles past in één transactie en de backfill duurt
+milliseconden. Over een jaar is dat anders.
+
+De catalogus-backfill uit 2.1 staat letterlijk in de migratie, één `update` per slug, zodat
+in de code-review zichtbaar is welk tarief aan welk product is toegekend. Dat is de plek
+waar de accountant meeleest.
+
+### 10.3 Defaults die niemand stil verkeerd zet
+
+- `catalogue.vat_rate_bp` en `catalogue.revenue_category`: `NOT NULL`, geen default (2.1).
+- `payments.is_test` en `profiles.is_test`: `NOT NULL DEFAULT false`. Hier is een default
+  wel juist, want "niet test" is de veilige aanname en het alternatief is dat elke insert
+  de vlag moet noemen.
+- `payments.vat_rate_bp`: nullable, geen default. Onbekend is een geldige toestand en moet
+  als zodanig zichtbaar blijven in de rapportage.
+
+## 11. Acceptatiecriteria
+
+Toetsbaar geformuleerd. Elk criterium is een test die slaagt of faalt, niet een intentie.
+
+### 11.1 Nummering
+
+**A1. Concurrency op `finalize_invoice`.** Dit is de belangrijkste test van de hele spec.
+
+Opzet: maak 50 concept-facturen in dezelfde reeks en hetzelfde boekjaar. Roep
+`tmc.finalize_invoice` voor alle 50 gelijktijdig aan vanuit minstens 10 parallelle
+verbindingen (`pgbench -c 10 -j 4 -f finalize.sql -t 5`, of een Node-script met
+`Promise.all` over 50 losse Supabase-clients; niet vanuit één client, want die serialiseert
+zelf).
+
+Verwacht:
+
+- 50 unieke nummers
+- exact de verzameling 1 tot en met 50, dus geen gaten en geen sprongen
+- `invoice_series.next_number` staat na afloop op 51
+- geen enkele aanroep geeft een fout terug
+- `select count(*) from tmc.invoices where invoice_number is null and status = 'finalised'`
+  geeft 0
+
+**A2. Rollback laat geen gat.** Finaliseer factuur 1 en 2. Start een transactie die factuur
+3 finaliseert en rol die terug. Finaliseer daarna factuur 4. Verwacht: factuur 4 krijgt
+nummer 3.
+
+**A3. Gelijktijdige eerste factuur van een nieuw boekjaar.** Twee gelijktijdige aanroepen
+voor een boekjaar waarvoor nog geen `invoice_series`-rij bestaat, waarbij de eerste
+terugrolt op een lege `bill_to_email`. Verwacht: de tweede krijgt nummer 1 en er treedt geen
+NULL-fout op. Dit is de test die de variant uit 4.3 zou hebben laten vallen.
+
+**A4. Test- en live-reeks raken elkaar niet.** Finaliseer afwisselend live- en
+testfacturen. Verwacht: twee onafhankelijk oplopende reeksen, `2026.001`, `2026.002` naast
+`TEST-2026.001`, `TEST-2026.002`.
+
+**A5. Idempotentie.** Roep `finalize_invoice` tweemaal aan op dezelfde factuur. Verwacht:
+tweede aanroep geeft `already_finalised: true` met hetzelfde nummer, en
+`invoice_series.next_number` is niet opgehoogd.
+
+**A6. Chronologie.** Finaliseer een factuur met `issued_at = '2026-03-10'`. Probeer daarna
+te finaliseren met `issued_at = '2026-03-09'`. Verwacht: `ok: false`,
+`reason: 'issued_at_before_last'`. Met `'2026-03-10'` moet het wel slagen.
+
+**A7. Boekjaarreset.** Finaliseer een factuur met `issued_at = '2026-12-31'` en daarna een
+met `'2027-01-02'`. Verwacht: `2026.00N` gevolgd door `2027.001`.
+
+### 11.2 Onveranderlijkheid
+
+**B1.** `update tmc.invoices set bill_to_city = 'X' where status = 'finalised'` geeft een
+exception.
+
+**B2.** `update tmc.invoices set pdf_path = 'a' where status = 'finalised' and pdf_path is
+null` slaagt. Dezelfde update met een andere waarde daarna geeft een exception.
+
+**B3.** `delete from tmc.invoices where status = 'finalised'` geeft een exception.
+`delete ... where status = 'draft'` slaagt.
+
+**B4.** Wijzig na finaliseren het adres in `tmc.profiles`. Verwacht: de factuur toont nog
+steeds het oude adres, zowel in de database als in een opnieuw opgehaalde weergave.
+
+### 11.3 BTW en afronding
+
+**C1.** Voor elke actieve catalogusrij geldt
+`vat_cents = round(price_cents * vat_rate_bp / (10000 + vat_rate_bp))` en
+`net_cents = price_cents - vat_cents`, en `net + vat = price_cents` exact.
+
+**C2.** Factuur met drie regels van 1290 cent bij `vat_rate_bp = 900`. Verwacht:
+`vat_total_cents = 321` (3 x 107), niet 320. En
+`subtotal_net_cents + vat_total_cents = total_gross_cents`.
+
+**C3.** Factuur met een regel van 9 procent en een regel van 21 procent. Verwacht: de PDF
+toont twee BTW-regels, en `vat_total_cents` is de som van beide.
+
+**C4.** Een order met `extended_access` en `signup_fee` levert een `pricing_snapshot` met
+alle drie de BTW-bedragen, en `first_charge_vat_amount_cents` is hun som.
+
+### 11.4 Crediteren
+
+**D1.** Volledige creditnota op factuur van 14900. Verwacht: `credit_state = 'full'`,
+`credited_gross_cents = 14900`.
+
+**D2.** Creditnota van 4000 op dezelfde factuur. Verwacht: `credit_state = 'partial'`.
+
+**D3.** Twee creditnota's van 4000 en 10900. Verwacht: `credit_state = 'full'`.
+
+**D4.** Een creditnota maakt de omzet aantoonbaar nul: som van
+`v_revenue_lines.net_cents` over de betaling plus de creditnota is 0 voor het geval van D1.
+
+### 11.5 Testmodus
+
+**E1.** Een order aanmaken op een profiel met `is_test = false` gebruikt
+`MOLLIE_API_KEY_LIVE` en een webhook-URL zonder `mode`-parameter.
+
+**E2.** Idem op een testprofiel gebruikt `MOLLIE_API_KEY_TEST` en een URL met `?mode=test`.
+
+**E3.** Op preview met `VERCEL_AUTOMATION_BYPASS_SECRET` gezet bevat de test-URL beide
+parameters, correct gescheiden met `&`, en is hij een geldige URL volgens `new URL()`.
+
+**E4.** Een webhook-aanroep zonder `mode`-parameter kiest de live-key. Dit borgt de
+achterwaartse compatibiliteit met bestaande subscriptions.
+
+**E5.** Een webhook-aanroep met `?mode=test` en een live payment-id schrijft geen enkele
+rij en logt een fout.
+
+**E6.** `select count(*) from tmc.orders o join tmc.profiles p on p.id = o.profile_id`
+gegroepeerd op `p.is_test`: er bestaat geen order op een profiel waarvan de modus niet
+overeenkomt met de gebruikte key. Te controleren via de `payments.is_test`-snapshot.
+
+**E7.** Een lid met `is_test = false` ziet op `/app/facturen` nul testrijen, ook als het
+`is_test`-filter uit de query wordt gehaald (de RLS-policy vangt het).
+
+### 11.6 Rapportage
+
+**F1.** `v_revenue_lines` bevat nul rijen met `is_test = true`.
+
+**F2.** Een betaalde proefles verschijnt in `v_revenue_lines` met
+`kind = 'trial_booking'`. Dit is de regressietest op het lek uit 2.9.
+
+**F3.** Een restitutie in april op een betaling uit februari drukt de omzet van april, niet
+die van februari.
+
+**F4.** Een betaling met een creditnota én een restitutie wordt niet dubbel afgetrokken
+(7.4).
+
+**F5.** De CSV-export bevat exact de rijen die op het scherm staan, met dezelfde filters.
+
+### 11.7 KPI-view
+
+**G1.** Na de migratie uit 7.8 bestaat `tmc.get_admin_kpis()` nog, is hij aanroepbaar door
+`authenticated`, en geeft de admin-cockpit dezelfde cijfers als ervoor voor niet-testdata.
+
+**G2.** `refresh materialized view concurrently tmc.vw_admin_kpis` slaagt, dus de unique
+index staat er.
+
+**G3.** Een testmembership beïnvloedt `active_members` en `mrr_cents` niet.
+
+## 12. Besluitenlog
+
+| # | Besluit | Verworpen variant en reden |
+|---|---|---|
+| 1 | Testmodus op `tmc.profiles.is_test`; testorders alleen op testprofielen | `is_test` op `orders` en `memberships`, met aanpassing van `orders_one_open_subscription_idx` en van de duplicate-guard in `activate_order`. Verworpen: het rekt twee bestaande, werkende, geld-kritieke invarianten op ("één open order per persoon" wordt "één per persoon per modus") en het laat een testmembership toe op een echt profiel, met echte entitlements, echte boekingscapaciteit en echte deurtoegang. Zie 6.2 en 6.4 |
+| 2 | Nummer trekken in één `insert ... on conflict do update ... returning next_number - 1` | `insert ... on conflict do nothing` gevolgd door `select ... for update`. Verworpen: NULL-race bij rollback van een gelijktijdige eerste factuur van een boekjaar, en `do nothing` neemt geen slot op de conflicterende rij. Zie 4.3 |
+| 3 | Tellerrij in een gewone tabel | Postgres `SEQUENCE`. Verworpen: niet-transactioneel, een rollback verbrandt een nummer en laat een gat in de factuurreeks |
+| 4 | `catalogue.vat_rate_bp` en `catalogue.revenue_category` `NOT NULL` zonder default | `NOT NULL DEFAULT 900` respectievelijk `DEFAULT 'overig'`. Verworpen: een default classificeert een nieuwe catalogusrij stil en plausibel verkeerd, en dat komt pas bij een controle boven water. Zie 2.1 |
+| 5 | Bruto leidend, BTW is de afgeleide | Netto opslaan of netto eerst berekenen. Verworpen: introduceert een centverschil tussen de getoonde en de geïncasseerde prijs. Zie 3.1 |
+| 6 | Restitutie in `refunded_amount_cents`, `payments.status` blijft `paid` | De status overschrijven met `refunded`. Verworpen op grond van de verificatie in 4.8: `PaymentStatus` in `@mollie/api-client` 4.5.0 kent die waarde niet en API v2 stuurt hem nooit. De aanname uit het discovery-rapport was onjuist |
+| 7 | `invoices.status` alleen `draft` en `finalised`, crediteringsstand afgeleid | Een derde status `credited`. Verworpen: deels crediteren past er niet in, en een statuskolom naast de creditnota's is een tweede bron van waarheid die kan gaan afwijken. Zie 4.6 |
+| 8 | `pdf_path` en `pdf_generated_at` write-once | Vrij te overschrijven zodat een PDF opnieuw gerenderd kan worden. Verworpen: een tweede render kan een ander document opleveren dan de klant ontving, bijvoorbeeld na een sjabloon- of adreswijziging |
+| 9 | `finalize_invoice` weigert `issued_at` vóór de laatst gefinaliseerde factuur in de reeks | Geen chronologiecontrole. Verworpen: een oplopende nummering met door elkaar lopende datums is intern inconsistent en niet uit te leggen bij een controle |
+| 10 | `/app/facturen` uitbreiden | Nieuwe route `/app/transacties`. Verworpen: twee routes op dezelfde tabel lopen uit elkaar, en `/app/facturen` staat al in de navigatie en doet al bijna alles. Zie 8.1 |
+| 11 | Modus in de webhook-URL, `Map` op modus in `mollie.ts`, twee env-vars | Beide keys proberen en op een 404 terugvallen. Verworpen: twee API-calls op het hete pad, een echte 404 wordt ononderscheidbaar van een modus-mismatch, en een willekeurig gepost id laat de andere key aanroepen. Zie 6.5 |
+| 12 | Creditnota in dezelfde reeks als de factuur | Eigen creditreeks. Verworpen voor nu: beide zijn toegestaan, dezelfde reeks is eenvoudiger, en een aparte reeks is later toe te voegen met alleen een extra `code`-waarde zonder schemawijziging |
+| 13 | Geen kolom `catalogue.price_includes_vat` | Wel toevoegen om de brutoconventie expliciet te maken. Verworpen: de conventie geldt voor de hele tabel en een kolom die overal dezelfde waarde heeft, suggereert dat hij ooit anders kan zijn. Vastgelegd in 3.1 in plaats van in het schema |
+| 14 | Omzetview als gewone view | Materialized view met eigen refresh-cron. Verworpen: klein datavolume, zelden geopend, en een tweede refresh-cron is een tweede manier om verouderde cijfers te tonen. Zie 7.7 |
+| 15 | Factuurmail met link, geen bijlage | `sendEmail` uitbreiden met attachments. Verworpen: de PDF staat al in de portal, bijlagen drukken de deliverability, en het is een tweede kopie die kan verouderen. Zie 5.5 |
+| 16 | Creditnota wordt nooit automatisch aangemaakt bij een restitutie | Automatisch crediteren op de refund-webhook. Verworpen: crediteren is een boekhoudkundige handeling met een datum en een bedrag die iemand moet willen. Zie 4.7 |
+
+## 13. Open vragen
+
+**Voor de accountant**
+
+1. Het BTW-tarief per productgroep uit 1.1. Alle zes de regels, niet alleen de twee waarover
+   twijfel bestaat.
+2. Volgt het inschrijfgeld inderdaad het tarief van de hoofddienst, ook als het lid in
+   dezelfde eerste incasso een add-on afneemt?
+3. Mag een creditnota in dezelfde nummerreeks als de facturen, of is een aparte reeks
+   gewenst? Besluit 12 is nu de eenvoudigste variant, niet noodzakelijk de gewenste.
+4. Is de bewaartermijn van zeven jaar voldoende gedekt door de PDF in de storage-bucket plus
+   de rijen in de database, of is een export naar een onafhankelijk archief gewenst?
+
+**Voor Marlon**
+
+5. Het KvK- en BTW-nummer van TMC (1.5). Zonder deze twee kan er geen factuur de deur uit.
+6. Wil je een aanvraagknop voor een factuur in de ledenomgeving, of blijft het bij mailen
+   (8.3)?
+7. Moet een lid automatisch bericht krijgen als er een factuur voor hem klaarstaat, of pak
+   je dat per geval?
+
+## 14. PR-opdeling
+
+Negen PR's. Elke PR is los te reviewen, te mergen en terug te draaien, en elke PR laat de
+applicatie werkend achter.
+
+| PR | Inhoud | Model | Waarom dit model |
+|---|---|---|---|
+| 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per slug; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments` | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
+| 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
+| 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
+| 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
+| 5 | `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Sonnet** | Duidelijk afgebakend, patroon staat al in de hoofdwebhook |
+| 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
+| 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De teller in één statement, de rijlock-volgorde, idempotentie, chronologie, en het bevriezen van de NAW alleen waar leeg. Plus de concurrency-tests A1 tot A7 |
+| 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
+| 9 | Frontend: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); admin-factuurscherm; `CustomerInvoicePdf`; signed-URL server action; rapportagepagina met CSV-export | **Sonnet** | UI en rapportage-frontend. Patronen bestaan al: `/app/producten` voor de verrijking, `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
+
+Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is te splitsen als
+hij te groot wordt, met de ledenkant (8.2 en 8.3) als eerste helft.
+
+---
+
+*Geschreven op basis van read-only discovery. Bij elke wijziging aan de facturatieketen dit
+document bijwerken, met name het besluitenlog.*
