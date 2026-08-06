@@ -287,7 +287,25 @@ check (status = 'draft' or (number is not null
                             and bill_to_email is not null
                             and total_gross_cents is not null))
 check (credit_of_invoice_id is null or credit_of_invoice_id <> id)
+
+constraint invoices_credit_note_negative_check check (
+  credit_of_invoice_id is null
+  or status = 'draft'
+  or (total_gross_cents < 0 and subtotal_net_cents <= 0 and vat_total_cents <= 0)
+)
 ```
+
+`invoices_credit_note_negative_check` is geen stijlregel maar een rekenvoorwaarde.
+`tmc.v_invoice_credit_state` (4.6) telt gecrediteerde bedragen op met `-sum(...)` en gaat er
+dus vanuit dat een creditnota negatieve totalen draagt. Een creditnota die per ongeluk
+positief wordt weggeschreven zou daar een negatief `credited_gross_cents` opleveren en de
+crediteringsstand stilzwijgend op `none` houden, terwijl er wel degelijk gecrediteerd is.
+Dezelfde aanname zit in de omzetregels van 7.4. De constraint maakt er een harde
+databasegrens van in plaats van een afspraak.
+
+De `status = 'draft'`-uitzondering is nodig omdat de totalen `null` zijn zolang de factuur
+een concept is; `finalize_invoice` berekent ze pas in stap 6b. `vat_total_cents <= 0` en
+niet `< 0`, want een creditnota van een volledig vrijgestelde regel heeft nul BTW.
 
 Alles wat op een gefinaliseerde factuur staat is bevroren in de rij zelf. Er wordt bij
 weergave niet gejoind naar `profiles` of `catalogue`. Dat is niet uit prestatie-overweging
@@ -376,6 +394,54 @@ Ter vergelijking, dezelfde controle op de andere tabellen met een eigen
 
 Oplossing: de trial-webhook schrijft dezelfde upsert als de hoofdwebhook, met
 `kind = 'trial_booking'` en `trial_booking_id` gevuld. Zie PR 5.
+
+#### tmc.trial_bookings krijgt een eigen is_test
+
+`tmc.trial_bookings` heeft **geen `profile_id`**. Een proefles wordt geboekt door een
+bezoeker met alleen naam, e-mail en telefoonnummer; er is geen account en dus ook geen
+profiel om `is_test` uit af te leiden. De keten uit 6.3 werkt hier niet.
+
+Daarom een eigen kolom:
+
+| Kolom | Type | Toelichting |
+|---|---|---|
+| `is_test` | `boolean NOT NULL DEFAULT false` | Gevuld uit de modus waarin de publieke proefles-route draait |
+
+De modus komt van de deployment, niet van de bezoeker:
+
+```ts
+export function trialBookingMode(): MollieMode {
+  return process.env.VERCEL_ENV === "production" ? "live" : "test";
+}
+```
+
+Preview en lokale ontwikkeling draaien dus altijd in test, productie altijd in live. Er is
+bewust **geen publieke override**: een query-parameter waarmee een bezoeker in productie een
+testbetaling zou kunnen starten, geeft hem een proeflesplek voor nul euro.
+
+Zonder deze kolom is de `mode`-parameter op `/api/trial-bookings/webhook` (6.5) dood, want
+er is niets dat ooit `mode=test` meegeeft, en het proefles-betaalpad is dan alleen in
+productie met echt geld te testen. Dat is precies het pad dat in #120-tijd een lid zijn geld
+kostte zonder annuleerlink (zie de comment-historie in `src/lib/trial-booking-email.ts`), dus
+onbetestbaarheid is daar geen kleine prijs.
+
+#### Randvoorwaarde: een testproefles mag geen echte plek bezetten
+
+`tmc.v_session_availability` telt `trial_bookings` met status `pending`, `paid` of
+`attended` mee in `taken_count`, en de trigger `enforce_session_capacity` (migratie
+`20260811000000`) is de harde grens daarachter. Een preview-deployment praat tegen dezelfde
+database als productie. Een testproefles zou dus een echte stoel bezetten in een echte
+sessie van maximaal zes personen, en een betalend lid op de wachtlijst zetten. Dat is
+hetzelfde gevaar als in 6.2, alleen via een andere deur.
+
+`trial_bookings.is_test = true` moet daarom uitgesloten worden van de capaciteitstelling, op
+alle drie de plekken die tellen: `tmc.v_session_availability`, de trigger
+`enforce_session_capacity`, en de hertelling in `tmc.redeem_trial_code`. Alle drie krijgen
+`and not is_test` op de `trial_bookings`-subquery.
+
+Dit raakt het capaciteitspad, dat buiten de facturatieketen valt. Het staat daarom als
+expliciete voorwaarde bij PR 5 en niet als terloopse wijziging: wie PR 5 bouwt zonder deze
+drie aanpassingen, zet een testlek open in de bezetting.
 
 ## 3. BTW-snapshot in de prijsketen
 
@@ -520,7 +586,24 @@ language plpgsql security definer
 set search_path to 'tmc','extensions'
 ```
 
-Stappen, in deze volgorde:
+#### De regel die de volgorde bepaalt
+
+**Alle validatie gebeurt vóór het trekken van het nummer. Vanaf het moment dat het nummer
+getrokken is, retourneert de functie nooit meer `ok: false`: elke resterende fout is een
+`raise exception`.**
+
+De reden is een eigenschap van plpgsql die makkelijk over het hoofd te zien is: **een
+functie die normaal returnt, draait niets terug.** Een `return jsonb_build_object('ok',
+false, ...)` is een geslaagde aanroep. Het omliggende statement commit, inclusief alles wat
+de functie tot dat moment geschreven heeft. Zou de ophoging van `next_number` al gebeurd
+zijn, dan commit die mee terwijl er geen factuur ontstaat, en dat is precies een gat in de
+reeks: nummer 7 is verbruikt en er bestaat geen factuur 7.
+
+Alleen een exception rolt de transactie terug en geeft het nummer terug. Vandaar de
+tweedeling: tot en met de validatiepoort is `ok: false` het nette antwoord, daarna is
+alleen nog `raise` toegestaan.
+
+#### Stappen
 
 1. **Autorisatie.** `if not tmc.is_admin() then raise exception 'Alleen voor admins.'
    using errcode = '42501'; end if;` Zelfde laagdeling als `tmc.admin_cancel_order`: de
@@ -535,33 +618,45 @@ Stappen, in deze volgorde:
    Een dubbelklik of een dubbel ingediend formulier levert geen tweede nummer op. Zelfde
    patroon als `already_activated` in `tmc.activate_order`.
 
-4. **Regels valideren.** Weigeren bij nul regels
-   (`reason: 'no_lines'`). Totalen herberekenen uit `tmc.invoice_lines`:
-   `sum(net_cents)`, `sum(vat_cents)`, `sum(gross_cents)`. Weigeren als
-   `gross <> net + vat` (`reason: 'totals_mismatch'`).
+4. **Boekjaar en reeks bepalen uit `p_issued_at`**, niet uit `now()`. Een factuur die je op
+   2 januari uitschrijft over december hoort in het boekjaar van december, en `now()` zou
+   hem in het verkeerde jaar en dus in de verkeerde tellerrij zetten. `v_code` en
+   `v_prefix` volgen uit `v_inv.is_test`.
 
-5. **Boekjaar bepalen uit `p_issued_at`**, niet uit `now()`. Een factuur die je op 2 januari
-   uitschrijft over december hoort in het boekjaar van december, en `now()` zou hem in het
-   verkeerde jaar en dus in de verkeerde tellerrij zetten.
+5. **Reeksrij aanmaken indien nodig en vergrendelen, zonder het nummer te consumeren.**
+   Zie 4.3, fase 1. Vanaf hier houdt deze transactie het slot op de tellerrij tot commit of
+   rollback, dus alles wat hierna gelezen wordt over deze reeks is geserialiseerd.
 
-6. **Chronologie bewaken.** Zie 4.4. Weigeren als `p_issued_at` vóór de `issued_at` van de
-   laatst gefinaliseerde factuur in dezelfde reeks ligt.
+6. **Validatiepoort.** Alles hier retourneert `ok: false` en er is nog geen nummer
+   verbruikt. Vier controles, in deze volgorde:
 
-7. **Nummer trekken.** Zie 4.3. Eén statement.
+   - **6a. Regels aanwezig.** Nul regels: `reason: 'no_lines'`.
+   - **6b. Totalen.** Herberekenen uit `tmc.invoice_lines`: `sum(net_cents)`,
+     `sum(vat_cents)`, `sum(gross_cents)`. Klopt `gross <> net + vat`:
+     `reason: 'totals_mismatch'`.
+   - **6c. Afnemergegevens samenstellen en controleren.** De `bill_to_*`-waarden worden
+     berekend in lokale variabelen: uit `tmc.profiles` overnemen, maar **alleen waar het
+     veld op de factuur nog `null` is**, want een admin mag ze op het concept gecorrigeerd
+     hebben en die correctie mag niet overschreven worden. Is `bill_to_name` of
+     `bill_to_email` daarna nog leeg: `reason: 'incomplete_bill_to'`. Er wordt in deze
+     stap **niets geschreven**; het wegschrijven gebeurt pas in stap 9.
+   - **6d. Chronologie.** Zie 4.4. Ligt `p_issued_at` vóór de `issued_at` van de laatst
+     gefinaliseerde factuur in deze reeks: `reason: 'issued_at_before_last'`. Deze lezing
+     staat bewust ná stap 5, onder het slot.
+
+7. **Nummer trekken.** Zie 4.3, fase 2. Eén statement, onder het al gehouden slot.
 
 8. **Nummer samenstellen.**
-   `v_invoice_number := v_series.prefix || v_year::text || '.' || lpad(v_number::text, 3, '0')`
+   `v_invoice_number := v_prefix || v_year::text || '.' || lpad(v_number::text, 3, '0')`
    Levert `2026.001` en degradeert netjes naar `2026.1000` voorbij 999.
 
-9. **Afnemergegevens bevriezen.** Kopiëren uit `tmc.profiles`, maar **alleen waar het
-   `bill_to_*`-veld nog `null` is.** Een admin mag ze op het concept gecorrigeerd hebben en
-   die correctie mag niet overschreven worden. Weigeren als na het invullen
-   `bill_to_name` of `bill_to_email` nog leeg is (`reason: 'incomplete_bill_to'`).
+9. **Wegschrijven.** `status = 'finalised'`, plus `number`, `invoice_number`,
+   `fiscal_year`, `issued_at`, `series_id`, de drie totaalbedragen en de in 6c berekende
+   `bill_to_*`-waarden. Faalt dit onverhoopt op een constraint, dan is dat een exception en
+   rolt alles inclusief het nummer terug. Dat is het gewenste gedrag en er komt hier dus
+   geen `exception`-handler omheen die het naar `ok: false` zou vertalen.
 
-10. **Wegschrijven.** `status = 'finalised'`, plus `number`, `invoice_number`,
-    `fiscal_year`, `issued_at`, `series_id` en de drie totaalbedragen.
-
-11. **Return.** `jsonb_build_object('ok', true, 'already_finalised', false, 'invoice_id',
+10. **Return.** `jsonb_build_object('ok', true, 'already_finalised', false, 'invoice_id',
     ..., 'invoice_number', ...)`.
 
 **Wat bewust niet in de RPC zit: de PDF.** Die is Node-werk (`@react-pdf/renderer`). De RPC
@@ -570,30 +665,60 @@ stempelt `pdf_path`. Faalt de PDF-stap, dan is de factuur nog steeds correct gen
 opnieuw te renderen. De omgekeerde volgorde zou PDF's zonder nummer kunnen opleveren, en
 een PDF zonder nummer is geen factuur.
 
-### 4.3 Het nummer trekken: één statement
+### 4.3 Het nummer trekken: vergrendelen, valideren, dan pas consumeren
+
+Twee statements, met de validatiepoort van 4.2 ertussen. Ze horen bij elkaar en de volgorde
+is niet vrij.
+
+**Fase 1, stap 5 van 4.2: rij verzekeren en vergrendelen zonder te consumeren.**
 
 ```sql
 insert into tmc.invoice_series (code, fiscal_year, is_test, prefix, next_number)
-values (v_code, v_year, v_is_test, v_prefix, 2)
+values (v_code, v_year, v_is_test, v_prefix, 1)
 on conflict (code, fiscal_year)
-do update set next_number = tmc.invoice_series.next_number + 1
+do update set next_number = tmc.invoice_series.next_number
+returning id, next_number
+into v_series_id, v_next_number;
+```
+
+De `do update set next_number = tmc.invoice_series.next_number` is een zelftoekenning: de
+waarde verandert niet, maar Postgres schrijft wel een nieuwe rijversie en **neemt daarmee
+het rijslot**, dat tot commit of rollback gehouden wordt. Bestond de rij nog niet, dan
+wordt hij aangemaakt met `next_number = 1` en is hij door de insert zelf vergrendeld.
+
+Twee eigenschappen die dit statement precies geschikt maken:
+
+- Het retourneert **altijd exact één rij**, of het nu invoegde of bijwerkte. Er is geen tak
+  waarin `v_series_id` `NULL` kan worden.
+- Het houdt het slot vast gedurende de rest van de transactie. Een tweede transactie die
+  hetzelfde statement uitvoert blokkeert hier, en niet ergens verderop.
+
+**Fase 2, stap 7 van 4.2: consumeren.**
+
+```sql
+update tmc.invoice_series
+set next_number = next_number + 1
+where id = v_series_id
 returning next_number - 1
 into v_number;
 ```
 
-Hoe het leest:
+Deze update draait onder het slot dat fase 1 al genomen heeft, dus er is geen venster
+tussen lezen en ophogen. Voor een verse reeksrij gaat `next_number` van 1 naar 2 en levert
+`returning next_number - 1` het getal 1 op: de eerste factuur van het boekjaar krijgt
+nummer 1. Voor elke volgende factuur geeft hij de oude waarde terug, precies het nummer dat
+deze factuur moet krijgen.
 
-- **Eerste factuur van een boekjaar.** De insert slaagt met `next_number = 2`.
-  `returning next_number - 1` geeft `1`. De factuur krijgt nummer 1 en de teller staat al
-  klaar op 2.
-- **Elke volgende factuur.** De insert botst op de unique constraint, de `do update` zet
-  `next_number` op oud plus één, en `returning next_number - 1` geeft de oude waarde terug.
-  Dat is precies het nummer dat deze factuur moet krijgen.
+Bij een rollback van de omliggende transactie wordt de ophoging teruggedraaid en is het
+nummer weer beschikbaar. De reeks blijft aaneengesloten.
 
-Eén statement, dus één atomaire operatie. Het slot op de rij wordt genomen door de
-`INSERT`/`UPDATE` zelf en er is geen enkel venster tussen "kijken wat de teller is" en
-"de teller ophogen". Bij een rollback van de omliggende transactie wordt de ophoging
-teruggedraaid en is het nummer weer beschikbaar, dus de reeks blijft aaneengesloten.
+**Waarom niet alles in één statement.** De eerdere opzet trok het nummer in één
+`insert ... on conflict do update set next_number = next_number + 1`. Dat is atomair, maar
+het consumeert het nummer op het moment dat het de rij vergrendelt, en dus vóór de
+validatie. Elke validatie die daarna nog `ok: false` retourneert verbruikt dan een nummer
+zonder factuur (zie de regel bovenaan 4.2), en de chronologiecontrole zou nog steeds buiten
+het slot moeten lezen (zie 4.4). Vergrendelen en consumeren zijn twee verschillende
+behoeftes en die vallen niet op hetzelfde moment.
 
 **Waarom `insert ... on conflict do nothing` gevolgd door `select ... for update` fout is.**
 
@@ -602,7 +727,8 @@ eerste factuur van een nieuw boekjaar finaliseren:
 
 1. T1 doet de insert en slaagt. De rij bestaat, maar is nog niet gecommit.
 2. T2 doet dezelfde insert. Die botst op de unique index en blokkeert tot T1 klaar is.
-3. T1 rolt terug, bijvoorbeeld omdat stap 9 van 4.2 faalt op een leeg `bill_to_email`.
+3. T1 rolt terug, bijvoorbeeld omdat stap 9 van 4.2 op een constraint stukloopt of omdat de
+   omliggende transactie expliciet wordt teruggedraaid.
 4. T2 deblokkeert. De conflicterende rij is verdwenen, en `ON CONFLICT DO NOTHING` heeft de
    insert al als conflict afgehandeld: er wordt niets ingevoegd en er wordt niets
    geretourneerd.
@@ -614,8 +740,8 @@ Het faalt dus niet luidruchtig op een lock-conflict maar stil op een NULL, en wa
 komt is een factuur zonder bruikbaar nummer. `DO NOTHING` neemt bovendien geen slot op de
 conflicterende rij, dus zelfs het gelukkige pad leunt op de aanname dat de rij er na de
 insert gegarandeerd staat, en die aanname is bij een gelijktijdige rollback simpelweg niet
-waar. De `do update`-variant heeft dit probleem niet: die retourneert altijd exact één rij,
-of hij nu invoegde of bijwerkte.
+waar. De zelftoekenning uit fase 1 heeft dit probleem niet: `DO UPDATE` retourneert altijd
+exact één rij en neemt altijd het slot, of hij nu invoegde of bijwerkte.
 
 **Waarom geen `SEQUENCE`.** Een Postgres-sequence is niet-transactioneel. Een teruggedraaide
 transactie verbrandt een nummer en laat een gat achter. Voor een technische sleutel is dat
@@ -626,12 +752,12 @@ in een gewone tabel volgt de transactie wel, en dat is hier de hele reden van be
 
 Formaat: `{prefix}{jaar}.{volgnummer met drie posities}`, dus `2026.001` en `TEST-2026.001`.
 
-De chronologie-eis uit stap 6 van 4.2:
+De chronologie-eis uit stap 6d van 4.2:
 
 ```sql
 select max(issued_at) into v_last_issued
 from tmc.invoices
-where series_id = v_series.id and status = 'finalised';
+where series_id = v_series_id and status = 'finalised';
 
 if v_last_issued is not null and p_issued_at < v_last_issued then
   return jsonb_build_object('ok', false, 'reason', 'issued_at_before_last',
@@ -643,6 +769,24 @@ Waarom: een oplopende nummering waarbij de datums door elkaar lopen is intern
 inconsistent. Als `2026.007` op 3 maart staat en `2026.008` op 28 februari, dan is niet
 meer te zeggen welke factuur eerder was. Gelijke datums zijn wel toegestaan, want meerdere
 facturen op één dag is normaal.
+
+**Deze lezing moet ná het slot uit 4.3 fase 1 staan, en dat is niet vrijblijvend.** Zonder
+dat slot leest de query buiten elke serialisatie en dan houdt de controle niets tegen. Twee
+gelijktijdige finalisaties, T1 met `issued_at = 2026-03-10` en T2 met `2026-03-05`, in een
+reeks waarvan de laatste factuur op `2026-03-01` staat:
+
+1. T1 leest `max(issued_at) = 2026-03-01`. 10 maart ligt daarna, dus akkoord.
+2. T2 leest óók `2026-03-01`, want T1 heeft nog niets gecommit. 5 maart ligt daarna, dus
+   ook akkoord.
+3. Beide trekken een nummer en committen. T1 krijgt bijvoorbeeld 7, T2 krijgt 8.
+4. Resultaat: `2026.007` op 10 maart en `2026.008` op 5 maart. Precies de omgekeerde
+   volgorde die de controle moest voorkomen, en beide aanroepen meldden succes.
+
+Met het slot uit fase 1 kan dit niet: T2 blokkeert op de tellerrij tot T1 gecommit heeft,
+leest daarna `max(issued_at) = 2026-03-10` en wordt netjes geweigerd met
+`issued_at_before_last`. Dat de reeksrij tegelijk de nummerteller en de chronologie-poort
+bewaakt is geen toeval: het zijn twee eigenschappen van dezelfde reeks en ze horen onder
+hetzelfde slot.
 
 Praktisch gevolg: een factuur met terugwerkende kracht kan alleen zolang er nog niets
 later in dezelfde reeks gefinaliseerd is. Dat is een echte beperking en het is de bedoeling.
@@ -906,6 +1050,11 @@ testpasje dat je bewust uitgeeft of niet.
 
 ### 6.3 De propagatieketen
 
+Er zijn twee ketens, want er zijn twee soorten betalers: leden met een profiel, en bezoekers
+zonder.
+
+**Keten 1, alles met een profiel.**
+
 ```
 tmc.profiles.is_test                    de bron, handmatig gezet op testaccounts
         │
@@ -918,10 +1067,28 @@ tmc.profiles.is_test                    de bron, handmatig gezet op testaccounts
         └── finalize_invoice schrijft invoices.is_test  (snapshot)
 ```
 
+**Keten 2, de publieke proefles.**
+
+```
+trialBookingMode()                      afgeleid van VERCEL_ENV, geen bezoekersinvoer
+        │
+        ├── bepaalt de Mollie-key en de webhook-URL van de proeflesbetaling
+        │
+        ├── schrijft trial_bookings.is_test             (de bron voor deze keten)
+        │
+        └── trial-webhook schrijft payments.is_test     (snapshot, uit trial_bookings)
+```
+
+Zie 2.9 voor de reden dat deze keten een eigen bron nodig heeft en voor de
+capaciteitsvoorwaarde die eraan vastzit.
+
 `tmc.orders` en `tmc.memberships` krijgen **geen** `is_test`-kolom. Ze hebben er geen nodig:
 `orders.profile_id` en `memberships.profile_id` zijn verplicht, dus de modus is één join
 ver. En omdat de rapportage niet over orders of memberships gaat maar over payments, is die
 join nergens op een heet pad.
+
+`tmc.trial_bookings` is de enige uitzondering, en precies omdat daar geen `profile_id` staat
+om overheen te joinen.
 
 ### 6.4 Wat hierdoor niet meer nodig is
 
@@ -1083,7 +1250,7 @@ deze spec, dus hier de volledige lijst zoals aanwezig op `main`:
 | `src/app/api/trial-bookings/webhook/route.ts` | 17 | query-parameter `mode`, zelfde patroon |
 | `src/lib/orders/create-order.ts` | 189 | `profiles.is_test` van de koper |
 | `src/lib/orders/payment-link.ts` | 24 | `profiles.is_test` via `orders.profile_id` |
-| `src/lib/actions/trial-booking.ts` | 109 | altijd `live` (proefles kent geen testprofiel) |
+| `src/lib/actions/trial-booking.ts` | 109 | `trialBookingMode()`, en dezelfde waarde gaat als `is_test` mee in de `trial_bookings`-insert (zie 2.9) |
 | `src/app/betaal/[token]/page.tsx` | 81 | `profiles.is_test` via de order achter het token |
 | `src/app/api/cron/expire-orders/route.ts` | 123 | per order, uit `profiles.is_test` |
 | `src/lib/admin/membership-lifecycle.ts` | 730 | `isMollieConfigured(mode)`, modus uit het membership |
@@ -1157,17 +1324,20 @@ Nieuwe view `tmc.v_revenue_lines`, één rij per betaalde betaalregel, verrijkt 
 productgroep:
 
 ```
-period_month      date              -- date_trunc('month', paid_at)
-paid_at           timestamptz
-payment_id        uuid
-profile_id        uuid
-revenue_category  text              -- uit catalogue via order.catalogue_slug of membership.plan_variant
-vat_rate_bp       integer           -- null waar onbekend
-gross_cents       integer           -- payments.amount_cents
-vat_cents         integer           -- payments.vat_amount_cents
-net_cents         integer           -- payments.net_amount_cents
-refunded_cents    integer           -- payments.refunded_amount_cents
-kind              text
+period_month         date          -- date_trunc('month', paid_at)
+paid_at              timestamptz
+refunded_at          timestamptz
+payment_id           uuid
+profile_id           uuid
+revenue_category     text          -- uit catalogue via order.catalogue_slug of membership.plan_variant
+vat_rate_bp          integer       -- payments.vat_rate_bp, het bevroren snapshot; null waar onbekend
+gross_cents          integer       -- payments.amount_cents
+vat_cents            integer       -- payments.vat_amount_cents
+net_cents            integer       -- payments.net_amount_cents
+refunded_cents       integer       -- payments.refunded_amount_cents
+refunded_vat_cents   integer       -- zie hieronder; null als vat_rate_bp null is
+refunded_net_cents   integer       -- zie hieronder; null als vat_rate_bp null is
+kind                 text
 ```
 
 Met `where status = 'paid' and is_test = false` als basisfilter.
@@ -1178,6 +1348,59 @@ toont netto, BTW en bruto per groep plus een totaal.
 Rijen met `vat_rate_bp is null` (historische betalingen uit 3.5) komen als aparte groep
 "tarief onbekend" in beeld. Ze verstoppen zich niet in een van de bestaande groepen en ze
 worden niet stil op negen procent gezet.
+
+#### BTW op een restitutie
+
+Een teruggeboekt bedrag is bruto, net als het oorspronkelijke bedrag, en moet dus dezelfde
+splitsing krijgen. Zonder die splitsing klopt de BTW-kolom in de rapportage niet zodra er
+één restitutie in de periode zit: het brutobedrag daalt en de BTW blijft staan.
+
+**Het tarief komt uit `payments.vat_rate_bp`, het bevroren snapshot van de betaling zelf.
+Nooit uit `catalogue.vat_rate_bp`.** De catalogus is een levend record; het tarief daarin
+kan gewijzigd zijn tussen de betaling en de restitutie, bijvoorbeeld omdat de accountant
+een productgroep heeft geherkwalificeerd. Terugbetalen doe je tegen het tarief waartegen je
+geïncasseerd hebt, anders ontstaat er een verschil dat nergens naartoe kan.
+
+Dat de bron de betaalregel is en niet de factuurregels, lost meteen het geval op van een
+**restitutie op een betaling zonder factuur**. Dat is bij TMC de meerderheid: particulieren
+krijgen standaard geen factuur (1.2), maar hun geld kan wel terug. `payments.vat_rate_bp`
+wordt gevuld door de webhook uit de order (3.3) en bestaat dus onafhankelijk van de vraag of
+er ooit een `tmc.invoices`-rij is aangemaakt. Er is geen pad waarin de rapportage naar
+factuurregels moet grijpen om een tarief te vinden.
+
+**Gedeeltelijke restitutie: naar rato, met de afrondingsrichting van 3.1.**
+
+```sql
+refunded_vat_cents = case
+  when p.vat_rate_bp is null then null
+  when p.refunded_amount_cents = 0 then 0
+  when p.refunded_amount_cents = p.amount_cents then p.vat_amount_cents
+  else round(p.refunded_amount_cents::numeric * p.vat_rate_bp / (10000 + p.vat_rate_bp))
+end
+
+refunded_net_cents = case
+  when p.vat_rate_bp is null then null
+  else p.refunded_amount_cents - refunded_vat_cents
+end
+```
+
+Drie dingen die deze expressie bewust doet:
+
+- **Dezelfde formule als 3.1**, toegepast op het gerestitueerde bruto. Bruto blijft leidend
+  en netto is het verschil, dus `refunded_net + refunded_vat = refunded_cents` per definitie
+  exact, net als bij de oorspronkelijke betaling.
+- **Volledige restitutie spiegelt exact.** Bij `refunded_amount_cents = amount_cents` wordt
+  niet herrekend maar `vat_amount_cents` overgenomen. Zonder die tak zou een volledig
+  terugbetaalde betaling een cent kunnen overhouden doordat heen en terug apart afgerond
+  worden, en dan telt een volledig gecorrigeerde transactie niet op tot nul. Bij een
+  restitutie in meerdere delen die samen het hele bedrag beslaan kan dat centverschil wel
+  optreden; dat is de prijs van een deelrestitutie en het is een cent per betaling, geen
+  structurele afwijking.
+- **`vat_rate_bp is null` geeft `null`, geen nul.** Een historische betaling zonder bekend
+  tarief levert een gerestitueerd brutobedrag op waarvan de BTW onbekend is. Die rijen
+  vallen in dezelfde groep "tarief onbekend" als hierboven. Ze op nul zetten zou de
+  BTW-kolom stilzwijgend te hoog laten uitkomen, en ze op negen procent zetten zou een
+  bedrag verzinnen.
 
 ### 7.3 Consumentenproducten zonder factuur
 
@@ -1196,21 +1419,67 @@ Twee bewegingen, allebei negatief, allebei in de periode waarin ze plaatsvonden:
   `refunded_at`, niet in de maand van `paid_at`. Een terugbetaling in april van een betaling
   uit februari drukt april, want anders verandert een al gerapporteerde maand met
   terugwerkende kracht.
-- **Creditnota**: de gefinaliseerde creditnota levert eigen negatieve regels op met
-  `issued_at` als datum.
+- **Creditnota**: de gefinaliseerde creditnota, met `issued_at` als datum.
 
-De twee kunnen naast elkaar bestaan voor dezelfde betaling en dat is dubbeltellen. De
-rapportage rekent daarom met de restitutie als bron en gebruikt de creditnota alleen als
-document, tenzij er een creditnota is zonder bijbehorende restitutie (bijvoorbeeld een
-correctie die met een tegoed is afgehandeld). De regel in de view:
+De twee kunnen naast elkaar bestaan voor dezelfde betaling en dan zou naïef optellen
+dubbeltellen.
 
+**De regel: `refunded_amount_cents` is altijd de bron van de negatieve omzetregel. De
+creditnota draagt alleen het meerdere bij.**
+
+```sql
+-- negatieve bijdrage uit de restitutie, in de maand van refunded_at
+refund_negative_cents = p.refunded_amount_cents
+
+-- negatieve bijdrage uit de creditnota's, in de maand van hun issued_at
+credit_excess_cents = greatest(0, credited_gross_cents - p.refunded_amount_cents)
+
+-- waarbij, per payment:
+credited_gross_cents = coalesce((
+  select -sum(c.total_gross_cents)
+  from tmc.invoices c
+  join tmc.invoices i on i.id = c.credit_of_invoice_id
+  where i.payment_id = p.id
+    and c.status = 'finalised'
+), 0)
 ```
-neem refunded_cents; tel een creditnota alleen mee waar credit_of_invoice_id.payment_id
-geen refunded_amount_cents > 0 heeft
-```
 
-Dit is de plek waar de rapportage het meest kan verrassen en hij verdient een expliciete
-test in 11.
+**Waarom niet de eerdere booleaanse regel.** Die luidde: neem de restitutie, en tel een
+creditnota alleen mee als er géén restitutie op die betaling staat. Dat is een alles-of-niets
+schakelaar en die faalt zodra de bedragen verschillen. Concreet: een betaling van 14900 met
+een restitutie van 4000 en een creditnota van 14900. De schakelaar ziet
+`refunded_amount_cents > 0`, negeert de creditnota volledig, en telt 4000 af. De resterende
+10900 die wel gecrediteerd is verdwijnt geruisloos uit de omzet, of beter gezegd: hij blijft
+er ten onrechte in staan. Met `greatest(0, 14900 - 4000)` komt er 10900 bij, en het totaal
+klopt weer.
+
+De twee delen worden bewust **niet** samengetrokken tot `greatest(refunded, credited)`, ook
+al is dat rekenkundig hetzelfde bedrag. Ze horen namelijk in verschillende periodes: de
+restitutie in de maand van `refunded_at`, het meerdere in de maand waarin de creditnota is
+uitgeschreven. Optellen tot één getal zou beide in dezelfde maand duwen en dat is precies de
+retroactieve verschuiving die 7.4 wil vermijden.
+
+Drie gevallen ter controle, allemaal op een betaling van 14900:
+
+| Gerestitueerd | Gecrediteerd | Uit restitutie | Uit creditnota | Totaal negatief |
+|---|---|---|---|---|
+| 0 | 14900 | 0 | 14900 | 14900 |
+| 4000 | 0 | 4000 | 0 | 4000 |
+| 4000 | 14900 | 4000 | 10900 | 14900 |
+| 14900 | 4000 | 14900 | 0 | 14900 |
+
+De laatste regel is het geval waarin meer is terugbetaald dan gecrediteerd. Dat is
+boekhoudkundig scheef (er hoort een creditnota bij het volledige teruggeboekte bedrag), maar
+de rapportage mag er niet op omvallen: `greatest(0, ...)` levert nul en het teruggeboekte
+geld telt volledig. Het cockpit signaleert dit apart als "terugbetaald zonder volledige
+creditnota", zodat het opgelost wordt in plaats van weggerekend.
+
+De BTW op de negatieve regels volgt dezelfde splitsing: uit de restitutie via
+`refunded_vat_cents` en `refunded_net_cents` (7.2), uit de creditnota via de bevroren
+`vat_cents` op de `invoice_lines` van die creditnota.
+
+Dit is de plek waar de rapportage het meest kan verrassen en hij verdient expliciete tests
+in 11.
 
 ### 7.5 Het trial_bookings-lek dichten
 
@@ -1449,6 +1718,7 @@ Elke handeling in `tmc.admin_audit_log`, hetzelfde patroon als het bestaande
 |---|---|---|
 | 1 | `catalogue.vat_rate_bp`, `catalogue.revenue_category` (nullable, backfill, `SET NOT NULL`) | ja, drop kolommen |
 | 2 | `profiles.is_test`, `profiles.company_name`, `profiles.vat_number` | ja |
+| 2b | `trial_bookings.is_test`, plus `and not is_test` in `v_session_availability`, `enforce_session_capacity` en `redeem_trial_code` (2.9) | ja, maar raakt het capaciteitspad |
 | 3 | `payments`-kolommen uit 2.2, grant-opruiming uit 2.8 | ja |
 | 4 | `orders.vat_amount_cents` | ja |
 | 5 | `_compute_order_price` uitbreiden, `create_order` en `admin_create_order` aanpassen | ja, `CREATE OR REPLACE` terug |
@@ -1501,14 +1771,57 @@ Verwacht:
 - `select count(*) from tmc.invoices where invoice_number is null and status = 'finalised'`
   geeft 0
 
-**A2. Rollback laat geen gat.** Finaliseer factuur 1 en 2. Start een transactie die factuur
-3 finaliseert en rol die terug. Finaliseer daarna factuur 4. Verwacht: factuur 4 krijgt
-nummer 3.
+**A2. Rollback laat geen gat. Alleen uitvoerbaar vanuit `psql`, niet vanuit een
+Supabase-client.**
 
-**A3. Gelijktijdige eerste factuur van een nieuw boekjaar.** Twee gelijktijdige aanroepen
-voor een boekjaar waarvoor nog geen `invoice_series`-rij bestaat, waarbij de eerste
-terugrolt op een lege `bill_to_email`. Verwacht: de tweede krijgt nummer 1 en er treedt geen
-NULL-fout op. Dit is de test die de variant uit 4.3 zou hebben laten vallen.
+Een RPC-aanroep via PostgREST is zijn eigen transactie en commit direct; er is geen manier om
+hem van buitenaf terug te draaien. Deze test vereist dus een directe verbinding waarin je zelf
+`BEGIN` en `ROLLBACK` stuurt.
+
+Opzet (`psql "$SUPABASE_DB_URL"`, één sessie):
+
+```sql
+select tmc.finalize_invoice('<factuur-1>');   -- krijgt nummer 1
+select tmc.finalize_invoice('<factuur-2>');   -- krijgt nummer 2
+
+begin;
+  select tmc.finalize_invoice('<factuur-3>'); -- krijgt nummer 3 binnen de transactie
+rollback;
+
+select tmc.finalize_invoice('<factuur-4>');
+```
+
+Verwacht: factuur 4 krijgt **nummer 3**, en `invoice_series.next_number` staat op 4. Factuur 3
+staat nog op `draft` zonder nummer.
+
+**A3. Gelijktijdige eerste factuur van een nieuw boekjaar.** Twee gelijktijdige aanroepen voor
+een boekjaar waarvoor nog geen `invoice_series`-rij bestaat, waarbij de eerste wordt
+teruggedraaid.
+
+Ook dit is een `psql`-test met twee sessies, en om dezelfde reden als A2: de terugrol moet van
+buitenaf komen. Sessie 1 doet `begin; select tmc.finalize_invoice(...);` en blijft open. Sessie
+2 roept dezelfde functie aan voor een andere concept-factuur in hetzelfde nieuwe boekjaar en
+blokkeert op het slot uit 4.3 fase 1. Sessie 1 doet `rollback`. Sessie 2 deblokkeert.
+
+Verwacht: sessie 2 krijgt **nummer 1**, geen NULL-fout, geen exception, en het samengestelde
+`invoice_number` is `2027.001` en niet `.001`. Dit is de test die de verworpen
+`do nothing`-variant uit 4.3 zou hebben laten vallen.
+
+**A3b. Een mislukte validatie verbruikt geen nummer.** Dit is de regressietest op de
+herordening uit 4.2 en hij is wél vanuit een gewone client te draaien, want er komt geen
+rollback aan te pas.
+
+Voor elke weigeringsgrond apart: een concept zonder regels (`no_lines`), een concept met
+regels waarvan de totalen niet optellen (`totals_mismatch`), een concept van een profiel
+zonder `email` en zonder ingevulde `bill_to_email` (`incomplete_bill_to`), en een concept met
+een `issued_at` vóór de laatste in de reeks (`issued_at_before_last`).
+
+Meet `invoice_series.next_number` direct vóór en direct ná elke aanroep.
+
+Verwacht per geval: `ok: false` met de bijbehorende `reason`, en **`next_number` ongewijzigd**.
+Daarna: repareer het concept en finaliseer opnieuw, en controleer dat het toegekende nummer
+aansluit op het vorige zonder sprong. Faalt deze test op `incomplete_bill_to`, dan staat de
+validatie nog achter het trekken van het nummer.
 
 **A4. Test- en live-reeks raken elkaar niet.** Finaliseer afwisselend live- en
 testfacturen. Verwacht: twee onafhankelijk oplopende reeksen, `2026.001`, `2026.002` naast
@@ -1518,9 +1831,29 @@ testfacturen. Verwacht: twee onafhankelijk oplopende reeksen, `2026.001`, `2026.
 tweede aanroep geeft `already_finalised: true` met hetzelfde nummer, en
 `invoice_series.next_number` is niet opgehoogd.
 
-**A6. Chronologie.** Finaliseer een factuur met `issued_at = '2026-03-10'`. Probeer daarna
-te finaliseren met `issued_at = '2026-03-09'`. Verwacht: `ok: false`,
-`reason: 'issued_at_before_last'`. Met `'2026-03-10'` moet het wel slagen.
+**A6. Chronologie, sequentieel.** Finaliseer een factuur met `issued_at = '2026-03-10'`.
+Probeer daarna te finaliseren met `issued_at = '2026-03-09'`. Verwacht: `ok: false`,
+`reason: 'issued_at_before_last'`, en `next_number` ongewijzigd. Met `'2026-03-10'` moet het
+wel slagen, want gelijke datums zijn toegestaan.
+
+**A6b. Chronologie onder concurrency.** De test op de correctie uit 4.4.
+
+Uitgangspunt: een reeks waarvan de laatst gefinaliseerde factuur `issued_at = '2026-03-01'`
+heeft. Twee concept-facturen. Roep `finalize_invoice` voor allebei **gelijktijdig** aan vanuit
+twee losse verbindingen, de een met `p_issued_at = '2026-03-10'`, de ander met
+`p_issued_at = '2026-03-05'`.
+
+Verwacht: **precies één van de twee slaagt.**
+
+- Wint de 10-maart-aanroep, dan faalt de andere met `issued_at_before_last`.
+- Wint de 5-maart-aanroep, dan slaagt de 10-maart-aanroep daarna gewoon, want 10 ligt na 5.
+
+In beide uitkomsten geldt: `select invoice_number, issued_at from tmc.invoices where status =
+'finalised' order by number` levert een monotoon niet-dalende reeks `issued_at`. Slagen beide
+aanroepen met omgekeerde datums, dan staat de chronologiecontrole nog vóór het slot.
+
+Draai deze test minstens twintig keer; een raceconditie die maar in een deel van de runs
+optreedt is nog steeds een raceconditie.
 
 **A7. Boekjaarreset.** Finaliseer een factuur met `issued_at = '2026-12-31'` en daarna een
 met `'2027-01-02'`. Verwacht: `2026.00N` gevolgd door `2027.001`.
@@ -1567,6 +1900,12 @@ alle drie de BTW-bedragen, en `first_charge_vat_amount_cents` is hun som.
 **D4.** Een creditnota maakt de omzet aantoonbaar nul: som van
 `v_revenue_lines.net_cents` over de betaling plus de creditnota is 0 voor het geval van D1.
 
+**D5. Een creditnota met positieve totalen wordt geweigerd.** Maak een concept met
+`credit_of_invoice_id` gezet en regels met positieve bedragen, en finaliseer. Verwacht: een
+exception op `invoices_credit_note_negative_check` (2.5), niet een `ok: false`. Controleer
+daarna dat `v_invoice_credit_state` voor de oorspronkelijke factuur nog steeds `none`
+teruggeeft en dat er geen nummer verbruikt is.
+
 ### 11.5 Testmodus
 
 **E1.** Een order aanmaken op een profiel met `is_test = false` gebruikt
@@ -1590,6 +1929,18 @@ overeenkomt met de gebruikte key. Te controleren via de `payments.is_test`-snaps
 **E7.** Een lid met `is_test = false` ziet op `/app/facturen` nul testrijen, ook als het
 `is_test`-filter uit de query wordt gehaald (de RLS-policy vangt het).
 
+**E8. De publieke proefles draait in de modus van de deployment.** Boek op een
+preview-deployment een proefles. Verwacht: `trial_bookings.is_test = true`, een Mollie-payment
+op de testkey, en een webhook-URL met `?mode=test`. Dezelfde boeking op productie levert
+`is_test = false`, de livekey en een URL zonder `mode`. Er is geen query-parameter of
+formulierveld waarmee een bezoeker dit in productie kan omzetten.
+
+**E9. Een testproefles bezet geen echte plek.** Neem een sessie met `capacity = 6` en vijf
+echte boekingen. Maak een `trial_bookings`-rij met `is_test = true` en status `paid`.
+Verwacht: `v_session_availability.spots_available` blijft 1, `taken_count` blijft 5, en een
+zesde echte boeking slaagt zonder dat `enforce_session_capacity` afgaat. Faalt deze test, dan
+bezet testdata een echte stoel en is het lek uit 2.9 niet gedicht.
+
 ### 11.6 Rapportage
 
 **F1.** `v_revenue_lines` bevat nul rijen met `is_test = true`.
@@ -1600,10 +1951,43 @@ overeenkomt met de gebruikte key. Te controleren via de `payments.is_test`-snaps
 **F3.** Een restitutie in april op een betaling uit februari drukt de omzet van april, niet
 die van februari.
 
-**F4.** Een betaling met een creditnota én een restitutie wordt niet dubbel afgetrokken
-(7.4).
+**F4. Restitutie en creditnota met ongelijke bedragen tellen niet dubbel en laten niets
+verdwijnen.** Vier gevallen op een betaling van 14900, telkens de negatieve bijdrage meten
+(7.4):
 
-**F5.** De CSV-export bevat exact de rijen die op het scherm staan, met dezelfde filters.
+| # | Gerestitueerd | Gecrediteerd | Verwacht totaal negatief |
+|---|---|---|---|
+| a | 0 | 14900 | 14900, volledig uit de creditnota |
+| b | 4000 | 0 | 4000, volledig uit de restitutie |
+| c | 4000 | 14900 | 14900, waarvan 4000 uit de restitutie en 10900 uit de creditnota |
+| d | 14900 | 4000 | 14900, volledig uit de restitutie, creditnota draagt 0 bij |
+
+Geval c is de regressietest op de verworpen booleaanse regel: die leverde daar 4000 op en
+liet 10900 verdwijnen. Geval d toetst dat `greatest(0, ...)` niet negatief wordt.
+
+Controleer bij c bovendien dat de twee delen in de juiste maand landen: de 4000 in de maand
+van `refunded_at`, de 10900 in de maand van `issued_at` van de creditnota. Vallen ze in
+dezelfde maand terwijl de datums verschillen, dan zijn de delen ten onrechte samengetrokken.
+
+**F5. BTW op een restitutie.** Betaling van 14900 bruto met `vat_rate_bp = 900`, dus
+`vat_amount_cents = 1230` en `net_amount_cents = 13670`.
+
+- **Volledige restitutie** (`refunded_amount_cents = 14900`): verwacht
+  `refunded_vat_cents = 1230` exact, gespiegeld uit het snapshot en niet herrekend, en
+  `refunded_net_cents = 13670`. De periode telt netto en BTW aantoonbaar op tot nul.
+- **Deelrestitutie** van 4000: verwacht
+  `refunded_vat_cents = round(4000 * 900 / 10900) = 330` en `refunded_net_cents = 3670`, en
+  `330 + 3670 = 4000` exact.
+- **Tarief gewijzigd na de betaling.** Zet `catalogue.vat_rate_bp` voor het betreffende
+  product op 2100 en herhaal de deelrestitutie. Verwacht: onveranderd 330, want het tarief
+  komt uit `payments.vat_rate_bp`. Verandert de uitkomst, dan leest de view de actuele
+  catalogus.
+- **Restitutie op een betaling zonder factuur**: dezelfde uitkomsten. De view mag geen
+  `tmc.invoices`-rij nodig hebben om een tarief te vinden.
+- **`vat_rate_bp is null`** (historische rij): `refunded_vat_cents` en `refunded_net_cents`
+  zijn `null`, niet `0`, en de rij valt in de groep "tarief onbekend".
+
+**F6.** De CSV-export bevat exact de rijen die op het scherm staan, met dezelfde filters.
 
 ### 11.7 KPI-view
 
@@ -1620,7 +2004,7 @@ index staat er.
 | # | Besluit | Verworpen variant en reden |
 |---|---|---|
 | 1 | Testmodus op `tmc.profiles.is_test`; testorders alleen op testprofielen | `is_test` op `orders` en `memberships`, met aanpassing van `orders_one_open_subscription_idx` en van de duplicate-guard in `activate_order`. Verworpen: het rekt twee bestaande, werkende, geld-kritieke invarianten op ("één open order per persoon" wordt "één per persoon per modus") en het laat een testmembership toe op een echt profiel, met echte entitlements, echte boekingscapaciteit en echte deurtoegang. Zie 6.2 en 6.4 |
-| 2 | Nummer trekken in één `insert ... on conflict do update ... returning next_number - 1` | `insert ... on conflict do nothing` gevolgd door `select ... for update`. Verworpen: NULL-race bij rollback van een gelijktijdige eerste factuur van een boekjaar, en `do nothing` neemt geen slot op de conflicterende rij. Zie 4.3 |
+| 2 | Reeksrij vergrendelen met `insert ... on conflict do update set next_number = next_number` (zelftoekenning), en pas ná de validatie consumeren met een aparte `update` | `insert ... on conflict do nothing` gevolgd door `select ... for update`. Verworpen: NULL-race bij rollback van een gelijktijdige eerste factuur van een boekjaar, en `do nothing` neemt geen slot op de conflicterende rij. Zie 4.3. Ook verworpen: het enkele statement dat vergrendelen en consumeren combineert, zie regel 18 |
 | 3 | Tellerrij in een gewone tabel | Postgres `SEQUENCE`. Verworpen: niet-transactioneel, een rollback verbrandt een nummer en laat een gat in de factuurreeks |
 | 4 | `catalogue.vat_rate_bp` en `catalogue.revenue_category` `NOT NULL` zonder default | `NOT NULL DEFAULT 900` respectievelijk `DEFAULT 'overig'`. Verworpen: een default classificeert een nieuwe catalogusrij stil en plausibel verkeerd, en dat komt pas bij een controle boven water. Zie 2.1 |
 | 5 | Bruto leidend, BTW is de afgeleide | Netto opslaan of netto eerst berekenen. Verworpen: introduceert een centverschil tussen de getoonde en de geïncasseerde prijs. Zie 3.1 |
@@ -1635,6 +2019,14 @@ index staat er.
 | 14 | Omzetview als gewone view | Materialized view met eigen refresh-cron. Verworpen: klein datavolume, zelden geopend, en een tweede refresh-cron is een tweede manier om verouderde cijfers te tonen. Zie 7.7 |
 | 15 | Factuurmail met link, geen bijlage | `sendEmail` uitbreiden met attachments. Verworpen: de PDF staat al in de portal, bijlagen drukken de deliverability, en het is een tweede kopie die kan verouderen. Zie 5.5 |
 | 16 | Creditnota wordt nooit automatisch aangemaakt bij een restitutie | Automatisch crediteren op de refund-webhook. Verworpen: crediteren is een boekhoudkundige handeling met een datum en een bedrag die iemand moet willen. Zie 4.7 |
+| 17 | Alle validatie vóór het trekken van het nummer; daarna is elke fout een `raise exception`, nooit `ok: false` | De eerdere stappenvolgorde, waarin `incomplete_bill_to` ná het trekken van het nummer nog `ok: false` kon retourneren. Verworpen: een plpgsql-functie die normaal returnt draait niets terug, dus de ophoging van `next_number` commit en er ontstaat een gat in de reeks. Zie 4.2 |
+| 18 | Vergrendelen en consumeren zijn twee statements met de validatiepoort ertussen | Het enkele `insert ... on conflict do update set next_number = next_number + 1 returning next_number - 1`. Verworpen: dat consumeert het nummer op het moment dat het de rij vergrendelt, dus vóór elke validatie, en het laat de chronologiecontrole buiten het slot lezen. Vergrendelen en consumeren zijn twee behoeftes die niet op hetzelfde moment vallen. Zie 4.3 |
+| 19 | De chronologiecontrole leest `max(issued_at)` ná het slot op de reeksrij | Lezen vóór het slot. Verworpen: twee gelijktijdige finalisaties lezen dan allebei dezelfde oude waarde en slagen allebei met omgekeerde datums, precies wat de controle moest voorkomen. Zie 4.4 en test A6b |
+| 20 | `refunded_amount_cents` is altijd de bron van de negatieve omzetregel; de creditnota draagt alleen `greatest(0, gecrediteerd - gerestitueerd)` bij, in zijn eigen periode | De booleaanse regel "tel de creditnota alleen mee als er geen restitutie op die betaling staat". Verworpen: die faalt bij ongelijke bedragen. Restitutie 4000 met creditnota 14900 telde 4000 af en liet 10900 verdwijnen. Zie 7.4 en test F4 |
+| 21 | `refunded_net_cents` en `refunded_vat_cents` in `v_revenue_lines`, tarief uit `payments.vat_rate_bp` | Geen BTW-splitsing op restituties, of het tarief uit `catalogue.vat_rate_bp` halen. Verworpen: zonder splitsing daalt het bruto terwijl de BTW blijft staan, en de actuele catalogus kan een ander tarief dragen dan waartegen geïncasseerd is. Zie 7.2 en test F5 |
+| 22 | `tmc.trial_bookings` krijgt een eigen `is_test`, gevuld uit `trialBookingMode()` | De proefles-route altijd op `live` laten draaien. Verworpen: dat maakt de `mode`-parameter op `/api/trial-bookings/webhook` dood en het proefles-betaalpad alleen in productie met echt geld testbaar. Er is geen `profile_id` om de modus uit af te leiden, dus een eigen kolom is de enige route. Zie 2.9 |
+| 23 | `invoices_credit_note_negative_check` als databaseconstraint | Vertrouwen op de UI en de conventie dat een creditnota negatieve regels krijgt. Verworpen: `v_invoice_credit_state` en 7.4 rekenen met `-sum(...)`, dus een positief weggeschreven creditnota levert een negatieve crediteringsstand en houdt de factuur stilzwijgend op `none`. Zie 2.5 |
+| 24 | Tests A2 en A3 zijn `psql`-tests met expliciete `begin`/`rollback` | Ze als gewone RPC-test vanuit een Supabase-client draaien. Verworpen: elke PostgREST-aanroep is zijn eigen transactie en commit direct, dus er is van buitenaf niets terug te draaien en de test zou nooit meten wat hij beweert te meten. Zie 11.1 |
 
 ## 13. Open vragen
 
@@ -1668,9 +2060,9 @@ applicatie werkend achter.
 | 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
 | 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
 | 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
-| 5 | `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Sonnet** | Duidelijk afgebakend, patroon staat al in de hoofdwebhook |
-| 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
-| 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De teller in één statement, de rijlock-volgorde, idempotentie, chronologie, en het bevriezen van de NAW alleen waar leeg. Plus de concurrency-tests A1 tot A7 |
+| 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `v_session_availability`, `enforce_session_capacity` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Het raakt nu het capaciteitspad: een gemiste `and not is_test` laat testdata een echte stoel bezetten in een groep van zes, en `enforce_session_capacity` is een trigger die stil de verkeerde kant op kan vallen. Zie 2.9 en tests E8, E9 |
+| 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
+| 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
 | 9 | Frontend: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); admin-factuurscherm; `CustomerInvoicePdf`; signed-URL server action; rapportagepagina met CSV-export | **Sonnet** | UI en rapportage-frontend. Patronen bestaan al: `/app/producten` voor de verrijking, `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
 
