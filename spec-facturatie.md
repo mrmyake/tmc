@@ -15,7 +15,8 @@ daarop aan en vervangt hem niet.
 
 | Gate | Status | Blokkeert |
 |---|---|---|
-| BTW-tarieven per productgroep bevestigd door accountant | open | oplevering, niet de bouw |
+| BTW-tarief per productgroep | besloten: overal 9 procent (1.1, Ilja 2026-08-06) | nee |
+| Fiscale bevestiging van die 9 procent door de accountant | open | oplevering, niet de bouw |
 | KvK- en BTW-nummer van TMC in het systeem | open | oplevering, niet de bouw |
 | Creditnota in dezelfde reeks of een eigen reeks | besloten: dezelfde reeks | nee |
 | `/app/facturen` uitbreiden of nieuwe route | besloten: uitbreiden | nee |
@@ -68,26 +69,39 @@ accountant bevestigd worden voordat er een echte factuur de deur uit gaat.
 
 ### 1.1 BTW-tarieven per productgroep
 
-Overgenomen uit de discovery, niet definitief:
+**Alle productgroepen krijgen negen procent. Er zijn geen 21-procent-producten in de
+catalogus.**
 
 | `revenue_category` | Slugs | `vat_rate_bp` | |
 |---|---|---|---|
-| `abonnement` | `vrij_trainen_*`, `groepslessen_*`, `all_inclusive_*`, `kids_*`, `senior_*` | `900` | `// FISCAAL: bevestigen door accountant` |
-| `addon` | `extended_access` | `900` | `// FISCAAL: bevestigen door accountant` |
-| `inschrijfgeld` | `signup_fee` | `900` | `// FISCAAL: bevestigen door accountant` |
-| `les_tegoed` | `drop_in`, `drop_in_kids`, `drop_in_senior`, `ten_ride_card*` | `900` | `// FISCAAL: bevestigen door accountant` |
-| `personal_training` | `pt_single`, `pt_10`, `duo_single`, `duo_10` | `2100` | `// FISCAAL: bevestigen door accountant` |
-| `programma` | `program_studio_12w`, `program_online_12w` | `2100` | `// FISCAAL: bevestigen door accountant` |
+| `abonnement` | `vrij_trainen_*`, `groepslessen_*`, `all_inclusive_*`, `kids_*`, `senior_*` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
+| `addon` | `extended_access` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
+| `inschrijfgeld` | `signup_fee` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
+| `les_tegoed` | `drop_in`, `drop_in_kids`, `drop_in_senior`, `ten_ride_card*` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
+| `personal_training` | `pt_single`, `pt_10`, `duo_single`, `duo_10` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
+| `programma` | `program_studio_12w`, `program_online_12w` | `900` | `// FISCAAL: besloten door Ilja 2026-08-06, niet fiscaal getoetst` |
 
-De redenering achter de voorlopige indeling: sportbeoefening en het gebruik van een
-sportaccommodatie vallen onder het lage tarief, individuele personal training door een
-zelfstandige waarschijnlijk niet. Het inschrijfgeld en de add-on volgen de hoofddienst.
-Dat is de gangbare lijn, maar de kwalificatie hangt af van hoe TMC's diensten fiscaal
-zijn ingedeeld en dat is geen technische beslissing.
+De redenering: **alle diensten van TMC worden aangemerkt als het geven van gelegenheid tot
+sportbeoefening**, en vallen daarmee onder het lage tarief. Dat geldt voor de abonnementen
+en de losse lessen, en het geldt evengoed voor personal training en de
+twaalfweken-programma's: ook daar is de prestatie begeleide beweging in de eigen studio.
+Het inschrijfgeld en de add-on volgen de hoofddienst en komen op dezelfde negen procent uit.
 
-Het datamodel is bewust onverschillig voor de uitkomst: `vat_rate_bp` staat per
-catalogusrij en de BTW staat per factuurregel, dus 9 procent en 21 procent kunnen op
-dezelfde factuur staan zonder dat er iets aan het model verandert.
+De eerdere indeling uit de discovery, die personal training en de programma's op
+eenentwintig procent zette, is daarmee **verworpen**. Die berustte op de gedachte dat
+individuele begeleiding door een zelfstandige een andere prestatie is dan het gebruik van
+een sportaccommodatie. Zie besluitenlog 27.
+
+De markering `// FISCAAL` blijft staan en betekent nu iets anders dan eerst. Hij zegt niet
+meer "dit moet nog gekozen worden" maar "dit is gekozen zonder fiscale toetsing". De keuze
+is genomen, de bevestiging staat nog open als vraag 1 in sectie 13, en dat is een
+opleverpunt en geen bouwpunt.
+
+Het datamodel blijft bewust onverschillig voor de uitkomst: `vat_rate_bp` staat per
+catalogusrij, de BTW staat per factuurregel, en de admin kan het tarief per regel
+overschrijven (9.3). Negen en eenentwintig procent kunnen dus op dezelfde factuur staan
+zonder dat er iets aan het model verandert. Dat de zes groepen vandaag hetzelfde getal
+dragen is een waarde in de data, geen eigenschap van het ontwerp.
 
 ### 1.2 Factuurplicht: consument versus zakelijke klant
 
@@ -156,12 +170,30 @@ krijgt dan negen procent zonder dat iemand ernaar gekeken heeft, en dat is preci
 soort fout dat pas bij een controle boven water komt. Zonder default weigert de insert en
 moet de auteur een keuze maken.
 
+**Dit telt juist nu, en het is verleidelijk om het nu te laten vallen.** Sinds het besluit
+in 1.1 draagt elke rij in de catalogus hetzelfde tarief. Een `DEFAULT 900` zou daarmee
+opeens redelijk lijken: hij is immers voor alle 29 bestaande rijen correct, hij scheelt een
+kolom in elke toekomstige `insert`, en hij maakt de migratie een stuk korter.
+
+Precies dat maakt hem gevaarlijk. Het enige geval waarin de default ooit iets doet, is het
+geval waarin hij fout is: een nieuw product dat níét onder het lage tarief valt. Zolang
+alles negen procent is voegt de default niets toe, en zodra er één uitzondering komt is hij
+een stille fout in de enige rij die aandacht verdiende. Een uniform tarief is dus geen reden
+om de default alsnog te zetten, maar de reden om hem zeker niet te zetten.
+
+De `CHECK (vat_rate_bp between 0 and 2100)` blijft daarom ook ongewijzigd: eenentwintig
+procent is toegestaan door het schema, alleen niet in gebruik. Een toekomstig
+21-procent-product vraagt een bewuste waarde in de `insert`, geen migratie.
+
 Praktisch gevolg voor de migratie: `ADD COLUMN ... NOT NULL` zonder default faalt op een
 gevulde tabel. De migratie doet dus drie stappen in dezelfde transactie: kolom nullable
 toevoegen, per slug backfillen met een expliciete `update ... where slug = ...` per rij
 (geen `case`-expressie over een patroon, want dan is niet zichtbaar wat er met een rij
-gebeurt die niemand heeft bekeken), en daarna `SET NOT NULL`. De backfill is meteen de
-plek waar de tabel uit 1.1 letterlijk in de migratie staat.
+gebeurt die niemand heeft bekeken), en daarna `SET NOT NULL`. **Ook nu alle rijen dezelfde
+waarde krijgen blijft de backfill per rij expliciet**, en niet één `update tmc.catalogue set
+vat_rate_bp = 900`. De migratie is de plek waar de tabel uit 1.1 letterlijk terugkomt en
+waar de accountant meeleest; een enkele veegupdate laat zien dat alles negen is, maar niet
+dat iemand per productgroep heeft nagedacht.
 
 Basispunten als integer, niet `numeric`: exact, vergelijkbaar zonder cast, en geen
 drijvende komma in een bedragberekening.
@@ -340,8 +372,11 @@ mag wijzigen, rijen mogen op `is_active = false`, en een slug mag in theorie ver
 Een factuur uit 2026 moet in 2031 nog leesbaar zijn. De slug staat er als herkomstspoor,
 niet als verwijzing.
 
-BTW staat per regel omdat één factuur negen en eenentwintig procent kan mengen. Het
-totaalbedrag per tarief op de PDF komt uit een `group by vat_rate_bp` over de regels.
+BTW staat per regel omdat één factuur negen en eenentwintig procent kan mengen. Dat de
+catalogus vandaag uitsluitend negen procent kent (1.1) verandert daar niets aan: de admin
+kan het tarief per regel overschrijven (9.3), en een toekomstig product met een afwijkend
+tarief mag geen modelwijziging vragen. Het totaalbedrag per tarief op de PDF komt uit een
+`group by vat_rate_bp` over de regels.
 
 ### 2.7 RLS-beleid
 
@@ -571,6 +606,15 @@ revenue_category
 Let op: de add-on met `extended_access_mode = 'included'` heeft `v_ext_price = 0`. De
 BTW daarover is nul en het tarief is dan `null`, niet `0`, om onderscheid te houden tussen
 "geen add-on" en "add-on van nul euro".
+
+**De drie tariefkeys blijven gescheiden, ook nu ze dezelfde waarde dragen.** Sinds het
+besluit in 1.1 leveren `v_row`, `v_ext` en `v_fee` alle drie `900`, en dan is
+`vat_rate_bp * (base + ext + fee)` in één keer rekenen verleidelijk en korter. Niet doen. De
+drie bedragen komen uit drie afzonderlijke catalogusrijen die los van elkaar gewijzigd kunnen
+worden, en het snapshot is precies bedoeld om vast te leggen wat er op dát moment gold per
+component. Één samengevoegde key maakt een toekomstige tariefsplitsing tot een
+migratieprobleem in plaats van tot een `update` op één catalogusrij. De gelijkheid van
+vandaag is een waarde in de data, niet een eigenschap om op te bouwen.
 
 De functie blijft `STABLE`: er wordt niets geschreven, alleen gelezen en gerekend.
 
@@ -1726,6 +1770,42 @@ Twee manieren:
 Het bedrag wordt bruto ingevoerd, want dat is wat iemand voor zich heeft. Netto en BTW
 worden berekend volgens 3.1 en getoond terwijl je typt.
 
+#### Het BTW-tarief is een keuze per regel
+
+**De admin kiest het tarief per factuurregel.** Elke regel heeft een eigen tariefveld, ook
+een regel zonder `catalogue_slug`.
+
+Hoe het werkt in de UI:
+
+- Het veld is een keuzelijst met de toegestane tarieven (9 procent, 21 procent, 0 procent),
+  niet een vrij getal. Dat sluit een typefout als 900 procent uit en houdt de waarde binnen
+  de `CHECK` uit 2.1.
+- **Bij een regel uit de catalogus staat de keuze default op `catalogue.vat_rate_bp` van die
+  slug.** Vandaag is dat altijd 9 procent (1.1), maar de default komt uit de rij en niet uit
+  een constante, zodat een toekomstige catalogusrij met een ander tarief automatisch goed
+  voorgeselecteerd staat.
+- **Bij een vrije regel staat de keuze default op 9 procent**, het tarief van vrijwel alles
+  wat TMC verkoopt, en is hij net zo goed te wijzigen. Er is geen pad waarin de admin geen
+  tarief kan kiezen.
+- Wijkt het gekozen tarief af van de catalogusrij, dan toont de regel een zichtbare
+  markering ("afwijkend van catalogus: 9 procent"). Geen blokkade, wel een signaal, want een
+  afwijkend tarief is bijna altijd bedoeld en soms een vergissing.
+- Netto en BTW op de regel herberekenen live volgens 3.1 zodra het tarief verandert, en de
+  factuurtotalen volgen. De BTW-samenvatting onderaan groepeert per tarief, dus zodra er een
+  tweede tarief op de factuur staat verschijnt daar vanzelf een tweede regel.
+
+**Het gekozen tarief wordt bevroren op de factuurregel en slaat nooit terug op de
+catalogus.** `invoice_lines.vat_rate_bp` is de waarheid voor die factuur; `catalogue.
+vat_rate_bp` is alleen de bron van de default op het moment van toevoegen. Een admin die op
+één factuur eenentwintig procent kiest, verandert daarmee niets aan het product, aan andere
+concepten, of aan wat de checkout in rekening brengt. Wie het tarief van een product
+structureel wil wijzigen doet dat in de catalogus, en dat is een migratie (2.1), geen
+schermhandeling.
+
+Dat onderscheid is dezelfde scheiding als overal in deze spec: de catalogus leeft, de
+factuur is bevroren. Zie 2.6, waar `catalogue_slug` om precies deze reden geen foreign key
+heeft.
+
 ### 9.4 Finaliseren, PDF, versturen
 
 Drie losse acties, in deze volgorde en zichtbaar als drie stappen:
@@ -1933,15 +2013,49 @@ steeds het oude adres, zowel in de database als in een opnieuw opgehaalde weerga
 `vat_cents = round(price_cents * vat_rate_bp / (10000 + vat_rate_bp))` en
 `net_cents = price_cents - vat_cents`, en `net + vat = price_cents` exact.
 
+**C1b. De backfill heeft elke rij geraakt.**
+`select count(*) from tmc.catalogue where vat_rate_bp is null` geeft 0, en
+`select distinct vat_rate_bp from tmc.catalogue` geeft precies `{900}` (1.1). Controleer
+daarnaast in het schema dat er **geen** default op de kolom staat:
+`select column_default from information_schema.columns where table_schema = 'tmc' and
+table_name = 'catalogue' and column_name = 'vat_rate_bp'` geeft `NULL`. Staat daar `900`,
+dan is de motivatie uit 2.1 onderweg gesneuveld.
+
+**C1c. Een insert zonder tarief wordt geweigerd.** `insert into tmc.catalogue (...)` zonder
+`vat_rate_bp` en zonder `revenue_category` faalt met een not-null-schending. Dit is de test
+die de afwezigheid van de default bewaakt, en hij is juist nu waardevol, omdat een uniform
+tarief de verleiding geeft om die default alsnog toe te voegen.
+
 **C2.** Factuur met drie regels van 1290 cent bij `vat_rate_bp = 900`. Verwacht:
 `vat_total_cents = 321` (3 x 107), niet 320. En
 `subtotal_net_cents + vat_total_cents = total_gross_cents`.
 
-**C3.** Factuur met een regel van 9 procent en een regel van 21 procent. Verwacht: de PDF
-toont twee BTW-regels, en `vat_total_cents` is de som van beide.
+**C3. Gemengde tarieven op één factuur.** Blijft geldig als test op het model, maar is niet
+meer met twee catalogusproducten te bouwen: sinds 1.1 dragen alle catalogusrijen negen
+procent.
+
+Bouw de factuur daarom met **één regel uit de catalogus** (negen procent, tarief
+overgenomen uit de catalogusrij) en **één vrije regel zonder `catalogue_slug`** waarop de
+admin het tarief handmatig op 21 procent zet (9.3).
+
+Verwacht:
+
+- `invoice_lines` bevat twee rijen met verschillende `vat_rate_bp`, `900` en `2100`
+- per regel geldt `gross_cents = net_cents + vat_cents`
+- `vat_total_cents` is de som van beide regels, niet herrekend over het bruto totaal (3.4)
+- de PDF toont **twee** BTW-regels in de samenvatting, uit een `group by vat_rate_bp`
+- `tmc.catalogue` is onveranderd: het handmatige tarief slaat niet terug op het product
+  (9.3). Controleer expliciet dat de catalogusrij die op de eerste regel gebruikt is nog
+  steeds `900` draagt
+
+Deze test is de reden dat de per-regel-BTW in het model blijft ondanks één uniform
+catalogustarief. Faalt hij, dan is het model stilzwijgend versmald tot één tarief per
+factuur en is een toekomstig 21-procent-product een herbouw in plaats van een `insert`.
 
 **C4.** Een order met `extended_access` en `signup_fee` levert een `pricing_snapshot` met
-alle drie de BTW-bedragen, en `first_charge_vat_amount_cents` is hun som.
+alle drie de BTW-bedragen, en `first_charge_vat_amount_cents` is hun som. De drie
+tariefkeys zijn afzonderlijk aanwezig, ook al dragen ze alle drie `900`; zijn ze
+samengevoegd tot één key, dan is de scheiding uit 3.2 verloren.
 
 ### 11.4 Crediteren
 
@@ -2128,26 +2242,35 @@ index staat er.
 | 24 | Tests A2 en A3 zijn `psql`-tests met expliciete `begin`/`rollback` | Ze als gewone RPC-test vanuit een Supabase-client draaien. Verworpen: elke PostgREST-aanroep is zijn eigen transactie en commit direct, dus er is van buitenaf niets terug te draaien en de test zou nooit meten wat hij beweert te meten. Zie 11.1 |
 | 25 | Testproeflessen worden niet tegen de capaciteit gehandhaafd en begrenzen elkaar dus niet; er komt geen aparte bovengrens | Een tweede bovengrens voor testboekingen inbouwen in `session_occupancy` of `enforce_session_capacity`. Verworpen: de invariant die telt is "echte deelnemers worden nooit verdrongen door testdata", en die houdt in beide richtingen, want een volle sessie weigert ook een testrij. De invariant "testdata past in de zaal" beschermt niets, want er komt bij een testboeking niemand opdagen. De prijs zou een tweede telpad met een tweede betekenis zijn in precies de functie die de harde grens over leden, proeflessers en gasten bewaakt. Het realistische faalgeval is een retry-lus die rijen wegschrijft, en dat is tabelvervuiling die 6.9 opruimt, geen bedrijfsincident. Wil ops later toch een plafond, dan hoort dat in een losse trigger `enforce_test_booking_ceiling` buiten het echte capaciteitspad. Zie 2.9 en tests E9, E10 |
 | 26 | PR 5 gaat van Sonnet naar Fable | PR 5 op Sonnet laten staan. Verworpen: de PR is niet meer wat hij was. Toen hij alleen de webhook-upsert naar `tmc.payments` deed was hij mechanisch en volledig voorgeschreven. Met `trial_bookings.is_test` erbij raakt hij het **capaciteitspad** en niet alleen de betaalketen: `session_occupancy` (dat alle drie de capaciteitstriggers voedt), `v_session_availability` (een eigen duplicaat van dezelfde telling) en `redeem_trial_code` (een derde). Drie plekken die hetzelfde tellen en die uit elkaar kunnen lopen, met een trigger als handhaver die stil de verkeerde kant op valt: één gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes, en één te veel haalt echte proeflessen uit de bewaking en laat proeflessers betalende leden verdringen. Zie 2.9 en test E9 |
+| 27 | Alle zes de productgroepen op `vat_rate_bp = 900`; alle diensten worden aangemerkt als het geven van gelegenheid tot sportbeoefening. Besloten door Ilja op 2026-08-06, niet fiscaal getoetst | De indeling uit de discovery, met `personal_training` en `programma` op `2100`. Verworpen: die berustte op de gedachte dat individuele begeleiding door een zelfstandige een andere prestatie is dan het gebruik van een sportaccommodatie, en die scheiding wordt niet gemaakt. Gevolgen die bewust ongewijzigd blijven: `vat_rate_bp` blijft `NOT NULL` zonder default (juist nu, zie 2.1), de `CHECK` blijft eenentwintig procent toestaan, de BTW blijft per factuurregel staan, en de admin kan het tarief per regel overschrijven (9.3). Dat de zes groepen vandaag hetzelfde getal dragen is een waarde in de data, geen eigenschap van het ontwerp. Bevestiging staat open als vraag 1 in sectie 13 en is een opleverpunt, geen bouwpunt |
 
 ## 13. Open vragen
 
 **Voor de accountant**
 
-1. Het BTW-tarief per productgroep uit 1.1. Alle zes de regels, niet alleen de twee waarover
-   twijfel bestaat.
-2. Volgt het inschrijfgeld inderdaad het tarief van de hoofddienst, ook als het lid in
-   dezelfde eerste incasso een add-on afneemt?
-3. Mag een creditnota in dezelfde nummerreeks als de facturen, of is een aparte reeks
+1. **Bevestig dat negen procent op alle diensten verdedigbaar is, inclusief personal training
+   en de twaalfweken-programma's.** De keuze is gemaakt (1.1, besluitenlog 27): alles wordt
+   aangemerkt als het geven van gelegenheid tot sportbeoefening en valt daarmee onder het
+   lage tarief. De vraag is niet meer welk tarief per groep hoort, maar of deze ene lijn
+   houdbaar is bij een controle. Twee punten die daarbij het meest aandacht verdienen: de
+   1-op-1- en duo-personal-training, en het online twaalfweken-programma, waar de deelnemer
+   niet in de studio staat.
+2. Mag een creditnota in dezelfde nummerreeks als de facturen, of is een aparte reeks
    gewenst? Besluit 12 is nu de eenvoudigste variant, niet noodzakelijk de gewenste.
-4. Is de bewaartermijn van zeven jaar voldoende gedekt door de PDF in de storage-bucket plus
+3. Is de bewaartermijn van zeven jaar voldoende gedekt door de PDF in de storage-bucket plus
    de rijen in de database, of is een export naar een onafhankelijk archief gewenst?
+
+De eerdere vraag over het inschrijfgeld (volgt het het tarief van de hoofddienst, ook bij een
+add-on in dezelfde eerste incasso) is vervallen: nu alle groepen op negen procent staan,
+levert elke beantwoording hetzelfde bedrag op. De vraag komt terug zodra er een product met
+een afwijkend tarief in de catalogus verschijnt.
 
 **Voor Marlon**
 
-5. Het KvK- en BTW-nummer van TMC (1.5). Zonder deze twee kan er geen factuur de deur uit.
-6. Wil je een aanvraagknop voor een factuur in de ledenomgeving, of blijft het bij mailen
+4. Het KvK- en BTW-nummer van TMC (1.5). Zonder deze twee kan er geen factuur de deur uit.
+5. Wil je een aanvraagknop voor een factuur in de ledenomgeving, of blijft het bij mailen
    (8.3)?
-7. Moet een lid automatisch bericht krijgen als er een factuur voor hem klaarstaat, of pak
+6. Moet een lid automatisch bericht krijgen als er een factuur voor hem klaarstaat, of pak
    je dat per geval?
 
 ## 14. PR-opdeling
