@@ -427,19 +427,74 @@ onbetestbaarheid is daar geen kleine prijs.
 
 #### Randvoorwaarde: een testproefles mag geen echte plek bezetten
 
-`tmc.v_session_availability` telt `trial_bookings` met status `pending`, `paid` of
-`attended` mee in `taken_count`, en de trigger `enforce_session_capacity` (migratie
-`20260811000000`) is de harde grens daarachter. Een preview-deployment praat tegen dezelfde
-database als productie. Een testproefles zou dus een echte stoel bezetten in een echte
-sessie van maximaal zes personen, en een betalend lid op de wachtlijst zetten. Dat is
-hetzelfde gevaar als in 6.2, alleen via een andere deur.
+Een preview-deployment praat tegen dezelfde database als productie. Zonder maatregel zou een
+testproefles een echte stoel bezetten in een echte sessie van maximaal zes personen, en een
+betalend lid op de wachtlijst zetten. Dat is hetzelfde gevaar als in 6.2, alleen via een
+andere deur.
 
-`trial_bookings.is_test = true` moet daarom uitgesloten worden van de capaciteitstelling, op
-alle drie de plekken die tellen: `tmc.v_session_availability`, de trigger
-`enforce_session_capacity`, en de hertelling in `tmc.redeem_trial_code`. Alle drie krijgen
-`and not is_test` op de `trial_bookings`-subquery.
+**Waar de telling werkelijk zit.** Er zijn drie tellende plekken, en de trigger is er niet
+een van; die delegeert:
 
-Dit raakt het capaciteitspad, dat buiten de facturatieketen valt. Het staat daarom als
+| Plek | Rol |
+|---|---|
+| `tmc.session_occupancy(p_session_id)` | De telfunctie: `bookings` met status `booked`, plus `trial_bookings` met `pending`, `paid` of `attended`, plus `guest_bookings` met `booked` of `attended` |
+| `tmc.v_session_availability` | Telt hetzelfde nog een keer, in eigen `LATERAL`-subqueries. Duplicaat, geen aanroep van `session_occupancy` |
+| `tmc.redeem_trial_code` | Hertelt nog een derde keer, dezelfde optelling |
+
+`tmc.enforce_session_capacity()` is één triggerfunctie die aan alle drie de tabellen hangt
+(`bookings_enforce_capacity`, `guest_bookings_enforce_capacity`,
+`trial_bookings_enforce_capacity`), met via `tg_argv[0]` per tabel de tellende statussen. De
+functie neemt een `for update` op de sessie en toetst
+`tmc.session_occupancy(new.session_id) >= v_capacity`. De verandering landt dus in
+`session_occupancy`, niet in de trigger zelf, en dekt daarmee in één keer alle drie de
+triggers.
+
+`and not is_test` op de `trial_bookings`-subquery gaat daarom naar precies deze drie:
+`session_occupancy`, `v_session_availability` en `redeem_trial_code`.
+
+Voor de wachtlijst is geen aparte ingreep nodig: `src/app/api/cron/waitlist-promote/route.ts`
+leest `spots_available` uit `v_session_availability`, dus die volgt automatisch.
+
+#### Wat eruit volgt: testproeflessen zijn onderling niet begrensd
+
+Dit is de consequentie die vastgelegd moet worden, want hij is niet vanzelfsprekend.
+
+`tmc.enforce_session_capacity` blijft vuren bij het invoegen van een testproefles, maar hij
+toetst tegen een telling waarin testrijen niet meer meedoen. Daaruit volgt een asymmetrie:
+
+- **Een volle sessie weigert nog steeds een testproefles.** Zes echte deelnemers op een
+  capaciteit van zes betekent `session_occupancy = 6`, en de trigger weigert de testrij net
+  zo hard als een echte. De testmodus kan de fysieke grens dus niet omzeilen.
+- **Testproeflessen begrenzen elkaar niet.** In een lege sessie van zes plekken kunnen tien,
+  honderd of duizend testrijen ingevoegd worden: geen van die rijen verhoogt de getelde
+  bezetting, dus geen van die rijen kan een volgende weigeren. **Testproeflessen zijn
+  onderling ongelimiteerd.**
+
+**Is dat acceptabel? Ja, en er komt geen aparte bovengrens in het capaciteitspad.**
+
+De invariant die ertoe doet is "echte deelnemers worden nooit verdrongen door testdata", en
+die houdt in beide richtingen: testdata bezet geen echte plek, en een echt volle sessie
+blijft vol. De invariant "testdata past in de zaal" is betekenisloos, want er komt bij een
+testboeking niemand opdagen. Een tweede grens zou een grens bewaken die niets beschermt.
+
+Daar komt de prijs bij. `session_occupancy` en `enforce_session_capacity` zijn de harde
+bovengrens over leden, proeflessers en gasten samen; dat is de zin die letterlijk in de
+`hint` van de exception staat. Een tweede telpad met een tweede betekenis erin schuiven maakt
+de functie die geld en stoelen bewaakt ingewikkelder, en dat is precies de functie waar een
+subtiele fout het duurst is. De regel blijft dus: één telling, één betekenis, en testrijen
+tellen niet mee.
+
+Het realistische faalscenario is een testscript met een retry-lus dat duizenden rijen
+wegschrijft. Dat is tabelvervuiling, geen bedrijfsincident: er verschuift geen bezetting,
+geen wachtlijst en geen omzetregel. Het wordt opgeruimd door de routine uit 6.9.
+
+Wil ops later toch een plafond, dan hoort dat in een **eigen** trigger op `trial_bookings`
+die alleen vuurt voor `is_test = true` en een ruime vaste bovengrens hanteert, met een eigen
+naam zoals `enforce_test_booking_ceiling`. Los van `session_occupancy`, zodat het echte
+capaciteitspad één functie met één betekenis blijft. Dat is expliciet **niet** onderdeel van
+deze spec en niet van PR 5.
+
+Dit alles raakt het capaciteitspad, dat buiten de facturatieketen valt. Het staat daarom als
 expliciete voorwaarde bij PR 5 en niet als terloopse wijziging: wie PR 5 bouwt zonder deze
 drie aanpassingen, zet een testlek open in de bezetting.
 
@@ -1718,7 +1773,7 @@ Elke handeling in `tmc.admin_audit_log`, hetzelfde patroon als het bestaande
 |---|---|---|
 | 1 | `catalogue.vat_rate_bp`, `catalogue.revenue_category` (nullable, backfill, `SET NOT NULL`) | ja, drop kolommen |
 | 2 | `profiles.is_test`, `profiles.company_name`, `profiles.vat_number` | ja |
-| 2b | `trial_bookings.is_test`, plus `and not is_test` in `v_session_availability`, `enforce_session_capacity` en `redeem_trial_code` (2.9) | ja, maar raakt het capaciteitspad |
+| 2b | `trial_bookings.is_test`, plus `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code` (2.9) | ja, maar raakt het capaciteitspad |
 | 3 | `payments`-kolommen uit 2.2, grant-opruiming uit 2.8 | ja |
 | 4 | `orders.vat_amount_cents` | ja |
 | 5 | `_compute_order_price` uitbreiden, `create_order` en `admin_create_order` aanpassen | ja, `CREATE OR REPLACE` terug |
@@ -1935,11 +1990,55 @@ op de testkey, en een webhook-URL met `?mode=test`. Dezelfde boeking op producti
 `is_test = false`, de livekey en een URL zonder `mode`. Er is geen query-parameter of
 formulierveld waarmee een bezoeker dit in productie kan omzetten.
 
-**E9. Een testproefles bezet geen echte plek.** Neem een sessie met `capacity = 6` en vijf
-echte boekingen. Maak een `trial_bookings`-rij met `is_test = true` en status `paid`.
-Verwacht: `v_session_availability.spots_available` blijft 1, `taken_count` blijft 5, en een
-zesde echte boeking slaagt zonder dat `enforce_session_capacity` afgaat. Faalt deze test, dan
-bezet testdata een echte stoel en is het lek uit 2.9 niet gedicht.
+**E9. Test- en echte proeflessen tellen verschillend. Beide richtingen toetsen.**
+
+Eén test is hier niet genoeg. Een implementatie die `and not is_test` op de verkeerde plek
+zet, of die per ongeluk álle `trial_bookings` uit de telling haalt, slaagt voor de
+testkant en faalt geruisloos op de echte kant. Dat is de ergste van de twee fouten, want
+dan verdringen proeflessers stilletjes betalende leden.
+
+Uitgangspunt voor beide takken: een sessie met `capacity = 6` en **vijf** echte boekingen
+(`bookings.status = 'booked'`), plus één wachtlijstinschrijving op diezelfde sessie.
+
+**Tak A, de testproefles telt niet mee.** Voeg een `trial_bookings`-rij toe met
+`is_test = true` en status `paid`.
+
+| Meting | Verwacht |
+|---|---|
+| `tmc.session_occupancy(sessie)` | 5 |
+| `v_session_availability.taken_count` | 5 |
+| `v_session_availability.spots_available` | 1 |
+| Een zesde echte boeking invoegen | slaagt, geen `session_capacity_exceeded` |
+| `waitlist-promote` draaien vóór die zesde boeking | promoveert de wachtlijstinschrijving, want er is een plek |
+
+**Tak B, de echte proefles telt wel mee.** Zelfde uitgangspunt, maar nu een
+`trial_bookings`-rij met `is_test = false` en status `paid`.
+
+| Meting | Verwacht |
+|---|---|
+| `tmc.session_occupancy(sessie)` | 6 |
+| `v_session_availability.taken_count` | 6 |
+| `v_session_availability.spots_available` | 0 |
+| Een zesde echte boeking invoegen | **faalt** met `session_capacity_exceeded` (errcode `P0001`) |
+| `waitlist-promote` draaien | promoveert **niets**, want `spots_available` is 0 |
+
+Beide takken draaien in dezelfde testrun. Slaagt tak A maar faalt tak B, dan is de
+capaciteitsbewaking op proeflessen kapot gemaakt in plaats van getest-gescheiden.
+
+Herhaal tak B ook met status `pending` in plaats van `paid`, want alle drie de tellende
+statussen (`pending`, `paid`, `attended`) moeten voor een echte rij blijven meetellen.
+
+**E10. De vastgelegde asymmetrie klopt.** De twee eigenschappen uit 2.9 die bewust zijn
+geaccepteerd, dus expliciet toetsen in plaats van aannemen:
+
+- **Een volle sessie weigert nog steeds een testproefles.** Sessie met `capacity = 6` en zes
+  echte boekingen. Een `trial_bookings`-rij met `is_test = true` invoegen: verwacht
+  `session_capacity_exceeded`. De testmodus mag de fysieke grens niet omzeilen.
+- **Testrijen begrenzen elkaar niet.** Lege sessie met `capacity = 6`. Voeg twintig
+  `trial_bookings`-rijen toe met `is_test = true`: alle twintig slagen, en
+  `spots_available` blijft 6. Dit is geen bug maar het vastgelegde besluit (regel 25 in het
+  besluitenlog); de test staat er zodat een latere wijziging die dit stilzwijgend omdraait
+  opvalt.
 
 ### 11.6 Rapportage
 
@@ -2027,6 +2126,8 @@ index staat er.
 | 22 | `tmc.trial_bookings` krijgt een eigen `is_test`, gevuld uit `trialBookingMode()` | De proefles-route altijd op `live` laten draaien. Verworpen: dat maakt de `mode`-parameter op `/api/trial-bookings/webhook` dood en het proefles-betaalpad alleen in productie met echt geld testbaar. Er is geen `profile_id` om de modus uit af te leiden, dus een eigen kolom is de enige route. Zie 2.9 |
 | 23 | `invoices_credit_note_negative_check` als databaseconstraint | Vertrouwen op de UI en de conventie dat een creditnota negatieve regels krijgt. Verworpen: `v_invoice_credit_state` en 7.4 rekenen met `-sum(...)`, dus een positief weggeschreven creditnota levert een negatieve crediteringsstand en houdt de factuur stilzwijgend op `none`. Zie 2.5 |
 | 24 | Tests A2 en A3 zijn `psql`-tests met expliciete `begin`/`rollback` | Ze als gewone RPC-test vanuit een Supabase-client draaien. Verworpen: elke PostgREST-aanroep is zijn eigen transactie en commit direct, dus er is van buitenaf niets terug te draaien en de test zou nooit meten wat hij beweert te meten. Zie 11.1 |
+| 25 | Testproeflessen worden niet tegen de capaciteit gehandhaafd en begrenzen elkaar dus niet; er komt geen aparte bovengrens | Een tweede bovengrens voor testboekingen inbouwen in `session_occupancy` of `enforce_session_capacity`. Verworpen: de invariant die telt is "echte deelnemers worden nooit verdrongen door testdata", en die houdt in beide richtingen, want een volle sessie weigert ook een testrij. De invariant "testdata past in de zaal" beschermt niets, want er komt bij een testboeking niemand opdagen. De prijs zou een tweede telpad met een tweede betekenis zijn in precies de functie die de harde grens over leden, proeflessers en gasten bewaakt. Het realistische faalgeval is een retry-lus die rijen wegschrijft, en dat is tabelvervuiling die 6.9 opruimt, geen bedrijfsincident. Wil ops later toch een plafond, dan hoort dat in een losse trigger `enforce_test_booking_ceiling` buiten het echte capaciteitspad. Zie 2.9 en tests E9, E10 |
+| 26 | PR 5 gaat van Sonnet naar Fable | PR 5 op Sonnet laten staan. Verworpen: de PR is niet meer wat hij was. Toen hij alleen de webhook-upsert naar `tmc.payments` deed was hij mechanisch en volledig voorgeschreven. Met `trial_bookings.is_test` erbij raakt hij het **capaciteitspad** en niet alleen de betaalketen: `session_occupancy` (dat alle drie de capaciteitstriggers voedt), `v_session_availability` (een eigen duplicaat van dezelfde telling) en `redeem_trial_code` (een derde). Drie plekken die hetzelfde tellen en die uit elkaar kunnen lopen, met een trigger als handhaver die stil de verkeerde kant op valt: één gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes, en één te veel haalt echte proeflessen uit de bewaking en laat proeflessers betalende leden verdringen. Zie 2.9 en test E9 |
 
 ## 13. Open vragen
 
@@ -2060,7 +2161,7 @@ applicatie werkend achter.
 | 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
 | 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
 | 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
-| 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `v_session_availability`, `enforce_session_capacity` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Het raakt nu het capaciteitspad: een gemiste `and not is_test` laat testdata een echte stoel bezetten in een groep van zes, en `enforce_session_capacity` is een trigger die stil de verkeerde kant op kan vallen. Zie 2.9 en tests E8, E9 |
+| 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
 | 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
