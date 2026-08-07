@@ -14,6 +14,17 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 ---
 
+## Spec-ledger
+
+- **Elk project met een eigen spec-bestand houdt daarin een ledger bij.** Dat zijn: `spec-membership-flow.md`, `spec-ledenomgeving.md`, `spec-facturatie.md`, `spec-trainingsprotocol.md`, `spec-akiles-access.md` en `spec-community-growth.md`.
+- **Elke PR die gedrag, schema of data wijzigt voegt in dezelfde PR een ledger-regel toe** aan het bijbehorende spec-bestand. Geen losse opruim-PR achteraf.
+- **De regel bevat vier dingen:** PR-nummer, datum, wat er gewijzigd is in één zin, en wat er bewust niet is aangeraakt. Dat laatste is geen bijzaak: het scheelt de volgende persoon een zoektocht naar werk dat nooit gedaan is.
+- **Bold-lead formaat**, zoals de WS-ledger in `spec-membership-flow.md`.
+- **Schrijf de regel in de PR zelf, niet na de merge.** Een ledger die achteraf wordt bijgewerkt, wordt niet bijgewerkt.
+- **Identificeer op PR-nummer, niet op squash-hash.** Die hash bestaat nog niet op het moment van schrijven. De hash mag er later bij, het PR-nummer is de sleutel.
+
+---
+
 ## Project Status
 
 - **Domein:** themovementclub.nl
