@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
-import { trialBookingMode } from "@/lib/mollie-mode";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -111,7 +110,7 @@ export async function GET(req: Request) {
   const { data: stale, error: staleErr } = await admin
     .from("trial_bookings")
     .select(
-      "id, mollie_payment_id, session_id, name, email, phone, cancel_token, price_paid_cents",
+      "id, mollie_payment_id, session_id, name, email, phone, cancel_token, price_paid_cents, is_test",
     )
     .eq("status", "pending")
     .not("mollie_payment_id", "is", null)
@@ -121,17 +120,16 @@ export async function GET(req: Request) {
     console.error("[cron/expire-orders] stale trial query failed", staleErr);
   }
 
-  // TODO PR 5: vervang trialBookingMode() door trial_bookings.is_test per rij
-  // (de kolom bestaat pas in PR 5; tot dan bepaalt de deployment de modus,
-  // dezelfde bron als het aanmaak-pad in trial-booking.ts, dus consistent).
-  const mollie = getMollieClient(trialBookingMode());
-  if ((stale?.length ?? 0) > 0 && !mollie) {
-    console.error(
-      "[cron/expire-orders] mollie not configured; stale trials left as-is",
-    );
-  }
-
+  // Modus per rij uit trial_bookings.is_test (PR 5, TODO uit PR 4
+  // ingelost). De Map in mollie.ts maakt herhaald opvragen gratis.
+  const anyStale = (stale?.length ?? 0) > 0;
   for (const trial of stale ?? []) {
+    const mollie = getMollieClient(trial.is_test ? "test" : "live");
+    if (anyStale && !mollie) {
+      console.error(
+        `[cron/expire-orders] mollie not configured (mode=${trial.is_test ? "test" : "live"}); trial ${trial.id} left as-is`,
+      );
+    }
     if (!mollie || !trial.mollie_payment_id) {
       trialsSkipped += 1;
       continue;

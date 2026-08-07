@@ -124,6 +124,9 @@ export async function startTrialBooking(
       phone,
       price_paid_cents: priceCents,
       status: "pending",
+      // Snapshot van de deployment-modus (PR 5): testrijen tellen niet mee
+      // in de bezetting en niet in de omzet.
+      is_test: mode === "test",
     })
     .select("id, cancel_token")
     .single();
