@@ -187,13 +187,25 @@ procent is toegestaan door het schema, alleen niet in gebruik. Een toekomstig
 
 Praktisch gevolg voor de migratie: `ADD COLUMN ... NOT NULL` zonder default faalt op een
 gevulde tabel. De migratie doet dus drie stappen in dezelfde transactie: kolom nullable
-toevoegen, per slug backfillen met een expliciete `update ... where slug = ...` per rij
-(geen `case`-expressie over een patroon, want dan is niet zichtbaar wat er met een rij
-gebeurt die niemand heeft bekeken), en daarna `SET NOT NULL`. **Ook nu alle rijen dezelfde
-waarde krijgen blijft de backfill per rij expliciet**, en niet één `update tmc.catalogue set
-vat_rate_bp = 900`. De migratie is de plek waar de tabel uit 1.1 letterlijk terugkomt en
-waar de accountant meeleest; een enkele veegupdate laat zien dat alles negen is, maar niet
-dat iemand per productgroep heeft nagedacht.
+toevoegen, backfillen, en daarna `SET NOT NULL`.
+
+**De backfill is één `update` per productgroep, met alle slugs expliciet benoemd in een
+`where slug in (...)`.** Zes updates dus, in dezelfde volgorde als de tabel in 1.1. Geen
+veegupdate over de hele tabel, geen `like`-patroon en geen `case`-expressie: bij een patroon
+is niet zichtbaar wat er gebeurt met een rij die niemand heeft bekeken. De migratie is de
+plek waar de tabel uit 1.1 letterlijk terugkomt en waar de accountant meeleest; een enkele
+veegupdate laat zien dat alles negen is, maar niet dat iemand per productgroep heeft
+nagedacht.
+
+Deze formulering is in PR 1 (#146) aangepast aan wat er gebouwd is. De spec vroeg eerst om
+een losse `update ... where slug = ...` per rij, dus 29 stuks. Zes updates met de slugs
+uitgeschreven halen hetzelfde doel (elke slug bij naam, geen patroon) en lezen als de tabel
+uit 1.1, in plaats van als 29 keer dezelfde regel.
+
+Daar hoort één ding bij dat de per-rij-variant gratis gaf en de gegroepeerde niet: een rij
+die na het schrijven van de spec is toegevoegd valt door de mazen. De migratie vangt dat af
+met een guard vóór `SET NOT NULL` die de ontbrekende slugs bij naam noemt, zodat zo'n rij
+niet op een kale not-null-schending strandt.
 
 Basispunten als integer, niet `numeric`: exact, vergelijkbaar zonder cast, en geen
 drijvende komma in een bedragberekening.
@@ -1849,17 +1861,26 @@ Elke handeling in `tmc.admin_audit_log`, hetzelfde patroon als het bestaande
 
 ### 10.1 Volgorde en omkeerbaarheid
 
-| Stap | Inhoud | Omkeerbaar |
-|---|---|---|
-| 1 | `catalogue.vat_rate_bp`, `catalogue.revenue_category` (nullable, backfill, `SET NOT NULL`) | ja, drop kolommen |
-| 2 | `profiles.is_test`, `profiles.company_name`, `profiles.vat_number` | ja |
-| 2b | `trial_bookings.is_test`, plus `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code` (2.9) | ja, maar raakt het capaciteitspad |
-| 3 | `payments`-kolommen uit 2.2, grant-opruiming uit 2.8 | ja |
-| 4 | `orders.vat_amount_cents` | ja |
-| 5 | `_compute_order_price` uitbreiden, `create_order` en `admin_create_order` aanpassen | ja, `CREATE OR REPLACE` terug |
-| 6 | `invoice_series`, `invoices`, `invoice_lines`, RLS, triggers | ja zolang er geen gefinaliseerde factuur is |
-| 7 | `finalize_invoice`, `v_invoice_credit_state`, `v_revenue_lines` | ja |
-| 8 | `vw_admin_kpis` drop en recreate volgens 7.8 | ja, met dezelfde procedure |
+| Stap | PR | Inhoud | Omkeerbaar |
+|---|---|---|---|
+| 1 | 1 | `catalogue.vat_rate_bp`, `catalogue.revenue_category` (nullable, backfill, `SET NOT NULL`) | ja, drop kolommen |
+| 2 | 1 | `profiles.is_test`, `profiles.company_name`, `profiles.vat_number` | ja |
+| 2b | 5 | `trial_bookings.is_test`, plus `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code` (2.9) | ja, maar raakt het capaciteitspad |
+| 2c | 1 | Grant-opruiming op `tmc.payments` (2.8) | ja, grants terugzetten |
+| 3 | 2 | `payments`-kolommen uit 2.2 | ja |
+| 4 | 2 | `orders.vat_amount_cents` | ja |
+| 5 | 3 | `_compute_order_price` uitbreiden, `create_order` en `admin_create_order` aanpassen | ja, `CREATE OR REPLACE` terug |
+| 6 | 6 | `invoice_series`, `invoices`, `invoice_lines`, RLS, triggers | ja zolang er geen gefinaliseerde factuur is |
+| 7 | 7 | `finalize_invoice`, `v_invoice_credit_state`, `v_revenue_lines` | ja |
+| 8 | 8 | `vw_admin_kpis` drop en recreate volgens 7.8 | ja, met dezelfde procedure |
+
+De PR-kolom is toegevoegd omdat de stapnummering hier en de PR-nummering in sectie 14 niet
+een-op-een lopen. PR 1 bundelt de stappen 1, 2 en 2c; PR 2 bundelt 3 en 4; stap 2b hoort bij
+PR 5 en niet bij de vroege schema-stappen, want hij raakt het capaciteitspad.
+
+De grant-opruiming stond hier eerder bij stap 3, terwijl 2.8 ("meenemen in de eerste
+migratie") en de PR-tabel in sectie 14 hem bij PR 1 zetten. Dat is rechtgetrokken naar stap
+2c bij PR 1, waar hij ook daadwerkelijk is geland (#146).
 
 Stap 6 is het kantelpunt: zodra er één gefinaliseerde factuur bestaat is terugdraaien geen
 technische maar een boekhoudkundige vraag.
@@ -1870,8 +1891,9 @@ Volumes bij het schrijven van deze spec: `payments` 5, `orders` 7, `memberships`
 `trial_bookings` 3, `catalogue` 29. Alles past in één transactie en de backfill duurt
 milliseconden. Over een jaar is dat anders.
 
-De catalogus-backfill uit 2.1 staat letterlijk in de migratie, één `update` per slug, zodat
-in de code-review zichtbaar is welk tarief aan welk product is toegekend. Dat is de plek
+De catalogus-backfill uit 2.1 staat letterlijk in de migratie, één `update` per
+productgroep met alle slugs uitgeschreven, zodat in de code-review zichtbaar is welk tarief
+aan welk product is toegekend. Dat is de plek
 waar de accountant meeleest.
 
 ### 10.3 Defaults die niemand stil verkeerd zet
@@ -2280,7 +2302,7 @@ applicatie werkend achter.
 
 | PR | Inhoud | Model | Waarom dit model |
 |---|---|---|---|
-| 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per slug; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments` | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
+| 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per productgroep; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments`. **Gemerged, zie ledger sectie 15** | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
 | 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
 | 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
 | 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
@@ -2293,7 +2315,38 @@ applicatie werkend achter.
 Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is te splitsen als
 hij te groot wordt, met de ledenkant (8.2 en 8.3) als eerste helft.
 
+## 15. Ledger
+
+Werkwijze volgens de spec-ledger-afspraak in `CLAUDE.md`: elke PR die gedrag, schema of data
+wijzigt voegt hier in dezelfde PR een regel toe, geïdentificeerd op PR-nummer. De squash-hash
+mag er later bij, maar is nooit de sleutel: die bestaat nog niet op het moment dat de regel
+geschreven wordt.
+
+De autoritatieve bronnen blijven de repo en `supabase migration list --linked`. Deze ledger is
+het overzicht, niet de waarheid.
+
+### Gereed en gemerged
+
+- **PR 1, #146, 2026-08-07** (squash `39c07dc`, migratie `20260817000000_vat_foundation.sql`).
+  Het BTW-fundament: `tmc.catalogue` kreeg `vat_rate_bp` en `revenue_category` met een
+  backfill per productgroep over alle 29 rijen op `900`, `tmc.profiles` kreeg `is_test`,
+  `company_name` en `vat_number`, en `tmc.payments` verloor de `insert`, `update` en `delete`
+  van `anon` en `authenticated` plus de `select` van `anon`.
+  **Bewust niet aangeraakt:** de prijsketen (`_compute_order_price`, `create_order`,
+  `admin_create_order`), die krijgt de BTW-keys pas in PR 3; en `types/supabase.ts`, dat van
+  2026-07-02 dateert, de `orders`-tabel niet eens bevat en nergens in `src/` geïmporteerd
+  wordt, zodat regenereren hier een diff van maanden aan ongerelateerde schemawijzigingen zou
+  opleveren.
+  **Twee afwijkingen van deze spec, hieronder rechtgetrokken:** de backfill werd zes updates
+  per productgroep in plaats van 29 per slug (2.1 aangepast aan de praktijk), en de
+  grant-opruiming stond in 10.1 bij stap 3 terwijl 2.8 en sectie 14 hem bij PR 1 zetten (10.1
+  rechtgetrokken).
+
+### Nog te doen
+
+PR 2 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+
 ---
 
 *Geschreven op basis van read-only discovery. Bij elke wijziging aan de facturatieketen dit
-document bijwerken, met name het besluitenlog.*
+document bijwerken, met name het besluitenlog en de ledger in sectie 15.*
