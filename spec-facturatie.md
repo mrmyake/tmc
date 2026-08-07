@@ -643,7 +643,19 @@ De functie blijft `STABLE`: er wordt niets geschreven, alleen gelezen en gereken
 geen nieuwe kolom nodig om de BTW-uitsplitsing te bewaren.
 
 Wel toe te voegen aan `tmc.orders`: `vat_amount_cents integer`, als goedkope
-rapportagekolom naast het snapshot, gevuld met `first_charge_vat_amount_cents`.
+rapportagekolom naast het snapshot. In `create_order` is dat
+`first_charge_vat_amount_cents` uit het snapshot, want daar is geen waiver en is het
+snapshot-bedrag het geincasseerde bedrag.
+
+**In `admin_create_order` niet.** De overstap-waiver zet `v_fee_cents` op 0 nadat
+`_compute_order_price` al gerekend heeft, dus `first_charge_vat_amount_cents` uit
+`v_pricing` bevat dan BTW over een fee die niet geincasseerd wordt. Een gewaivde fee
+draagt nul BTW, en `orders.vat_amount_cents` wordt gevuld met de BTW over wat werkelijk
+geincasseerd wordt: `recurring_vat_amount_cents` plus de fee-BTW gerekend over
+`v_fee_cents`, de enkele bron die de waiver-tak zelf al op 0 zet. Bij een waiver geeft
+`round(0 * rate / ...)` vanzelf 0, dus er is geen aparte tak en geen case. Deze paragraaf
+is toegevoegd bij PR 3 (#149): de eerdere formulering ("gevuld met
+`first_charge_vat_amount_cents`") was een omissie die het waiver-pad over het hoofd zag.
 
 Van order naar payment: de webhook leest `orders.vat_amount_cents` en
 `orders.pricing_snapshot` en vult `payments.vat_amount_cents`, `payments.net_amount_cents`
@@ -1598,6 +1610,15 @@ De BTW op de negatieve regels volgt dezelfde splitsing: uit de restitutie via
 Dit is de plek waar de rapportage het meest kan verrassen en hij verdient expliciete tests
 in 11.
 
+**Kanttekening bij de bovengrens** (`payments_refunded_lte_amount_check`, PR 3): Mollie's
+`amountRefunded` kan bij enkele betaalmethodes boven het betaalde bedrag uitkomen, ter
+vergoeding van retourkosten. TMC gebruikt die methodes niet, en de rekenregel hierboven
+leunt op de bovengrens. Komt zo'n waarde ooit toch binnen, dan is de faalmodus dat de
+webhook-upsert stilvalt op een constraint-schending: Mollie krijgt zijn 2xx (de buitenste
+`try/catch` vangt alles), maar de rij wordt niet bijgewerkt en niemand merkt het zonder de
+logs. De afhandeling daarvan (clampen op `amount_cents` plus een ntfy-melding, of de
+constraint heroverwegen) is een expliciete voorwaarde bij PR 4 in sectie 14.
+
 ### 7.5 Het trial_bookings-lek dichten
 
 Zie 2.9. Zonder dit blijven proeflessen buiten elke omzetregel.
@@ -2310,8 +2331,8 @@ applicatie werkend achter.
 |---|---|---|---|
 | 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per productgroep; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments`. **Gemerged, zie ledger sectie 15** | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
 | 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen. **Gemerged, zie ledger sectie 15** | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
-| 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
-| 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
+| 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven. **Gemerged, zie ledger sectie 15** | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
+| 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes. **Voorwaarde erbij (7.4):** de webhook moet een `amountRefunded` boven `amount_cents` afhandelen in plaats van stil te vallen op `payments_refunded_lte_amount_check` | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
 | 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
 | 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
@@ -2369,9 +2390,32 @@ het overzicht, niet de waarheid.
   te herschrijven, en zodat de backfill op dezelfde regel rekent als wat PR 3 gaat schrijven
   (3.4).
 
+- **PR 3, #149, 2026-08-07** (migratie `20260819000000_vat_price_chain.sql`).
+  De BTW-keys in de prijsketen: `_compute_order_price` retourneert de negen keys uit 3.2 in
+  de subscription-tak en de vier in de product-tak (per component gerekend, `::numeric` voor
+  de deling, bit-voor-bit gelijk aan de PR 2-backfill), `create_order` en
+  `admin_create_order` schrijven `orders.vat_amount_cents` en geven `profiles.is_test` terug
+  in het jsonb-resultaat, plus de bovengrens `payments_refunded_lte_amount_check`.
+  **Bewust niet aangeraakt:** `mollie.ts`, de webhook en het proefles-pad (PR 4 en 5);
+  `is_test` wordt alleen teruggegeven, nergens op gehandeld.
+  **Waiver-interpretatie, in 3.3 vastgelegd:** de admin-waiver zet `v_fee_cents` zelf op 0,
+  dus de fee-BTW rekent over die enkele bron zonder aparte tak, en
+  `orders.vat_amount_cents` bevat de BTW over wat werkelijk geincasseerd wordt in plaats
+  van `first_charge_vat_amount_cents` uit het snapshot. De eerdere formulering in 3.3 zag
+  het waiver-pad over het hoofd.
+  **Tweede spec-wijziging, in 7.4 en sectie 14 vastgelegd:** Mollie's `amountRefunded` kan
+  bij methodes die TMC niet gebruikt boven het betaalde bedrag uitkomen; de faalmodus is dan
+  een stilgevallen webhook-upsert op de nieuwe constraint. Afhandeling is een voorwaarde bij
+  PR 4.
+  Geverifieerd: componenten 405 + 83 + 322 = 810 voor een abonnement met add-on en
+  inschrijfgeld, `included`-add-on geeft prijs 0 met tarief `NULL`, product-tak geeft 1239
+  (`ten_ride_card`) en 784 (`pt_single`), nul afwijkingen tegen de PR 2-backfill, C1 en C2
+  uit 11.3 groen, en een order op een testprofiel geeft `is_test = true` terug (probe in een
+  teruggerolde transactie, niets achtergebleven).
+
 ### Nog te doen
 
-PR 3 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+PR 4 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
 
 ---
 
