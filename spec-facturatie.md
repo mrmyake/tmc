@@ -222,10 +222,16 @@ Een derde kolom die overwogen is en niet doorgaat: `price_includes_vat`. Zie bes
 | `vat_rate_bp` | `integer` | Nullable: historische rijen hebben geen bekend tarief |
 | `net_amount_cents` | `integer` | |
 | `vat_amount_cents` | `integer` | `CHECK`: als beide gevuld, `net_amount_cents + vat_amount_cents = amount_cents` |
-| `refunded_amount_cents` | `integer NOT NULL DEFAULT 0` | |
+| `refunded_amount_cents` | `integer NOT NULL DEFAULT 0` | `CHECK (>= 0)`; 7.4 rekent met `greatest(0, ...)` en gaat daarvan uit |
 | `refunded_at` | `timestamptz` | Tijdstip van de laatste refund-melding |
-| `kind` | `text` | `order`, `recurring`, `trial_booking`, `manual` |
+| `kind` | `text` | `CHECK`: `null` of `order`, `recurring`, `trial_booking`, `manual` |
 | `trial_booking_id` | `uuid REFERENCES tmc.trial_bookings(id)` | Dicht het omzetlek uit 2.9 |
+
+De drie `CHECK`-constraints heten `payments_vat_split_check`, `payments_kind_check` en
+`payments_refunded_amount_cents_check`. De laatste twee zijn in PR 2 (#148) toegevoegd
+bovenop wat hier eerst stond: een opgesomde tekstkolom zonder constraint is een typefout die
+pas in de rapportage opvalt, en dat is precies het patroon dat `orders_kind_check` en
+`payments_status_check` al volgen.
 
 Voor een betaling die meerdere BTW-tarieven mengt (een eerste incasso met abonnement plus
 inschrijfgeld, beide 9 procent, is dat niet, maar een toekomstige gemengde order wel) is
@@ -2303,7 +2309,7 @@ applicatie werkend achter.
 | PR | Inhoud | Model | Waarom dit model |
 |---|---|---|---|
 | 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per productgroep; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments`. **Gemerged, zie ledger sectie 15** | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
-| 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
+| 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen. **Gemerged, zie ledger sectie 15** | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
 | 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
 | 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
 | 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
@@ -2342,9 +2348,30 @@ het overzicht, niet de waarheid.
   grant-opruiming stond in 10.1 bij stap 3 terwijl 2.8 en sectie 14 hem bij PR 1 zetten (10.1
   rechtgetrokken).
 
+- **PR 2, #148, 2026-08-07** (migratie `20260818000000_payments_vat_snapshot.sql`).
+  Het BTW-snapshot op de betaalregel: `tmc.payments` kreeg `is_test`, `vat_rate_bp`,
+  `net_amount_cents`, `vat_amount_cents`, `refunded_amount_cents`, `refunded_at`, `kind` en
+  `trial_booking_id`, `tmc.orders` kreeg `vat_amount_cents`, en alle vijf de betaalregels en
+  zeven orders zijn gebackfilled (alles op tarief 900, splitsingen tellen exact op tot het
+  bruto).
+  **Bewust niet aangeraakt:** de prijsketen (`_compute_order_price`, `create_order`,
+  `admin_create_order`), die de kolommen pas in PR 3 gaat vullen, zodat ze voor nieuwe rijen
+  tot dan `NULL` blijven; en het proefles-pad, want `trial_booking_id` wordt pas in PR 5
+  aangesloten en de kolom staat er nu alleen omdat 2.2 hem opsomt.
+  **Twee toevoegingen bovenop de spec, hierboven in 2.2 verwerkt:** `payments_kind_check` en
+  `payments_refunded_amount_cents_check`. De eerste omdat een opgesomde tekstkolom zonder
+  constraint een typefout is die pas in de rapportage opvalt, de tweede omdat de rekenregel
+  in 7.4 met `greatest(0, ...)` werkt en dus aanneemt dat het bedrag niet negatief wordt.
+  **Eén implementatiekeuze die verder gaat dan de huidige data vraagt:** de backfill rekent
+  per component met het eigen tarief van die component en laat `vat_rate_bp` op `NULL` zodra
+  de componenten verschillen. Vandaag draagt alles negen procent, dus dat verandert geen
+  enkele uitkomst; het staat er zodat een toekomstig 21-procent-product deze logica niet hoeft
+  te herschrijven, en zodat de backfill op dezelfde regel rekent als wat PR 3 gaat schrijven
+  (3.4).
+
 ### Nog te doen
 
-PR 2 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+PR 3 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
 
 ---
 
