@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const { data: trial, error: readErr } = await admin
       .from("trial_bookings")
       .select(
-        "id, status, session_id, name, email, phone, cancel_token, price_paid_cents",
+        "id, status, session_id, name, email, phone, cancel_token, price_paid_cents, is_test",
       )
       .eq("mollie_payment_id", paymentId)
       .maybeSingle();
@@ -50,6 +50,44 @@ export async function POST(request: Request) {
     if (readErr || !trial) {
       console.warn("[trial-bookings/webhook] row not found", paymentId);
       return NextResponse.json({ ok: true });
+    }
+
+    // Payments-spiegel (PR 5, dicht het omzetlek uit spec-facturatie.md
+    // 2.9): elke statusovergang geupsert, zelfde patroon als de
+    // hoofdwebhook. is_test komt uit de trial-rij (het snapshot van de
+    // aanmaak), niet uit de mode-parameter. BTW-snapshot tegen het
+    // drop_in-tarief, zelfde formule als PR 3 (bruto leidend, 3.1).
+    const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
+    const { data: dropIn } = await admin
+      .from("catalogue")
+      .select("vat_rate_bp")
+      .eq("slug", "drop_in")
+      .maybeSingle();
+    const rate = dropIn?.vat_rate_bp ?? null;
+    const vatCents =
+      rate === null ? null : Math.round((amountCents * rate) / (10000 + rate));
+    const { error: upsertErr } = await admin.from("payments").upsert(
+      {
+        mollie_payment_id: payment.id,
+        amount_cents: amountCents,
+        status: payment.status,
+        method: payment.method ?? null,
+        description: payment.description ?? null,
+        paid_at: payment.paidAt ?? null,
+        kind: "trial_booking",
+        trial_booking_id: trial.id,
+        is_test: trial.is_test === true,
+        vat_rate_bp: rate,
+        vat_amount_cents: vatCents,
+        net_amount_cents: vatCents === null ? null : amountCents - vatCents,
+      },
+      { onConflict: "mollie_payment_id" },
+    );
+    if (upsertErr) {
+      console.error(
+        `[trial-bookings/webhook] payments upsert failed (id=${paymentId}, mode=${mode})`,
+        upsertErr,
+      );
     }
 
     // Idempotent: al in een eindstatus, en niet opnieuw naar pending.
