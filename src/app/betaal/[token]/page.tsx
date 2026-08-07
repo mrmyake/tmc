@@ -47,7 +47,7 @@ export default async function BetaalPage({
   const [{ data: profile }, { data: item }] = await Promise.all([
     admin
       .from("profiles")
-      .select("first_name")
+      .select("first_name, is_test")
       .eq("id", order.profile_id)
       .maybeSingle(),
     admin
@@ -78,7 +78,7 @@ export default async function BetaalPage({
     // zijn: kijk naar de payment zelf voor directe feedback.
     if (order.mollie_payment_id) {
       try {
-        const mollie = getMollieClient();
+        const mollie = getMollieClient(profile?.is_test ? "test" : "live");
         const payment = mollie
           ? await mollie.payments.get(order.mollie_payment_id)
           : null;

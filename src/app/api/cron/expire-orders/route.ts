@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
+import { trialBookingMode } from "@/lib/mollie-mode";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -120,7 +121,10 @@ export async function GET(req: Request) {
     console.error("[cron/expire-orders] stale trial query failed", staleErr);
   }
 
-  const mollie = getMollieClient();
+  // TODO PR 5: vervang trialBookingMode() door trial_bookings.is_test per rij
+  // (de kolom bestaat pas in PR 5; tot dan bepaalt de deployment de modus,
+  // dezelfde bron als het aanmaak-pad in trial-booking.ts, dus consistent).
+  const mollie = getMollieClient(trialBookingMode());
   if ((stale?.length ?? 0) > 0 && !mollie) {
     console.error(
       "[cron/expire-orders] mollie not configured; stale trials left as-is",

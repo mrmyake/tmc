@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SequenceType } from "@mollie/api-client";
-import { getMollieClient } from "@/lib/mollie";
+import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendPurchaseToGa4 } from "@/lib/orders/ga-purchase";
@@ -78,14 +78,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const mollie = getMollieClient();
+    // Modus uit de eigen URL (spec-facturatie.md 6.5). Whitelist: alles
+    // wat niet exact "test" is, is live. Afwezigheid betekent live, want
+    // bestaande subscriptions dragen een opgeslagen URL zonder parameter.
+    // De parameter is onschadelijk manipuleerbaar: hij kiest alleen met
+    // welke key we de payment bij Mollie OPHALEN; een mismatch geeft een
+    // 404 en de handler stopt zonder iets te schrijven.
+    const mode: MollieMode =
+      new URL(request.url).searchParams.get("mode") === "test"
+        ? "test"
+        : "live";
+    const mollie = getMollieClient(mode);
     const supabase = createAdminClient();
     if (!mollie) {
-      console.error("[mollie/webhook] mollie not configured");
+      console.error(`[mollie/webhook] mollie not configured (mode=${mode})`);
       return NextResponse.json({ ok: true });
     }
 
-    const payment = await mollie.payments.get(paymentId);
+    // Eigen try/catch: een mislukte get (echte 404 of modus-mismatch) mag
+    // niet stil in de buitenste catch verdwijnen; log id en modus zodat
+    // een mismatch in de logs zichtbaar is. Mollie krijgt gewoon 2xx.
+    let payment;
+    try {
+      payment = await mollie.payments.get(paymentId);
+    } catch (e) {
+      console.error(
+        `[mollie/webhook] payments.get failed (id=${paymentId}, mode=${mode})`,
+        e,
+      );
+      return NextResponse.json({ ok: true });
+    }
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
     const membershipId =
       typeof meta.membershipId === "string" ? meta.membershipId : undefined;
@@ -98,9 +120,16 @@ export async function POST(request: Request) {
     const type = typeof meta.type === "string" ? meta.type : undefined;
 
     // Upsert payment-regel — idempotent, log van wat Mollie heeft.
-    await supabase.from("payments").upsert(
+    // is_test is het snapshot uit de modus van deze webhook-aanroep
+    // (propagatieketen, spec-facturatie.md 6.3). De upsert kan sinds PR 3
+    // op payments_refunded_lte_amount_check klappen als Mollie ooit een
+    // amountRefunded boven het bedrag stuurt (methode die wij niet
+    // gebruiken, 7.4); vang dat hier expliciet zodat het een leesbare
+    // log wordt in plaats van een stilte in de buitenste catch.
+    const { error: upsertErr } = await supabase.from("payments").upsert(
       {
         mollie_payment_id: payment.id,
+        is_test: mode === "test",
         membership_id: membershipId ?? null,
         pt_booking_id: ptBookingId ?? null,
         order_id: orderId ?? null,
@@ -114,6 +143,12 @@ export async function POST(request: Request) {
       },
       { onConflict: "mollie_payment_id" }
     );
+    if (upsertErr) {
+      console.error(
+        `[mollie/webhook] payments upsert failed (id=${paymentId}, mode=${mode})`,
+        upsertErr,
+      );
+    }
 
     // Money-fact events. dedupe_key = Mollie payment-id op een vaste plek in de
     // payload; webhook-retries kunnen dit event dubbel vuren, dedupe-bij-lezen
@@ -372,7 +407,7 @@ export async function POST(request: Request) {
             interval: "28 days",
             description: `TMC order ${orderId}`,
             startDate: startDateISO,
-            webhookUrl: mollieWebhookUrl(),
+            webhookUrl: mollieWebhookUrl(mode),
             metadata: {
               membershipId: activation.membership_id,
               type: "recurring",
