@@ -3,6 +3,8 @@
 import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
+import { trialBookingMode } from "@/lib/mollie-mode";
+import { trialWebhookUrl } from "@/lib/site-url";
 import { emitEvent } from "@/lib/events/emit";
 import { getCatalogue } from "@/lib/catalogue";
 
@@ -106,7 +108,9 @@ export async function startTrialBooking(
     return { ok: false, error: "Deze sessie is helaas vol." };
   }
 
-  const mollie = getMollieClient();
+  // Publieke route: de deployment bepaalt de modus (mollie-mode.ts).
+  const mode = trialBookingMode();
+  const mollie = getMollieClient(mode);
   if (!mollie) {
     return { ok: false, error: "Betalingsprovider niet geconfigureerd." };
   }
@@ -146,7 +150,7 @@ export async function startTrialBooking(
       amount: { currency: "EUR", value: amountValue },
       description: "The Movement Club | Proefles",
       redirectUrl: `${url}/proefles/boeken/bedankt?trial=${trial.id}`,
-      webhookUrl: `${url}/api/trial-bookings/webhook`,
+      webhookUrl: trialWebhookUrl(mode),
       // Een pending-rij houdt een plek bezet tot Mollie de betaling laat
       // verlopen, en die vervaltijd is per methode: iDEAL 15 min, kaart
       // 30 min, maar Klarna/in3 48 uur en bankoverschrijving 12+ dagen.

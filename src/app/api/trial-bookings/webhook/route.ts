@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMollieClient } from "@/lib/mollie";
+import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
@@ -14,14 +14,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const mollie = getMollieClient();
+    // Modus uit de eigen URL, zelfde whitelist als /api/mollie/webhook:
+    // alles wat niet exact "test" is, is live (spec-facturatie.md 6.5).
+    const mode: MollieMode =
+      new URL(request.url).searchParams.get("mode") === "test"
+        ? "test"
+        : "live";
+    const mollie = getMollieClient(mode);
     if (!mollie) {
-      console.error("[trial-bookings/webhook] mollie not configured");
+      console.error(`[trial-bookings/webhook] mollie not configured (mode=${mode})`);
       return NextResponse.json({ ok: true });
     }
 
     const admin = createAdminClient();
-    const payment = await mollie.payments.get(paymentId);
+    let payment;
+    try {
+      payment = await mollie.payments.get(paymentId);
+    } catch (e) {
+      console.error(
+        `[trial-bookings/webhook] payments.get failed (id=${paymentId}, mode=${mode})`,
+        e,
+      );
+      return NextResponse.json({ ok: true });
+    }
     const newStatus = payment.status;
 
     const { data: trial, error: readErr } = await admin

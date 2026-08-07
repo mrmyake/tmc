@@ -1373,25 +1373,24 @@ probleem dat we oplossen.
 **Alle aanroepplaatsen krijgen een modus.** Dit is de grootste mechanische wijziging van
 deze spec, dus hier de volledige lijst zoals aanwezig op `main`:
 
-| Bestand | Regel | Waar de modus vandaan komt |
-|---|---|---|
-| `src/app/api/mollie/webhook/route.ts` | 81 | query-parameter `mode` |
-| `src/app/api/trial-bookings/webhook/route.ts` | 17 | query-parameter `mode`, zelfde patroon |
-| `src/lib/orders/create-order.ts` | 189 | `profiles.is_test` van de koper |
-| `src/lib/orders/payment-link.ts` | 24 | `profiles.is_test` via `orders.profile_id` |
-| `src/lib/actions/trial-booking.ts` | 109 | `trialBookingMode()`, en dezelfde waarde gaat als `is_test` mee in de `trial_bookings`-insert (zie 2.9) |
-| `src/app/betaal/[token]/page.tsx` | 81 | `profiles.is_test` via de order achter het token |
-| `src/app/api/cron/expire-orders/route.ts` | 123 | per order, uit `profiles.is_test` |
-| `src/lib/admin/membership-lifecycle.ts` | 730 | `isMollieConfigured(mode)`, modus uit het membership |
+Bijgewerkt bij PR 4 (#150) naar de volledige lijst; de eerdere tabel miste de extra
+callers van de helpers. Elf bestanden, plus het nieuwe `src/lib/mollie-mode.ts`
+(`trialBookingMode()`, `mollieModeForProfile()`, `mollieModeForMembership()`; apart van
+`mollie.ts` zodat de pure client-module geen Supabase-afhankelijkheid krijgt):
 
-Plus de vijf helpers binnen `src/lib/mollie.ts` zelf (`cancelMollieSubscription`,
-`getMollieSubscriptionInfo`, `hasValidMollieMandate`, `updateMollieSubscriptionAmount`,
-`createMollieRecurringSubscription`), die allemaal een `mode`-parameter krijgen en
-doorgeven.
-
-Let op bij `expire-orders`: die cron loopt over meerdere orders in één run en die kunnen in
-verschillende modi zitten. De modus moet daar per order bepaald worden, niet één keer per
-run.
+| Bestand | Waar de modus vandaan komt |
+|---|---|
+| `src/app/api/mollie/webhook/route.ts` | query-parameter `mode`, whitelist |
+| `src/app/api/trial-bookings/webhook/route.ts` | query-parameter `mode`, zelfde patroon |
+| `src/lib/orders/create-order.ts` | `is_test` uit de `create_order`-respons (sinds PR 3), geen extra query |
+| `src/lib/orders/payment-link.ts` | `profiles.is_test` via `orders.profile_id`, één lookup vóór de deps-bouw |
+| `src/lib/actions/trial-booking.ts` | `trialBookingMode()`, en dezelfde waarde gaat als `is_test` mee in de `trial_bookings`-insert (zie 2.9, PR 5) |
+| `src/app/betaal/[token]/page.tsx` | `profiles.is_test` bij de bestaande profiel-select |
+| `src/app/api/cron/expire-orders/route.ts` | tijdelijk `trialBookingMode()` per run; per rij kan pas als `trial_bookings.is_test` bestaat (PR 5, zie voorwaarde in sectie 14) |
+| `src/lib/admin/membership-lifecycle.ts` | `mollieModeForProfile(m.profile_id)` op alle zes helper-aanroepen plus `isMollieConfigured(mode)`; het cancel-change-pad via `mollieModeForMembership(result.membership_id)` |
+| `src/app/api/cron/process-cancellations/route.ts` | `mollieModeForProfile(m.profile_id)` |
+| `src/lib/admin/member-actions.ts` | `mollieModeForProfile(profile.id)` |
+| `src/lib/mollie.ts` | de vijf helpers (`cancelMollieSubscription`, `getMollieSubscriptionInfo`, `hasValidMollieMandate`, `updateMollieSubscriptionAmount`, `createMollieRecurringSubscription`) krijgen `mode` als eerste parameter |
 
 En bij `createMollieRecurringSubscription`: de `webhookUrl` die daar wordt meegegeven moet
 de modus dragen, anders komen recurring-incasso's van een testabonnement binnen op de
@@ -2332,8 +2331,8 @@ applicatie werkend achter.
 | 1 | Migratie: `catalogue.vat_rate_bp` + `revenue_category` met expliciete backfill per productgroep; `profiles.is_test`, `company_name`, `vat_number`; grant-opruiming op `payments`. **Gemerged, zie ledger sectie 15** | **Sonnet** | Mechanisch, de inhoud staat al in 1.1 en 2.1 |
 | 2 | Migratie: `payments`-kolommen uit 2.2, `orders.vat_amount_cents`; backfill van de bestaande rijen. **Gemerged, zie ledger sectie 15** | **Sonnet** | Idem, klein volume, geen ontwerpruimte |
 | 3 | `_compute_order_price` uitbreiden met de BTW-keys; `create_order` en `admin_create_order` de modus uit `profiles.is_test` laten lezen en `vat_amount_cents` schrijven. **Gemerged, zie ledger sectie 15** | **Fable** | Raakt de prijsketen die geld bepaalt. De twee takken, de add-on met tarief `null` bij `included`, en de afrondingsrichting moeten in één keer goed |
-| 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle dertien aanroepplaatsen, beide webhook-routes. **Voorwaarde erbij (7.4):** de webhook moet een `amountRefunded` boven `amount_cents` afhandelen in plaats van stil te vallen op `payments_refunded_lte_amount_check` | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
-| 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
+| 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle aanroepplaatsen (zie de bijgewerkte tabel in 6.6), beide webhook-routes. **Gemerged, zie ledger sectie 15.** **Voorwaarde erbij (7.4):** de webhook moet een `amountRefunded` boven `amount_cents` afhandelen in plaats van stil te vallen op `payments_refunded_lte_amount_check` | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
+| 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy`, `v_session_availability` en `redeem_trial_code`; `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen. **Voorwaarde erbij (PR 4):** vervang in `expire-orders` de tijdelijke `trialBookingMode()` door `trial_bookings.is_test` per rij; de `// TODO PR 5`-comment staat op de regel zelf | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
 | 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
@@ -2413,9 +2412,30 @@ het overzicht, niet de waarheid.
   uit 11.3 groen, en een order op een testprofiel geeft `is_test = true` terug (probe in een
   teruggerolde transactie, niets achtergebleven).
 
+- **PR 4, #150, 2026-08-07** (geen migratie, elf TypeScript-bestanden plus het nieuwe
+  `src/lib/mollie-mode.ts`).
+  De Mollie-modusrouting: `MollieMode`, een `Map` op modus in `mollie.ts` met
+  `MOLLIE_API_KEY_LIVE`/`MOLLIE_API_KEY_TEST` zonder fallback op het oude `MOLLIE_API_KEY`,
+  `mollieWebhookUrl(mode)` en `trialWebhookUrl(mode)` via `URLSearchParams` (parameter
+  alleen gezet bij test, bypass-param blijft werken), whitelist in beide webhook-routes,
+  eigen try/catch rond `payments.get` met id en modus in de log, en de upsert-fout
+  (waaronder de `payments_refunded_lte_amount_check`-faalmodus uit 7.4) expliciet gelogd in
+  plaats van stil. De webhook schrijft `payments.is_test` uit de modus (keten 6.3).
+  **Discovery-bevindingen:** de 6.6-tabel miste drie bestanden (extra helper-callers in
+  `process-cancellations`, `member-actions` en zes lifecycle-plekken; tabel bijgewerkt), er
+  zijn nul lopende Mollie-subscriptions, en het oude `MOLLIE_API_KEY` in Vercel-productie
+  bleek een `test_`-key: alles draaide al tegen de test-API, dus nul migratierisico.
+  **Bewust niet aangeraakt:** het verwerken van `amountRefunded` (alleen niet-stilvallen,
+  verwerken is later werk), het proefles-pad (`trial_bookings.is_test` is PR 5) en de
+  env-var `MOLLIE_API_KEY` zelf, die blijft bestaan tot na de deploy maar door de code
+  nergens meer gelezen wordt.
+  **Tijdelijke afwijking, dwingend gemarkeerd:** `expire-orders` bepaalt de modus per run
+  via `trialBookingMode()` in plaats van per rij; de `// TODO PR 5`-comment staat op de
+  regel en de vervanging is als voorwaarde bij PR 5 in sectie 14 gezet.
+
 ### Nog te doen
 
-PR 4 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+PR 5 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
 
 ---
 

@@ -158,6 +158,9 @@ export async function createOrderAndCheckout(
     }
 
     orderId = orderResult.order_id as string;
+    // Sinds PR 3 (#149) draagt de RPC-respons de testmodus van de koper;
+    // geen extra profiles-query nodig (spec-facturatie.md 6.6).
+    const mode = orderResult.is_test === true ? ("test" as const) : ("live" as const);
     const firstChargeCents = orderResult.first_charge_cents as number;
     const isSubscription = orderResult.recurring_cents !== null;
 
@@ -186,7 +189,7 @@ export async function createOrderAndCheckout(
       }
     }
 
-    const mollie = getMollieClient();
+    const mollie = getMollieClient(mode);
     if (!mollie) {
       await abandonOrder();
       return {
@@ -227,7 +230,7 @@ export async function createOrderAndCheckout(
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,
       redirectUrl,
-      webhookUrl: mollieWebhookUrl(),
+      webhookUrl: mollieWebhookUrl(mode),
       customerId: mollieCustomerId,
       ...(isSubscription ? { sequenceType: SequenceType.first } : {}),
       metadata: {

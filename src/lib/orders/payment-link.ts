@@ -21,12 +21,26 @@ import {
 export async function startPaymentLinkCheckout(
   token: string,
 ): Promise<PaymentLinkCheckoutResult> {
-  const mollie = getMollieClient();
+  const admin = createAdminClient();
+
+  // Modus van de KOPER achter het token (spec-facturatie.md 6.6): order
+  // naar profiel naar is_test. Een onbekend token valt door naar live;
+  // startCheckoutCore geeft daarop toch not_found terug.
+  const { data: modeRow } = await admin
+    .from("orders")
+    .select("profile:profiles!profile_id(is_test)")
+    .eq("token", token)
+    .maybeSingle();
+  const profileRef = Array.isArray(modeRow?.profile)
+    ? modeRow?.profile[0]
+    : modeRow?.profile;
+  const mode = profileRef?.is_test ? ("test" as const) : ("live" as const);
+
+  const mollie = getMollieClient(mode);
   if (!mollie) {
-    console.error("[payment-link] Mollie niet geconfigureerd");
+    console.error(`[payment-link] Mollie niet geconfigureerd (mode=${mode})`);
     return { ok: false, reason: "try_again" };
   }
-  const admin = createAdminClient();
 
   const deps: PaymentLinkDeps = {
     db: {
@@ -121,7 +135,7 @@ export async function startPaymentLinkCheckout(
         return { id: p.id, status: p.status, checkoutUrl: p.getCheckoutUrl() };
       },
     },
-    urls: { site: siteUrl(), webhook: mollieWebhookUrl() },
+    urls: { site: siteUrl(), webhook: mollieWebhookUrl(mode) },
   };
 
   try {

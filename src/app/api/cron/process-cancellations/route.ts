@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cancelMollieSubscription } from "@/lib/mollie";
+import { mollieModeForProfile } from "@/lib/mollie-mode";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -53,6 +54,7 @@ export async function GET(req: Request) {
     // 1. Stop de incasso bij Mollie. Geen subscription = niets te stoppen.
     if (m.mollie_subscription_id) {
       const stopped = await cancelMollieSubscription(
+        await mollieModeForProfile(m.profile_id),
         m.mollie_customer_id,
         m.mollie_subscription_id,
       );

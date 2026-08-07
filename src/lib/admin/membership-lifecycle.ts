@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { mollieModeForMembership, mollieModeForProfile } from "@/lib/mollie-mode";
 import {
   cancelMollieSubscription,
   createMollieRecurringSubscription,
@@ -125,6 +126,7 @@ export async function pauseMembershipCore(
   let effectiveDate: string | null = null;
   if (m.mollie_subscription_id) {
     const info = await getMollieSubscriptionInfo(
+      await mollieModeForProfile(m.profile_id),
       m.mollie_customer_id,
       m.mollie_subscription_id,
     );
@@ -144,6 +146,7 @@ export async function pauseMembershipCore(
     // Mollie-eerst: stop de incasso. Idempotent; bij falen geen lokale
     // wijziging, de volgende poging herprobeert.
     const stopped = await cancelMollieSubscription(
+      await mollieModeForProfile(m.profile_id),
       m.mollie_customer_id,
       m.mollie_subscription_id,
     );
@@ -272,6 +275,7 @@ export async function cancelMembershipCore(
   let effectiveDate: string | null = null;
   if (m.mollie_subscription_id) {
     const info = await getMollieSubscriptionInfo(
+      await mollieModeForProfile(m.profile_id),
       m.mollie_customer_id,
       m.mollie_subscription_id,
     );
@@ -291,6 +295,7 @@ export async function cancelMembershipCore(
     // Mollie-eerst: stop de incasso. Idempotent; bij falen geen lokale
     // wijziging, de volgende poging herprobeert.
     const stopped = await cancelMollieSubscription(
+      await mollieModeForProfile(m.profile_id),
       m.mollie_customer_id,
       m.mollie_subscription_id,
     );
@@ -510,6 +515,7 @@ export async function requestMembershipChangeCore(
   }
 
   const info = await getMollieSubscriptionInfo(
+    await mollieModeForProfile(m.profile_id),
     m.mollie_customer_id,
     m.mollie_subscription_id,
   );
@@ -587,6 +593,7 @@ export async function requestMembershipChangeCore(
   // wordt het verzoek teruggedraaid: nooit een pending wijziging waarvan
   // de eerstvolgende incasso het oude bedrag zou zijn.
   const raised = await updateMollieSubscriptionAmount(
+    await mollieModeForProfile(m.profile_id),
     result.mollie_customer_id ?? m.mollie_customer_id,
     result.mollie_subscription_id ?? m.mollie_subscription_id,
     result.new_recurring_cents ?? 0,
@@ -669,6 +676,7 @@ export async function cancelMembershipChangeCore(params: {
   }
 
   const restored = await updateMollieSubscriptionAmount(
+    await mollieModeForMembership(result.membership_id),
     result.mollie_customer_id ?? null,
     result.mollie_subscription_id ?? null,
     result.restore_recurring_cents ?? 0,
@@ -727,7 +735,7 @@ export async function resumeMembershipCore(params: {
       message: "Dit abonnement is niet gepauzeerd.",
     };
   }
-  if (!isMollieConfigured()) {
+  if (!isMollieConfigured(await mollieModeForProfile(m.profile_id))) {
     return {
       ok: false,
       reason: "mollie_not_configured",
@@ -765,7 +773,8 @@ export async function resumeMembershipCore(params: {
 
   // Mandaat-check EERST: is het mandaat ingetrokken of verlopen, dan geen
   // stille nieuwe subscription maar de expliciete herautorisatie-staat.
-  const mandateValid = await hasValidMollieMandate(customerId);
+  const mode = await mollieModeForProfile(m.profile_id);
+  const mandateValid = await hasValidMollieMandate(mode, customerId);
   if (mandateValid === null) {
     return {
       ok: false,
@@ -806,7 +815,7 @@ export async function resumeMembershipCore(params: {
   const amountCents =
     (m.price_per_cycle_cents ?? 0) + (m.extended_access_price_cents ?? 0);
 
-  const sub = await createMollieRecurringSubscription({
+  const sub = await createMollieRecurringSubscription(mode, {
     customerId,
     amountCents,
     intervalDays: (m.billing_cycle_weeks || 4) * 7,
@@ -814,7 +823,7 @@ export async function resumeMembershipCore(params: {
     description: `TMC hervatting membership ${m.id}`,
     membershipId: m.id,
     idempotencyKey: `resume-${m.id}-${m.pause_effective_date}`,
-    webhookUrl: mollieWebhookUrl(),
+    webhookUrl: mollieWebhookUrl(mode),
   });
   if (!sub) {
     return {
@@ -836,7 +845,7 @@ export async function resumeMembershipCore(params: {
   if (error || !result?.ok) {
     // Compenserend: nooit een lopende incasso op een lid dat lokaal nog
     // gepauzeerd staat. De cancel is idempotent; falen wordt luid gemeld.
-    const rolledBack = await cancelMollieSubscription(customerId, sub.id);
+    const rolledBack = await cancelMollieSubscription(mode, customerId, sub.id);
     console.error("[resumeMembershipCore] rpc failed", error, result);
     if (!rolledBack) {
       await sendNotification(

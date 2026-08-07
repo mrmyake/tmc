@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { cancelMollieSubscription } from "@/lib/mollie";
+import { mollieModeForProfile } from "@/lib/mollie-mode";
 import { sendNotification } from "@/lib/ntfy";
 import {
   cancelMembershipCore,
@@ -730,6 +731,7 @@ export async function deleteMember(
   for (const m of cancelled ?? []) {
     if (m.mollie_subscription_id) {
       const stopped = await cancelMollieSubscription(
+        await mollieModeForProfile(profile.id),
         m.mollie_customer_id,
         m.mollie_subscription_id,
       );
