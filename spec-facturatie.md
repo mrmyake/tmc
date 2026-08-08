@@ -23,6 +23,14 @@ daarop aan en vervangt hem niet.
 | Twee Mollie-keys aangemaakt en in Vercel gezet | open | PR 4 |
 | Bucket `tmc-invoices` aangemaakt | open | PR 6 |
 
+**Post-opening (niet blokkerend, wel gepland):**
+
+- Alarmering op een verouderde `vw_admin_kpis.refreshed_at`. Die bestaat nu niet: een
+  gefaalde refresh meldt niets en de stempel bevriest, wat de view in stilte een maand
+  stale liet staan (7.8, PR 8). Goedkoopste detectie: de admin-cockpit toont
+  `refreshed_at` en waarschuwt zodra die ouder is dan 48 uur. Hoort bij de
+  rapportagepagina van PR 9.
+
 ## Waar dit op rust: een idee
 
 **Omzet leeft in `tmc.payments`. Facturen zijn documenten die daaruit ontstaan. De factuur
@@ -1714,6 +1722,21 @@ Drie dingen die vergeten worden en het daarom expliciet verdienen:
 Voor deze spec betekent dit concreet: het `is_test`-filter toevoegen aan de KPI-view is geen
 `ALTER`, het is de bovenstaande blok in zijn geheel. Dat staat in PR 8.
 
+**Wat PR 8 (#154) daadwerkelijk aantrof: de matview stond een maand stil zonder enig
+signaal.** Twee onafhankelijke oorzaken, allebei stil:
+
+- `REFRESH MATERIALIZED VIEW CONCURRENTLY` weigert expressie-indexen; de unique index moet
+  een **kolom**-index zijn. De oorspronkelijke index was
+  `((refreshed_at is not null))` en daarmee heeft de cron vermoedelijk nooit succesvol
+  gedraaid; de enige verse stand was de initiele populate bij het aanmaken.
+- De mrr-CTE deelde door `billing_cycle_weeks * 7`, en sinds `tmc.activate_order`
+  credit-memberships (rittenkaart, PT-pakket) met `billing_cycle_weeks = 0` schrijft,
+  crashte elke refresh op division by zero.
+
+Een gefaalde refresh breekt niets en meldt niets: de cockpit blijft de oude rij tonen en
+`refreshed_at` bevriest gewoon. **Wie de matview wijzigt moet daarna `refreshed_at`
+controleren, niet alleen of de migratie slaagde.**
+
 ## 8. Ledenkant: uitbreiding van /app/facturen
 
 ### 8.1 Geen nieuwe route
@@ -2590,6 +2613,13 @@ het overzicht, niet de waarheid.
   **Spec-zin toegevoegd aan 4.2:** de `totals_mismatch`-tak is structureel onbereikbaar
   zolang de per-regel-CHECK bestaat, blijft staan als defensieve controle, en mag niet
   worden opgeruimd op grond van "kan niet vuren".
+  **Nagekomen (#155, docs-only):** de twee vondsten zijn in 7.8 vastgelegd als les (een
+  gefaalde refresh breekt niets en meldt niets; wie de matview wijzigt controleert daarna
+  `refreshed_at`, niet alleen of de migratie slaagde), en het ontbreken van alarmering op
+  een verouderde `refreshed_at` staat als post-opening regel bij de gates, met de
+  48-uurs-waarschuwing in de admin-cockpit als suggestie voor PR 9. Deze aanvulling was
+  gevraagd voor de merge van #154, maar die merge was al voltooid op het moment van dat
+  verzoek; vandaar een losse docs-PR direct erachteraan.
 
 ### Nog te doen
 
