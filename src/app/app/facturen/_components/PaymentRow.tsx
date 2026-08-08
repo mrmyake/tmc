@@ -4,6 +4,7 @@ import {
   PaymentStatusBadge,
   type PaymentStatus,
 } from "./PaymentStatusBadge";
+import { InvoiceDownloadButton } from "./InvoiceDownloadButton";
 
 export interface PaymentRowData {
   id: string;
@@ -14,6 +15,11 @@ export interface PaymentRowData {
   description: string | null;
   method: string | null;
   mollieId: string;
+  /** Optioneel: bestaande consumers (bv. PaymentsTab in de admin
+   * ledendetail) geven dit nog niet mee. Default 0 -- geen restitutie. */
+  refundedAmountCents?: number;
+  /** Alleen gezet als er een gefinaliseerde, niet-test factuur bestaat. */
+  invoiceId?: string | null;
 }
 
 const METHOD_LABEL: Record<string, string> = {
@@ -55,15 +61,23 @@ export function PaymentRow({ row }: { row: PaymentRowData }) {
           </p>
         )}
       </div>
-      <span className="hidden sm:inline-flex items-center pt-1">
-        <PaymentStatusBadge status={row.status} />
+      <span className="hidden sm:flex flex-col items-end gap-2 pt-1">
+        <PaymentStatusBadge
+          status={row.status}
+          refundedAmountCents={row.refundedAmountCents}
+        />
+        {row.invoiceId && <InvoiceDownloadButton invoiceId={row.invoiceId} />}
       </span>
       <div className="text-right flex flex-col items-end gap-2">
         <span className="font-[family-name:var(--font-playfair)] text-2xl text-text tracking-[-0.02em] leading-none">
           {formatEuro(Math.round(row.amountCents / 100))}
         </span>
-        <span className="sm:hidden">
-          <PaymentStatusBadge status={row.status} />
+        <span className="sm:hidden flex flex-col items-end gap-2">
+          <PaymentStatusBadge
+            status={row.status}
+            refundedAmountCents={row.refundedAmountCents}
+          />
+          {row.invoiceId && <InvoiceDownloadButton invoiceId={row.invoiceId} />}
         </span>
       </div>
     </article>

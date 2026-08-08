@@ -1436,6 +1436,19 @@ Resultaat: `TEST-2026.001` naast `2026.001`, met onafhankelijke tellers.
 De ntfy-markering is geen detail: zonder die prefix is een testbetaling in het meldingskanaal
 niet te onderscheiden van een echte verkoop, en dan leert het team het kanaal te wantrouwen.
 
+**Correctie op de rij `/app/facturen`, gevonden bij PR 9a (#156).** "Dubbel gefilterd:
+RLS-policy en query" klopt voor `tmc.invoices` (`invoices_self_read` bevat `is_test =
+false`), maar niet voor `tmc.payments`. De live policy `payments_self_read` is uitsluitend
+`profile_id = auth.uid()`, geverifieerd via `pg_policies`; er staat geen `is_test`-clausule
+in. Live geprobeerd: dezelfde query zonder het `.eq("is_test", false)`-filter laat een
+testrij van hetzelfde lid gewoon door. Op de betaalregels zelf (bedrag, status, methode)
+is er dus **enkelvoudige** bescherming: alleen de query in `page.tsx`. Op de downloadkolom
+(die uit `tmc.invoices` leest) is de bescherming wel dubbel, zoals bedoeld. Niet in PR 9a
+opgelost -- dat zou een RLS-wijziging op `tmc.payments` zijn, buiten de scope van een
+frontend-PR -- maar hier vastgelegd zodat een toekomstige regressie op de query-filter
+niet stilzwijgend op een RLS-vangnet leunt dat er niet is. Zie de E7-rapportage in het
+PR 9a-verslag en besluitenlog 31.
+
 ### 6.9 Testdata opruimen
 
 Geen cron, geen automatiek. Een gedocumenteerd script dat op `profiles.is_test = true`
@@ -2335,6 +2348,7 @@ index staat er.
 | 28 | De twee bestaande `trial_bookings`-rijen houden `is_test = false` bij de backfill | Ze als test markeren omdat ze op de testkey liepen. Verworpen: `is_test` betekent "was dit bedoeld als echte transactie", niet "op welke key is betaald". Alles uit die periode liep op de testkey (het oude `MOLLIE_API_KEY` in productie was een `test_`-key), dus die eigenschap onderscheidt niets; de rijen zijn functioneel als echte boekingen behandeld, net als de vijf payments-rijen uit dezelfde periode die wel in de omzet zitten. Wie testkey-data in de omzetrapportage ziet: dat is hiervan het bewuste gevolg |
 | 29 | `tmc.invoice_series` krijgt een derde CHECK: `code in ('LIVE', 'TEST')` | Twee CHECKs volstaan (`is_test = (code = 'TEST')` en `prefix = case when is_test then 'TEST-' else '' end`), en `code` zelf blijft vrije tekst zolang `is_test = false`. Verworpen als omissie, niet als bewuste keuze: die twee CHECKs samen dwingen alleen af dat `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies `'LIVE'` wijst. Een typefout als `'live'` of `'LIVE '` (spatie) zou een derde, ongeplande reeks aanmaken die naast de bestaande twee gaat lopen; `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de tekst van `code`, en zou zo'n rij zonder klagen gebruiken. Toegevoegd in PR 6 (#152), migratie `20260822000000_invoice_series_code_check.sql`; beide typefouten (`'live'`, `'LIVE '` met spatie) live tegen de database geverifieerd als geweigerd. Zie 2.4 |
 | 30 | Betaalregels met `kind = 'trial_booking'` krijgen in `v_revenue_lines` vast `revenue_category = 'proefles'`, en die waarde is toegevoegd aan de `CHECK` op `catalogue.revenue_category` | `'les_tegoed'` als case-waarde, omdat een proefles functioneel een losse les is. Verworpen: de prijs van een proefles komt uit `booking_settings` per pillar en niet uit een catalogusrij, dus er is geen slug om op terug te vallen en `les_tegoed` zou een aanname in een case verstoppen. Met een eigen categorie staat de proefles-omzet apart in het maandoverzicht. Toegevoegd in PR 7 (#153), migratie `20260823000000_finalize_invoice.sql`. Zie 7.2 |
+| 31 | Het RLS-gat op `tmc.payments` (geen `is_test`-clausule) blijft in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunt voorlopig alleen op de query-filter, niet op RLS | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
 
 ## 13. Open vragen
 
@@ -2621,9 +2635,60 @@ het overzicht, niet de waarheid.
   gevraagd voor de merge van #154, maar die merge was al voltooid op het moment van dat
   verzoek; vandaar een losse docs-PR direct erachteraan.
 
+- **PR 9a, #156, 2026-08-09** (geen migratie; vijf TypeScript-bestanden: `page.tsx` uitgebreid,
+  `PaymentRow.tsx` en `PaymentStatusBadge.tsx` aangepast, `InvoiceDownloadButton.tsx` en
+  `src/lib/member/invoice-actions.ts` nieuw). De eerste helft van PR 9 (sectie 14): de
+  ledenkant van `/app/facturen`, volgens 8.1-8.3, 5.4 en 4.8.
+  Downloadkolom die alleen verschijnt op een rij met een gefinaliseerde, niet-test factuur;
+  slug-verrijking naar `catalogue.display_name` via `order.catalogue_slug` of, voor een
+  recurring-incasso zonder order, via `payments.membership_id -> memberships.plan_variant`
+  (een directe kolom op `payments`, geen omweg via `orders` nodig); `.eq("is_test", false)`
+  op beide payments-queries; `PaymentStatusBadge` toont "Teruggestort" nu op
+  `refunded_amount_cents > 0` als eigen badge naast de statusbadge, niet meer op de
+  statuswaarde `refunded` die Mollie sinds API v2 nooit stuurt (4.8); de copy vervangen
+  volgens 8.3, met een `mailto:`-link naar `SITE.email` (bestaande site-brede constante,
+  geen nieuw adres verzonnen). `getInvoiceDownloadUrl` is het eerste signed-URL-patroon in
+  de codebase: cookie-client, RLS doet de autorisatie, geen `pdf_path` of een mislukte
+  `createSignedUrl` geeft een nette Nederlandse melding terug (geen lege tab), vijf minuten
+  TTL. On-demand bij klik via een client-component, geen route: een linkbare factuur-URL
+  zou permanentie suggereren die er niet is, en een route zou een tweede autorisatiepunt
+  naast RLS worden. Beide keuzes van Ilja, niet mijn voorstel om te heroverwegen.
+  **Bewust niet gebouwd:** het admin-factuurscherm, `CustomerInvoicePdf`, de
+  rapportagepagina, de CSV-export -- allemaal PR 9b.
+  **Neveneffect, buiten scope maar niet stilzwijgend genegeerd:** de bestaande
+  `PaymentsTab.tsx` (admin-ledendetail) hergebruikt `PaymentRow` en gaf geen
+  `refundedAmountCents`/`invoiceId` mee. Beide velden optioneel gemaakt met veilige
+  defaults (geen restitutie, geen downloadknop) in plaats van dat scherm aan te passen --
+  dat scherm blijft ongewijzigd en compileert nog.
+  **Vondst bij verificatie, in 6.8 en besluitenlog 31 vastgelegd:** E7 stelt dat RLS het
+  ontbreken van het query-filter opvangt op `/app/facturen`. Voor `tmc.invoices` klopt dat
+  (`invoices_self_read` bevat `is_test = false`); voor `tmc.payments` niet --
+  `payments_self_read` is uitsluitend `profile_id = auth.uid()`, live geverifieerd via
+  `pg_policies` en bevestigd met een echte probe (dezelfde query zonder het filter liet een
+  testrij van hetzelfde lid door). De ledenkant is dus vandaag enkelvoudig beschermd op de
+  betaalregels zelf, dubbel op de downloadkolom. Niet in deze PR opgelost: een RLS-wijziging
+  op `payments` hoort niet stilzwijgend in een "uitsluitend de ledenkant"-PR.
+  **Geverifieerd, alles tegen de live database:** de enkelvoudige bescherming (query-filter
+  sluit een `is_test = true`-rij van hetzelfde lid uit; zonder het filter lekt hij, precies
+  de E7-vondst hierboven); verrijking voor een order-payment (`Personal training 1-op-1,
+  10-rittenkaart`) en een recurring-payment zonder `order_id` (`All Access Onbeperkt`),
+  beide via een synthetisch lid met een echte actieve membership; een payment zonder order
+  of membership valt terug op de ruwe `description`; de downloadkolom-query vindt precies de
+  ene factuur die bij een payment hoort en geen van de andere twee; het faalpad (`pdf_path
+  is null`) reproduceert exact de branch die "wordt nog gemaakt" toont. **Niet uitgevoerd:**
+  de daadwerkelijke `createSignedUrl`-aanroep tegen een echt geuploade PDF. Dat vereist
+  `SUPABASE_SERVICE_ROLE_KEY`, die als Sensitive in Vercel staat en in `.env.local`
+  ontbreekt -- zelfde constatering en zelfde discipline als `CRON_SECRET` in PR 8. Een
+  metadata-only rij in `storage.objects` zonder echte bytes is bewust niet ingezet: dat zou
+  een signed URL kunnen opleveren die bij een echte download alsnog 404't, en dus een
+  vals-positieve test zijn. Alle testdata (payments, order, factuur, reeks) opgeruimd, drie
+  facturatietabellen weer op nul.
+
 ### Nog te doen
 
-PR 9 uit sectie 14. Nog niet begonnen.
+PR 9b uit sectie 14 (admin-factuurscherm, `CustomerInvoicePdf`, rapportagepagina,
+CSV-export). Nog niet begonnen. Plus, buiten de PR 9-scope maar door 9a blootgelegd: een
+RLS-migratie op `tmc.payments` (besluitenlog 31).
 
 ---
 
