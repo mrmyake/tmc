@@ -770,7 +770,9 @@ alleen nog `raise` toegestaan.
    - **6a. Regels aanwezig.** Nul regels: `reason: 'no_lines'`.
    - **6b. Totalen.** Herberekenen uit `tmc.invoice_lines`: `sum(net_cents)`,
      `sum(vat_cents)`, `sum(gross_cents)`. Klopt `gross <> net + vat`:
-     `reason: 'totals_mismatch'`.
+     `reason: 'totals_mismatch'`. Deze tak is structureel onbereikbaar zolang de
+     per-regel-CHECK (`gross_cents = net_cents + vat_cents`) bestaat; hij blijft staan als
+     defensieve controle en mag niet worden opgeruimd op grond van "kan niet vuren".
    - **6c. Afnemergegevens samenstellen en controleren.** De `bill_to_*`-waarden worden
      berekend in lokale variabelen: uit `tmc.profiles` overnemen, maar **alleen waar het
      veld op de factuur nog `null` is**, want een admin mag ze op het concept gecorrigeerd
@@ -2354,7 +2356,7 @@ applicatie werkend achter.
 | 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy` en `v_session_availability` (twee telpaden: `redeem_trial_code` en `book_class_session` delegeren al, zie 2.9); `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen; `expire-orders` per rij (TODO uit PR 4 ingelost). **Gemerged, zie ledger sectie 15** | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
 | 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines`. **Gemerged, zie ledger sectie 15** | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
-| 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
+| 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie. **Gemerged, zie ledger sectie 15** | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
 | 9 | Frontend: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); admin-factuurscherm; `CustomerInvoicePdf`; signed-URL server action; rapportagepagina met CSV-export | **Sonnet** | UI en rapportage-frontend. Patronen bestaan al: `/app/producten` voor de verrijking, `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
 
 Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is te splitsen als
@@ -2556,9 +2558,42 @@ het overzicht, niet de waarheid.
   rapportagequery zelf (de view levert de periode-ingredienten gescheiden aan) en elke
   vorm van automatisch crediteren (besluitenlog 16).
 
+- **PR 8, #154, 2026-08-08** (migraties `20260824000000_kpi_view_is_test.sql` en
+  `20260825000000_kpi_refresh_index_fix.sql`).
+  De harde regel uit 7.8 uitgevoerd: `tmc.get_admin_kpis()` en `tmc.vw_admin_kpis` in een
+  transactie gedropt (functie eerst, geen CASCADE) en herbouwd op basis van de live
+  definities, met `not p.is_test` op elke CTE die `tmc.memberships` of `tmc.profiles`
+  leest; `active_pauses`, `fill_rate_week` en `no_show_rate_30d` lezen geen van beide en
+  bleven ongemoeid. Execute-grants exact hersteld zoals vooraf gemeten (PUBLIC, anon,
+  authenticated, postgres, service_role op de functie; select voor anon, authenticated,
+  service_role op de matview).
+  **Twee productiebugs blootgelegd en hersteld, beide de reden dat `refreshed_at` op
+  2026-07-05 was blijven staan:** (1) de mrr-CTE deelde door `billing_cycle_weeks * 7`
+  terwijl `activate_order` voor rittenkaarten en PT-pakketten memberships met cyclus 0
+  schrijft; de nieuwe definitie telt MRR alleen over `billing_cycle_weeks > 0`, wat ook
+  inhoudelijk juist is (credit-tegoed heeft geen maandwaarde). (2) De unique index was een
+  expressie-index (`(refreshed_at is not null)`) en die accepteert
+  `REFRESH ... CONCURRENTLY` niet; de cron heeft daardoor vermoedelijk nooit succesvol
+  gedraaid en de enige refresh was de initiele populate. Vervangen door een kolom-index op
+  `refreshed_at` (singleton-view, uniek per constructie), in een tweede migratiebestand
+  omdat de eerste al was toegepast.
+  **Geverifieerd:** G1 (identieke cijfers voor niet-testdata via een pre/post-snapshot in
+  de migratie zelf; aanroepbaar door `authenticated` met admin-claims, `Unauthorized` voor
+  een member), G2 (`refresh materialized view concurrently` slaagt, tweemaal), G3 (een
+  actief lid als testprofiel gemarkeerd in een teruggerolde transactie: `active_members`
+  daalde met diens twee memberships en `mrr_cents` exact met diens bijdrage naar 0).
+  **Niet afgerond:** de handmatige run van `/api/cron/refresh-kpis` met het echte
+  `CRON_SECRET`; dat secret staat als Sensitive in Vercel en is niet uitleesbaar. De route
+  bewees met een 401 op een foute bearer dat hij live is en de auth afdwingt; de
+  onderliggende keten (`refresh_admin_kpis()`, concurrently) is los bewezen. De echte
+  cron-run is aan Ilja of aan de wekker van 03:50.
+  **Spec-zin toegevoegd aan 4.2:** de `totals_mismatch`-tak is structureel onbereikbaar
+  zolang de per-regel-CHECK bestaat, blijft staan als defensieve controle, en mag niet
+  worden opgeruimd op grond van "kan niet vuren".
+
 ### Nog te doen
 
-PR 8 en 9 uit sectie 14. Nog geen van beide is begonnen.
+PR 9 uit sectie 14. Nog niet begonnen.
 
 ---
 
