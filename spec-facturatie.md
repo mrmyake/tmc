@@ -273,6 +273,7 @@ next_number   integer not null default 1
 created_at    timestamptz not null default now()
 
 unique (code, fiscal_year)
+check (code in ('LIVE', 'TEST'))
 check (is_test = (code = 'TEST'))
 check (prefix = case when is_test then 'TEST-' else '' end)
 ```
@@ -283,6 +284,15 @@ terug" hoeft te doen, en er is dus ook geen moment waarop die code te vroeg of t
 lopen.
 
 `TEST` en `LIVE` zijn aparte rijen, dus de reeksen kunnen elkaar nooit raken.
+
+**Drie CHECKs, niet twee.** De eerste versie van deze sectie noemde alleen de twee CHECKs
+die `is_test` en `prefix` aan `code` koppelen, en dat was een omissie: samen leggen die twee
+alleen vast dat `is_test = true` altijd `code = 'TEST'` oplevert, maar niets verbiedt dat
+`is_test = false` een andere waarde dan `'LIVE'` draagt. Een typefout als `'live'` of
+`'LIVE '` (spatie) zou dan een derde, ongeplande reeks aanmaken die naast de twee bestaande
+gaat lopen, en `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de letterlijke
+tekst van `code` -- zo'n rij zou gewoon gebruikt worden. De `check (code in ('LIVE',
+'TEST'))` sluit dat gat. Zie besluitenlog 29.
 
 ### 2.5 tmc.invoices
 
@@ -2290,6 +2300,7 @@ index staat er.
 | 26 | PR 5 gaat van Sonnet naar Fable | PR 5 op Sonnet laten staan. Verworpen: de PR is niet meer wat hij was. Toen hij alleen de webhook-upsert naar `tmc.payments` deed was hij mechanisch en volledig voorgeschreven. Met `trial_bookings.is_test` erbij raakt hij het **capaciteitspad** en niet alleen de betaalketen: `session_occupancy` (dat alle drie de capaciteitstriggers voedt), `v_session_availability` (een eigen duplicaat van dezelfde telling) en `redeem_trial_code` (een derde). Drie plekken die hetzelfde tellen en die uit elkaar kunnen lopen, met een trigger als handhaver die stil de verkeerde kant op valt: één gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes, en één te veel haalt echte proeflessen uit de bewaking en laat proeflessers betalende leden verdringen. Zie 2.9 en test E9 |
 | 27 | Alle zes de productgroepen op `vat_rate_bp = 900`; alle diensten worden aangemerkt als het geven van gelegenheid tot sportbeoefening. Besloten door Ilja op 2026-08-06, niet fiscaal getoetst | De indeling uit de discovery, met `personal_training` en `programma` op `2100`. Verworpen: die berustte op de gedachte dat individuele begeleiding door een zelfstandige een andere prestatie is dan het gebruik van een sportaccommodatie, en die scheiding wordt niet gemaakt. Gevolgen die bewust ongewijzigd blijven: `vat_rate_bp` blijft `NOT NULL` zonder default (juist nu, zie 2.1), de `CHECK` blijft eenentwintig procent toestaan, de BTW blijft per factuurregel staan, en de admin kan het tarief per regel overschrijven (9.3). Dat de zes groepen vandaag hetzelfde getal dragen is een waarde in de data, geen eigenschap van het ontwerp. Bevestiging staat open als vraag 1 in sectie 13 en is een opleverpunt, geen bouwpunt |
 | 28 | De twee bestaande `trial_bookings`-rijen houden `is_test = false` bij de backfill | Ze als test markeren omdat ze op de testkey liepen. Verworpen: `is_test` betekent "was dit bedoeld als echte transactie", niet "op welke key is betaald". Alles uit die periode liep op de testkey (het oude `MOLLIE_API_KEY` in productie was een `test_`-key), dus die eigenschap onderscheidt niets; de rijen zijn functioneel als echte boekingen behandeld, net als de vijf payments-rijen uit dezelfde periode die wel in de omzet zitten. Wie testkey-data in de omzetrapportage ziet: dat is hiervan het bewuste gevolg |
+| 29 | `tmc.invoice_series` krijgt een derde CHECK: `code in ('LIVE', 'TEST')` | Twee CHECKs volstaan (`is_test = (code = 'TEST')` en `prefix = case when is_test then 'TEST-' else '' end`), en `code` zelf blijft vrije tekst zolang `is_test = false`. Verworpen als omissie, niet als bewuste keuze: die twee CHECKs samen dwingen alleen af dat `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies `'LIVE'` wijst. Een typefout als `'live'` of `'LIVE '` (spatie) zou een derde, ongeplande reeks aanmaken die naast de bestaande twee gaat lopen; `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de tekst van `code`, en zou zo'n rij zonder klagen gebruiken. Toegevoegd in PR 6 (#152), migratie `20260822000000_invoice_series_code_check.sql`; beide typefouten (`'live'`, `'LIVE '` met spatie) live tegen de database geverifieerd als geweigerd. Zie 2.4 |
 
 ## 13. Open vragen
 
@@ -2453,40 +2464,56 @@ het overzicht, niet de waarheid.
   `session_capacity_exceeded`, en een volle sessie weigert ook een testrij.
   **Backfill-keuze:** de twee bestaande rijen op `is_test = false`, zie besluitenlog 28.
 
-- **PR 6, #152, 2026-08-08** (migratie `20260821000000_invoice_schema.sql`, bucket
-  `tmc-invoices` buiten de migratie om aangemaakt).
+- **PR 6, #152, 2026-08-08** (migraties `20260821000000_invoice_schema.sql` en
+  `20260822000000_invoice_series_code_check.sql`, bucket `tmc-invoices` buiten de migratie
+  om aangemaakt).
   Het factuurschema, volledig volgens 2.4 tot 2.7 en 4.5: `tmc.invoice_series` (de teller,
-  met de twee CHECKs op `is_test` en `prefix`), `tmc.invoices` (bevroren afnemergegevens en
-  bedragen, `status` met alleen `draft`/`finalised`, de samengestelde
-  `invoices_finalised_fields_check`, `invoices_credit_note_negative_check`),
-  `tmc.invoice_lines` (`catalogue_slug` bewust zonder foreign key, `gross = net + vat`), de
-  vijf RLS-policies en de grants (`SELECT` voor `authenticated`, niets voor `anon`, alles
-  voor `service_role`, zelfde patroon als `tmc.orders`), en de twee triggers op `tmc.invoices`
-  (`invoices_finalised_immutable` met de write-once regel op `pdf_path`,
-  `invoices_finalised_no_delete`). De bucket `tmc-invoices` is privaat (`public = false`,
-  `application/pdf`, 8 MB), zonder policies op `storage.objects`, dus uitsluitend bereikbaar
-  via `service_role` -- zelfde patroon als `tmc-medical-attestations`.
+  met alle drie de CHECKs op `code`, `is_test` en `prefix` -- zie de correctie hieronder),
+  `tmc.invoices` (bevroren afnemergegevens en bedragen, `status` met alleen
+  `draft`/`finalised`, de samengestelde `invoices_finalised_fields_check`,
+  `invoices_credit_note_negative_check`), `tmc.invoice_lines` (`catalogue_slug` bewust zonder
+  foreign key, `gross = net + vat`), de vijf RLS-policies en de grants (`SELECT` voor
+  `authenticated`, niets voor `anon`, alles voor `service_role`, zelfde patroon als
+  `tmc.orders`), en de twee triggers op `tmc.invoices` (`invoices_finalised_immutable` met de
+  write-once regel op `pdf_path`, `invoices_finalised_no_delete`). De bucket `tmc-invoices`
+  is privaat (`public = false`, `application/pdf`, 8 MB), zonder policies op
+  `storage.objects`, dus uitsluitend bereikbaar via `service_role` -- zelfde patroon als
+  `tmc-medical-attestations`.
   **Bewust niet gebouwd:** `tmc.finalize_invoice`, `tmc.v_invoice_credit_state` en
   `tmc.v_revenue_lines` zijn PR 7. Er is na deze PR dus nog geen manier om een factuur te
   finaliseren; alleen het schema staat er.
-  **Drie kleine toevoegingen bovenop de letterlijke spec-tekst, alle drie zonder
-  schema-impact:** een `invoices_touch_updated_at`-trigger (zelfde patroon als
-  `catalogue`/`orders`/`profiles`; kan niet botsen met de immutability-trigger, die
-  `updated_at` toch al buiten zijn vergelijking houdt); drie indexen
-  (`invoices(profile_id)` voor de RLS self-read, `invoices(credit_of_invoice_id)` voor de
-  `LEFT JOIN` die PR 7's `v_invoice_credit_state` gaat doen, `invoices(payment_id)` voor het
-  "vanaf een betaling"-pad uit 9.1); tabel- en kolomcommentaar.
-  **Bewust niet toegevoegd, want niet in de spec:** een `CHECK` die
-  `invoice_series.code` beperkt tot `('LIVE','TEST')`. Sectie 2.4 noemt letterlijk twee
-  CHECKs; een derde over `code` zelf staat er niet, en dat gat (bij `is_test = false` is
-  elke `code` behalve `'TEST'` toegestaan, niet uitsluitend `'LIVE'`) zat al in de spec.
+  **Eén toevoeging bovenop de letterlijke spec-tekst zonder schema-impact:** een
+  `invoices_touch_updated_at`-trigger, zelfde patroon als `catalogue`/`orders`/`profiles`;
+  kan niet botsen met de immutability-trigger, die `updated_at` toch al buiten zijn
+  vergelijking houdt.
+  **Twee indexen, elk met een aanwijsbare query in de spec, geen derde speculatieve:**
+  `invoices(profile_id)` voor de RLS-policy `invoices_self_read` (2.7, `profile_id =
+  auth.uid()`, geraakt bij elke lees van `/app/facturen`) en `invoices(credit_of_invoice_id)`
+  voor de `LEFT JOIN` in `tmc.v_invoice_credit_state` (4.6) en de correlerende subquery in de
+  `v_revenue_lines`-rekenregel (7.4). Een derde index op `payment_id`, oorspronkelijk
+  onderbouwd met sectie 9.1, is bij review afgekeurd op die grond: 9.1 beschrijft het
+  SCHRIJVEN van `payment_id` bij het aanmaken van een factuur, geen lezende query die erop
+  filtert. Herbeoordeeld en alsnog behouden, maar met de juiste onderbouwing: 7.4's
+  `where i.payment_id = p.id` en 8.2's `.in("payment_id", <payment-ids>)` (tot vijftig ids
+  per paginaload van `/app/facturen`) zijn beide reële, in de spec uitgeschreven query's die
+  op deze kolom filteren. `COMMENT ON INDEX` rechtgezet in de tweede migratie.
+  **Correctie op review, in 2.4 en besluitenlog 29 vastgelegd:** `tmc.invoice_series` miste
+  een derde CHECK, `code in ('LIVE', 'TEST')`. De twee bestaande CHECKs dwingen alleen af dat
+  `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies
+  `'LIVE'` wijst; een typefout als `'live'` of `'LIVE '` zou een derde, ongeplande reeks
+  hebben aangemaakt die `finalize_invoice` (PR 7) zonder klagen had gebruikt. Dit was een
+  omissie in de spec, geen bewuste keuze -- de eerdere lezing ("de spec noemt letterlijk
+  twee CHECKs, dus geen derde toevoegen") was feitelijk correct maar had de omissie zelf
+  moeten signaleren in plaats van hem over te nemen.
   Geverifieerd: B1 tot en met B4 uit 11.2, zowel binnen de migratie-zelfcontrole (met
   synthetische rijen op `fiscal_year = 9999`, aan het eind opgeruimd via een tijdelijke
   trigger-disable, want een gefinaliseerde rij is met opzet niet te verwijderen) als
   daarna nogmaals onafhankelijk met losse probe-rijen (`fiscal_year = 8888`) tegen de
   live database, ook weer volledig opgeruimd. Alle vijf RLS-policies en alle grants
   geverifieerd via `pg_policies` en `information_schema.role_table_grants`. De bucket
-  bevestigd privaat en policy-loos via `storage.buckets` en `pg_policies`.
+  bevestigd privaat en policy-loos via `storage.buckets` en `pg_policies`. De nieuwe
+  `code`-CHECK live geverifieerd met beide typefoutgevallen (`'live'`, `'LIVE '`), allebei
+  geweigerd, tabellen weer op nul na opruimen.
 
 ### Nog te doen
 
