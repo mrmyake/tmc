@@ -162,7 +162,7 @@ Twee nieuwe kolommen, allebei `NOT NULL` **zonder default**:
 | Kolom | Type | Toelichting |
 |---|---|---|
 | `vat_rate_bp` | `integer NOT NULL` | Basispunten. `900` is 9,00 procent, `2100` is 21,00 procent. `CHECK (vat_rate_bp between 0 and 2100)` |
-| `revenue_category` | `text NOT NULL` | `CHECK (revenue_category in ('abonnement','les_tegoed','personal_training','programma','inschrijfgeld','addon'))` |
+| `revenue_category` | `text NOT NULL` | `CHECK (revenue_category in ('abonnement','les_tegoed','personal_training','programma','inschrijfgeld','addon','proefles'))`; `'proefles'` wordt door geen enkele catalogusrij gedragen maar hoort bij de gesloten verzameling van 7.2 |
 
 **Waarom geen default.** Een default classificeert een nieuwe catalogusrij stil en
 plausibel verkeerd. Wie over een half jaar een product toevoegt en het BTW-tarief vergeet,
@@ -1465,7 +1465,7 @@ paid_at              timestamptz
 refunded_at          timestamptz
 payment_id           uuid
 profile_id           uuid
-revenue_category     text          -- uit catalogue via order.catalogue_slug of membership.plan_variant
+revenue_category     text          -- catalogue via order.catalogue_slug of membership.plan_variant; 'proefles' vast bij kind = 'trial_booking' (besluitenlog 30)
 vat_rate_bp          integer       -- payments.vat_rate_bp, het bevroren snapshot; null waar onbekend
 gross_cents          integer       -- payments.amount_cents
 vat_cents            integer       -- payments.vat_amount_cents
@@ -1484,6 +1484,14 @@ toont netto, BTW en bruto per groep plus een totaal.
 Rijen met `vat_rate_bp is null` (historische betalingen uit 3.5) komen als aparte groep
 "tarief onbekend" in beeld. Ze verstoppen zich niet in een van de bestaande groepen en ze
 worden niet stil op negen procent gezet.
+
+**Proeflessen zijn een eigen categorie.** Een betaalde proefles heeft geen catalogusrij: de
+prijs komt uit `booking_settings` per pillar, dus er is geen slug om een `revenue_category`
+uit af te leiden. Rijen met `kind = 'trial_booking'` krijgen daarom vast `'proefles'`, en
+die waarde staat ook in de `CHECK` op `catalogue.revenue_category` zodat catalogus en
+rapportage dezelfde gesloten verzameling delen (geen enkele catalogusrij draagt hem). Zo
+staat de proefles-omzet apart in het maandoverzicht in plaats van verstopt in een
+`case`-aanname richting `les_tegoed`. Zie besluitenlog 30.
 
 #### BTW op een restitutie
 
@@ -2301,6 +2309,7 @@ index staat er.
 | 27 | Alle zes de productgroepen op `vat_rate_bp = 900`; alle diensten worden aangemerkt als het geven van gelegenheid tot sportbeoefening. Besloten door Ilja op 2026-08-06, niet fiscaal getoetst | De indeling uit de discovery, met `personal_training` en `programma` op `2100`. Verworpen: die berustte op de gedachte dat individuele begeleiding door een zelfstandige een andere prestatie is dan het gebruik van een sportaccommodatie, en die scheiding wordt niet gemaakt. Gevolgen die bewust ongewijzigd blijven: `vat_rate_bp` blijft `NOT NULL` zonder default (juist nu, zie 2.1), de `CHECK` blijft eenentwintig procent toestaan, de BTW blijft per factuurregel staan, en de admin kan het tarief per regel overschrijven (9.3). Dat de zes groepen vandaag hetzelfde getal dragen is een waarde in de data, geen eigenschap van het ontwerp. Bevestiging staat open als vraag 1 in sectie 13 en is een opleverpunt, geen bouwpunt |
 | 28 | De twee bestaande `trial_bookings`-rijen houden `is_test = false` bij de backfill | Ze als test markeren omdat ze op de testkey liepen. Verworpen: `is_test` betekent "was dit bedoeld als echte transactie", niet "op welke key is betaald". Alles uit die periode liep op de testkey (het oude `MOLLIE_API_KEY` in productie was een `test_`-key), dus die eigenschap onderscheidt niets; de rijen zijn functioneel als echte boekingen behandeld, net als de vijf payments-rijen uit dezelfde periode die wel in de omzet zitten. Wie testkey-data in de omzetrapportage ziet: dat is hiervan het bewuste gevolg |
 | 29 | `tmc.invoice_series` krijgt een derde CHECK: `code in ('LIVE', 'TEST')` | Twee CHECKs volstaan (`is_test = (code = 'TEST')` en `prefix = case when is_test then 'TEST-' else '' end`), en `code` zelf blijft vrije tekst zolang `is_test = false`. Verworpen als omissie, niet als bewuste keuze: die twee CHECKs samen dwingen alleen af dat `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies `'LIVE'` wijst. Een typefout als `'live'` of `'LIVE '` (spatie) zou een derde, ongeplande reeks aanmaken die naast de bestaande twee gaat lopen; `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de tekst van `code`, en zou zo'n rij zonder klagen gebruiken. Toegevoegd in PR 6 (#152), migratie `20260822000000_invoice_series_code_check.sql`; beide typefouten (`'live'`, `'LIVE '` met spatie) live tegen de database geverifieerd als geweigerd. Zie 2.4 |
+| 30 | Betaalregels met `kind = 'trial_booking'` krijgen in `v_revenue_lines` vast `revenue_category = 'proefles'`, en die waarde is toegevoegd aan de `CHECK` op `catalogue.revenue_category` | `'les_tegoed'` als case-waarde, omdat een proefles functioneel een losse les is. Verworpen: de prijs van een proefles komt uit `booking_settings` per pillar en niet uit een catalogusrij, dus er is geen slug om op terug te vallen en `les_tegoed` zou een aanname in een case verstoppen. Met een eigen categorie staat de proefles-omzet apart in het maandoverzicht. Toegevoegd in PR 7 (#153), migratie `20260823000000_finalize_invoice.sql`. Zie 7.2 |
 
 ## 13. Open vragen
 
@@ -2344,7 +2353,7 @@ applicatie werkend achter.
 | 4 | Mollie-modusrouting: `MollieMode`, `Map` in `mollie.ts`, `mollieWebhookUrl(mode)` met `URLSearchParams`, alle aanroepplaatsen (zie de bijgewerkte tabel in 6.6), beide webhook-routes. **Gemerged, zie ledger sectie 15.** **Voorwaarde erbij (7.4):** de webhook moet een `amountRefunded` boven `amount_cents` afhandelen in plaats van stil te vallen op `payments_refunded_lte_amount_check` | **Fable** | Achterwaartse compatibiliteit met lopende subscriptions, de combinatie met de bypass-parameter, en per-order modus in `expire-orders`. Een fout hier breekt stil de incasso van bestaande leden |
 | 5 | `trial_bookings.is_test` + `trialBookingMode()`; `and not is_test` in `session_occupancy` en `v_session_availability` (twee telpaden: `redeem_trial_code` en `book_class_session` delegeren al, zie 2.9); `trial-bookings`-webhook schrijft naar `tmc.payments` met `kind` en `trial_booking_id`; backfill van de twee bestaande rijen; `expire-orders` per rij (TODO uit PR 4 ingelost). **Gemerged, zie ledger sectie 15** | **Fable** | Was Sonnet toen dit alleen de webhook-upsert was. Raakt nu het capaciteitspad en niet alleen de betaalketen: drie plekken tellen hetzelfde en kunnen uit elkaar lopen, met een trigger als handhaver. Eén gemiste `and not is_test` laat testdata een stoel bezetten in een groep van zes; één te veel haalt echte proeflessen uit de bewaking. Zie besluitenlog 26 en tests E8, E9, E10 |
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
-| 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines` | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
+| 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines`. **Gemerged, zie ledger sectie 15** | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
 | 9 | Frontend: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); admin-factuurscherm; `CustomerInvoicePdf`; signed-URL server action; rapportagepagina met CSV-export | **Sonnet** | UI en rapportage-frontend. Patronen bestaan al: `/app/producten` voor de verrijking, `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
 
@@ -2515,9 +2524,41 @@ het overzicht, niet de waarheid.
   `code`-CHECK live geverifieerd met beide typefoutgevallen (`'live'`, `'LIVE '`), allebei
   geweigerd, tabellen weer op nul na opruimen.
 
+- **PR 7, #153, 2026-08-08** (migratie `20260823000000_finalize_invoice.sql`).
+  Het hart van de keten: `tmc.finalize_invoice` (validatie-voor-nummer, tweefasige teller
+  met de zelftoekenning als slot, chronologie onder dat slot, idempotentie, bill_to alleen
+  waar leeg aangevuld, na de grens uitsluitend exceptions), `tmc.v_invoice_credit_state`
+  (crediteringsstand afgeleid) en `tmc.v_revenue_lines` (omzetregels met de
+  restitutie-BTW-splitsing uit het bevroren `payments.vat_rate_bp` en de
+  `greatest(0, gecrediteerd - gerestitueerd)`-regel uit 7.4, beide delen in hun eigen
+  periode). Plus `'proefles'` als `revenue_category` (7.2, besluitenlog 30). Grants:
+  functie voor `authenticated` + `service_role` (admin-gate binnenin, patroon
+  `admin_cancel_order`); de twee views UITSLUITEND `service_role`, want ze lezen met
+  owner-rechten door RLS heen.
+  **Geverifieerd, alles tegen de live database via psql over de pooler:** A1 met 50
+  gelijktijdige finalisaties over 10 echte verbindingen (50 uniek, exact 1 tot en met 50,
+  teller 51, nul fouten; een eerste run met alle finalisaties van een worker in één
+  transactie gaf deadlocks tussen invoice- en series-locks en desondanks een gaatloze
+  uitkomst, en is daarna met losse transacties per aanroep, zoals PostgREST ze doet,
+  foutloos herhaald), A2 en A3 als echte psql-transactietests (rollback geeft het nummer
+  terug; de gelijktijdige eerste factuur van een nieuw boekjaar krijgt na de rollback van
+  de ander nummer 1, geen NULL), A3b op drie gronden plus `incomplete_bill_to` via een
+  teruggerolde profielmutatie (geen enkele weigering verbruikt een nummer;
+  `totals_mismatch` is met geldige regels structureel onbereikbaar omdat de
+  per-regel-CHECK `gross = net + vat` al afdwingt en is zo gerapporteerd), A4 (LIVE- en
+  TEST-reeks onafhankelijk), A5, A6, A6b twintig runs zonder één inversie, A7
+  (boekjaarreset), en D1 tot en met D5 (none/partial/full, D4 telt op tot nul via de view,
+  D5 raakt `invoices_credit_note_negative_check` werkelijk en de rollback geeft het al
+  toegekende nummer aantoonbaar terug). Alle testdata opgeruimd: de drie tabellen op nul,
+  geen reeks op fiscal_year 9999, de synthetische D4-payment verwijderd, en passant ook de
+  door Mollie-expiry heropgedoken PR 4-e2e-betaalregel opgeruimd.
+  **Bewust niet gebouwd:** de PDF-stap (5.1: nummer eerst, document daarna; PR 9), de
+  rapportagequery zelf (de view levert de periode-ingredienten gescheiden aan) en elke
+  vorm van automatisch crediteren (besluitenlog 16).
+
 ### Nog te doen
 
-PR 7 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+PR 8 en 9 uit sectie 14. Nog geen van beide is begonnen.
 
 ---
 
