@@ -423,6 +423,7 @@ tarief mag geen modelwijziging vragen. Het totaalbedrag per tarief op de PDF kom
 | `invoice_lines` | `invoice_lines_self_read` | `SELECT`: `exists (select 1 from tmc.invoices i where i.id = invoice_id and i.profile_id = auth.uid() and i.status = 'finalised' and i.is_test = false)` |
 | `invoice_lines` | `invoice_lines_admin_all` | `ALL`: `tmc.is_admin()` |
 | `invoice_series` | `invoice_series_admin_all` | `ALL`: `tmc.is_admin()` |
+| `payments` | `payments_self_read` | `SELECT`: `profile_id = auth.uid() and is_test = false` (sinds #157; zie de les hieronder) |
 
 Een lid ziet dus nooit een concept en nooit een testfactuur. De `is_test = false` in de
 policy is een tweede laag naast het filter in de query, want een vergeten filter in een
@@ -430,6 +431,13 @@ nieuwe pagina mag geen testdata lekken.
 
 Grants volgens hetzelfde patroon als `tmc.orders`: `SELECT` voor `authenticated`, niets
 voor `anon`, alles voor `service_role`.
+
+**De les uit #157: een `is_test`-kolom die later aan een bestaande tabel wordt toegevoegd,
+erft geen filter in bestaande policies.** `payments` kreeg zijn kolom in PR 2 terwijl zijn
+policies uit de baseline stamden, en zo ontstond precies de omissie die PR 9a blootlegde.
+De invoice-tabellen zijn na het testmodus-ontwerp geboren en kregen het filter meteen. Wie
+een kolom met autorisatie-betekenis toevoegt, loopt de policies van die tabel opnieuw
+langs; dat is geen automatisme en niemand doet het voor je.
 
 ### 2.8 Grant-opruiming op tmc.payments
 
@@ -1436,18 +1444,22 @@ Resultaat: `TEST-2026.001` naast `2026.001`, met onafhankelijke tellers.
 De ntfy-markering is geen detail: zonder die prefix is een testbetaling in het meldingskanaal
 niet te onderscheiden van een echte verkoop, en dan leert het team het kanaal te wantrouwen.
 
-**Correctie op de rij `/app/facturen`, gevonden bij PR 9a (#156).** "Dubbel gefilterd:
-RLS-policy en query" klopt voor `tmc.invoices` (`invoices_self_read` bevat `is_test =
-false`), maar niet voor `tmc.payments`. De live policy `payments_self_read` is uitsluitend
-`profile_id = auth.uid()`, geverifieerd via `pg_policies`; er staat geen `is_test`-clausule
-in. Live geprobeerd: dezelfde query zonder het `.eq("is_test", false)`-filter laat een
-testrij van hetzelfde lid gewoon door. Op de betaalregels zelf (bedrag, status, methode)
-is er dus **enkelvoudige** bescherming: alleen de query in `page.tsx`. Op de downloadkolom
-(die uit `tmc.invoices` leest) is de bescherming wel dubbel, zoals bedoeld. Niet in PR 9a
-opgelost -- dat zou een RLS-wijziging op `tmc.payments` zijn, buiten de scope van een
-frontend-PR -- maar hier vastgelegd zodat een toekomstige regressie op de query-filter
-niet stilzwijgend op een RLS-vangnet leunt dat er niet is. Zie de E7-rapportage in het
-PR 9a-verslag en besluitenlog 31.
+**De dubbele bescherming op `/app/facturen` is sinds #157 echt dubbel.** PR 9a (#156)
+vond dat `payments_self_read` alleen `profile_id = auth.uid()` was, zonder
+`is_test`-clausule; op de betaalregels was de bescherming daardoor enkelvoudig (alleen het
+queryfilter), terwijl de downloadkolom via `tmc.invoices` wel dubbel beschermd was. #157
+herstelde dat: `payments_self_read` is nu `profile_id = auth.uid() and is_test = false`,
+live geverifieerd met een probe zonder queryfilter. `payments_admin_all` is onaangeroerd;
+policies zijn OR-semantiek, dus een admin ziet onder RLS nog steeds alles, inclusief
+testrijen. Besluitenlog 31 is hiermee ingelost.
+
+**Bewuste consequentie: een testlid ziet zijn eigen testbetalingen niet meer op
+`/app/facturen` en `/app/producten`.** Dat is geen bug maar de regel hierboven ("nooit"),
+nu ook op databaseniveau afgedwongen. Wie een testbetaling doet en daarna zijn eigen
+pagina leeg ziet, moet niet concluderen dat er iets stuk is: de test-flow wordt
+geverifieerd via de transactionele e-mail (die gaat wel uit, precies wat je wil testen) en
+via het admin-ledendetail (service-role, ziet alles). De ledenpagina is voor leden, niet
+voor testverificatie.
 
 ### 6.9 Testdata opruimen
 
@@ -2348,7 +2360,7 @@ index staat er.
 | 28 | De twee bestaande `trial_bookings`-rijen houden `is_test = false` bij de backfill | Ze als test markeren omdat ze op de testkey liepen. Verworpen: `is_test` betekent "was dit bedoeld als echte transactie", niet "op welke key is betaald". Alles uit die periode liep op de testkey (het oude `MOLLIE_API_KEY` in productie was een `test_`-key), dus die eigenschap onderscheidt niets; de rijen zijn functioneel als echte boekingen behandeld, net als de vijf payments-rijen uit dezelfde periode die wel in de omzet zitten. Wie testkey-data in de omzetrapportage ziet: dat is hiervan het bewuste gevolg |
 | 29 | `tmc.invoice_series` krijgt een derde CHECK: `code in ('LIVE', 'TEST')` | Twee CHECKs volstaan (`is_test = (code = 'TEST')` en `prefix = case when is_test then 'TEST-' else '' end`), en `code` zelf blijft vrije tekst zolang `is_test = false`. Verworpen als omissie, niet als bewuste keuze: die twee CHECKs samen dwingen alleen af dat `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies `'LIVE'` wijst. Een typefout als `'live'` of `'LIVE '` (spatie) zou een derde, ongeplande reeks aanmaken die naast de bestaande twee gaat lopen; `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de tekst van `code`, en zou zo'n rij zonder klagen gebruiken. Toegevoegd in PR 6 (#152), migratie `20260822000000_invoice_series_code_check.sql`; beide typefouten (`'live'`, `'LIVE '` met spatie) live tegen de database geverifieerd als geweigerd. Zie 2.4 |
 | 30 | Betaalregels met `kind = 'trial_booking'` krijgen in `v_revenue_lines` vast `revenue_category = 'proefles'`, en die waarde is toegevoegd aan de `CHECK` op `catalogue.revenue_category` | `'les_tegoed'` als case-waarde, omdat een proefles functioneel een losse les is. Verworpen: de prijs van een proefles komt uit `booking_settings` per pillar en niet uit een catalogusrij, dus er is geen slug om op terug te vallen en `les_tegoed` zou een aanname in een case verstoppen. Met een eigen categorie staat de proefles-omzet apart in het maandoverzicht. Toegevoegd in PR 7 (#153), migratie `20260823000000_finalize_invoice.sql`. Zie 7.2 |
-| 31 | Het RLS-gat op `tmc.payments` (geen `is_test`-clausule) blijft in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunt voorlopig alleen op de query-filter, niet op RLS | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
+| 31 | **Ingelost in #157** (migratie `20260826000000_payments_rls_is_test.sql`): `payments_self_read` is nu `profile_id = auth.uid() and is_test = false`. Oorspronkelijk besluit: het RLS-gat op `tmc.payments` bleef in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunde tijdelijk alleen op de query-filter | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
 
 ## 13. Open vragen
 
@@ -2684,11 +2696,36 @@ het overzicht, niet de waarheid.
   vals-positieve test zijn. Alle testdata (payments, order, factuur, reeks) opgeruimd, drie
   facturatietabellen weer op nul.
 
+- **RLS-fix, #157, 2026-08-09** (migratie `20260826000000_payments_rls_is_test.sql`).
+  Lost besluitenlog 31 in, de omissie die PR 9a blootlegde: `payments_self_read` is
+  aangescherpt van `profile_id = auth.uid()` naar `profile_id = auth.uid() and is_test =
+  false`, in een transactie zonder CASCADE; `payments_admin_all` onaangeroerd
+  (OR-semantiek, admin blijft alles zien). Discovery vooraf bevestigde dat dit nergens
+  iets breekt: alle admin-lezers van `payments` draaien service-role, en de enige
+  cookie-client-lezers zijn `/app/facturen` (queryfilter sinds 9a) en `/app/producten`
+  (krijgt het vangnet er nu gratis bij). Dezelfde controle over `orders`, `memberships`,
+  `trial_bookings` en de invoice-tabellen wees uit dat de omissie uniek was voor
+  `payments`: orders en memberships hebben bewust geen `is_test`-kolom (modus woont op het
+  profiel), `trial_bookings` heeft geen self_read, en de invoice-tabellen hadden het
+  filter al vanaf hun geboorte in PR 6.
+  **Geverifieerd met een echte probe:** synthetisch lid met een test- en een echte
+  betaling, cookie-context via claims plus `set local role authenticated`, query zonder
+  enig `is_test`-filter: het lid ziet uitsluitend de echte rij, de admin ziet onder RLS
+  beide. Probe opgeruimd; `payments` staat weer op zeven rijen (vijf originele plus de
+  twee proefles-backfillrijen uit PR 5 -- "vijf" uit de oorspronkelijke verificatievraag
+  was de stand van voor PR 5).
+  **Spec bijgewerkt:** 2.7 draagt nu de payments-rij in de policytabel plus de bredere
+  les (een later toegevoegde `is_test`-kolom erft geen filter in bestaande policies; wie
+  zo'n kolom toevoegt loopt de policies opnieuw langs), 6.8 zegt dat de dubbele
+  bescherming echt dubbel is en legt als eigen alinea vast dat een testlid zijn eigen
+  testbetalingen niet meer ziet op `/app/facturen` en `/app/producten` -- de test-flow
+  loopt via de transactionele mail en het admin-ledendetail, en een lege eigen pagina na
+  een testbetaling is geen defect.
+
 ### Nog te doen
 
 PR 9b uit sectie 14 (admin-factuurscherm, `CustomerInvoicePdf`, rapportagepagina,
-CSV-export). Nog niet begonnen. Plus, buiten de PR 9-scope maar door 9a blootgelegd: een
-RLS-migratie op `tmc.payments` (besluitenlog 31).
+CSV-export). Nog niet begonnen.
 
 ---
 
