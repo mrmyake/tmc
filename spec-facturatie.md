@@ -2453,9 +2453,44 @@ het overzicht, niet de waarheid.
   `session_capacity_exceeded`, en een volle sessie weigert ook een testrij.
   **Backfill-keuze:** de twee bestaande rijen op `is_test = false`, zie besluitenlog 28.
 
+- **PR 6, #152, 2026-08-08** (migratie `20260821000000_invoice_schema.sql`, bucket
+  `tmc-invoices` buiten de migratie om aangemaakt).
+  Het factuurschema, volledig volgens 2.4 tot 2.7 en 4.5: `tmc.invoice_series` (de teller,
+  met de twee CHECKs op `is_test` en `prefix`), `tmc.invoices` (bevroren afnemergegevens en
+  bedragen, `status` met alleen `draft`/`finalised`, de samengestelde
+  `invoices_finalised_fields_check`, `invoices_credit_note_negative_check`),
+  `tmc.invoice_lines` (`catalogue_slug` bewust zonder foreign key, `gross = net + vat`), de
+  vijf RLS-policies en de grants (`SELECT` voor `authenticated`, niets voor `anon`, alles
+  voor `service_role`, zelfde patroon als `tmc.orders`), en de twee triggers op `tmc.invoices`
+  (`invoices_finalised_immutable` met de write-once regel op `pdf_path`,
+  `invoices_finalised_no_delete`). De bucket `tmc-invoices` is privaat (`public = false`,
+  `application/pdf`, 8 MB), zonder policies op `storage.objects`, dus uitsluitend bereikbaar
+  via `service_role` -- zelfde patroon als `tmc-medical-attestations`.
+  **Bewust niet gebouwd:** `tmc.finalize_invoice`, `tmc.v_invoice_credit_state` en
+  `tmc.v_revenue_lines` zijn PR 7. Er is na deze PR dus nog geen manier om een factuur te
+  finaliseren; alleen het schema staat er.
+  **Drie kleine toevoegingen bovenop de letterlijke spec-tekst, alle drie zonder
+  schema-impact:** een `invoices_touch_updated_at`-trigger (zelfde patroon als
+  `catalogue`/`orders`/`profiles`; kan niet botsen met de immutability-trigger, die
+  `updated_at` toch al buiten zijn vergelijking houdt); drie indexen
+  (`invoices(profile_id)` voor de RLS self-read, `invoices(credit_of_invoice_id)` voor de
+  `LEFT JOIN` die PR 7's `v_invoice_credit_state` gaat doen, `invoices(payment_id)` voor het
+  "vanaf een betaling"-pad uit 9.1); tabel- en kolomcommentaar.
+  **Bewust niet toegevoegd, want niet in de spec:** een `CHECK` die
+  `invoice_series.code` beperkt tot `('LIVE','TEST')`. Sectie 2.4 noemt letterlijk twee
+  CHECKs; een derde over `code` zelf staat er niet, en dat gat (bij `is_test = false` is
+  elke `code` behalve `'TEST'` toegestaan, niet uitsluitend `'LIVE'`) zat al in de spec.
+  Geverifieerd: B1 tot en met B4 uit 11.2, zowel binnen de migratie-zelfcontrole (met
+  synthetische rijen op `fiscal_year = 9999`, aan het eind opgeruimd via een tijdelijke
+  trigger-disable, want een gefinaliseerde rij is met opzet niet te verwijderen) als
+  daarna nogmaals onafhankelijk met losse probe-rijen (`fiscal_year = 8888`) tegen de
+  live database, ook weer volledig opgeruimd. Alle vijf RLS-policies en alle grants
+  geverifieerd via `pg_policies` en `information_schema.role_table_grants`. De bucket
+  bevestigd privaat en policy-loos via `storage.buckets` en `pg_policies`.
+
 ### Nog te doen
 
-PR 6 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
+PR 7 tot en met 9 uit sectie 14. Nog geen enkele daarvan is begonnen.
 
 ---
 
