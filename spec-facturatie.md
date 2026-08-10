@@ -2,10 +2,14 @@
 
 ## Status
 
-Ontwerp, nog niet gebouwd. Geschreven op basis van een read-only discovery tegen de live
-database (`xoivleieyfcxcfawgveh`, schema `tmc`) en de codebase op `main` @ `9a4a9b5`.
-Alle live-definities in dit document komen uit `pg_get_functiondef` en
-`information_schema`, niet uit de migratiebestanden.
+Gebouwd. Alle PR's uit sectie 14 zijn gemerged: PR 1 tot en met PR 8, plus PR 9a, PR 9b en
+PR 9c (samen de oorspronkelijke PR 9). Wat nog openstaat is geen bouwwerk meer maar
+oplevering: zie sectie 16 voor de precieze punten en wie ze moet oplossen.
+
+Oorspronkelijk geschreven op basis van een read-only discovery tegen de live database
+(`xoivleieyfcxcfawgveh`, schema `tmc`) en de codebase op `main` @ `9a4a9b5`. Alle
+live-definities in dit document komen uit `pg_get_functiondef` en `information_schema`,
+niet uit de migratiebestanden.
 
 Dit document is leidend voor alles wat met facturen, BTW en gerealiseerde omzet te maken
 heeft. Voor de prijsketen zelf blijft `spec-membership-flow.md` leidend; deze spec haakt
@@ -15,21 +19,22 @@ daarop aan en vervangt hem niet.
 
 | Gate | Status | Blokkeert |
 |---|---|---|
-| BTW-tarief per productgroep | besloten: overal 9 procent (1.1, Ilja 2026-08-06) | nee |
-| Fiscale bevestiging van die 9 procent door de accountant | open | oplevering, niet de bouw |
-| KvK- en BTW-nummer van TMC in het systeem | open | oplevering, niet de bouw |
-| Creditnota in dezelfde reeks of een eigen reeks | besloten: dezelfde reeks | nee |
-| `/app/facturen` uitbreiden of nieuwe route | besloten: uitbreiden | nee |
-| Twee Mollie-keys aangemaakt en in Vercel gezet | open | PR 4 |
-| Bucket `tmc-invoices` aangemaakt | open | PR 6 |
+| BTW-tarief per productgroep | besloten en gebouwd: overal 9 procent (1.1, Ilja 2026-08-06, PR 1) | nee |
+| Fiscale bevestiging van die 9 procent door de accountant | open, zie sectie 16 | oplevering, niet de bouw |
+| KvK- en BTW-nummer van TMC in het systeem | open, zie sectie 16 | oplevering, niet de bouw |
+| Creditnota in dezelfde reeks of een eigen reeks | besloten en gebouwd: dezelfde reeks (PR 6, PR 7) | nee |
+| `/app/facturen` uitbreiden of nieuwe route | besloten en gebouwd: uitbreiden (PR 9a) | nee |
+| Admin-factuurscherm: aanmaken, finaliseren, PDF, versturen, crediteren | gebouwd (PR 9b) | nee |
+| Omzetrapportage met CSV-export en is_test-toggle | gebouwd (PR 9c) | nee |
+| Twee Mollie-keys aangemaakt en in Vercel gezet | de test-key staat er, `MOLLIE_API_KEY_LIVE` is bewust nog leeg, zie sectie 16 | eerste echte incasso |
+| Bucket `tmc-invoices` aangemaakt | gebouwd, live geverifieerd (PR 6, PR 9b) | nee |
 
-**Post-opening (niet blokkerend, wel gepland):**
+**Post-opening, opgelost:**
 
-- Alarmering op een verouderde `vw_admin_kpis.refreshed_at`. Die bestaat nu niet: een
+- Alarmering op een verouderde `vw_admin_kpis.refreshed_at`. Was open sinds PR 8: een
   gefaalde refresh meldt niets en de stempel bevriest, wat de view in stilte een maand
-  stale liet staan (7.8, PR 8). Goedkoopste detectie: de admin-cockpit toont
-  `refreshed_at` en waarschuwt zodra die ouder is dan 48 uur. Hoort bij de
-  rapportagepagina van PR 9.
+  stale liet staan (7.8). Opgelost in PR 9c (#159): de omzetrapportage toont
+  `refreshed_at` en waarschuwt zodra die ouder is dan 48 uur.
 
 ## Waar dit op rust: een idee
 
@@ -3074,10 +3079,68 @@ het overzicht, niet de waarheid.
 
 ### Nog te doen
 
-Sectie 14 is nu volledig gemergd (9a, 9b, 9c) -- geen resterende PR's meer in de
-oorspronkelijke opdeling. Wat overblijft staat in de openstaande-gates-tabel bovenaan dit
-document: de fiscale bevestiging van negen procent door de accountant, en het echte KvK-
-en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers.
+Sectie 14 is nu volledig gemergd (9a, 9b, 9c), geen resterende PR's meer in de
+oorspronkelijke opdeling. Wat overblijft is geen bouwwerk meer. Zie sectie 16 voor de
+precieze punten en wie ze moet oplossen.
+
+## 16. Wat er nog moet voordat de eerste echte factuur de deur uit kan
+
+Vier punten. Geen ervan is een bouwblocker, dat werk is klaar. Het zijn opleverblockers:
+zaken die iemand buiten deze codebase moet regelen voordat het systeem met echt geld en
+een echte klant mag draaien.
+
+1. **Fiscale bevestiging van negen procent op alle productgroepen, inclusief personal
+   training en de twaalfwekenprogramma's.** Wie: de accountant, met Ilja als
+   aanspreekpunt vanuit TMC. Dit is de enige openstaande beslissing die achteraf een
+   migratie plus herberekening kost: wijst de accountant een groep alsnog naar
+   eenentwintig procent, dan raakt dat `catalogue.vat_rate_bp`, de bevroren
+   `payments`-snapshots vanaf dat moment, en elke factuur die intussen op negen procent
+   is uitgeschreven. Zie besluitenlog 27 en de open vraag in sectie 13.
+
+2. **KvK- en BTW-nummer van TMC in Sanity, in `siteSettings`, niet in code.** Wie:
+   Marlon, via de studio op `/studio`. Zolang die velden op de placeholder staan
+   (`00000000` respectievelijk `NL000000000B01`, zie 1.5) rendert elke factuur-PDF met
+   die placeholder erin. De code hoeft niet te wijzigen zodra de echte nummers in Sanity
+   staan: `CustomerInvoicePdf` leest ze via `getSiteSettings()` met de constants als
+   fallback, precies zoals de footer dat al doet.
+
+3. **`MOLLIE_API_KEY_LIVE` in Vercel, bij opening.** Wie: Ilja. Nu bewust leeg: de
+   Mollie-modusrouting uit PR 4 kan er al mee overweg, maar er is nog geen echte key om
+   te routeren. Zonder deze key blijft elke incasso op de test-key lopen, ongeacht wat
+   de rest van het systeem verwacht.
+
+4. **De handmatige display-equals-charge-controle bij de eerste echte incasso.** Wie:
+   Ilja, of wie die eerste incasso begeleidt. Er is nog nooit een echte betaling door dit
+   systeem gegaan: alle BTW-splitsing, prijsketen-tests en factuurverificatie in deze
+   spec zijn tegen testdata of gesimuleerde admin-sessies gedraaid. De eerste echte
+   transactie moet met de hand vergeleken worden: het bedrag dat de klant op het scherm
+   zag tegenover het bedrag dat Mollie daadwerkelijk incasseert, en de BTW-splitsing op
+   de resulterende `payments`-rij tegenover wat er in de catalogus staat.
+
+### Twee stille faalmodi, als waarschuwing voor wie later aan dit systeem werkt
+
+Dit traject heeft twee patronen blootgelegd die geen van beide een crash of een
+foutmelding geven. Beide zijn precies daardoor gevaarlijk: het systeem blijft draaien,
+de cijfers zien er normaal uit, en niemand merkt iets tot een controle achteraf.
+
+- **Een gefaalde matview-refresh meldt niets.** `tmc.vw_admin_kpis` refresht dagelijks
+  via cron. Faalt die refresh, dan gebeurt er niets zichtbaars: geen foutmelding, geen
+  alert, alleen een `refreshed_at`-stempel dat niet meer opschuift. PR 8 trof dit
+  concreet aan: de matview stond een maand stil zonder enig signaal (zie de ledger-regel
+  bij PR 8 en 7.8). PR 9c heeft hier een waarschuwing op gezet in de omzetrapportage,
+  maar het onderliggende patroon geldt breder dan alleen deze matview: elke
+  achtergrondtaak die stilzwijgend kan falen zonder een expliciete
+  "wanneer voor het laatst gelukt"-controle, kan hetzelfde overkomen.
+
+- **Een `is_test`-kolom die later aan een bestaande tabel wordt toegevoegd, erft geen
+  filter in bestaande RLS-policies.** `tmc.payments` had zijn `is_test`-kolom van vóór
+  de testmodus-ontwerp, en de bestaande `payments_self_read`-policy bleef gewoon
+  `profile_id = auth.uid()` zonder het nieuwe filter, want een policy wijzigt niet vanzelf
+  mee met een latere kolomtoevoeging. Dat gat bleef ongemerkt tot PR 9a het blootlegde en
+  #157 het dichtte (besluitenlog 31). De les geldt voor elke toekomstige kolom die een
+  bestaand toegangsmodel verandert: wie zo'n kolom toevoegt, loopt de policies van die
+  tabel opnieuw langs in plaats van aan te nemen dat een nieuwe kolom zich vanzelf voegt
+  naar bestaande regels.
 
 ---
 
