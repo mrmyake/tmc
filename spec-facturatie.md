@@ -2785,13 +2785,23 @@ het overzicht, niet de waarheid.
   (het component exporteerde als `default`/`module.exports` in plaats van de benoemde
   export) en is losgelaten -- geen aanwijzing van een fout in het component zelf, wel een
   gat in de verificatie: de PDF is nooit visueel gerenderd gezien.
-  **Niet uitgevoerd, bewust:** een echte factuur end-to-end door de app zelf (aanmaken,
-  regels, finaliseren, PDF genereren, uploaden, downloaden via de signed URL). Vereist
-  `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, waarop Ilja expliciet vroeg te wachten.
-  Bovendien zou finaliseren van een nieuwe testfactuur een permanente rij in de TEST-reeks
-  achterlaten (6.9: gefinaliseerde testfacturen worden nooit verwijderd, met of zonder
-  migratie) en de audit-logregels zijn daarom ook niet in de live database met een eigen
-  rij bevestigd, alleen door codelezing van de gefixte `audit()`-aanroepen.
+  **Niet uitgevoerd, bewust:** een echte factuur end-to-end DOOR DE APP ZELF (het
+  admin-scherm door-klikken: aanmaken, regels, finaliseren, versturen). Dat zou een
+  permanente rij in de TEST-reeks achterlaten (6.9: gefinaliseerde testfacturen worden
+  nooit verwijderd, met of zonder migratie) en vereist bovendien een genuine ingelogde
+  adminsessie (cookie-auth), niet zomaar tegen de database te simuleren. De
+  audit-logregels zijn daarom ook niet in de live database met een eigen rij bevestigd,
+  alleen door codelezing van de gefixte `audit()`-aanroepen.
+  **Alsnog uitgevoerd na ontvangst van `SUPABASE_SERVICE_ROLE_KEY`:** de storage- en
+  signed-URL-mechaniek uit 5.3/5.4 rechtstreeks tegen de echte `tmc-invoices`-bucket
+  getoetst, los van een echte factuurrij (een scratch-pad `_e2e-verify/probe.pdf`, geen
+  `{profile_id}/{invoice_number}.pdf`, dus 1.4's bewaarplicht is hier niet van toepassing
+  en het object is na de test verwijderd). Een echt door `@react-pdf/renderer` gerenderd
+  document geüpload met `upsert:false`; een tweede upload op hetzelfde pad geweigerd met
+  "The resource already exists" (dezelfde bescherming als de database-trigger, nu ook op
+  storage-niveau bevestigd); `createSignedUrl` gaf een werkende URL; een echte `fetch`
+  daarop gaf `200 application/pdf` met exact dezelfde bytes als geüpload. Bucket na
+  cleanup weer leeg.
   **Vondst tijdens verificatie, buiten deze PR's eigen wijzigingen maar ontdekt tijdens het
   testen ervan:** een gefinaliseerde testfactuur (`7777.001`) stond nog in de database uit
   een eerdere, ongecommitte sessie -- op een écht profiel in plaats van een testprofiel. Zie
@@ -2817,9 +2827,11 @@ het overzicht, niet de waarheid.
 ### Nog te doen
 
 PR 9c uit sectie 14 (rapportagepagina met CSV-export, 7.6; de `refreshed_at`-
-staleness-waarschuwing uit 7.8). Nog niet begonnen. Daarnaast, uit deze PR: de
-echte-factuur-end-to-end-verificatie (PDF-upload en signed-URL-download) zodra
-`SUPABASE_SERVICE_ROLE_KEY` in `.env.local` staat.
+staleness-waarschuwing uit 7.8). Nog niet begonnen. De storage-/signed-URL-mechaniek is
+inmiddels tegen de echte bucket geverifieerd (zie hierboven); het admin-scherm zelf
+door-klikken voor een echte factuur blijft open staan zolang dat een permanente rij in de
+TEST-reeks zou achterlaten (6.9) -- geen technische blocker meer, een bewuste keuze wanneer
+dat gewenst is.
 
 ---
 
