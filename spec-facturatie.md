@@ -2283,7 +2283,15 @@ geaccepteerd, dus expliciet toetsen in plaats van aannemen:
 
 ### 11.6 Rapportage
 
-**F1.** `v_revenue_lines` bevat nul rijen met `is_test = true`.
+**F1 (herzien in PR 9c, #159).** Oorspronkelijk: "`v_revenue_lines` bevat nul rijen met
+`is_test = true`." Dat klopte zolang de view zelf hardgecodeerd `is_test = false`
+filterde. PR 9c voegt punt B toe (een admin-toggle op de rapportagepagina), en een
+toggle kan niet werken op een view die de rijen al onzichtbaar heeft gemaakt. De view
+draagt `is_test` nu als kolom en filtert er zelf niet meer op; de bescherming zit in de
+rapportagequery's default (`includeTest: false`), niet meer in de view. **Herziene
+F1:** zonder de toggle bevat het rapport nul rijen met `is_test = true`; met de toggle
+aan zijn ze zichtbaar, expliciet aangevraagd. Beide kanten leverbaar getoetst in
+PR 9c.
 
 **F2.** Een betaalde proefles verschijnt in `v_revenue_lines` met
 `kind = 'trial_booking'`. Dit is de regressietest op het lek uit 2.9.
@@ -2422,7 +2430,7 @@ applicatie werkend achter.
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie. **Gemerged, zie ledger sectie 15** | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
 | 9a | Ledenkant: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); signed-URL server action. **Gemerged, zie ledger sectie 15** | **Sonnet** | UI-frontend op een bestaande route. Patroon bestaat al: `/app/producten` voor de verrijking |
 | 9b | Adminkant: `src/lib/admin/invoice-actions.ts` (9.1-9.6, elke actie met audit-logging); `CustomerInvoicePdf` (1.3); `/app/admin/facturen` (lijst, detail met regels-editor, tariefkeuzelijst met afwijking-markering); knop "Factuur maken" op `PaymentsTab`; factuurmail met link. **Gemerged, zie ledger sectie 15** | **Fable** | Bevat het enige onomkeerbare punt in het systeem (finaliseren) en de write-once-PDF-stap; de bevestigingsstap, de audit-logging per 9.6, en de scheiding concept/gefinaliseerd moeten in één keer goed |
-| 9c | Rapportagepagina met CSV-export (7.6); de `refreshed_at`-staleness-waarschuwing uit 7.8 | **Sonnet** | UI en rapportage-frontend, geen schrijfpaden. Patroon bestaat al: `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
+| 9c | Rapportagepagina met CSV-export (7.6); de `refreshed_at`-staleness-waarschuwing uit 7.8. **Gemerged, zie ledger sectie 15** | **Sonnet** | UI en rapportage-frontend, geen nieuwe schrijfpaden. Patroon bestaat al: `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF. Bleek toch een kleine migratie nodig (is_test-toggle vereiste een viewwijziging, niet voorzien in de oorspronkelijke schatting) |
 
 Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is gesplitst in
 9a (ledenkant), 9b (adminkant: facturen aanmaken) en 9c (rapportage): drie los te reviewen
@@ -2824,14 +2832,109 @@ het overzicht, niet de waarheid.
   leeg (geen object aangemaakt tijdens deze verificatie -- de write-once-test schreef
   alleen de `pdf_path`-kolom, niet de bucket).
 
+- **Echte end-to-end door de app, 2026-08-10** (geen PR, verificatie op verzoek vooraf aan
+  9c; geen gedrags- of schemawijziging). De keuze om het admin-scherm zelf niet
+  door te klikken (zie hierboven) bleek op nader inzien geen reden om de RPC/PDF/storage-
+  keten dan maar ongetest te laten: een synthetisch testlid aangemaakt
+  (`invoice-e2e-verify@tmc.test`, `is_test = true`, blijft permanent staan, zelfde categorie
+  als de bestaande `@tmc.test`-fixtures); een echte adminsessie voor `me@ilja.com` verkregen
+  via `generateLink` + `verifyOtp` (geen browser, geen mail nodig); concept + twee regels
+  (negen en eenentwintig procent) aangemaakt; `finalize_invoice` aangeroepen ALS die
+  geauthenticeerde admin -- `TEST-2026.001`, het eerste nummer in de TEST-reeks. Het
+  ECHTE `CustomerInvoicePdf`-component gerenderd, geüpload naar het echte pad in
+  `tmc-invoices`, gestempeld. Een tweede uploadpoging geweigerd op storage-niveau ("The
+  resource already exists"), een tweede stempelpoging geweigerd door de
+  database-trigger ("pdf_path is write-once."). Signed URL en een echte fetch gaven
+  exact dezelfde bytes terug. Alle drie de `admin_audit_log`-regels
+  (`invoice_draft_created`, `invoice_finalised` met `total_gross_cents`/`is_test`,
+  `invoice_pdf_generated`) rechtstreeks bevestigd. **Permanent gevolg:** één testlid en
+  één gefinaliseerde testfactuur (`TEST-2026.001`) blijven staan, per ontwerp (6.9).
+  `tmc.invoices`/`invoice_lines`/`invoice_series` staan dus niet meer op nul; dat is deze
+  ene bewuste rij, geen debris.
+
+- **Omzetrapportage, #159, 2026-08-10** (PR 9c uit sectie 14; migratie
+  `20260828000000_revenue_lines_test_toggle.sql`).
+  `/app/admin/omzet`: rapportage op `tmc.v_revenue_lines`, gegroepeerd per maand en
+  `revenue_category`, met netto/BTW/bruto/gecorrigeerd/gefactureerd-kolommen;
+  is_test-toggle (default uit); datumbereik-filter; CSV-export die exact de
+  gefilterde/gegroepeerde rijen van het scherm exporteert (zelfde quoting-patroon als
+  `BulkActions.tsx`), bestandsnaam `omzet-{van}-tot-{tot}.csv`;
+  `refreshed_at`-staleness-waarschuwing op `tmc.vw_admin_kpis` bij meer dan 48 uur (7.8,
+  besluitenlog-post-opening-item); sidebar-entry "Omzet".
+  **Migratie nodig, niet voorzien in de oorspronkelijke schatting:** punt B (de
+  is_test-toggle) kan niet werken op een view die `is_test = false` al hardgecodeerd
+  had (7.2's oorspronkelijke ontwerp). `tmc.v_revenue_lines` draagt `is_test` nu als
+  kolom in plaats van als onzichtbaar filter; de rapportagequery filtert zelf, default
+  uit. Tegelijk twee kolommen toegevoegd die 7.4's creditnota-logica nodig had maar de
+  view niet blootgaf: `credited_vat_cents`, `credited_net_cents` (dezelfde
+  lateral-join-vorm als het bestaande `credited_gross_cents`). `CREATE OR REPLACE VIEW`
+  i.p.v. drop+create: geen dependents (geverifieerd via `pg_depend`), dus de bestaande
+  grants blijven staan (zelfcontrole in de migratie bevestigt dat expliciet i.p.v. het
+  aan te nemen, na de 7.8-les uit PR 8).
+  **F1 herzien** (zie 11.6): de letterlijke oude formulering ("nul is_test-rijen in de
+  view") is achterhaald door de toggle-eis. De bescherming verhuist van de view naar de
+  rapportagequery's default-filter, zelfde soort verschuiving als de RLS-vondst in #157.
+  **Interpretatiekeuze bij het uit elkaar trekken van een creditnota-teveel
+  (`credit_excess_cents`, 7.4) in netto en BTW:** de spec zegt alleen dat de BTW van een
+  creditnota-bijdrage uit de eigen bevroren `invoice_lines` komt, niet hoe je dat
+  toepast op het deel BOVEN de restitutie specifiek. Gekozen voor een proportionele
+  schaling op de eigen (mogelijk gemengde) BTW-verhouding van de creditnota('s), zodat
+  netto + BTW = bruto exact blijft kloppen op de gerapporteerde regel (3.1/3.4-invariant
+  overal elders in deze spec). Geen letterlijke regel-voor-regel-toewijzing mogelijk met
+  de data die de view aanlevert.
+  **Gevonden en gefixt tijdens browserverificatie (niet alleen tsc/eslint):** een
+  functie (`categoryLabel`) werd als prop van de server-component naar
+  `OmzetCsvExport` (client) doorgegeven -- faalt runtime met "Functions cannot be
+  passed directly to Client Components", een fout die `tsc`/`eslint` niet vangen. Opgelost
+  door de kleine label-lookup naar een eigen bestand (`revenue-categories.ts`, geen
+  `server-only`) te verplaatsen dat server- en client-kant allebei los importeren.
+  Tweede vondst, ook pas zichtbaar in de browser: het "gefactureerd"-percentage deelde
+  door de NETTO groepsomzet (na restituties), niet de bruto betaal-omzet -- kon dus
+  boven de 100% uitkomen zodra restituties de netto-omzet van een maand onder de
+  gefactureerde bruto-omzet drukten. F1-F5-testdata liet dit zien als 173% op een
+  testcase. Gefixt met een aparte `positiveGrossCents`-teller die alleen de
+  betaal-bijdrage optelt, los van de restitutie/creditnota-tegenbijdragen.
+  **F1 t/m F5 (11.6) geverifieerd tegen de live database**, testdata op het bestaande
+  testprofiel (`invoice-e2e-verify@tmc.test`, `is_test = true`) via dezelfde
+  admin-sessie-truc als de PR 9b-verificatie (`generateLink` + `verifyOtp`, geen
+  browser nodig voor de RPC-aanroepen):
+  - **F1** (herzien): rapport zonder toggle bevat de testrij niet, met toggle wel.
+  - **F2**: bestaande `trial_booking`-rij bevestigd met `revenue_category = 'proefles'`.
+  - **F3**: betaling februari, restitutie april -- `period_month` blijft februari,
+    `refunded_at` (april) apart beschikbaar voor de periode-verschuiving in de
+    rapportagelaag.
+  - **F4** (a t/m d, alle vier op een betaling van 14900): a (0 gerestitueerd, 14900
+    gecrediteerd) → `credit_excess_cents = 14900`; b (4000/0) → geen creditnota nodig;
+    c (4000/14900, de regressietest op de verworpen booleaanse regel) →
+    `credit_excess_cents = 10900`, totaal negatief 14900 exact; d (14900/4000) →
+    `credit_excess_cents = 0` (`greatest` wordt niet negatief). Alle vier exact zoals
+    de tabel in 11.6 voorschrijft.
+  - **F5**: volledige restitutie spiegelt exact (`refunded_vat_cents = 1230`,
+    `refunded_net_cents = 13670`, som 14900); deelrestitutie 4000 geeft `330`/`3670`;
+    tarief-na-betaling geverifieerd via de viewdefinitie zelf (de
+    `refunded_vat_cents`/`refunded_net_cents`-expressies refereren uitsluitend aan
+    `payments`-kolommen, nergens aan `catalogue`); `vat_rate_bp is null` geeft
+    `refunded_vat_cents`/`refunded_net_cents = null`, niet `0`.
+  **Permanent gevolg van F4 a/c/d:** drie betalingen plus drie gefinaliseerde originele
+  facturen plus drie gefinaliseerde creditnota's (`TEST-2026.002` t/m `TEST-2026.007`)
+  blijven staan -- dezelfde reden als bij de PR 9b-verificatie: een creditnota vereist
+  een gefinaliseerde factuur, en gefinaliseerde rijen zijn onverwijderbaar (6.9). F4b's
+  betaling (geen factuur nodig) en de F1/F3/F5-testbetalingen zonder factuur zijn wel
+  verwijderd. **Bevestigd na opruiming:** `tmc.payments` op 10 (7 origineel + 3
+  permanente F4-testbetalingen), `tmc.invoices` op 7 (1 uit de PR 9b-verificatie + 6 uit
+  F4), `tmc.invoice_lines` op 8, `tmc.invoice_series` op 1.
+  **Browserverificatie:** ingelogd als echte admin via een `generateLink`-magic-link
+  (geen productie-mail nodig), `/app/admin/omzet` in de dev-server bekeken met en zonder
+  de is_test-toggle; cijfers op het scherm sluiten aan op de directe view-query. Eén
+  onschuldige, voorbestaande console-fout (Turbopack chunk-laadfout, ook aanwezig op de
+  ongewijzigde `/app/admin/facturen`-pagina) hoort niet bij deze PR.
+
 ### Nog te doen
 
-PR 9c uit sectie 14 (rapportagepagina met CSV-export, 7.6; de `refreshed_at`-
-staleness-waarschuwing uit 7.8). Nog niet begonnen. De storage-/signed-URL-mechaniek is
-inmiddels tegen de echte bucket geverifieerd (zie hierboven); het admin-scherm zelf
-door-klikken voor een echte factuur blijft open staan zolang dat een permanente rij in de
-TEST-reeks zou achterlaten (6.9) -- geen technische blocker meer, een bewuste keuze wanneer
-dat gewenst is.
+Sectie 14 is nu volledig gemergd (9a, 9b, 9c) -- geen resterende PR's meer in de
+oorspronkelijke opdeling. Wat overblijft staat in de openstaande-gates-tabel bovenaan dit
+document: de fiscale bevestiging van negen procent door de accountant, en het echte KvK-
+en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers.
 
 ---
 
