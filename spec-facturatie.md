@@ -1521,13 +1521,143 @@ net_cents            integer       -- payments.net_amount_cents
 refunded_cents       integer       -- payments.refunded_amount_cents
 refunded_vat_cents   integer       -- zie hieronder; null als vat_rate_bp null is
 refunded_net_cents   integer       -- zie hieronder; null als vat_rate_bp null is
+credited_gross_cents bigint        -- som van gefinaliseerde creditnota's op deze betaling, zie 7.4 (PR 7, #153)
+credit_excess_cents  bigint        -- greatest(0, credited_gross_cents - refunded_amount_cents), zie 7.4 (PR 7, #153)
+last_credit_issued_at date         -- issued_at van de laatste creditnota op deze betaling (PR 7, #153)
 kind                 text
+credited_vat_cents   bigint        -- som van vat_total_cents over dezelfde creditnota's (PR 9c, #159)
+credited_net_cents   bigint        -- som van subtotal_net_cents over dezelfde creditnota's (PR 9c, #159)
+is_test              boolean       -- payments.is_test, zichtbaar i.p.v. hardgecodeerd gefilterd (PR 9c, #159)
 ```
 
-Met `where status = 'paid' and is_test = false` als basisfilter.
+Met `where status = 'paid'` als basisfilter. Tot en met PR 9c stond hier ook
+`and is_test = false`; zie de wijziging hieronder en besluitenlog 33 voor waarom dat eraf
+is.
 
 De rapportagequery in het cockpit groepeert daarover op maand en `revenue_category`, en
 toont netto, BTW en bruto per groep plus een totaal.
+
+#### Wijziging in PR 9c (#159): is_test als kolom, niet als filter
+
+De rapportagepagina uit PR 9c heeft een expliciete admin-toggle nodig om testdata te tonen
+(default uit). Een view die `is_test = false` al hardgecodeerd filtert kan zo'n toggle niet
+bedienen: de rijen zijn er dan simpelweg niet, met of zonder toggle. De view draagt `is_test`
+daarom voortaan als kolom; de rapportagequery filtert er zelf op, met `false` als default.
+Tegelijk zijn `credited_vat_cents` en `credited_net_cents` toegevoegd -- dezelfde
+lateral-join-vorm als het bestaande `credited_gross_cents` -- omdat de rapportagepagina ook
+de BTW-kant van een creditnota-bijdrage moet tonen, niet alleen het bruto dat er al was.
+
+De 7.4-rekenregel zelf is **ongewijzigd**: `refunded_cents` blijft rechtstreeks
+`payments.refunded_amount_cents`, `credit_excess_cents` blijft
+`greatest(0, credited_gross_cents - refunded_amount_cents)`, en `refunded_at` /
+`last_credit_issued_at` blijven twee aparte kolommen zodat de twee delen in hun eigen
+periode kunnen landen. Niets aan die logica is aangeraakt; alleen kolommen toegevoegd en één
+WHERE-clausule versmald.
+
+**Oude definitie (PR 7, #153, ongewijzigd van 2026-08-08 tot 2026-08-10):**
+
+```sql
+ SELECT date_trunc('month'::text, p.paid_at)::date AS period_month,
+    p.paid_at,
+    p.refunded_at,
+    p.id AS payment_id,
+    p.profile_id,
+        CASE
+            WHEN p.kind = 'trial_booking'::text THEN 'proefles'::text
+            ELSE COALESCE(cat_o.revenue_category, cat_m.revenue_category)
+        END AS revenue_category,
+    p.vat_rate_bp,
+    p.amount_cents AS gross_cents,
+    p.vat_amount_cents AS vat_cents,
+    p.net_amount_cents AS net_cents,
+    p.refunded_amount_cents AS refunded_cents,
+        CASE
+            WHEN p.vat_rate_bp IS NULL THEN NULL::integer
+            WHEN p.refunded_amount_cents = 0 THEN 0
+            WHEN p.refunded_amount_cents = p.amount_cents THEN p.vat_amount_cents
+            ELSE round(p.refunded_amount_cents::numeric * p.vat_rate_bp::numeric / (10000 + p.vat_rate_bp)::numeric)::integer
+        END AS refunded_vat_cents,
+        CASE
+            WHEN p.vat_rate_bp IS NULL THEN NULL::integer
+            WHEN p.refunded_amount_cents = 0 THEN 0
+            WHEN p.refunded_amount_cents = p.amount_cents THEN p.refunded_amount_cents - p.vat_amount_cents
+            ELSE p.refunded_amount_cents - round(p.refunded_amount_cents::numeric * p.vat_rate_bp::numeric / (10000 + p.vat_rate_bp)::numeric)::integer
+        END AS refunded_net_cents,
+    cr.credited_gross_cents,
+    GREATEST(0::bigint, cr.credited_gross_cents - p.refunded_amount_cents) AS credit_excess_cents,
+    cr.last_credit_issued_at,
+    p.kind
+   FROM tmc.payments p
+     LEFT JOIN tmc.orders o ON o.id = p.order_id
+     LEFT JOIN tmc.catalogue cat_o ON cat_o.slug = o.catalogue_slug
+     LEFT JOIN tmc.memberships m ON m.id = p.membership_id
+     LEFT JOIN tmc.catalogue cat_m ON cat_m.slug = m.plan_variant
+     CROSS JOIN LATERAL ( SELECT COALESCE(- sum(c.total_gross_cents), 0::bigint) AS credited_gross_cents,
+            max(c.issued_at) AS last_credit_issued_at
+           FROM tmc.invoices c
+             JOIN tmc.invoices i ON i.id = c.credit_of_invoice_id
+          WHERE i.payment_id = p.id AND c.status = 'finalised'::text) cr
+  WHERE p.status = 'paid'::text AND p.is_test = false;
+```
+
+**Nieuwe definitie (PR 9c, #159, sinds 2026-08-10, migratie
+`20260828000000_revenue_lines_test_toggle.sql`):**
+
+```sql
+ SELECT date_trunc('month'::text, p.paid_at)::date AS period_month,
+    p.paid_at,
+    p.refunded_at,
+    p.id AS payment_id,
+    p.profile_id,
+        CASE
+            WHEN p.kind = 'trial_booking'::text THEN 'proefles'::text
+            ELSE COALESCE(cat_o.revenue_category, cat_m.revenue_category)
+        END AS revenue_category,
+    p.vat_rate_bp,
+    p.amount_cents AS gross_cents,
+    p.vat_amount_cents AS vat_cents,
+    p.net_amount_cents AS net_cents,
+    p.refunded_amount_cents AS refunded_cents,
+        CASE
+            WHEN p.vat_rate_bp IS NULL THEN NULL::integer
+            WHEN p.refunded_amount_cents = 0 THEN 0
+            WHEN p.refunded_amount_cents = p.amount_cents THEN p.vat_amount_cents
+            ELSE round(p.refunded_amount_cents::numeric * p.vat_rate_bp::numeric / (10000 + p.vat_rate_bp)::numeric)::integer
+        END AS refunded_vat_cents,
+        CASE
+            WHEN p.vat_rate_bp IS NULL THEN NULL::integer
+            WHEN p.refunded_amount_cents = 0 THEN 0
+            WHEN p.refunded_amount_cents = p.amount_cents THEN p.refunded_amount_cents - p.vat_amount_cents
+            ELSE p.refunded_amount_cents - round(p.refunded_amount_cents::numeric * p.vat_rate_bp::numeric / (10000 + p.vat_rate_bp)::numeric)::integer
+        END AS refunded_net_cents,
+    cr.credited_gross_cents,
+    GREATEST(0::bigint, cr.credited_gross_cents - p.refunded_amount_cents) AS credit_excess_cents,
+    cr.last_credit_issued_at,
+    p.kind,
+    cr.credited_vat_cents,
+    cr.credited_net_cents,
+    p.is_test
+   FROM tmc.payments p
+     LEFT JOIN tmc.orders o ON o.id = p.order_id
+     LEFT JOIN tmc.catalogue cat_o ON cat_o.slug = o.catalogue_slug
+     LEFT JOIN tmc.memberships m ON m.id = p.membership_id
+     LEFT JOIN tmc.catalogue cat_m ON cat_m.slug = m.plan_variant
+     CROSS JOIN LATERAL ( SELECT COALESCE(- sum(c.total_gross_cents), 0::bigint) AS credited_gross_cents,
+            COALESCE(- sum(c.vat_total_cents), 0::bigint) AS credited_vat_cents,
+            COALESCE(- sum(c.subtotal_net_cents), 0::bigint) AS credited_net_cents,
+            max(c.issued_at) AS last_credit_issued_at
+           FROM tmc.invoices c
+             JOIN tmc.invoices i ON i.id = c.credit_of_invoice_id
+          WHERE i.payment_id = p.id AND c.status = 'finalised'::text) cr
+  WHERE p.status = 'paid'::text;
+```
+
+Exacte diff: `AND p.is_test = false` weg uit de laatste WHERE-regel; `credited_vat_cents` en
+`credited_net_cents` toegevoegd aan de lateral-join-subquery én aan de buitenste
+SELECT-lijst (aan het eind, na `p.kind` -- `CREATE OR REPLACE VIEW` staat geen wijziging
+van bestaande kolomposities toe); `p.is_test` toegevoegd als laatste kolom. Verder
+letterlijk gelijk: dezelfde CASE-expressies voor `refunded_vat_cents`/`refunded_net_cents`,
+dezelfde `GREATEST(0, ...)` voor `credit_excess_cents`, dezelfde joins.
 
 Rijen met `vat_rate_bp is null` (historische betalingen uit 3.5) komen als aparte groep
 "tarief onbekend" in beeld. Ze verstoppen zich niet in een van de bestaande groepen en ze
@@ -2283,15 +2413,19 @@ geaccepteerd, dus expliciet toetsen in plaats van aannemen:
 
 ### 11.6 Rapportage
 
-**F1 (herzien in PR 9c, #159).** Oorspronkelijk: "`v_revenue_lines` bevat nul rijen met
-`is_test = true`." Dat klopte zolang de view zelf hardgecodeerd `is_test = false`
-filterde. PR 9c voegt punt B toe (een admin-toggle op de rapportagepagina), en een
-toggle kan niet werken op een view die de rijen al onzichtbaar heeft gemaakt. De view
-draagt `is_test` nu als kolom en filtert er zelf niet meer op; de bescherming zit in de
-rapportagequery's default (`includeTest: false`), niet meer in de view. **Herziene
-F1:** zonder de toggle bevat het rapport nul rijen met `is_test = true`; met de toggle
-aan zijn ze zichtbaar, expliciet aangevraagd. Beide kanten leverbaar getoetst in
-PR 9c.
+**F1 (herzien in PR 9c, #159).**
+
+- **Oud (t/m PR 7, #153):** "`v_revenue_lines` bevat nul rijen met `is_test = true`."
+  Klopte zolang de view zelf hardgecodeerd `is_test = false` filterde: de rijen bestonden
+  dan simpelweg niet in de view, hoe je ook las.
+- **Waarom achterhaald:** PR 9c voegt punt B toe, een admin-toggle op de rapportagepagina
+  om testdata desgewenst te tonen. Een toggle kan niet bedienen wat de view al onzichtbaar
+  heeft gemaakt. `is_test` is daarom nu een gewone kolom (7.2, besluitenlog 33); de
+  bescherming verhuist naar de rapportagequery's default-filter.
+- **Nieuw:** "Zonder de is_test-toggle bevat het rapport nul rijen met `is_test = true`.
+  Met de toggle aan zijn ze zichtbaar, alleen na expliciete aanvraag." Beide kanten
+  getoetst in PR 9c: zonder toggle onzichtbaar, met toggle zichtbaar, tegen dezelfde
+  testrij.
 
 **F2.** Een betaalde proefles verschijnt in `v_revenue_lines` met
 `kind = 'trial_booking'`. Dit is de regressietest op het lek uit 2.9.
@@ -2383,6 +2517,7 @@ index staat er.
 | 30 | Betaalregels met `kind = 'trial_booking'` krijgen in `v_revenue_lines` vast `revenue_category = 'proefles'`, en die waarde is toegevoegd aan de `CHECK` op `catalogue.revenue_category` | `'les_tegoed'` als case-waarde, omdat een proefles functioneel een losse les is. Verworpen: de prijs van een proefles komt uit `booking_settings` per pillar en niet uit een catalogusrij, dus er is geen slug om op terug te vallen en `les_tegoed` zou een aanname in een case verstoppen. Met een eigen categorie staat de proefles-omzet apart in het maandoverzicht. Toegevoegd in PR 7 (#153), migratie `20260823000000_finalize_invoice.sql`. Zie 7.2 |
 | 31 | **Ingelost in #157** (migratie `20260826000000_payments_rls_is_test.sql`): `payments_self_read` is nu `profile_id = auth.uid() and is_test = false`. Oorspronkelijk besluit: het RLS-gat op `tmc.payments` bleef in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunde tijdelijk alleen op de query-filter | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
 | 32 | **Ingelost in migratie `20260827000000_cleanup_test_invoice_7777.sql`**: een gefinaliseerde testfactuur (`7777.001`, sentinel-jaar 7777) op een écht profiel (`is_test = false`, aangemaakt tijdens handmatige verificatie van `finalize_invoice` en C3 rechtstreeks tegen de database, niet via het -- toen nog niet bestaande -- admin-scherm) bleek onverwijderbaar: `invoices_finalised_no_delete` kent geen `is_test`-uitzondering en de immutability-trigger laat niet toe hem alsnog als test te markeren. `payment_id` was `null`, dus de rij is nooit op `/app/facturen` (ledenkant) verschenen -- wel op `/app/admin/facturen`, dat ongefilterd toont. Opgelost met een migratie die de trigger binnen één transactie uitschakelt, exact de ene rij op `id` verwijdert, de bijbehorende `invoice_series`-rij opruimt, de trigger weer aanzet en met een zelfcontrole bevestigt dat die weer actief staat (`tgenabled`, niet alleen dat het statement slaagde) | Ad-hoc `delete` in de sessie zelf, buiten een migratie om. Verworpen: hetzelfde argument als besluit 31 -- een ingreep die een beschermingslaag van een productiedatabase omzeilt hoort een aanwijsbaar, reviewbaar stuk werk te zijn, geen sessie-statement zonder sporen. Zie 6.9 |
+| 33 | `tmc.v_revenue_lines` filtert niet langer hardgecodeerd op `is_test = false` in de WHERE-clausule; `is_test` is nu een gewone kolom en de rapportagequery filtert er zelf op, default uit. Migratie `20260828000000_revenue_lines_test_toggle.sql`, PR 9c (#159). De 7.4-rekenregel (`refunded_amount_cents` als bron, `credit_excess_cents = greatest(0, credited_gross_cents - refunded_amount_cents)`, twee aparte periodes) is letterlijk ongewijzigd overgenomen | Het hardgecodeerde filter laten staan en de admin-toggle uit 9c ergens anders oplossen, bijvoorbeeld met een tweede view of een query die om het filter heen leest. Verworpen: een tweede view op dezelfde brondata is een tweede plek die uit de pas kan lopen met de eerste (precies het patroon dat deze spec overal elders vermijdt, zie besluit 14 over de omzetview zelf als gewone view i.p.v. materialized), en om een hardgecodeerd filter heen lezen kan sowieso niet via de view zelf. Dezelfde les als besluit 31 op `payments_self_read`: een filter dat ooit bedoeld was als de enige, permanente scoping wordt een blokkade zodra een latere PR er om een goede reden voorbij moet kunnen -- de kolom zichtbaar maken en het filter naar de aanroeper verplaatsen is dan de juiste richting, niet een tweede verborgen filter erbovenop |
 
 ## 13. Open vragen
 
@@ -2894,6 +3029,14 @@ het overzicht, niet de waarheid.
   gefactureerde bruto-omzet drukten. F1-F5-testdata liet dit zien als 173% op een
   testcase. Gefixt met een aparte `positiveGrossCents`-teller die alleen de
   betaal-bijdrage optelt, los van de restitutie/creditnota-tegenbijdragen.
+  **Werkafspraak voor toekomstige frontend-PR's, op Ilja's verzoek na deze twee
+  vondsten:** `tsc --noEmit` en `eslint` zagen geen van beide. De eerste is een
+  server/client-boundary-fout die pas bij een echte Next.js-render optreedt, niet bij
+  statische analyse; de tweede is een rekenkundig geldige maar misleidende uitkomst die
+  alleen zichtbaar wordt met representatieve data op het scherm. Een frontend-PR is dus
+  pas klaar na een echte doorloop in de browser (dev-server, ingelogde sessie, het
+  scherm zelf bekeken met data die de randgevallen raakt), niet na een groene
+  typecheck/lint alleen.
   **F1 t/m F5 (11.6) geverifieerd tegen de live database**, testdata op het bestaande
   testprofiel (`invoice-e2e-verify@tmc.test`, `is_test = true`) via dezelfde
   admin-sessie-truc als de PR 9b-verificatie (`generateLink` + `verifyOtp`, geen
