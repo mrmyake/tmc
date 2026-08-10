@@ -16,6 +16,7 @@ import {
   Tags,
   ExternalLink,
   CreditCard,
+  FileText,
 } from "lucide-react";
 
 type IconType = typeof LayoutDashboard;
@@ -58,6 +59,7 @@ const SECONDARY: NavItem[] = [
   // houden toegang via hetzelfde staff-predicaat. Deze link verlaat dus
   // de admin-cockpit; PR D geeft de agenda een eigen admin-ingang.
   { href: "/app/trainer/boeken", label: "PT boeken", icon: CalendarPlus },
+  { href: "/app/admin/facturen", label: "Facturen", icon: FileText },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
   { href: "/app/admin/proefcodes", label: "Proefcodes", icon: Ticket },
   {

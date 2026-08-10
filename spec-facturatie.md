@@ -1470,6 +1470,19 @@ Wat er niet gebeurt: gefinaliseerde testfacturen verwijderen. Die blijven staan,
 nummer, in hun eigen reeks. De TEST-reeks is dan aaneengesloten en dat is nuttig, want als
 je de reeks van de testmodus mag doorbreken test je niet meer wat de echte reeks doet.
 
+**Deze aanname rust op één ding: een testfactuur wordt uitsluitend gemaakt op een
+testprofiel (`profiles.is_test = true`), zodat hij `is_test = true` erft en in de TEST-reeks
+valt.** Ontstaat een gefinaliseerde factuur op een écht profiel met `is_test = false` --
+bijvoorbeeld via handmatig testen van `finalize_invoice` rechtstreeks tegen de database in
+plaats van via het admin-scherm -- dan is er geen weg terug binnen de applicatie: dezelfde
+write-once/immutability-triggers die een echte factuur beschermen (4.5) maken het
+onmogelijk zo'n rij achteraf als test te markeren of te verwijderen. Er is dan geen
+gesanctioneerd opruimpad. Een gefinaliseerde rij verwijderen kan uitsluitend via een
+expliciete migratie die de trigger binnen dezelfde transactie tijdelijk uitschakelt, de ene
+bedoelde rij op `id` verwijdert (nooit op een afgeleid kenmerk als fiscal_year of nummer),
+en de trigger voor de commit weer aanzet met een zelfcontrole die dat bevestigt -- nooit een
+ad-hoc statement in een sessie. Zie besluitenlog 32.
+
 ## 7. Omzetrapportage
 
 ### 7.1 Waarom vw_admin_kpis niet de plek is
@@ -2361,6 +2374,7 @@ index staat er.
 | 29 | `tmc.invoice_series` krijgt een derde CHECK: `code in ('LIVE', 'TEST')` | Twee CHECKs volstaan (`is_test = (code = 'TEST')` en `prefix = case when is_test then 'TEST-' else '' end`), en `code` zelf blijft vrije tekst zolang `is_test = false`. Verworpen als omissie, niet als bewuste keuze: die twee CHECKs samen dwingen alleen af dat `is_test = true` naar `code = 'TEST'` wijst, niet dat `is_test = false` naar precies `'LIVE'` wijst. Een typefout als `'live'` of `'LIVE '` (spatie) zou een derde, ongeplande reeks aanmaken die naast de bestaande twee gaat lopen; `finalize_invoice` (PR 7) kiest de reeks op `is_test`, niet op de tekst van `code`, en zou zo'n rij zonder klagen gebruiken. Toegevoegd in PR 6 (#152), migratie `20260822000000_invoice_series_code_check.sql`; beide typefouten (`'live'`, `'LIVE '` met spatie) live tegen de database geverifieerd als geweigerd. Zie 2.4 |
 | 30 | Betaalregels met `kind = 'trial_booking'` krijgen in `v_revenue_lines` vast `revenue_category = 'proefles'`, en die waarde is toegevoegd aan de `CHECK` op `catalogue.revenue_category` | `'les_tegoed'` als case-waarde, omdat een proefles functioneel een losse les is. Verworpen: de prijs van een proefles komt uit `booking_settings` per pillar en niet uit een catalogusrij, dus er is geen slug om op terug te vallen en `les_tegoed` zou een aanname in een case verstoppen. Met een eigen categorie staat de proefles-omzet apart in het maandoverzicht. Toegevoegd in PR 7 (#153), migratie `20260823000000_finalize_invoice.sql`. Zie 7.2 |
 | 31 | **Ingelost in #157** (migratie `20260826000000_payments_rls_is_test.sql`): `payments_self_read` is nu `profile_id = auth.uid() and is_test = false`. Oorspronkelijk besluit: het RLS-gat op `tmc.payments` bleef in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunde tijdelijk alleen op de query-filter | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
+| 32 | **Ingelost in migratie `20260827000000_cleanup_test_invoice_7777.sql`**: een gefinaliseerde testfactuur (`7777.001`, sentinel-jaar 7777) op een écht profiel (`is_test = false`, aangemaakt tijdens handmatige verificatie van `finalize_invoice` en C3 rechtstreeks tegen de database, niet via het -- toen nog niet bestaande -- admin-scherm) bleek onverwijderbaar: `invoices_finalised_no_delete` kent geen `is_test`-uitzondering en de immutability-trigger laat niet toe hem alsnog als test te markeren. `payment_id` was `null`, dus de rij is nooit op `/app/facturen` (ledenkant) verschenen -- wel op `/app/admin/facturen`, dat ongefilterd toont. Opgelost met een migratie die de trigger binnen één transactie uitschakelt, exact de ene rij op `id` verwijdert, de bijbehorende `invoice_series`-rij opruimt, de trigger weer aanzet en met een zelfcontrole bevestigt dat die weer actief staat (`tgenabled`, niet alleen dat het statement slaagde) | Ad-hoc `delete` in de sessie zelf, buiten een migratie om. Verworpen: hetzelfde argument als besluit 31 -- een ingreep die een beschermingslaag van een productiedatabase omzeilt hoort een aanwijsbaar, reviewbaar stuk werk te zijn, geen sessie-statement zonder sporen. Zie 6.9 |
 
 ## 13. Open vragen
 
@@ -2406,10 +2420,14 @@ applicatie werkend achter.
 | 6 | Migratie: `invoice_series`, `invoices`, `invoice_lines`, RLS-policies, grants, immutability-triggers, `invoices_credit_note_negative_check`; bucket `tmc-invoices` | **Sonnet** | Schema-werk, volledig uitgeschreven in 2.4 tot 2.7 en 4.5 |
 | 7 | `tmc.finalize_invoice`, `tmc.v_invoice_credit_state`, `tmc.v_revenue_lines`. **Gemerged, zie ledger sectie 15** | **Fable** | Het hart van de spec. De volgorde validatie-vóór-nummer, vergrendelen los van consumeren, de chronologiecontrole onder het slot, idempotentie, het bevriezen van de NAW alleen waar leeg, en de restitutie-plus-creditnota-rekenregel uit 7.4. Plus de concurrency-tests A1 tot A7 en F4 tot F5 |
 | 8 | `vw_admin_kpis` + `get_admin_kpis()` drop en recreate met `is_test`-filter, unique index en herstelde grants, in één transactie. **Gemerged, zie ledger sectie 15** | **Fable** | De harde regel uit 7.8. Een gemiste grant of een vergeten unique index breekt pas de volgende ochtend en dan stil |
-| 9 | Frontend: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); admin-factuurscherm; `CustomerInvoicePdf`; signed-URL server action; rapportagepagina met CSV-export | **Sonnet** | UI en rapportage-frontend. Patronen bestaan al: `/app/producten` voor de verrijking, `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
+| 9a | Ledenkant: `/app/facturen` uitbreiden (downloadkolom, slug-verrijking, `is_test`-filter, copy-migratie, `PaymentStatusBadge` op `refunded_amount_cents`); signed-URL server action. **Gemerged, zie ledger sectie 15** | **Sonnet** | UI-frontend op een bestaande route. Patroon bestaat al: `/app/producten` voor de verrijking |
+| 9b | Adminkant: `src/lib/admin/invoice-actions.ts` (9.1-9.6, elke actie met audit-logging); `CustomerInvoicePdf` (1.3); `/app/admin/facturen` (lijst, detail met regels-editor, tariefkeuzelijst met afwijking-markering); knop "Factuur maken" op `PaymentsTab`; factuurmail met link. **Gemerged, zie ledger sectie 15** | **Fable** | Bevat het enige onomkeerbare punt in het systeem (finaliseren) en de write-once-PDF-stap; de bevestigingsstap, de audit-logging per 9.6, en de scheiding concept/gefinaliseerd moeten in één keer goed |
+| 9c | Rapportagepagina met CSV-export (7.6); de `refreshed_at`-staleness-waarschuwing uit 7.8 | **Sonnet** | UI en rapportage-frontend, geen schrijfpaden. Patroon bestaat al: `BulkActions` voor de CSV, `TrainerInvoicePdf` voor de PDF |
 
-Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is te splitsen als
-hij te groot wordt, met de ledenkant (8.2 en 8.3) als eerste helft.
+Volgorde is bindend voor 1 tot en met 7. PR 8 kan parallel aan 7. PR 9 is gesplitst in
+9a (ledenkant), 9b (adminkant: facturen aanmaken) en 9c (rapportage): drie los te reviewen
+en te mergen PR's op dezelfde route/module, in die volgorde omdat 9b op 9a's
+signed-URL-patroon leunt en 9c op de omzetview uit PR 7 die al binnen is.
 
 ## 15. Ledger
 
@@ -2722,10 +2740,98 @@ het overzicht, niet de waarheid.
   loopt via de transactionele mail en het admin-ledendetail, en een lege eigen pagina na
   een testbetaling is geen defect.
 
+- **Adminkant: facturen aanmaken, #158, 2026-08-10** (PR 9b uit sectie 14; geen
+  schemawijziging in deze PR zelf, wel de aparte migratie hieronder).
+  `src/lib/admin/invoice-actions.ts` (`createInvoiceFromPayment`, `createManualInvoice`,
+  `saveInvoiceLines`, `deleteInvoiceDraft`, `finalizeInvoice`, `generateInvoicePdf`,
+  `sendInvoiceEmail`, `createCreditNote`), elk met audit-logging naar
+  `tmc.admin_audit_log`; `CustomerInvoicePdf` met alle elementen uit 1.3; `/app/admin/facturen`
+  (lijst, detail met regels-editor, tariefkeuzelijst 9/21/0 met default uit de catalogusrij
+  en afwijking-markering per 9.3); knop "Factuur maken" op `PaymentsTab`; `invoice_ready`
+  factuurmail met link, geen bijlage.
+  **Toegevoegd bovenop wat sectie 9 voorschreef:** `deleteInvoiceDraft` en een
+  "Concept verwijderen"-knop op het conceptscherm. 4.1 zegt expliciet dat een concept "vrij
+  te wijzigen en te verwijderen" is, en die tweede helft ontbrak: zonder deze actie was een
+  dubbel concept van een dubbelklik op "Factuur maken" nooit meer weg te krijgen. Geen
+  bevestigingsdialoog zoals bij finaliseren (dat is het enige onomkeerbare punt); wel een
+  eenvoudige "zeker weten"-stap, want dataverlies van ingevulde regels is al vervelend
+  genoeg.
+  **Correctie op de audit-logging uit 9.6, gevonden bij verificatie:** `finalize_invoice`
+  (de RPC) retourneert alleen `invoice_number`/`number`/`fiscal_year`, dus de eerste versie
+  van `finalizeInvoice` logde `invoice_finalised` zonder de vereiste `total_gross_cents` en
+  `is_test`. Gefixt met een lezing van de bevroren rij ná een geslaagde finalisatie.
+  Tegelijk bleek `invoice_credited` op het verkeerde moment gelogd: `createCreditNote` deed
+  dat al bij het aanmaken van het concept, vóórdat de creditnota een nummer of totaal heeft.
+  `invoice_credited` (met `invoice_number`, `credit_of`, `total_gross_cents`) logt nu in
+  `finalizeInvoice` zelf, zodra de zojuist gefinaliseerde rij een `credit_of_invoice_id`
+  draagt; `createCreditNote` logt bij aanmaak voortaan `invoice_draft_created` (met
+  `credit_of`), consistent met de andere twee aanmaakpaden.
+  **Geverifieerd, tegen de live database, met het bestaande finalize_invoice/write-once
+  bouwwerk uit PR 6/7:** C1 tot en met C3 uit 11.3 waren al gedekt door eerdere PR's; C3
+  specifiek opnieuw bevestigd op een reeds aanwezige gefinaliseerde testfactuur (één
+  catalogusregel op negen procent, één vrije regel handmatig op eenentwintig procent):
+  `gross_cents = net_cents + vat_cents` per regel, `vat_total_cents` is de som van de twee
+  regels (615 = 405 + 210) en niet herrekend over het bruto totaal, en
+  `tmc.catalogue.vrij_trainen_2x` bleef `vat_rate_bp = 900` -- het handmatige tarief op de
+  factuur slaat niet terug op het product. Het write-once-gedrag op `pdf_path` rechtstreeks
+  tegen de database getoetst: de eerste schrijfactie op een gefinaliseerde rij slaagt, de
+  tweede wordt geweigerd met exact `pdf_path is write-once.` (trigger
+  `invoices_finalised_immutable`). `CustomerInvoicePdf` op alle 1.3-elementen gecontroleerd
+  via codelezing (factuurnummer, -datum, TMC-naam/adres/KvK/BTW via `getSiteSettings()` met
+  de constants als fallback, afnemer-NAW plus BTW-nummer waar zakelijk, per regel
+  omschrijving/aantal/netto/tarief, subtotaal/BTW-per-tarief/totaal, en bij een creditnota de
+  verwijzing naar het gecrediteerde nummer); een standalone `renderToBuffer`-rendertest
+  liep vast op een modulesysteem-eigenaardigheid van `tsx` buiten de Next.js-pijplijn
+  (het component exporteerde als `default`/`module.exports` in plaats van de benoemde
+  export) en is losgelaten -- geen aanwijzing van een fout in het component zelf, wel een
+  gat in de verificatie: de PDF is nooit visueel gerenderd gezien.
+  **Niet uitgevoerd, bewust:** een echte factuur end-to-end DOOR DE APP ZELF (het
+  admin-scherm door-klikken: aanmaken, regels, finaliseren, versturen). Dat zou een
+  permanente rij in de TEST-reeks achterlaten (6.9: gefinaliseerde testfacturen worden
+  nooit verwijderd, met of zonder migratie) en vereist bovendien een genuine ingelogde
+  adminsessie (cookie-auth), niet zomaar tegen de database te simuleren. De
+  audit-logregels zijn daarom ook niet in de live database met een eigen rij bevestigd,
+  alleen door codelezing van de gefixte `audit()`-aanroepen.
+  **Alsnog uitgevoerd na ontvangst van `SUPABASE_SERVICE_ROLE_KEY`:** de storage- en
+  signed-URL-mechaniek uit 5.3/5.4 rechtstreeks tegen de echte `tmc-invoices`-bucket
+  getoetst, los van een echte factuurrij (een scratch-pad `_e2e-verify/probe.pdf`, geen
+  `{profile_id}/{invoice_number}.pdf`, dus 1.4's bewaarplicht is hier niet van toepassing
+  en het object is na de test verwijderd). Een echt door `@react-pdf/renderer` gerenderd
+  document geüpload met `upsert:false`; een tweede upload op hetzelfde pad geweigerd met
+  "The resource already exists" (dezelfde bescherming als de database-trigger, nu ook op
+  storage-niveau bevestigd); `createSignedUrl` gaf een werkende URL; een echte `fetch`
+  daarop gaf `200 application/pdf` met exact dezelfde bytes als geüpload. Bucket na
+  cleanup weer leeg.
+  **Vondst tijdens verificatie, buiten deze PR's eigen wijzigingen maar ontdekt tijdens het
+  testen ervan:** een gefinaliseerde testfactuur (`7777.001`) stond nog in de database uit
+  een eerdere, ongecommitte sessie -- op een écht profiel in plaats van een testprofiel. Zie
+  besluitenlog 32 en de aparte migratie hieronder.
+
+- **Opruiming test-debris, #158, 2026-08-10** (migratie
+  `20260827000000_cleanup_test_invoice_7777.sql`, los toegevoegd binnen dezelfde PR).
+  Verwijderde de hierboven gevonden `7777.001` en zijn `invoice_series`-rij chirurgisch: de
+  `invoices_finalised_no_delete`-trigger binnen één transactie uit, exact de ene rij op
+  `id` weg, trigger weer aan, met een zelfcontrole die `tgenabled` leest in plaats van
+  alleen te vertrouwen dat het `ENABLE`-statement zonder fout liep. Niet urgent voor leden
+  geweest: de rij had `payment_id = null` en `/app/facturen` (ledenkant) koppelt
+  uitsluitend via `payments.id`, dus hij is nooit op een ledenpagina verschenen -- wel op
+  `/app/admin/facturen`. **Spec bijgewerkt:** 6.9 legt nu vast dat de aanname "gefinaliseerde
+  testfacturen blijven staan" alleen geldt zolang een testfactuur ook echt op een
+  testprofiel is gemaakt, en dat er geen gesanctioneerd pad is om een gefinaliseerde rij te
+  verwijderen buiten een expliciete migratie om.
+  **Bevestigd na de migratie:** `tmc.invoices`, `tmc.invoice_lines` en `tmc.invoice_series`
+  alle drie op nul, `tmc.payments` op zeven (ongewijzigd), storage-bucket `tmc-invoices`
+  leeg (geen object aangemaakt tijdens deze verificatie -- de write-once-test schreef
+  alleen de `pdf_path`-kolom, niet de bucket).
+
 ### Nog te doen
 
-PR 9b uit sectie 14 (admin-factuurscherm, `CustomerInvoicePdf`, rapportagepagina,
-CSV-export). Nog niet begonnen.
+PR 9c uit sectie 14 (rapportagepagina met CSV-export, 7.6; de `refreshed_at`-
+staleness-waarschuwing uit 7.8). Nog niet begonnen. De storage-/signed-URL-mechaniek is
+inmiddels tegen de echte bucket geverifieerd (zie hierboven); het admin-scherm zelf
+door-klikken voor een echte factuur blijft open staan zolang dat een permanente rij in de
+TEST-reeks zou achterlaten (6.9) -- geen technische blocker meer, een bewuste keuze wanneer
+dat gewenst is.
 
 ---
 
