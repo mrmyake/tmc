@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { NAV_LINKS, AANBOD_DROPDOWN } from "@/lib/constants";
-import type { CampaignPhase } from "@/lib/campaign";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { CampaignTeaser } from "./CampaignTeaser";
 
 interface NavbarProps {
-  campaignPhase: CampaignPhase;
+  /** Onafhankelijk van emActive, zie src/lib/campaign.ts. */
+  studioOpen: boolean;
+  emActive: boolean;
   campaignDeadline: string;
 }
 
@@ -21,7 +22,7 @@ interface NavbarProps {
  * collapsed container's natural height without JS. Menu items fade +
  * slide via `.tmc-fade-up` with staggered inline delays.
  */
-export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
+export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aanbodOpen, setAanbodOpen] = useState(false);
@@ -80,7 +81,7 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
   const utilityLabel = "Inloggen";
   const utilityHref = "/app";
   // COPY: confirm met Marlon
-  const earlyMemberLabel = campaignPhase === "closed" ? "Word lid" : "Early Member";
+  const earlyMemberLabel = emActive ? "Early Member" : "Word lid";
 
   return (
     <header
@@ -90,7 +91,7 @@ export function Navbar({ campaignPhase, campaignDeadline }: NavbarProps) {
           : "bg-transparent border-b border-transparent"
       }`}
     >
-      <CampaignTeaser phase={campaignPhase} deadline={campaignDeadline} />
+      <CampaignTeaser studioOpen={studioOpen} emActive={emActive} deadline={campaignDeadline} />
       <nav className="mx-auto max-w-7xl px-6 lg:px-8 flex items-center justify-between h-20">
         <Link
           href="/"

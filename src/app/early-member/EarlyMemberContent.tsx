@@ -8,7 +8,6 @@ import { Countdown } from "@/components/ui/Countdown";
 import { EarlyMemberCallout } from "@/components/ui/EarlyMemberCallout";
 import { formatDateLong } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
-import type { CampaignPhase } from "@/lib/campaign";
 import { EarlyMemberOptInForm } from "./EarlyMemberOptInForm";
 import { OverstapLeadForm } from "./OverstapLeadForm";
 
@@ -29,8 +28,10 @@ interface EarlyMemberContentProps {
   /** ISO deadline (closesAtIso), uit getCampaignWindow() (src/lib/campaign.ts). */
   deadline: string;
   pricing: EarlyMemberPricing;
-  /** Eén fasebron (src/lib/campaign.ts), zelfde als de root layout en /prijzen. */
-  campaignPhase: CampaignPhase;
+  /** isStudioOpen() (src/lib/campaign.ts) — bepaalt alleen de hero-framing. */
+  studioOpen: boolean;
+  /** isEarlyMemberActive() (src/lib/campaign.ts) — bepaalt de EM-voordelen. */
+  emActive: boolean;
 }
 
 // Copy hieronder volgt de zes-secties rebuild (zie PR-beschrijving). Bewust
@@ -40,15 +41,16 @@ interface EarlyMemberContentProps {
 export function EarlyMemberContent({
   deadline,
   pricing,
-  campaignPhase,
+  studioOpen,
+  emActive,
 }: EarlyMemberContentProps) {
   const deadlineLabel = formatDateLong(new Date(deadline));
   // hasOpened bepaalt alleen de hero-framing (voor/na de studio-opening);
   // emActive bepaalt of de Early Member voordelen getoond worden (voor/na
-  // de campagnedeadline). Beide komen uit dezelfde getCampaignPhase()-fase,
-  // dus er is nog maar één datumbron voor de hele pagina.
-  const hasOpened = campaignPhase !== "pre-open";
-  const emActive = campaignPhase === "open-em";
+  // de campagnedeadline). Sinds fix/campagne-fasering zijn dit twee
+  // onafhankelijke signalen (src/lib/campaign.ts): de studio kan dicht zijn
+  // terwijl emActive al true is.
+  const hasOpened = studioOpen;
 
   // Live uit tmc.catalogue.early_member_price_cents (met coalesce naar de
   // reguliere prijs), zelfde kolom en dezelfde fallback als de RPC die de

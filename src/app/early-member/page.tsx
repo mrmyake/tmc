@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCatalogue } from "@/lib/catalogue";
-import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, isStudioOpen, isEarlyMemberActive } from "@/lib/campaign";
 import { EarlyMemberContent, type EarlyMemberPricing } from "./EarlyMemberContent";
 
 // ISR: prijzen en de countdown-deadline mogen maximaal een minuut achterlopen.
@@ -74,18 +74,19 @@ export default async function EarlyMemberPage() {
     getPricing(),
     getCampaignWindow(),
   ]);
-  // Eén fasebron voor de hele pagina (pre-open / open-em / closed), zelfde
-  // getCampaignPhase() als de root layout en /prijzen. Beide grenzen komen
-  // sinds migratie 20260813 uit tmc.early_member_pools (opens_at plus
-  // closes_at), dezelfde bron waar _compute_order_price tegen handhaaft.
+  // Twee onafhankelijke signalen (fix/campagne-fasering): studioOpen komt
+  // puur uit STUDIO_OPENING_DATE (geen DB), emActive uit closes_at, dezelfde
+  // bron waar _compute_order_price server-side tegen handhaaft.
   const deadlineIso = campaignWindow.closesAtIso;
-  const campaignPhase = getCampaignPhase(campaignWindow);
+  const studioOpen = isStudioOpen();
+  const emActive = isEarlyMemberActive(campaignWindow);
 
   return (
     <EarlyMemberContent
       deadline={deadlineIso}
       pricing={pricing}
-      campaignPhase={campaignPhase}
+      studioOpen={studioOpen}
+      emActive={emActive}
     />
   );
 }
