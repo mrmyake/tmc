@@ -275,6 +275,7 @@ function profile(
 }
 
 const ACTIVE = {
+  plan_type: "all_inclusive",
   status: "active",
   extended_access: false,
   cancellation_effective_date: null,
@@ -567,6 +568,63 @@ test("noodrem: beide ledengroepen naar gesloten, staf blijft; sync respecteert d
   await syncAllCore(deps);
   assert.equal(akiles.groups.get(cfg.group_standard_id)?.permissions[0].schedule_id, cfg.schedule_standard_id);
   assert.equal(akiles.groups.get(cfg.group_extended_id)?.permissions[0].schedule_id, cfg.schedule_extended_id);
+});
+
+test("noodrem overleeft twee opeenvolgende cron-runs; alleen de admin-action zet hem terug", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db } = makeDeps({ akiles });
+  db.profiles.set("m", profile("m", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  const cfg = db.config as AccessConfigRow;
+
+  // Admin-action: vlag aan en groepen direct naar Gesloten.
+  db.config = { ...cfg, lockdown: true };
+  await applyGroupSchedules(akiles, { ...(db.config as ResolvedAccessConfig) });
+
+  for (let run = 1; run <= 2; run++) {
+    const result = await syncAllCore(deps);
+    assert.equal(result.ok, true, `run ${run}`);
+    assert.equal(akiles.groups.get(cfg.group_standard_id as string)?.permissions[0].schedule_id, cfg.schedule_closed_id, `standard run ${run}`);
+    assert.equal(akiles.groups.get(cfg.group_extended_id as string)?.permissions[0].schedule_id, cfg.schedule_closed_id, `extended run ${run}`);
+    assert.equal(akiles.groups.get(cfg.group_staff_id as string)?.permissions[0].schedule_id, cfg.schedule_staff_id, `staff run ${run}`);
+  }
+  // Schedules zelf worden wel bijgewerkt tijdens de noodrem.
+  db.openingHours = LIVE_OPENING_HOURS.map((r) => (r.weekday === 1 ? { ...r, opens_at: "06:30:00" } : r));
+  await syncAllCore(deps);
+  assert.deepEqual(akiles.schedules.get(cfg.schedule_standard_id as string)?.weekdays[0].ranges, [{ start: 23_400, end: 75_600 }]);
+  assert.equal(akiles.groups.get(cfg.group_standard_id as string)?.permissions[0].schedule_id, cfg.schedule_closed_id, "koppeling blijft Gesloten");
+  assert.equal((db.config as AccessConfigRow).lockdown, true, "de sync raakt de vlag niet aan");
+
+  // Enige weg terug: de vlag uit via de admin-action, daarna herstelt de sync de koppeling.
+  db.config = { ...(db.config as AccessConfigRow), lockdown: false };
+  await applyGroupSchedules(akiles, { ...(db.config as ResolvedAccessConfig) });
+  await syncAllCore(deps);
+  assert.equal(akiles.groups.get(cfg.group_standard_id as string)?.permissions[0].schedule_id, cfg.schedule_standard_id);
+});
+
+test("opgezegd abonnement plus actieve rittenkaart: toegang wordt ingetrokken en blijft dicht", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db, events } = makeDeps({ akiles });
+  db.profiles.set("r", profile("r", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  assert.ok(db.credentials.get("r")?.akiles_pin_id);
+
+  db.profiles.set("r", profile("r", "member", [
+    { ...ACTIVE, status: "cancellation_requested", cancellation_effective_date: "2026-09-01" },
+    { ...ACTIVE, plan_type: "ten_ride_card", status: "active" },
+  ]));
+  events.length = 0;
+  await syncAllCore(deps);
+  const cred = db.credentials.get("r") as AccessCredentialsRow;
+  assert.equal(cred.akiles_pin_id, null);
+  assert.ok(new Date(cred.access_ends_at as string) < NOW);
+  assert.deepEqual(events.map((e) => e.type), ["access.revoked"]);
+
+  // Volgende nacht: de rittenkaart-rij mag het venster niet heropenen.
+  events.length = 0;
+  await syncAllCore(deps);
+  assert.equal(db.credentials.get("r")?.akiles_pin_id, null);
+  assert.equal(events.length, 0);
 });
 
 test("in Akiles verwijderd schedule of member wordt opnieuw aangemaakt", async () => {

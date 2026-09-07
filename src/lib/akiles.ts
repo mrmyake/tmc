@@ -39,13 +39,46 @@ export class AkilesApiError extends Error {
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
+/**
+ * De OpenAPI-spec noemt geen rate limit en geen maximale paginagrootte.
+ * Defensief: bij 429 of 503 wachten we op Retry-After (of 2 seconden) en
+ * proberen we hooguit drie keer. De sync loopt sequentieel per profiel
+ * (circa vijf calls per lid), dus een volledige ledenbase blijft rustig.
+ */
+const MAX_ATTEMPTS = 3;
+const DEFAULT_RETRY_MS = 2000;
+
+function retryDelayMs(res: Response): number {
+  const header = res.headers.get("retry-after");
+  const seconds = header ? Number(header) : NaN;
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(seconds * 1000, 30_000)
+    : DEFAULT_RETRY_MS;
+}
+
 async function request<T>(
   apiKey: string,
   method: Method,
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetchOnce(apiKey, method, path, body);
+    if ((res.status === 429 || res.status === 503) && attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(res)));
+      continue;
+    }
+    return parseResponse<T>(res, method, path);
+  }
+}
+
+async function fetchOnce(
+  apiKey: string,
+  method: Method,
+  path: string,
+  body?: unknown,
+): Promise<Response> {
+  return fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -55,6 +88,9 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
+}
+
+async function parseResponse<T>(res: Response, method: Method, path: string): Promise<T> {
   if (!res.ok) {
     let detail = "";
     try {

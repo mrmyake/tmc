@@ -29,7 +29,25 @@ import type {
  */
 
 const MEMBERSHIP_COLUMNS =
-  "status, extended_access, cancellation_effective_date, pause_effective_date";
+  "plan_type, status, extended_access, cancellation_effective_date, pause_effective_date";
+
+/** PostgREST kapt een select standaard op 1000 rijen af; daarom in pagina's. */
+const PAGE_SIZE = 1000;
+
+async function selectAllPaged<T>(
+  run: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  label: string,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await run(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`${label} lezen: ${error.message}`);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
 
 function buildDb(admin: SupabaseClient): AccessDb {
   return {
@@ -80,17 +98,35 @@ function buildDb(admin: SupabaseClient): AccessDb {
     },
     async listSyncCandidateProfileIds() {
       const [staff, members, creds] = await Promise.all([
-        admin.from("profiles").select("id").in("role", ["trainer", "admin"]),
-        admin.from("memberships").select("profile_id"),
-        admin.from("access_credentials").select("profile_id"),
+        selectAllPaged<{ id: string }>(
+          (from, to) =>
+            admin
+              .from("profiles")
+              .select("id")
+              .in("role", ["trainer", "admin"])
+              .order("id")
+              .range(from, to),
+          "staf-profielen",
+        ),
+        selectAllPaged<{ profile_id: string }>(
+          (from, to) =>
+            admin.from("memberships").select("profile_id").order("id").range(from, to),
+          "memberships",
+        ),
+        selectAllPaged<{ profile_id: string }>(
+          (from, to) =>
+            admin
+              .from("access_credentials")
+              .select("profile_id")
+              .order("profile_id")
+              .range(from, to),
+          "access_credentials",
+        ),
       ]);
-      for (const res of [staff, members, creds]) {
-        if (res.error) throw new Error(`kandidaten lezen: ${res.error.message}`);
-      }
       const ids = new Set<string>();
-      for (const r of staff.data ?? []) ids.add((r as { id: string }).id);
-      for (const r of members.data ?? []) ids.add((r as { profile_id: string }).profile_id);
-      for (const r of creds.data ?? []) ids.add((r as { profile_id: string }).profile_id);
+      for (const r of staff) ids.add(r.id);
+      for (const r of members) ids.add(r.profile_id);
+      for (const r of creds) ids.add(r.profile_id);
       return [...ids].sort();
     },
     async getCredentials(profileId) {

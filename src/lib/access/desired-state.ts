@@ -13,15 +13,36 @@ import { ROLLING_ACCESS_WINDOW_DAYS, type AccessGroup } from "./constants";
  *   Bij een geplande pauze (status active met pause_effective_date) is
  *   pause_effective_date de einddatum: de eerste dag zonder dekking.
  *
+ * Alleen abonnementsrijen tellen mee. Rittenkaarten (plan_type
+ * ten_ride_card) en PT-pakketten (pt_package) staan ook in tmc.memberships,
+ * bereiken nooit een eindstatus (ze blijven 'active' tot een admin ze
+ * opruimt) en geven geen zelfstandige deurtoegang: die leden komen voor
+ * een sessie met een trainer erbij, en de trainer opent de deur. Zonder
+ * dit filter zou een opgezegd abonnement naast een rittenkaart-rij
+ * eindeloos toegang houden (PR #170, punt A).
+ *
  * Groep: extended bij memberships.extended_access true, anders standard.
  * Profielen met rol trainer of admin krijgen staff, ook zonder membership.
  *
- * Einddatum (fail closed): een harde datum wint altijd; anders geeft
- * resolveDesiredAccess endsAt null terug en vult de sync een rollend
- * venster van nu plus ROLLING_ACCESS_WINDOW_DAYS in, elke run opnieuw.
+ * Einddatum (fail closed): per rij wint een harde datum altijd; een rij
+ * zonder harde datum draagt nu plus ROLLING_ACCESS_WINDOW_DAYS bij, nooit
+ * oneindig. Bij meerdere rijen geldt het maximum. endsAt is daardoor
+ * altijd gevuld zodra enabled true is.
  */
 
+/** plan_type-waarden die geen abonnement zijn en dus geen deurtoegang dragen. */
+export const NON_SUBSCRIPTION_PLAN_TYPES: ReadonlySet<string> = new Set([
+  "ten_ride_card",
+  "pt_package",
+  "twelve_week_program",
+]);
+
+export function isSubscriptionRow(row: { plan_type: string }): boolean {
+  return !NON_SUBSCRIPTION_PLAN_TYPES.has(row.plan_type);
+}
+
 export interface AccessMembershipRow {
+  plan_type: string;
   status: string;
   extended_access: boolean;
   /** ISO-datum (yyyy-mm-dd), laatste dag met dekking. */
@@ -38,7 +59,7 @@ export interface ProfileAccessInput {
 export interface DesiredAccess {
   enabled: boolean;
   group: AccessGroup | null;
-  /** Harde einddatum; null betekent "rollend venster", nooit "voor altijd". */
+  /** Einddatum voor Akiles; altijd gevuld als enabled true is, nooit "voor altijd". */
   endsAt: Date | null;
   reason: string;
 }
@@ -126,10 +147,16 @@ export function resolveDesiredAccess(
   now: Date,
 ): DesiredAccess {
   if (STAFF_ROLES.has(input.role)) {
-    return { enabled: true, group: "staff", endsAt: null, reason: `role:${input.role}` };
+    return {
+      enabled: true,
+      group: "staff",
+      endsAt: rollingWindowEnd(now),
+      reason: `role:${input.role}`,
+    };
   }
 
   const enabledRows = input.memberships
+    .filter(isSubscriptionRow)
     .map((row) => ({ row, access: rowAccess(row, now) }))
     .filter((r) => r.access.enabled);
 
@@ -141,16 +168,14 @@ export function resolveDesiredAccess(
     ? "extended"
     : "standard";
 
-  // Meerdere dekkende rijen: een rij zonder harde einddatum loopt door, dus
-  // dan geldt het rollende venster; anders de laatste harde einddatum. Bij
+  // Per rij: harde datum, anders nu plus zeven dagen. Over de rijen het
+  // maximum. Een rij zonder harde datum draagt dus nooit oneindig bij; bij
   // een enkele rij komt dit neer op "harde datum wint altijd".
-  const anyRolling = enabledRows.some((r) => r.access.hardEnd === null);
-  const endsAt = anyRolling
-    ? null
-    : enabledRows.reduce<Date | null>((latest, r) => {
-        const end = r.access.hardEnd as Date;
-        return latest === null || end > latest ? end : latest;
-      }, null);
+  const rolling = rollingWindowEnd(now);
+  const endsAt = enabledRows.reduce<Date>((latest, r) => {
+    const end = r.access.hardEnd ?? rolling;
+    return end > latest ? end : latest;
+  }, new Date(0));
 
   const statuses = enabledRows.map((r) => r.row.status).sort().join(",");
   return { enabled: true, group, endsAt, reason: `membership:${statuses}` };

@@ -16,6 +16,7 @@ const NOW = new Date("2026-09-08T10:00:00.000Z");
 
 function row(overrides: Partial<AccessMembershipRow>): AccessMembershipRow {
   return {
+    plan_type: "all_inclusive",
     status: "active",
     extended_access: false,
     cancellation_effective_date: null,
@@ -24,11 +25,51 @@ function row(overrides: Partial<AccessMembershipRow>): AccessMembershipRow {
   };
 }
 
+const ROLLING_END = "2026-09-15T10:00:00.000Z";
+
 test("active zonder pauze: toegang, standaard, rollend venster", () => {
   const d = resolveDesiredAccess({ role: "member", memberships: [row({})] }, NOW);
   assert.equal(d.enabled, true);
   assert.equal(d.group, "standard");
-  assert.equal(d.endsAt, null, "null betekent rollend, nooit voor altijd");
+  assert.equal(d.endsAt?.toISOString(), ROLLING_END, "rollend venster, nooit voor altijd");
+});
+
+test("rittenkaart en PT-pakket geven geen zelfstandige toegang", () => {
+  for (const plan_type of ["ten_ride_card", "pt_package", "twelve_week_program"]) {
+    const d = resolveDesiredAccess(
+      { role: "member", memberships: [row({ plan_type, status: "active" })] },
+      NOW,
+    );
+    assert.equal(d.enabled, false, plan_type);
+  }
+});
+
+test("opgezegd abonnement met verstreken einddatum plus actieve rittenkaart: geen toegang", () => {
+  const d = resolveDesiredAccess(
+    {
+      role: "member",
+      memberships: [
+        row({ status: "cancellation_requested", cancellation_effective_date: "2026-09-01" }),
+        row({ plan_type: "ten_ride_card", status: "active", extended_access: false }),
+      ],
+    },
+    NOW,
+  );
+  assert.equal(d.enabled, false);
+  assert.equal(d.group, null);
+
+  const cancelled = resolveDesiredAccess(
+    {
+      role: "member",
+      memberships: [
+        row({ status: "cancelled" }),
+        row({ plan_type: "ten_ride_card", status: "active" }),
+        row({ plan_type: "pt_package", status: "active", extended_access: true }),
+      ],
+    },
+    NOW,
+  );
+  assert.equal(cancelled.enabled, false);
 });
 
 test("extended_access true geeft de groep extended", () => {
@@ -45,7 +86,7 @@ test("payment_failed geeft bewust toegang (rollend venster)", () => {
     NOW,
   );
   assert.equal(d.enabled, true);
-  assert.equal(d.endsAt, null);
+  assert.equal(d.endsAt?.toISOString(), ROLLING_END);
 });
 
 test("pending, paused, cancelled en expired geven geen toegang", () => {
@@ -132,7 +173,7 @@ test("trainer en admin krijgen staf, ook zonder membership", () => {
     const d = resolveDesiredAccess({ role, memberships: [] }, NOW);
     assert.equal(d.enabled, true, role);
     assert.equal(d.group, "staff", role);
-    assert.equal(d.endsAt, null, role);
+    assert.equal(d.endsAt?.toISOString(), ROLLING_END, role);
   }
   const withCancelled = resolveDesiredAccess(
     { role: "admin", memberships: [row({ status: "cancelled" })] },
@@ -141,8 +182,8 @@ test("trainer en admin krijgen staf, ook zonder membership", () => {
   assert.equal(withCancelled.group, "staff");
 });
 
-test("meerdere rijen: een doorlopende rij houdt het rollende venster, anders de laatste harde datum", () => {
-  const rolling = resolveDesiredAccess(
+test("meerdere rijen: maximum van de einddatums, een rij zonder harde datum telt als nu plus zeven dagen", () => {
+  const laterHard = resolveDesiredAccess(
     {
       role: "member",
       memberships: [
@@ -152,7 +193,19 @@ test("meerdere rijen: een doorlopende rij houdt het rollende venster, anders de 
     },
     NOW,
   );
-  assert.equal(rolling.endsAt, null);
+  assert.equal(laterHard.endsAt?.toISOString(), "2026-09-30T22:00:00.000Z", "harde datum na het venster wint");
+
+  const soonHard = resolveDesiredAccess(
+    {
+      role: "member",
+      memberships: [
+        row({ status: "cancellation_requested", cancellation_effective_date: "2026-09-09" }),
+        row({ status: "active" }),
+      ],
+    },
+    NOW,
+  );
+  assert.equal(soonHard.endsAt?.toISOString(), ROLLING_END, "doorlopende rij houdt het venster, nooit oneindig");
 
   const hard = resolveDesiredAccess(
     {

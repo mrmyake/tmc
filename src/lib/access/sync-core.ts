@@ -371,6 +371,8 @@ export async function syncProfileCore(
     // Toegang aan.
     const target = profile as AccessProfile;
     const group = desired.group as AccessGroup;
+    // desired.endsAt is bij enabled altijd gevuld; de fallback is puur
+    // defensief zodat een toekomstige wijziging nooit "voor altijd" wordt.
     const endsAt = (desired.endsAt ?? rollingWindowEnd(now)).toISOString();
     const name = memberDisplayName(target);
     const metadata = {
