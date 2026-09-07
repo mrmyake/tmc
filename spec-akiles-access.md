@@ -1,80 +1,74 @@
-# Spec: Akiles Door Access (Member App Fase 3)
+# Spec: Akiles deurtoegang (spec-akiles-access.md)
 
 ## Status
 
-**UNDECIDED — draft for the Fable policy session.** Nothing in this document is a committed decision. The proposed data model is a proposal based on discovery findings (2026-07-03, live Akiles docs + live TMC schema), not a design that has been accepted. Every item in "Open questions" must be explicitly decided before any implementation starts, following the same flow as spec-otp-login.md (draft → Fable session locks decisions → Sonnet builds).
+**Besloten en in bouw (2026-09-08).** Het integratiemodel is vastgelegd in de bouwopdracht van 2026-09-08; de discovery van 2026-07-03 (hieronder onder "Historie") ging nog uit van de Akiles Mobile SDK en van OAuth2, allebei vervallen. PR 1 (backend, deze spec-versie) bouwt de sync; PR 2 bouwt het ledenscherm Toegang en de Wallet-pas.
 
 ---
 
-## ⚠️ Blocking prerequisite (own ticket, NOT scoped into this work)
+## Besloten integratiemodel
 
-**The membership cancellation lifecycle bug must be fixed before physical door access ships.** Today, member-initiated cancellation sets `status = 'cancellation_requested'` via a client that RLS silently blocks (0 rows updated, no error — AUDIT-SECURITY.md §2), so the cron that should finalize cancellations and stop the Mollie subscription never finds anything. As long as entitlement is billing-only, this is a financial/AVG bug. The moment door access derives from `memberships.status`, it becomes a **physical security risk**: a member who cancelled (or whose payment failed, same silent-blockade class of risk) keeps a working key to the building.
+- **Geen Mobile SDK, geen native bridge.** Elk lid met toegang krijgt in Akiles een member met een door Akiles gegenereerde 6-cijferige PIN en een magic link. De PIN wordt in de ledenapp getoond achter een expliciete tik en verbergt zichzelf; de magic link wordt on demand server-side opgehaald voor de Wallet-pas (PR 2).
+- **Auth is bearer.** Een enkele organisatie-credential `AKILES_API_KEY`, server-side only (`src/lib/akiles.ts`, patroon `isAkilesConfigured()` zoals Mollie en push). Zonder key doet de hele sync niets en logt dat een keer per run.
+- **API-bron:** `github.com/akiles/openapi-specs` (openapi.yaml). Base URL `https://api.akiles.app/v2`. Gebruikte objecten: `member` (`starts_at`/`ends_at`), `member_pin` (aanmaken met `length: 6`, onthullen via `POST .../pins/{id}/reveal`), `member_magic_link` (onthullen via `.../magic_links/{id}/reveal`), `member_group` met `member_group_permission_rule` (`schedule_id`, `access_methods`), `member_group_association`, `schedule` (`weekdays[7]`, index 0 = maandag, seconden vanaf 00:00, lokale tijdzone van de site).
+- **Toegangsrecht hangt aan:** de member group (schedule) en `member.ends_at`. Associaties dragen geen eigen einddatum; de sync houdt per member precies een associatie aan.
 
-This fix is a prerequisite with its own ticket and timeline, independent of when the Akiles work happens. This spec assumes it is fixed and must not inherit it.
+### Gewenste toestand per profiel (`src/lib/access/desired-state.ts`)
 
----
+| Bron | Toegang | Groep | Einddatum in Akiles |
+|---|---|---|---|
+| `profiles.role` trainer of admin | aan | staff (24 uur) | rollend venster |
+| `memberships.status = active` | aan | extended bij `extended_access`, anders standard | rollend venster; bij `pause_effective_date` die datum (00:00 Amsterdam) |
+| `cancellation_requested` | aan tot en met `cancellation_effective_date` | idem | 00:00 Amsterdam van de dag erna |
+| `payment_failed` | **aan, bewust** | idem | rollend venster |
+| `pending`, `paused`, `cancelled`, `expired`, geen rij | uit | geen | `ends_at` in het verleden |
 
-## Parallel work items (start now, do not wait for the Fable session)
+Het rollende venster is nu plus zeven dagen (`ROLLING_ACCESS_WINDOW_DAYS`), elke nachtelijke run opnieuw opgeschoven: valt de cron uit, dan sluit de deur vanzelf (fail closed). Harde datums winnen altijd van het venster. Alle memberships-rijen tellen mee, ook rittenkaart en PT-pakket (die staan op `extended_access = false` en geven dus hooguit standaardtoegang).
 
-1. **Capacitor/Cordova compatibility spike (urgent, parallel).** Akiles officially ships SDKs for Android, iOS, React Native and Cordova (`akiles-cordova`); **Capacitor is not mentioned anywhere in their docs** (verified 2026-07-03). Capacitor claims general Cordova plugin compatibility, but BLE/NFC plugins are exactly the category where that claim breaks. The spike's outcome can change the technical approach materially (Cordova plugin as-is → thin custom Capacitor bridge over the native SDKs → in the worst case a different app-shell strategy), which affects what the Fable session should decide. Do not sequence it after the spec is decided.
-2. **Two questions to Akiles support (hello@akiles.app / support@akiles.app), send now:**
-   - (a) Is there a **sandbox, demo unit, or virtual device/gadget** so SDK development can start before the physical lock is delivered? The Developer Center mentions "test organizations" but the docs say nothing about hardware-less testing.
-   - (b) Do Akiles **events distinguish successful from failed unlock attempts**? Their event model (subject-verb-object, `gadget_action`) does not document this, and the audit requirement below depends on it.
+### Schedules en groepen (`src/lib/access/schedule.ts`, `sync-core.ts`)
 
----
+- **Standaard:** gegenereerd uit `tmc.opening_hours` (weekday 0 = zondag, dus `(weekday + 6) % 7`). Uitzonderingsdata (`opening_hours_exceptions`) zijn niet uit te drukken in een wekelijks schedule en worden niet gesynct.
+- **Verlengde toegang:** 06:00 tot 23:00, alle zeven dagen. Enige bron: `EXTENDED_ACCESS_WINDOW` in `src/lib/access/constants.ts`.
+- **Gesloten:** zeven dagen zonder ranges (noodrem). **Staf:** 0 tot 86400, zeven dagen.
+- Drie member groups (standard, extended, staff), elk met een permission rule naar het eigen schedule en `access_methods` pin en mobile_nfc (online, bluetooth en card uit).
+- Idempotent: bij lege `tmc.access_config` worden ze aangemaakt en de ids teruggeschreven; anders elke run gepatcht, zodat een gewijzigde openingstijd de volgende nacht doorkomt. Een in het Akiles-paneel verwijderd object (404) wordt opnieuw aangemaakt.
 
-## Context from discovery (verified, not assumed)
+### Datamodel (migratie `20260908000000_akiles_access.sql`)
 
-### What exists on the TMC side
+- `tmc.access_credentials`: `profile_id` (PK, FK profiles, cascade), `akiles_member_id`, `akiles_pin_id`, `akiles_magic_link_id`, `access_group`, `access_ends_at`, `last_synced_at`, `last_error`. **De PIN en de magic link worden nooit opgeslagen, alleen hun ids.** RLS aan zonder policies, grants alleen service_role.
+- `tmc.access_config`: single-row (`ACCESS_CONFIG_ID`), `lockdown`, `schedule_standard_id`, `schedule_extended_id`, `schedule_closed_id`, `schedule_staff_id`, `group_standard_id`, `group_extended_id`, `group_staff_id`, `updated_at`. Zelfde RLS-lijn. `schedule_staff_id` is een kolom extra ten opzichte van de bouwopdracht: de stafgroep wijst net als de andere twee naar een echt schedule in plaats van naar een regel zonder schedule.
 
-- `tmc.memberships` (live) has **no access/after-hours field of any kind**. Entitlement-relevant fields today: `plan_type`, `plan_variant`, `frequency_cap`, `covered_pillars[]`, `status`, validity dates, plus `membership_pauses` as a separate table. Plans live in `membership_plan_catalogue` (`plan_variant` unique, `is_active`).
-- `tmc.events` is the audit foundation: append-only (DB-level trigger blocks UPDATE/DELETE), free-text `type` guarded only by the TS union in `src/lib/events/emit.ts`, FK-less nullable `actor_id`/`subject_id`, jsonb payload with a no-PII convention, writes via service-role only, `emitEvent()` never throws. `auth.otp_failed` (2026-07-03) is the freshest precedent for adding a new event family without a migration.
-- The push-notification integration is the reference native-bridge pattern: client component gated on `Capacitor.isNativePlatform()` → plugin → server action persisting per-device state; server lib is no-op until its env secret exists (`isPushConfigured()` pattern); secrets never reach the client.
-- There is **zero** existing Akiles code, config or env in the repo. Only roadmap mentions in spec-member-app.md §4-8 and docs/spec-functional-design.md (M-41, I-08 — the latter notes the insurer must be consulted).
+### Sync en aanroeppunten
 
-### What Akiles actually offers (docs.akiles.app, 2026-07-03)
+- `syncMembershipAccess(profileId)` en `syncAllAccess()` in `src/lib/access/sync.ts`, een implementatie in `sync-core.ts` (getest met fakes in `scripts/access/`, `npm run test:access`).
+- Cron `/api/cron/sync-akiles-access`, `15 2 * * *` UTC (buiten het lidmaatschapsblok 03:00 tot 04:55). Elke gefaalde run en elk gefaald profiel gaat naar ntfy; dit alarm bewaakt het rollende venster.
+- Direct: in de Mollie-webhook na `order.activated` (nieuw lid wacht niet tot de nacht) en in `deleteMember` voor de hard-delete (daarna wist de FK-cascade de Akiles-ids).
+- Intrekken: `member.ends_at` in het verleden en de PIN verwijderd; `akiles_member_id` en de magic link blijven als spoor. Bij heraanmelding krijgt dezelfde member een nieuwe PIN.
+- Per profiel foutgeisoleerd; fouten landen in `last_error`. Elk id dat Akiles teruggeeft wordt meteen weggeschreven, zodat een latere fout in dezelfde run geen wees achterlaat.
+- Events (`src/lib/events/emit.ts`): `access.granted`, `access.revoked` (bij een overgang, na de geslaagde Akiles-mutatie), `access.lockdown_enabled`, `access.lockdown_disabled`.
 
-- **Mobile SDK**: session-based. Server creates a member, then a **member token** (`POST /members/{member_id}/tokens`, scoped to that member only); app calls `addSession(token)`, `refreshSession()`, `action()` (unlock), `getGadgets()`. Unlock channels: internet + Bluetooth attempted in parallel (fastest wins), NFC via Host Card Emulation. iOS requires an explicit `startCardEmulation()` call; Android HCE works system-wide automatically. Org-level API credentials must never ship in the app.
-- **Server API**: `api.akiles.app/v2`, OAuth2 (client_id/secret from the Developer Center, access token 1h + refresh token, scopes `full_read_write`/`full_read_only`/`offline`).
-- **Permission model**: member → member_group_associations → member groups → permission rules. Rules target org/site/gadget/action and carry restrictions: **schedule** (e.g. Mon-Fri 9:00-18:00), GPS presence, per-method (online/BLE/NFC/pin/card). OR-logic across rules, AND within a rule's restrictions.
-- **Association-level validity windows** exist (a member's group membership can itself have a start/end). **Context, not a decision:** this makes "access only around a booked class" implementable with Akiles-native mechanics (create/expire a short-lived association per booking) instead of a custom scheduler. It lowers the cost of the per-booking model that spec-member-app.md §4 assumed was the complex option.
-- **Webhooks** (Akiles → us): URL + mandatory `object.type` filter + secret, HMAC-SHA256 signature in `X-Akiles-Sig-Sha256`, retries with backoff up to 1h; polling fallback. For us → Akiles there is no push mechanism; the planned membership-status sync simply calls their REST API (fits the existing `emitEvent()`-driven pattern: status change happens → sync layer reacts).
+### Noodrem
 
----
+`setAccessLockdown(enabled)` (`src/lib/access/lockdown-actions.ts`, admin-only) zet `access_config.lockdown` en laat beide ledengroepen direct naar het gesloten schedule wijzen, of terug. Staf houdt toegang. De nachtelijke sync leest dezelfde vlag en draait de noodrem dus niet stilletjes terug. Schakelaar met bevestigingsstap in `/app/admin/instellingen`.
 
-## Proposed entitlement data model (PROPOSAL ONLY — not committed)
+### Onthullen (PR 2 gebruikt dit)
 
-The minimal shape that supports both candidate policies (flat after-hours flag vs per-booking windows), kept deliberately open on the plan-vs-member granularity question below:
-
-1. **Entitlement source**: either
-   - (a) a column on `membership_plan_catalogue` (e.g. `door_access_level text` — values like `none | opening_hours | after_hours`), inherited by every membership on that plan, **or**
-   - (b) the same column on `memberships` (set from the plan at signup, overridable per member), **or**
-   - (c) both: plan-level default + nullable member-level override.
-   Which of these is correct is an open question (see below), not a default.
-2. **Link table** `tmc.akiles_members`: `profile_id uuid` ↔ `akiles_member_id text`, plus `member_group_ids`, `synced_at`, `sync_status`. Updated exclusively by the sync layer, never by client code.
-3. **Tier-to-schedule mapping**: one Akiles member group per access level, each group carrying a permission rule with the matching `schedule` (e.g. group "members-opening-hours" vs "members-24-7"). The mapping table (access level → Akiles group id) lives in config/DB, not hardcoded.
-4. **Sync layer**: server-side (Next.js server action or Supabase Edge Function — open), reacting to the same lifecycle moments that already emit events (`membership.activated`, `membership.cancelled`, `membership.payment_failed`, pause granted/ended). OAuth client credentials server-side only, `isAkilesConfigured()` no-op pattern until env exists.
-5. **Audit trail**: new `tmc.events` family following the existing conventions (`access.granted`, `access.revoked`, `access.unlock_succeeded`, `access.unlock_failed`, `access.sync_failed` — exact set open). Actor = member profile where known, payload without PII per the emit.ts convention. Whether unlock events can be sourced reliably depends on Akiles support question (b).
-
----
-
-## Open questions for the Fable policy session (NO recommendations here, by design)
-
-1. **Which tiers get after-hours access, and how granular?** Flat flag per plan, or finer-grained scheduling per tier (e.g. different hour windows per plan)? Related: is "per booked class only" (via association validity windows, see context) a policy option on the table for some or all tiers?
-2. **Plan-level vs member-level entitlement granularity.** Does entitlement live purely on `membership_plan_catalogue`, or must the model support member-level overrides (trainers, Marlon herself, temporary exceptions, comped access)? Deliberately left open — the data-model options (a/b/c) above map to this answer.
-3. **Revocation rules.** What happens to door access, and how fast, on: payment failure; voluntary pause; cancellation request; cancellation effective date; membership expiry? Immediate revoke vs grace period per case. Who is accountable if revocation fails or lags (sync error, Akiles outage) — and does the sync layer need a reconciliation sweep (periodic full compare) on top of event-driven updates?
-4. **Liability and insurance for unsupervised after-hours access.** A member alone in the building at 23:00 who gets injured: what does the insurer require (camera coverage, emergency button, max occupancy, age limits, waiver)? The insurer-consultation note in spec-functional-design I-08 must be answered *before* launch, not after. This is a Marlon/insurer question that code cannot solve; the session should decide what the app must enforce (e.g. block under-18 after hours) once the insurer's answer is known.
-5. **Audit logging requirements for door access.** Retention period for `access.*` events (AVG: location-ish data of identifiable members); what must be immutable (current events table is already append-only at DB level — is that sufficient?); do *failed* unlock attempts need the same treatment as `auth.otp_failed` (pattern exists) — and can we even get them from Akiles (support question (b))? Do we log our own app-side unlock attempts regardless of what Akiles delivers?
-6. **Apple App Review 4.7.2 risk, revisited with real SDK facts.** The shell loads a remote `server.url`; guideline 4.7.2 restricts apps whose core value lives in web content. Discovery confirms the Akiles integration adds genuinely native BLE/NFC capability (SDK sessions, HCE card emulation with an explicit iOS `startCardEmulation()` call) — that strengthens the "real native functionality" argument but also increases review scrutiny on the hybrid architecture. Decide: accept the current server-mode shell and argue native value at review time, or plan a partial local-UI fallback for the door screen. Input needed from the Capacitor/Cordova spike before this can be decided properly.
-7. **Sync architecture placement.** Next.js server action vs Supabase Edge Function for the Akiles OAuth proxy + sync (the OTP work established the server-action pattern; an Edge Function decouples from Vercel deploys). Also: where do Akiles webhook receipts land (`/api/akiles/webhook` route following the Mollie webhook pattern?). Technical, but policy-adjacent because it determines the failure modes in question 3.
+`revealAccessPin(profileId)` en `revealMagicLink(profileId)` in `src/lib/access/reveal.ts`: server-only, halen de waarde on demand bij Akiles op en persisteren of loggen die nooit. Autorisatie ligt bij de aanroeper (PR 2 geeft alleen `auth.uid()` door).
 
 ---
 
-## Explicitly out of scope for this spec
+## Nog open
 
-- The cancellation lifecycle fix (own ticket, prerequisite — see top).
-- Kiosk/staff interfaces, Sonos/lighting, TMM/Movement Profile.
-- Any schema change, Edge Function, Capacitor build change or Akiles account setup in the drafting phase. All of that waits for "decided" status plus the spike outcome.
+1. **Akiles-site en gadget.** De permission rules matchen nu alle gadgets in de organisatie. Zodra er meerdere sites of deuren zijn, moeten `site_id` of `gadget_id` op de regel (`permissionRuleFor` in `sync-core.ts`).
+2. **Verzekering en aansprakelijkheid** voor onbegeleide verlengde toegang (I-08 in docs/spec-functional-design.md): Marlon en verzekeraar, voor livegang.
+3. **Akiles-webhooks en unlock-events** richting `check_ins`: buiten scope van PR 1 en PR 2.
+4. **Uitzonderingsdata** (feestdagen) sluiten de deur niet; als dat gewenst is, is de noodrem het handmatige alternatief.
+
+---
+
+## Historie: discovery van 2026-07-03 (achterhaald op de SDK- en OAuth-punten)
+
+De oorspronkelijke draft ging uit van de Akiles Mobile SDK (member tokens, BLE/NFC, HCE, een Capacitor/Cordova-spike) en van OAuth2 client credentials. Beide zijn vervallen met het besluit van 2026-09-08. Wat uit die discovery nog geldt: `tmc.events` als audit-fundament (append-only, `emitEvent()` throwt nooit), het `isXConfigured()`-no-op-patroon, en het permission-model van Akiles (member, groepen, regels met schedule). De destijds blokkerende voorwaarde (lid-opzegging die via RLS stil op 0 rijen liep) is inmiddels opgelost: `request_membership_cancellation` is SECURITY DEFINER en `process-cancellations` sluit opzeggingen af.
 
 ---
 
@@ -83,3 +77,5 @@ The minimal shape that supports both candidate policies (flat after-hours flag v
 Regel: elke PR die gedrag, schema of data raakt dat voor de deurtoegang relevant is, voegt hier in dezelfde PR een regel toe. Identificatie op PR-nummer.
 
 - **PR #168, 2026-09-07, verlengde-toegang-toestanden en filter in de ledenlijst** (branch `feat/leden-verlengde-toegang`). Handmatige overbrugging tot de Akiles-sync bestaat: Marlon kan in `/app/admin/leden` per lid zien of verlengde toegang inbegrepen is, een betaalde add-on is, mogelijk maar niet afgenomen is, of niet van toepassing is, plus een filter op leden met verlengde toegang. De bron voor "bestaat verlengde toegang voor dit plan" is `tmc.catalogue.extended_access_mode` (`included` / `addon` / `na`, `NULL` op productrijen) opgezocht via `plan_variant` van de primaire membership; de rechten-laag blijft `memberships.extended_access`. Bewust niet aangeraakt: geen schema, geen RPC, geen Akiles-code, geen wijziging aan `deleteMember` of aan de statuslogica. Twee bevindingen uit de voorafgaande discovery, hier vastgelegd zodat de sync-laag ze niet opnieuw hoeft te vinden: (1) `deleteMember` in `src/lib/admin/member-actions.ts` regel 822 doet een rechtstreekse `.update()` op `memberships` buiten de RPC-laag om; een toekomstige toegangsintrekking die aan het opzeg-RPC (`admin_cancel_membership` / `request_membership_cancellation`) wordt gehangen, vuurt daar niet. (2) `memberships.status = 'expired'` wordt nergens weggeschreven, niet in TypeScript en niet in een RPC (live geverifieerd via `pg_get_functiondef`); elke beëindiging loopt via `cancelled`, en het bereiken van `commit_end_date` of `end_date` triggert op zichzelf geen enkele statusovergang.
+
+- **PR #TBD, 2026-09-08, Akiles toegangskoppeling backend (PR 1 van 2)** (branch `feat/akiles-access-backend`, merge-hash volgt). Migratie `20260908000000_akiles_access.sql`: `tmc.access_credentials` en `tmc.access_config` (service-role only, geen policies, `access_config` geseed met vaste uuid). Nieuw: `src/lib/akiles.ts` (bearer-client, no-op zonder `AKILES_API_KEY`), `src/lib/access/` (constanten, schedule-generatie, gewenste toestand, sync-kern, wiring, reveal, noodrem-action), cron `/api/cron/sync-akiles-access` om 02:15 UTC met ntfy-alarm, directe sync na `order.activated` en voor `deleteMember`, vier `access.*`-events, noodrem-schakelaar in `/app/admin/instellingen`, en `npm run test:access` (node:test met fakes: weekdag-mapping, tijd-naar-seconden met de live openingstijden, no-op zonder key zonder DB-writes, idempotentie over twee runs, intrekken, foutisolatie, noodrem). Bewust niet aangeraakt: het ledenscherm Toegang en de Wallet-pas (PR 2), `@capacitor/browser` en de vier Mollie-call-sites, Akiles-webhooks, en het losstaande `MOLLIE_API_KEY_LIVE`-versus-`MOLLIE_API_KEY`-probleem in `src/lib/mollie.ts`. Geen `db push`; de migratie wacht op merge.

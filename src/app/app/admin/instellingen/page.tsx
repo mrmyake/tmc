@@ -2,6 +2,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./_components/SettingsForm";
 import { CheckinPinForm } from "./_components/CheckinPinForm";
 import { OpeningHoursForm } from "./_components/OpeningHoursForm";
+import { AccessLockdownToggle } from "./_components/AccessLockdownToggle";
+import { ACCESS_CONFIG_ID } from "@/lib/access/constants";
+import { isAkilesConfigured } from "@/lib/akiles";
 import {
   OpeningHoursExceptionsPanel,
   type OpeningHoursExceptionRow,
@@ -19,7 +22,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   const admin = createAdminClient();
-  const [{ data: row }, { data: hoursData }, { data: exceptionsData }] =
+  const [
+    { data: row },
+    { data: hoursData },
+    { data: exceptionsData },
+    { data: accessConfig },
+  ] =
     await Promise.all([
       admin
         .from("booking_settings")
@@ -42,6 +50,11 @@ export default async function AdminSettingsPage() {
         .select("id, date, is_closed, opens_at, closes_at, note")
         .gte("date", toIsoDate(new Date()))
         .order("date", { ascending: true }),
+      admin
+        .from("access_config")
+        .select("lockdown")
+        .eq("id", ACCESS_CONFIG_ID)
+        .maybeSingle(),
     ]);
 
   const openingHoursRows: OpeningHoursRowInput[] = (hoursData ?? []).map(
@@ -115,6 +128,13 @@ export default async function AdminSettingsPage() {
 
       <div className="mt-16">
         <CheckinPinForm isSet={Boolean(row.admin_checkin_pin_hash)} />
+      </div>
+
+      <div className="mt-16">
+        <AccessLockdownToggle
+          lockdown={Boolean(accessConfig?.lockdown)}
+          akilesConfigured={isAkilesConfigured()}
+        />
       </div>
 
       <div className="mt-16 max-w-2xl">
