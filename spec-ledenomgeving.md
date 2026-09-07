@@ -134,9 +134,10 @@ ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
 - **Sociale zichtbaarheid** ("wie komt er") — opt-in, default off, contextueel gepresenteerd.
 
 ### 1.6 Toegang (fysiek)
-- **Verlengde toegang 06:00-23:00** — via Akiles. Entitlement bij All Access Onbeperkt (gratis) of
-  €10 add-on. KRITISCH: de app-weergave en de Akiles-group moeten dezelfde bron delen, anders
-  belooft de app toegang die de deur niet geeft.
+- **Verlengde toegang 06:00-23:00** — via Akiles. Entitlement inbegrepen bij elk All Access-abonnement
+  (sinds PR #164, migratie `20260907120000`: `extended_access_mode = 'included'` op alle drie de tiers)
+  of €10 add-on op Vrij Trainen. KRITISCH: de app-weergave en de Akiles-group moeten dezelfde bron
+  delen, anders belooft de app toegang die de deur niet geeft.
 
 ### 1.7 Bekend, maar bewust NIET nu (scope-bewaking)
 - **Notificatie-voorkeuren** — zodra push live gaat (milestones, reminders, waitlist) wil een lid
