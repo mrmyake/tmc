@@ -81,3 +81,21 @@ Config applied via Management API: `rate_limit_email_sent` 2 to 30 per hour (the
 Smoke test results: existing-member login end-to-end in browser (role redirect to admin cockpit verified), wrong code shows inline error and allows retry, resend blocked server-side within 60s (HTTP 429) with visible UI countdown, failed verify writes `auth.otp_failed` to `tmc.events` with the real profile as actor, auth logs show the member's real IP on server-side verify calls (IP forwarding confirmed working), new-user signup path verified (user created, code verified, session issued; test user cleaned up afterwards). Capacitor in-app flow verified on iOS Simulator after the production deploy: cold start lands on /login inside the app, code email delivered, login completes in-app.
 
 **Open operational blocker (outside this PR):** the MailerSend account is on a trial plan and rejects new unique recipients ("trial account unique recipients limit"). Any genuinely new member will not receive the signup email (this also applied to the old magic-link flow). Upgrade MailerSend before member-facing launch.
+
+---
+
+## Locked constraint: member email templates stay code-only
+
+**De templates `magic_link` en `confirmation` moeten `{{ .Token }}` blijven renderen en mogen geen `{{ .ConfirmationURL }}` bevatten.** Dit is niet alleen een UX-keuze uit de OTP-migratie, het is inmiddels een harde afhankelijkheid.
+
+**Waarom.** `recordAcquisitionOnLogin()` (`src/lib/acquisition.ts`, aangeroepen in `verifyLoginOtp`) vult de `acquisition_*`-velden op `tmc.profiles` met UTM's die de client uit **`sessionStorage`** leest. `sessionStorage` is per tabblad. Een overgetypte code houdt de gebruiker in hetzelfde tabblad en die opslag blijft intact. Een klikbare link opent een vers tabblad, vanuit de mailclient, waar `sessionStorage` leeg is. De attributie is dan stil weg: geen foutmelding, geen mislukte login, alleen een profiel zonder herkomst.
+
+**Waarom dit extra oplettendheid vraagt.** Deze templates zijn **live config in het Supabase-dashboard** en staan niet in version control. Een wijziging daar passeert geen PR, geen review, geen build en geen test. Er is dus geen enkel automatisch signaal dat de attributie gebroken is; het valt pas op als iemand weken later in de rapportage ziet dat de campagnebron ontbreekt.
+
+Concreet:
+
+- Wijzig deze twee templates niet naar een link-variant, ook niet "tijdelijk" om iets te debuggen.
+- Gaat de flow ooit toch terug naar een link, dan moet de opslagvorm eerst herzien worden (bijvoorbeeld `localStorage` of een cookie in plaats van `sessionStorage`), en pas daarna de template.
+- De templates `invite`, `recovery` en `email_change` bevatten wél `{{ .ConfirmationURL }}` en dat is correct. Die dienen trainer-invites, wachtwoordherstel en e-mailwijziging: staf- en beheerpaden zonder acquisitie-UTM's.
+
+Te controleren met de Management API, endpoint `GET /v1/projects/<ref>/config/auth`, velden `mailer_templates_magic_link_content` en `mailer_templates_confirmation_content`.

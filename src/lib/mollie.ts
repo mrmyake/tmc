@@ -3,18 +3,38 @@ import createMollieClient, {
   type MollieClient,
 } from "@mollie/api-client";
 
-let cached: MollieClient | null = null;
+/**
+ * Test/live-scheiding (spec-facturatie.md 6.5/6.6). Twee env-vars, twee
+ * clients in een Map op modus; de oude module-level cache maakte twee modi
+ * in een proces onmogelijk (de eerste aanroep won). Geen fallback van
+ * MOLLIE_API_KEY_LIVE naar het oude MOLLIE_API_KEY: een stille fallback op
+ * een key waarvan niemand meer weet of hij test of live is, is precies het
+ * probleem dat dit oplost. Ontbreekt de key voor een modus, dan geeft
+ * getMollieClient null en weigeren de betaalpaden netjes.
+ */
+export type MollieMode = "live" | "test";
 
-export function getMollieClient(): MollieClient | null {
-  if (cached) return cached;
-  const apiKey = process.env.MOLLIE_API_KEY;
+const clients = new Map<MollieMode, MollieClient>();
+
+export function getMollieClient(mode: MollieMode): MollieClient | null {
+  const existing = clients.get(mode);
+  if (existing) return existing;
+  const apiKey =
+    mode === "test"
+      ? process.env.MOLLIE_API_KEY_TEST
+      : process.env.MOLLIE_API_KEY_LIVE;
   if (!apiKey) return null;
-  cached = createMollieClient({ apiKey });
-  return cached;
+  const client = createMollieClient({ apiKey });
+  clients.set(mode, client);
+  return client;
 }
 
-export function isMollieConfigured(): boolean {
-  return Boolean(process.env.MOLLIE_API_KEY);
+export function isMollieConfigured(mode: MollieMode): boolean {
+  return Boolean(
+    mode === "test"
+      ? process.env.MOLLIE_API_KEY_TEST
+      : process.env.MOLLIE_API_KEY_LIVE,
+  );
 }
 
 /**
@@ -25,10 +45,11 @@ export function isMollieConfigured(): boolean {
  * te herproberen. Throwt nooit.
  */
 export async function cancelMollieSubscription(
+  mode: MollieMode,
   customerId: string | null,
   subscriptionId: string | null,
 ): Promise<boolean> {
-  const mollie = getMollieClient();
+  const mollie = getMollieClient(mode);
   if (!mollie || !customerId || !subscriptionId) return false;
   try {
     const sub = await mollie.customerSubscriptions.get(subscriptionId, {
@@ -58,10 +79,11 @@ export interface MollieSubscriptionInfo {
  * plaats van op een gok te pauzeren. Throwt nooit.
  */
 export async function getMollieSubscriptionInfo(
+  mode: MollieMode,
   customerId: string | null,
   subscriptionId: string | null,
 ): Promise<MollieSubscriptionInfo | null> {
-  const mollie = getMollieClient();
+  const mollie = getMollieClient(mode);
   if (!mollie || !customerId || !subscriptionId) return null;
   try {
     const sub = await mollie.customerSubscriptions.get(subscriptionId, {
@@ -82,9 +104,10 @@ export async function getMollieSubscriptionInfo(
  * nooit doorzetten. Throwt nooit.
  */
 export async function hasValidMollieMandate(
+  mode: MollieMode,
   customerId: string | null,
 ): Promise<boolean | null> {
-  const mollie = getMollieClient();
+  const mollie = getMollieClient(mode);
   if (!mollie || !customerId) return null;
   try {
     const page = await mollie.customerMandates.page({ customerId });
@@ -103,11 +126,12 @@ export async function hasValidMollieMandate(
  * het verzoek kan terugdraaien. Throwt nooit.
  */
 export async function updateMollieSubscriptionAmount(
+  mode: MollieMode,
   customerId: string | null,
   subscriptionId: string | null,
   amountCents: number,
 ): Promise<boolean> {
-  const mollie = getMollieClient();
+  const mollie = getMollieClient(mode);
   if (!mollie || !customerId || !subscriptionId) return false;
   try {
     await mollie.customerSubscriptions.update(subscriptionId, {
@@ -132,6 +156,8 @@ export interface CreateRecurringSubscriptionParams {
   description: string;
   membershipId: string;
   idempotencyKey: string;
+  /** Moet de modus dragen: bouw hem met mollieWebhookUrl(mode), anders
+   * komen recurring-incasso's van een testabonnement op de live-route. */
   webhookUrl: string;
 }
 
@@ -143,9 +169,10 @@ export interface CreateRecurringSubscriptionParams {
  * een fout; de caller mag dan niets lokaal muteren. Throwt nooit.
  */
 export async function createMollieRecurringSubscription(
+  mode: MollieMode,
   params: CreateRecurringSubscriptionParams,
 ): Promise<{ id: string } | null> {
-  const mollie = getMollieClient();
+  const mollie = getMollieClient(mode);
   if (!mollie) return null;
   try {
     const sub = await mollie.customerSubscriptions.create({

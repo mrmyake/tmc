@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
-import {
-  getCampaignWindow,
-  getCampaignPhase,
-  type CampaignPhase,
-} from "@/lib/campaign";
+import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
+import { getCancellationNoticeDays } from "@/lib/cancellation-notice";
 import { createClient } from "@/lib/supabase/server";
 import { AbonnementConfigurator } from "./AbonnementConfigurator";
 import { FAMILIES, FREQUENCIES, planSlug } from "./lib";
@@ -17,10 +14,8 @@ export const metadata: Metadata = {
 };
 
 interface AbonnementPageProps {
-  searchParams: Promise<{ devPhase?: string }>;
+  searchParams: Promise<{ devEm?: string }>;
 }
-
-const DEV_PHASES: CampaignPhase[] = ["pre-open", "open-em", "closed"];
 
 // Geen eigen revalidate nodig: de root layout zet al revalidate = 60
 // site-breed, en de catalogus-fetch zelf is los getagd + 1u gecached
@@ -35,7 +30,7 @@ export default async function AbonnementPage({
     },
     catalogue,
     campaignWindow,
-    { devPhase },
+    { devEm },
   ] = await Promise.all([
     supabase.auth.getUser(),
     getCatalogue(),
@@ -43,24 +38,21 @@ export default async function AbonnementPage({
     searchParams,
   ]);
 
-  // Render-only devPhase-override voor het handmatig verifiëren van de drie
-  // campagnefases (?devPhase=pre-open|open-em|closed). Nooit een productie-
-  // pad: NODE_ENV is "production" op elke Vercel-build, preview zowel als
-  // productie, dus deze tak is dood zodra dit gedeployed is — alleen `next
-  // dev` lokaal kan hem raken. campaign.ts en de echte fase-logica blijven
-  // ongemoeid; dit overschrijft alleen de emActive-prop die naar de
-  // configurator gaat. Sinds migratie 20260813 heeft de server zijn eigen
-  // ondergrens op de openingsdatum (opens_at in _compute_order_price), dus
-  // een geforceerde open-em kan hooguit een weigering van create_order
-  // opleveren, nooit een te vroege EM-order.
-  const realPhase = getCampaignPhase(campaignWindow);
-  const effectivePhase: CampaignPhase =
-    process.env.NODE_ENV !== "production" &&
-    DEV_PHASES.includes(devPhase as CampaignPhase)
-      ? (devPhase as CampaignPhase)
-      : realPhase;
-
-  const emActive = effectivePhase === "open-em";
+  // Render-only devEm-override voor het handmatig verifiëren van de EM-actie
+  // (?devEm=true|false). Nooit een productie-pad: NODE_ENV is "production"
+  // op elke Vercel-build, preview zowel als productie, dus deze tak is dood
+  // zodra dit gedeployed is — alleen `next dev` lokaal kan hem raken.
+  // campaign.ts en de echte gate blijven ongemoeid; dit overschrijft alleen
+  // de emActive-prop die naar de configurator gaat. _compute_order_price
+  // heeft sinds fix/campagne-fasering geen ondergrens meer, dus een
+  // geforceerde devEm=true kan hooguit betekenen dat create_order de
+  // reguliere prijs teruggeeft als closes_at intussen al is verstreken,
+  // nooit een te vroege EM-order.
+  const realEmActive = isEarlyMemberActive(campaignWindow);
+  const emActive =
+    process.env.NODE_ENV !== "production" && (devEm === "true" || devEm === "false")
+      ? devEm === "true"
+      : realEmActive;
 
   const plans: Record<string, CatalogueRow> = {};
   for (const family of FAMILIES) {
@@ -73,6 +65,9 @@ export default async function AbonnementPage({
 
   const extendedAccessAddon = catalogue.get("extended_access") ?? null;
   const signupFee = catalogue.get("signup_fee") ?? null;
+  // Opzegtermijn uit dezelfde bron als request_membership_cancellation, voor
+  // de bevestigingsstap (PayStage).
+  const cancellationNoticeDays = await getCancellationNoticeDays();
 
   return (
     <AbonnementConfigurator
@@ -81,6 +76,7 @@ export default async function AbonnementPage({
       signupFee={signupFee}
       emActive={emActive}
       loggedIn={Boolean(user)}
+      cancellationNoticeDays={cancellationNoticeDays}
     />
   );
 }

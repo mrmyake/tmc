@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { getCatalogue } from "@/lib/catalogue";
+import { SITE } from "@/lib/constants";
 import { MandateStatusCard } from "./_components/MandateStatusCard";
 import { PaymentRow } from "./_components/PaymentRow";
 import type { PaymentStatus } from "./_components/PaymentStatusBadge";
@@ -60,20 +62,27 @@ export default async function FacturenPage(props: {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Testrijen dubbel gefilterd (spec 6.8): het .eq("is_test", false) hier
+  // is de expliciete laag naast de RLS-policy (invoices_self_read etc.
+  // filtert al op is_test, maar payments zelf heeft geen is_test-policy --
+  // de RLS op payments scopet alleen op profile_id). Zonder dit filter zou
+  // een testbetaling van dit lid gewoon meegeteld en getoond worden.
   const [paymentsResult, paymentsCountResult, activeMembershipResult] =
     await Promise.all([
       supabase
         .from("payments")
         .select(
-          "id, paid_at, created_at, amount_cents, status, description, method, mollie_payment_id",
+          "id, paid_at, created_at, amount_cents, status, description, method, mollie_payment_id, order_id, membership_id, refunded_amount_cents",
         )
         .eq("profile_id", user.id)
+        .eq("is_test", false)
         .order("created_at", { ascending: false })
         .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
       supabase
         .from("payments")
         .select("id", { count: "exact", head: true })
-        .eq("profile_id", user.id),
+        .eq("profile_id", user.id)
+        .eq("is_test", false),
       supabase
         .from("memberships")
         .select(
@@ -116,16 +125,87 @@ export default async function FacturenPage(props: {
       )
     : null;
 
-  const rows = (paymentsResult.data ?? []).map((p) => ({
-    id: p.id,
-    paidAt: p.paid_at,
-    createdAt: p.created_at,
-    amountCents: p.amount_cents,
-    status: p.status as PaymentStatus,
-    description: p.description,
-    method: p.method,
-    mollieId: p.mollie_payment_id,
-  }));
+  const payments = paymentsResult.data ?? [];
+
+  // Verrijking, zelfde truc als /app/producten (regel 96-128 daar: slug ->
+  // catalogue.get(slug)?.display_name), maar de KIND-beperking daar
+  // (product-only) gaat hier bewust niet mee: /app/facturen toont alles.
+  // Ook de zoekrichting is omgekeerd -- we starten bij de payments van
+  // deze pagina en zoeken terug naar hun order of membership, in plaats
+  // van andersom.
+  const orderIds = Array.from(
+    new Set(payments.map((p) => p.order_id).filter((id): id is string => !!id)),
+  );
+  const membershipIds = Array.from(
+    new Set(
+      payments.map((p) => p.membership_id).filter((id): id is string => !!id),
+    ),
+  );
+  const paymentIds = payments.map((p) => p.id);
+
+  const [ordersResult, membershipsResult, invoicesResult] = await Promise.all([
+    orderIds.length
+      ? supabase.from("orders").select("id, catalogue_slug").in("id", orderIds)
+      : Promise.resolve({ data: [], error: null }),
+    membershipIds.length
+      ? supabase
+          .from("memberships")
+          .select("id, plan_variant")
+          .in("id", membershipIds)
+      : Promise.resolve({ data: [], error: null }),
+    // Downloadkolom (8.2): alleen gefinaliseerde, niet-test facturen op de
+    // huidige pagina, dus maximaal vijftig ids.
+    paymentIds.length
+      ? supabase
+          .from("invoices")
+          .select("id, invoice_number, payment_id")
+          .eq("profile_id", user.id)
+          .eq("status", "finalised")
+          .eq("is_test", false)
+          .in("payment_id", paymentIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  logIfError("orders for description", ordersResult.error);
+  logIfError("memberships for description", membershipsResult.error);
+  logIfError("invoices for download", invoicesResult.error);
+
+  const slugByOrderId = new Map(
+    (ordersResult.data ?? []).map((o) => [o.id, o.catalogue_slug]),
+  );
+  const slugByMembershipId = new Map(
+    (membershipsResult.data ?? []).map((m) => [m.id, m.plan_variant]),
+  );
+  const invoiceIdByPaymentId = new Map(
+    (invoicesResult.data ?? [])
+      .filter((i) => i.payment_id)
+      .map((i) => [i.payment_id as string, i.id]),
+  );
+
+  const catalogue = await getCatalogue();
+
+  const rows = payments.map((p) => {
+    const slug = p.order_id
+      ? slugByOrderId.get(p.order_id)
+      : p.membership_id
+        ? slugByMembershipId.get(p.membership_id)
+        : undefined;
+    const description = slug
+      ? (catalogue.get(slug)?.display_name ?? p.description)
+      : p.description;
+    return {
+      id: p.id,
+      paidAt: p.paid_at,
+      createdAt: p.created_at,
+      amountCents: p.amount_cents,
+      status: p.status as PaymentStatus,
+      description,
+      method: p.method,
+      mollieId: p.mollie_payment_id,
+      refundedAmountCents: p.refunded_amount_cents,
+      invoiceId: invoiceIdByPaymentId.get(p.id) ?? null,
+    };
+  });
 
   const total = paymentsCountResult.count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -205,10 +285,18 @@ export default async function FacturenPage(props: {
         </>
       )}
 
+      {/* COPY: confirm met Marlon */}
       <p className="mt-14 text-text-muted text-xs leading-relaxed max-w-prose">
-        PDF-facturen komen binnenkort. Heb je nu al een factuur nodig voor je
-        administratie? Mail Marlon met het betalingsnummer, we sturen &rsquo;m je
-        toe.
+        Niet elke betaling krijgt een factuur: voor particulieren is dat niet
+        nodig. Heb je er toch een nodig voor je administratie, bijvoorbeeld
+        omdat je zakelijk traint? Vraag het aan en we maken hem voor je.{" "}
+        <a
+          href={`mailto:${SITE.email}?subject=Factuur%20aanvragen`}
+          className="text-accent hover:text-text transition-colors duration-300"
+        >
+          Vraag een factuur aan
+        </a>
+        .
       </p>
     </Container>
   );

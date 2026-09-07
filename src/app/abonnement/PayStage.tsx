@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
-import { trackPaymentStart } from "@/lib/analytics";
+import { trackCheckoutRejected, trackPaymentStart } from "@/lib/analytics";
+import { readGaIds } from "@/lib/ga-ids";
 import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "./lib";
+import { formatNoticePeriod } from "@/lib/cancellation-notice";
 
 interface Props {
   plan: CatalogueRow;
@@ -14,6 +16,8 @@ interface Props {
   extendedAccessAddon: CatalogueRow | null;
   signupFee: CatalogueRow | null;
   emActive: boolean;
+  /** Uit getCancellationNoticeDays(): dezelfde bron als request_membership_cancellation. */
+  cancellationNoticeDays: number;
   onBack: () => void;
 }
 
@@ -23,6 +27,7 @@ export function PayStage({
   extendedAccessAddon,
   signupFee,
   emActive,
+  cancellationNoticeDays,
   onBack,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
@@ -45,14 +50,25 @@ export function PayStage({
   function handlePay() {
     setError(null);
     startTransition(async () => {
+      // Conversiebrug (spec-analytics.md): GA4 client/session-id van deze
+      // sessie meesturen zodat de Mollie-webhook het purchase-event
+      // server-side aan de juiste sessie kan hangen. Best-effort met harde
+      // timeout — bij consent denied of niet-geladen gtag zijn beide
+      // undefined en gaat de checkout gewoon door.
+      const gaIds = await readGaIds();
       const res = await createOrderAndCheckout({
         slug: plan.slug,
         extendedAccess: selection.extendedAccess,
         commit24m: selection.commit24m,
         earlyMember: breakdown.emOpen,
+        gaClientId: gaIds.clientId,
+        gaSessionId: gaIds.sessionId,
       });
       if (!res.ok) {
         setError(res.error);
+        // Tegenhanger van begin_checkout: zonder dit event is een server-side
+        // weigering in GA4 niet te onderscheiden van vrijwillig afhaken.
+        trackCheckoutRejected({ itemId: plan.slug, reason: res.reason });
         return;
       }
       trackPaymentStart({
@@ -78,8 +94,9 @@ export function PayStage({
       {/* COPY: confirm met Marlon */}
       <p className="text-text-muted mb-8 max-w-xl">
         Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische
-        SEPA-incasso elke 4 weken. Opzegtermijn: 4 weken, in acht genomen na
-        je commitment-periode.
+        SEPA-incasso elke 4 weken. Opzegtermijn:{" "}
+        {formatNoticePeriod(cancellationNoticeDays)}, in acht genomen na je
+        commitment-periode.
       </p>
 
       <div className="border border-bg-subtle bg-bg-elevated p-6 mb-8">

@@ -5,6 +5,12 @@
  * wegwerp-artefact, opnieuw te bouwen met `npm run build:review-workbook`.
  * Doelplatform is Google Sheets: geen beveiligde bereiken, geen notities,
  * geen macro's, geen exotische formules.
+ *
+ * Eén tabblad per rol (Klant, Trainer, Admin). De opmaaklaag is bewust
+ * minimaal: alleen een opgemaakte kopregel, bevroren rij 1, tekstterugloop,
+ * vaste kolombreedtes en twee dropdowns. Geen voorwaardelijke opmaak, geen
+ * blokkopregels, geen merges, geen berekende rijhoogte, omdat die laag in
+ * Google Sheets toch niet betrouwbaar overkomt en het bewerken hindert.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -115,21 +121,22 @@ interface Scenario {
   neveneffect: string;
 }
 
+/** K1 wordt K-1, T3 wordt T-3, enzovoort. Eén prefix per rol. */
 function normalizeId(rawId: string, context: string): string {
-  let m = rawId.match(/^A0\.(\d+)$/);
-  if (m) return `A0-${m[1]}`;
-  m = rawId.match(/^A(\d+)$/);
-  if (m) return `A-${m[1]}`;
-  m = rawId.match(/^B(\d+)$/);
-  if (m) return `B-${m[1]}`;
-  throw new Error(`Onbekend scenario-ID formaat "${rawId}" bij "${context}". Pas de md aan.`);
+  const m = rawId.match(/^([KTA])(\d+)$/);
+  if (!m) {
+    throw new Error(
+      `Onbekend scenario-ID formaat "${rawId}" bij "${context}". Verwacht K, T of A gevolgd door een nummer.`,
+    );
+  }
+  return `${m[1]}-${m[2]}`;
 }
 
 function parseScenario(node: HeadingNode): Scenario {
   const m = node.title.match(/^([A-Za-z0-9.]+):\s*(.+)$/);
   if (!m) {
     throw new Error(
-      `Kan scenario-heading niet parsen: "#### ${node.title}". Verwacht formaat "ID: Titel".`,
+      `Kan scenario-heading niet parsen: "### ${node.title}". Verwacht formaat "ID: Titel".`,
     );
   }
   const [, rawId, title] = m;
@@ -162,35 +169,49 @@ function paragraphsOf(node: HeadingNode): string[] {
     .map(stripMd);
 }
 
-function bulletsOf(node: HeadingNode): string[] {
-  return node.body
-    .filter((l) => /^-\s+/.test(l))
-    .map((l) => stripMd(l.replace(/^-\s+/, "")));
-}
+/**
+ * Body van een node als platte regels, in documentvolgorde: genummerde
+ * items, bullets, sub-bullets en losse alinea's door elkaar. Vervangt de
+ * eerdere aparte helpers die elk maar één vorm aankonden en die op de
+ * blokken C en D telkens net iets lieten vallen.
+ */
+function flowOf(node: HeadingNode): string[] {
+  const out: string[] = [];
+  let paragraph: string[] = [];
 
-interface PrepItem {
-  text: string;
-  subItems: string[];
-}
-
-function numberedWithSubBullets(node: HeadingNode): PrepItem[] {
-  const items: PrepItem[] = [];
-  for (const line of node.body) {
-    const top = line.match(/^\d+\.\s+(.*)$/);
-    const sub = line.match(/^\s{2,}-\s+(.*)$/);
-    if (top) {
-      items.push({ text: stripMd(top[1]), subItems: [] });
-    } else if (sub) {
-      if (items.length === 0) {
-        throw new Error(`Sub-bullet zonder bovenliggend genummerd item: "${line}".`);
-      }
-      items[items.length - 1].subItems.push(stripMd(sub[1]));
+  function flushParagraph() {
+    if (paragraph.length > 0) {
+      out.push(stripMd(paragraph.join(" ").trim()));
+      paragraph = [];
     }
   }
-  if (items.length === 0) {
-    throw new Error(`Geen genummerde items gevonden onder "${node.title}".`);
+
+  for (const line of node.body) {
+    const numbered = line.match(/^(\d+)\.\s+(.*)$/);
+    const subBullet = line.match(/^\s{2,}-\s+(.*)$/);
+    const bullet = line.match(/^-\s+(.*)$/);
+
+    if (numbered) {
+      flushParagraph();
+      out.push(`${numbered[1]}. ${stripMd(numbered[2])}`);
+    } else if (subBullet) {
+      flushParagraph();
+      out.push(`    - ${stripMd(subBullet[1])}`);
+    } else if (bullet) {
+      flushParagraph();
+      out.push(`- ${stripMd(bullet[1])}`);
+    } else if (line.trim().length === 0 || line.trim() === "---") {
+      flushParagraph();
+    } else {
+      paragraph.push(line.trim());
+    }
   }
-  return items;
+  flushParagraph();
+
+  if (out.length === 0) {
+    throw new Error(`Geen inhoud gevonden onder "${node.title}".`);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,13 +225,9 @@ const h1 = findChild(root, 1, /^Review met Marlon/);
 const introNode = findChild(h1, 2, /^Voor jij begint$/);
 const feedbackNode = findChild(introNode, 3, /^Hoe je feedback geeft$/);
 
-const sessie1Node = findChild(h1, 2, /^Sessie 1:/);
-const blokA0Node = findChild(sessie1Node, 3, /^Blok A0:/);
-const blokANode = findChild(sessie1Node, 3, /^Blok A:/);
-
-const sessie2Node = findChild(h1, 2, /^Sessie 2:/);
-const blokBNode = findChild(sessie2Node, 3, /^Blok B:/);
-
+const blokKNode = findChild(h1, 2, /^Blok K:/);
+const blokTNode = findChild(h1, 2, /^Blok T:/);
+const blokANode = findChild(h1, 2, /^Blok A:/);
 const blokCNode = findChild(h1, 2, /^Blok C:/);
 
 const blokDNode = findChild(h1, 2, /^Blok D:/);
@@ -218,9 +235,33 @@ const blokDTestdataNode = findChild(blokDNode, 3, /^Testdata vooraf klaarzetten$
 const blokDOpruimenNode = findChild(blokDNode, 3, /^Opruimen na afloop$/);
 const blokDNietZelfstandigNode = findChild(blokDNode, 3, /^Niet zelfstandig/);
 
-const scenariosA0 = parseScenarioBlock(blokA0Node);
+const scenariosK = parseScenarioBlock(blokKNode);
+const scenariosT = parseScenarioBlock(blokTNode);
 const scenariosA = parseScenarioBlock(blokANode);
-const scenariosB = parseScenarioBlock(blokBNode);
+
+interface RoleBlock {
+  /** Tabbladnaam. */
+  sheetName: string;
+  /** Prefix van de genormaliseerde scenario-ID's, voor de zelfcontrole. */
+  idPrefix: string;
+  node: HeadingNode;
+  scenarios: Scenario[];
+}
+
+const ROLE_BLOCKS: RoleBlock[] = [
+  { sheetName: "Klant", idPrefix: "K-", node: blokKNode, scenarios: scenariosK },
+  { sheetName: "Trainer", idPrefix: "T-", node: blokTNode, scenarios: scenariosT },
+  { sheetName: "Admin", idPrefix: "A-", node: blokANode, scenarios: scenariosA },
+];
+
+for (const block of ROLE_BLOCKS) {
+  const count = block.scenarios.length;
+  if (count < 6 || count > 8) {
+    throw new Error(
+      `Blok "${block.node.title}" heeft ${count} scenario's; afgesproken is zes tot acht per rol.`,
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Workbook opbouw
@@ -229,13 +270,6 @@ const scenariosB = parseScenarioBlock(blokBNode);
 const COLOR = {
   headerBg: "FF0E0C0B",
   headerText: "FFF4EFE6",
-  blockBg: "FFB9986A",
-  blockText: "FF000000",
-  answerBg: "FFFBF7EF",
-  doneRowBg: "FFE0E0E0",
-  safeGreen: "FFD9EAD3",
-  reversibleAmber: "FFFCE8B2",
-  irreversibleRed: "FFF4C7C3",
 };
 
 const FONT_NAME = "Calibri";
@@ -258,44 +292,19 @@ const SCENARIO_COLUMNS = [
   { header: "Status", key: "status", width: 18 },
 ] as const;
 
-function estimateRowHeight(fields: string[], colWidths: number[]): number {
-  let maxLines = 1;
-  fields.forEach((text, i) => {
-    const width = colWidths[i] || 30;
-    const lines = text
-      .split("\n")
-      .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / width)), 0);
-    maxLines = Math.max(maxLines, lines);
-  });
-  return Math.min(320, Math.max(30, maxLines * 15 + 8));
-}
-
 function styleHeaderRow(row: ExcelJS.Row) {
   row.eachCell((cell) => {
     cell.font = { name: FONT_NAME, bold: true, color: { argb: COLOR.headerText } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.headerBg } };
     cell.alignment = { vertical: "middle", wrapText: true };
   });
-  row.height = 26;
 }
 
-function addBlockHeaderRow(ws: ExcelJS.Worksheet, title: string, lastCol: string) {
-  const row = ws.addRow([title]);
-  ws.mergeCells(`A${row.number}:${lastCol}${row.number}`);
-  const cell = row.getCell(1);
-  cell.font = { name: FONT_NAME, bold: true, color: { argb: COLOR.blockText }, size: 12 };
-  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.blockBg } };
-  cell.alignment = { vertical: "middle", wrapText: true, horizontal: "left" };
-  row.height = 22;
-  return row;
-}
-
-function addNarrativeRow(ws: ExcelJS.Worksheet, text: string, opts: { bold?: boolean } = {}) {
+function addNarrativeRow(ws: ExcelJS.Worksheet, text: string, opts: { bold?: boolean; size?: number } = {}) {
   const row = ws.addRow([text]);
   const cell = row.getCell(1);
-  cell.font = { name: FONT_NAME, bold: !!opts.bold, size: 11 };
+  cell.font = { name: FONT_NAME, bold: !!opts.bold, size: opts.size ?? 11 };
   cell.alignment = { vertical: "top", wrapText: true };
-  row.height = estimateRowHeight([text], [100]);
   return row;
 }
 
@@ -315,22 +324,11 @@ function addScenarioRow(ws: ExcelJS.Worksheet, scenario: Scenario) {
     status: "Nog te doen",
   });
 
-  const colWidths = SCENARIO_COLUMNS.map((c) => c.width);
-  row.height = estimateRowHeight(
-    [scenario.doel, scenario.startpunt, scenario.opdracht, letOpText, scenario.neveneffect],
-    [colWidths[2], colWidths[3], colWidths[4], colWidths[5], colWidths[6]],
-  );
-
-  row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+  row.eachCell({ includeEmpty: true }, (cell) => {
     cell.font = { name: FONT_NAME, size: 11 };
     cell.alignment = { vertical: "top", wrapText: true };
-    if (colNumber >= 8) {
-      // H t/m K: antwoordkolommen
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.answerBg } };
-    }
   });
 
-  const rn = row.number;
   row.getCell("H").dataValidation = {
     type: "list",
     allowBlank: true,
@@ -341,169 +339,57 @@ function addScenarioRow(ws: ExcelJS.Worksheet, scenario: Scenario) {
     allowBlank: false,
     formulae: ['"Nog te doen,Klaar,Vraag voor Ilja"'],
   };
-  void rn;
   return row;
 }
 
-function setupScenarioSheet(ws: ExcelJS.Worksheet) {
+function addRoleSheet(block: RoleBlock): ExcelJS.Worksheet {
+  const ws = workbook.addWorksheet(block.sheetName);
   ws.columns = SCENARIO_COLUMNS.map((c) => ({ key: c.key, width: c.width }));
   const headerRow = ws.addRow(SCENARIO_COLUMNS.map((c) => c.header));
   styleHeaderRow(headerRow);
   ws.views = [{ state: "frozen", ySplit: 1 }];
-}
-
-function addConditionalFormattingToScenarioSheet(ws: ExcelJS.Worksheet, lastRow: number) {
-  const ref = `A2:K${lastRow}`;
-
-  ws.addConditionalFormatting({
-    ref,
-    rules: [
-      {
-        type: "expression",
-        formulae: ['LEFT($G2,6)="veilig"'],
-        priority: 1,
-        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.safeGreen } } },
-      },
-      {
-        type: "expression",
-        formulae: ['LEFT($G2,17)="terug te draaien"'],
-        priority: 2,
-        style: {
-          fill: { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.reversibleAmber } },
-        },
-      },
-      {
-        type: "expression",
-        formulae: ['LEFT($G2,12)="onomkeerbaar"'],
-        priority: 3,
-        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.irreversibleRed } } },
-      },
-    ],
-  });
-
-  ws.addConditionalFormatting({
-    ref,
-    rules: [
-      {
-        type: "expression",
-        formulae: ['$K2="Klaar"'],
-        priority: 4,
-        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.doneRowBg } } },
-      },
-    ],
-  });
-
-  ws.addConditionalFormatting({
-    ref: `B2:B${lastRow}`,
-    rules: [
-      {
-        type: "expression",
-        formulae: ['$K2="Klaar"'],
-        priority: 5,
-        style: { font: { name: FONT_NAME, strike: true } },
-      },
-    ],
-  });
+  for (const s of block.scenarios) addScenarioRow(ws, s);
+  return ws;
 }
 
 // --- Tab 1: Start hier ------------------------------------------------------
 
 const wsStart = workbook.addWorksheet("Start hier");
 wsStart.columns = [{ key: "text", width: 100 }];
-addNarrativeRow(wsStart, h1.title, { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 16,
-};
+addNarrativeRow(wsStart, h1.title, { bold: true, size: 16 });
 for (const p of paragraphsOf(introNode)) addNarrativeRow(wsStart, p);
-addNarrativeRow(wsStart, feedbackNode.title, { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 13,
-};
+addNarrativeRow(wsStart, feedbackNode.title, { bold: true, size: 13 });
 for (const p of paragraphsOf(feedbackNode)) addNarrativeRow(wsStart, p);
 
-addNarrativeRow(wsStart, "De twee sessies", { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 13,
-};
-addNarrativeRow(wsStart, sessie1Node.title, { bold: true });
-for (const p of paragraphsOf(sessie1Node)) addNarrativeRow(wsStart, p);
-addNarrativeRow(wsStart, sessie2Node.title, { bold: true });
-for (const p of paragraphsOf(blokBNode)) addNarrativeRow(wsStart, p);
+// De blokintro's staan hier en niet als kopregel boven de roltabbladen,
+// zodat elk roltabblad een schone tabel blijft met de kopregel op rij 1.
+addNarrativeRow(wsStart, "De drie rollen", { bold: true, size: 13 });
+for (const block of ROLE_BLOCKS) {
+  addNarrativeRow(wsStart, `${block.node.title} (tabblad "${block.sheetName}")`, { bold: true });
+  for (const p of paragraphsOf(block.node)) addNarrativeRow(wsStart, p);
+}
 
-// --- Tab 2: Sessie 1 - alleen ----------------------------------------------
+// --- Tab 2 t/m 4: één per rol -----------------------------------------------
 
-const wsSessie1 = workbook.addWorksheet("Sessie 1 - alleen");
-setupScenarioSheet(wsSessie1);
-addBlockHeaderRow(wsSessie1, `Blok A0: ${blokA0Node.title.replace(/^Blok A0:\s*/, "")}`, "K");
-for (const p of paragraphsOf(blokA0Node)) addNarrativeRow(wsSessie1, p);
-for (const s of scenariosA0) addScenarioRow(wsSessie1, s);
-addBlockHeaderRow(wsSessie1, `Blok A: ${blokANode.title.replace(/^Blok A:\s*/, "")}`, "K");
-for (const p of paragraphsOf(blokANode)) addNarrativeRow(wsSessie1, p);
-for (const s of scenariosA) addScenarioRow(wsSessie1, s);
-addConditionalFormattingToScenarioSheet(wsSessie1, wsSessie1.rowCount);
+for (const block of ROLE_BLOCKS) addRoleSheet(block);
 
-// --- Tab 3: Sessie 2 - samen -------------------------------------------------
-
-const wsSessie2 = workbook.addWorksheet("Sessie 2 - samen");
-setupScenarioSheet(wsSessie2);
-addBlockHeaderRow(wsSessie2, `Blok B: ${blokBNode.title.replace(/^Blok B:\s*/, "")}`, "K");
-const waarschuwing = addNarrativeRow(wsSessie2, paragraphsOf(blokBNode).join("\n\n"), {
-  bold: true,
-});
-waarschuwing.font = { name: FONT_NAME, bold: true, size: 11, color: { argb: "FF7A1F13" } };
-for (const s of scenariosB) addScenarioRow(wsSessie2, s);
-addConditionalFormattingToScenarioSheet(wsSessie2, wsSessie2.rowCount);
-
-// --- Tab 4: Na 15 augustus ---------------------------------------------------
+// --- Tab 5: Na 15 augustus ---------------------------------------------------
 
 const wsC = workbook.addWorksheet("Na 15 augustus");
 wsC.columns = [{ key: "text", width: 100 }];
-addNarrativeRow(wsC, blokCNode.title, { bold: true }).font = { name: FONT_NAME, bold: true, size: 16 };
-const blokCParagraphs = paragraphsOf(blokCNode);
-const blokCBullets = bulletsOf(blokCNode);
-// Eerste blok tekst = alles vóór de bullets, laatste paragraaf = alles erna.
-// paragraphsOf voegt aaneengesloten bullet-regels samen tot één blok, dus
-// we splitsen dat blok hier expliciet in losse regels.
-for (const p of blokCParagraphs) {
-  if (blokCBullets.every((b) => p.includes(b))) {
-    for (const b of blokCBullets) addNarrativeRow(wsC, `- ${b}`);
-  } else {
-    addNarrativeRow(wsC, p);
-  }
-}
+addNarrativeRow(wsC, blokCNode.title, { bold: true, size: 16 });
+for (const line of flowOf(blokCNode)) addNarrativeRow(wsC, line);
 
-// --- Tab 5: Voor Ilja - niet invullen ----------------------------------------
+// --- Tab 6: Voor Ilja - niet invullen ----------------------------------------
 
 const wsD = workbook.addWorksheet("Voor Ilja - niet invullen");
 wsD.columns = [{ key: "text", width: 100 }];
-addNarrativeRow(wsD, blokDNode.title, { bold: true }).font = { name: FONT_NAME, bold: true, size: 16 };
+addNarrativeRow(wsD, blokDNode.title, { bold: true, size: 16 });
 
-addNarrativeRow(wsD, blokDTestdataNode.title, { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 13,
-};
-for (const item of numberedWithSubBullets(blokDTestdataNode)) {
-  addNarrativeRow(wsD, item.text, { bold: false });
-  for (const sub of item.subItems) addNarrativeRow(wsD, `    - ${sub}`);
+for (const section of [blokDTestdataNode, blokDOpruimenNode, blokDNietZelfstandigNode]) {
+  addNarrativeRow(wsD, section.title, { bold: true, size: 13 });
+  for (const line of flowOf(section)) addNarrativeRow(wsD, line);
 }
-
-addNarrativeRow(wsD, blokDOpruimenNode.title, { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 13,
-};
-for (const b of bulletsOf(blokDOpruimenNode)) addNarrativeRow(wsD, `- ${b}`);
-
-addNarrativeRow(wsD, blokDNietZelfstandigNode.title, { bold: true }).font = {
-  name: FONT_NAME,
-  bold: true,
-  size: 13,
-};
-for (const b of bulletsOf(blokDNietZelfstandigNode)) addNarrativeRow(wsD, `- ${b}`);
 
 // ---------------------------------------------------------------------------
 // Wegschrijven en direct terug inlezen ter controle
@@ -516,8 +402,9 @@ await check.xlsx.readFile(OUT_PATH);
 
 const expectedSheets = [
   "Start hier",
-  "Sessie 1 - alleen",
-  "Sessie 2 - samen",
+  "Klant",
+  "Trainer",
+  "Admin",
   "Na 15 augustus",
   "Voor Ilja - niet invullen",
 ];
@@ -535,24 +422,20 @@ function countScenarioIds(sheet: ExcelJS.Worksheet, prefix: string): number {
   return count;
 }
 
-const sheetSessie1 = check.getWorksheet("Sessie 1 - alleen")!;
-const sheetSessie2 = check.getWorksheet("Sessie 2 - samen")!;
-const foundA0 = countScenarioIds(sheetSessie1, "A0-");
-const foundA = countScenarioIds(sheetSessie1, "A-");
-const foundB = countScenarioIds(sheetSessie2, "B-");
-
-if (foundA0 !== scenariosA0.length) {
-  throw new Error(`Verwachtte ${scenariosA0.length} A0-scenario's in de xlsx, vond ${foundA0}.`);
-}
-if (foundA !== scenariosA.length) {
-  throw new Error(`Verwachtte ${scenariosA.length} A-scenario's in de xlsx, vond ${foundA}.`);
-}
-if (foundB !== scenariosB.length) {
-  throw new Error(`Verwachtte ${scenariosB.length} B-scenario's in de xlsx, vond ${foundB}.`);
+let total = 0;
+for (const block of ROLE_BLOCKS) {
+  const sheet = check.getWorksheet(block.sheetName)!;
+  const found = countScenarioIds(sheet, block.idPrefix);
+  if (found !== block.scenarios.length) {
+    throw new Error(
+      `Verwachtte ${block.scenarios.length} scenario's op tabblad "${block.sheetName}", vond ${found}.`,
+    );
+  }
+  total += found;
 }
 
 console.log(`Geschreven: ${path.relative(REPO_ROOT, OUT_PATH)}`);
-console.log(`Blok A0 (Sessie 1 - alleen): ${foundA0} scenario's`);
-console.log(`Blok A  (Sessie 1 - alleen): ${foundA} scenario's`);
-console.log(`Blok B  (Sessie 2 - samen):  ${foundB} scenario's`);
-console.log(`Totaal: ${foundA0 + foundA + foundB} scenario's, alle tabbladen geverifieerd.`);
+for (const block of ROLE_BLOCKS) {
+  console.log(`${block.sheetName.padEnd(8)}: ${block.scenarios.length} scenario's`);
+}
+console.log(`Totaal: ${total} scenario's, alle tabbladen geverifieerd.`);

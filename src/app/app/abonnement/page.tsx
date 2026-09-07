@@ -11,7 +11,7 @@ import {
   type HistoryItem,
 } from "./_components/MembershipHistory";
 import { MembershipActions } from "./_components/MembershipActions";
-import { MembershipViewTracker } from "./_components/MembershipViewTracker";
+import { getCancellationNoticeDays } from "@/lib/cancellation-notice";
 import { GuestPassesSection } from "./_components/GuestPassesSection";
 import { getGuestPassStatus } from "@/lib/member/guest-pass-actions";
 
@@ -211,6 +211,10 @@ export default async function AbonnementPage() {
     membership.status === "active" ||
     membership.status === "paused" ||
     membership.status === "payment_failed";
+  // Opzegtermijn uit dezelfde bron als request_membership_cancellation
+  // (booking_settings.cancellation_notice_days via RPC), zodat de dialoog
+  // dezelfde einddatum voorspelt als de RPC vastlegt.
+  const noticeDays = await getCancellationNoticeDays();
 
   return (
     <Container className="py-16 md:py-20 max-w-4xl">
@@ -264,8 +268,6 @@ export default async function AbonnementPage() {
         <GuestPassesSection status={guestPassStatus} />
       )}
 
-      <MembershipViewTracker currentPlan={membership.plan_variant} />
-
       <div className="mb-16">
         <MembershipActions
           membershipId={membership.id}
@@ -273,6 +275,7 @@ export default async function AbonnementPage() {
           canPause={canPause}
           canCancel={canCancel}
           currentPlan={membership.plan_variant}
+          noticeDays={noticeDays}
         />
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import {
@@ -9,10 +9,6 @@ import {
   parseIsoDateToAmsterdamMidnight,
   amsterdamParts,
 } from "@/lib/format-date";
-import {
-  trackScheduleDayView,
-  trackSchedulePaginateForward,
-} from "@/lib/analytics";
 
 export interface DayStripDay {
   /** yyyy-mm-dd in Amsterdam tijd */
@@ -69,15 +65,6 @@ export function DayStrip({
   nextHref,
 }: DayStripProps) {
   const stripRef = useRef<HTMLDivElement | null>(null);
-
-  // Fire `schedule_day_view` bij eerste render + bij selectie-wijziging.
-  useEffect(() => {
-    const todayMs = parseIsoDateToAmsterdamMidnight(todayIso)?.getTime();
-    const selMs = parseIsoDateToAmsterdamMidnight(selectedIso)?.getTime();
-    if (!todayMs || !selMs) return;
-    const daysAhead = Math.round((selMs - todayMs) / 86_400_000);
-    trackScheduleDayView(daysAhead);
-  }, [selectedIso, todayIso]);
 
   // Pijltjestoetsen: schakel links/rechts tussen dagen.
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -174,7 +161,6 @@ export function DayStrip({
           <Link
             href={nextHref}
             scroll={false}
-            onClick={() => trackSchedulePaginateForward(nextHref)}
             className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted transition-colors duration-300 hover:text-accent"
           >
             Volgende 7 dagen

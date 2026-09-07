@@ -225,7 +225,8 @@ export default async function AdminRoosterPage(props: {
         .from("trial_bookings")
         .select("session_id")
         .in("session_id", sessionIds)
-        .in("status", ["pending", "paid", "attended"]),
+        .in("status", ["pending", "paid", "attended"])
+        .eq("is_test", false),
       admin
         .from("guest_bookings")
         .select("session_id")

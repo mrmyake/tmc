@@ -9,7 +9,24 @@ import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
 
 export type CreateOrderAndCheckoutResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
-  | { ok: false; error: string };
+  | { ok: false; error: string; reason: CreateOrderFailureReason };
+
+/**
+ * Machine-leesbare tegenhanger van `error`. Bestaat voor analytics: GA4 mag
+ * geen Nederlandse foutcopy als dimensie krijgen, want die copy verandert
+ * (staat vol `COPY: confirm met Marlon`) zonder dat de meting mag breken.
+ * RPC-reasons komen alleen door als ze in REASON_COPY staan — een onbekende
+ * DB-reason wordt `unknown_reason`, zodat de cardinaliteit begrensd blijft.
+ */
+export type CreateOrderFailureReason =
+  | keyof typeof REASON_COPY
+  | "not_authenticated"
+  | "profile_incomplete"
+  | "rpc_error"
+  | "unknown_reason"
+  | "mollie_unavailable"
+  | "checkout_url_missing"
+  | "unexpected_error";
 
 export interface CreateOrderSelection {
   /** tmc.catalogue slug: a plan (subscription) or a product. */
@@ -22,12 +39,21 @@ export interface CreateOrderSelection {
    * right now, checked server-side in the same transaction as the price.
    */
   earlyMember?: boolean;
+  /**
+   * Conversiebrug (spec-analytics.md): GA4 client/session-id van de
+   * checkout-sessie, alleen gezet vanaf de publieke site (PayStage).
+   * BuyButton (/app/producten) stuurt ze bewust niet mee — achter de
+   * meetgrens. Ze gaan met een losse update op de orderrij (route (b),
+   * niet door create_order), en ontbreken is de normale situatie.
+   */
+  gaClientId?: string;
+  gaSessionId?: string;
 }
 
 // Vertaalt create_order()'s {ok:false, reason} naar klanttaal. Onbekende
 // reasons vallen terug op een generieke melding i.p.v. de ruwe DB-reason
 // te tonen.
-const REASON_COPY: Record<string, string> = {
+const REASON_COPY = {
   catalogue_row_not_found: "Dit abonnement is niet (meer) beschikbaar.",
   not_purchasable:
     "Dit is geen abonnement dat je direct kunt afsluiten. Neem contact met ons op.",
@@ -44,7 +70,7 @@ const REASON_COPY: Record<string, string> = {
   existing_membership: "Je hebt al een actief abonnement.",
   existing_open_order:
     "Je hebt al een openstaande aanmelding. Rond die eerst af.",
-};
+} satisfies Record<string, string>;
 
 /**
  * Start een order voor de ingelogde gebruiker: creëert de order via de
@@ -81,7 +107,7 @@ export async function createOrderAndCheckout(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user?.email) {
-      return { ok: false, error: "Niet ingelogd." };
+      return { ok: false, error: "Niet ingelogd.", reason: "not_authenticated" };
     }
 
     const { data: profile } = await supabase
@@ -93,6 +119,7 @@ export async function createOrderAndCheckout(
       return {
         ok: false,
         error: "Vul eerst je profiel in (voor- en achternaam).",
+        reason: "profile_incomplete",
       };
     }
 
@@ -109,25 +136,67 @@ export async function createOrderAndCheckout(
     );
     if (rpcError) {
       console.error("[createOrderAndCheckout] create_order rpc", rpcError);
-      return { ok: false, error: "Kon aanmelding niet opslaan." };
-    }
-    if (!orderResult?.ok) {
       return {
         ok: false,
-        error: REASON_COPY[orderResult?.reason] ?? "Kon aanmelding niet opslaan.",
+        error: "Kon aanmelding niet opslaan.",
+        reason: "rpc_error",
+      };
+    }
+    if (!orderResult?.ok) {
+      // Alleen bekende reasons doorgeven; een onbekende DB-reason valt hier
+      // net als voorheen terug op de generieke melding, en op een vaste code.
+      const known: keyof typeof REASON_COPY | null =
+        typeof orderResult?.reason === "string" &&
+        orderResult.reason in REASON_COPY
+          ? (orderResult.reason as keyof typeof REASON_COPY)
+          : null;
+      return {
+        ok: false,
+        error: known ? REASON_COPY[known] : "Kon aanmelding niet opslaan.",
+        reason: known ?? "unknown_reason",
       };
     }
 
     orderId = orderResult.order_id as string;
+    // Sinds PR 3 (#149) draagt de RPC-respons de testmodus van de koper;
+    // geen extra profiles-query nodig (spec-facturatie.md 6.6).
+    const mode = orderResult.is_test === true ? ("test" as const) : ("live" as const);
     const firstChargeCents = orderResult.first_charge_cents as number;
     const isSubscription = orderResult.recurring_cents !== null;
 
     admin = createAdminClient();
 
-    const mollie = getMollieClient();
+    // Conversiebrug: GA4-attributie op de orderrij, ná create_order als
+    // losse write (route (b), spec-analytics.md) — analytics-metadata hoort
+    // niet door de autoritatieve prijsfunctie. Mag de checkout nooit
+    // blokkeren: eigen try/catch (de omhullende catch zou de order
+    // abandonnen, en dat mag een analytics-write nooit veroorzaken),
+    // error alleen gelogd, flow gaat door.
+    if (selection.gaClientId) {
+      try {
+        const { error: gaError } = await admin
+          .from("orders")
+          .update({
+            ga_client_id: selection.gaClientId,
+            ga_session_id: selection.gaSessionId ?? null,
+          })
+          .eq("id", orderId);
+        if (gaError) {
+          console.error("[createOrderAndCheckout] ga attribution write", gaError);
+        }
+      } catch (gaErr) {
+        console.error("[createOrderAndCheckout] ga attribution write", gaErr);
+      }
+    }
+
+    const mollie = getMollieClient(mode);
     if (!mollie) {
       await abandonOrder();
-      return { ok: false, error: "Betalingsprovider niet geconfigureerd." };
+      return {
+        ok: false,
+        error: "Betalingsprovider niet geconfigureerd.",
+        reason: "mollie_unavailable",
+      };
     }
 
     // Eén Mollie-klant per profiel (profiles.mollie_customer_id), niet
@@ -161,7 +230,7 @@ export async function createOrderAndCheckout(
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,
       redirectUrl,
-      webhookUrl: mollieWebhookUrl(),
+      webhookUrl: mollieWebhookUrl(mode),
       customerId: mollieCustomerId,
       ...(isSubscription ? { sequenceType: SequenceType.first } : {}),
       metadata: {
@@ -209,12 +278,20 @@ export async function createOrderAndCheckout(
     const checkoutUrl = payment.getCheckoutUrl();
     if (!checkoutUrl) {
       await abandonOrder();
-      return { ok: false, error: "Kon betaallink niet genereren." };
+      return {
+        ok: false,
+        error: "Kon betaallink niet genereren.",
+        reason: "checkout_url_missing",
+      };
     }
     return { ok: true, checkoutUrl, amountCents: firstChargeCents };
   } catch (e) {
     console.error("[createOrderAndCheckout]", e);
     await abandonOrder();
-    return { ok: false, error: "Er ging iets mis. Probeer opnieuw." };
+    return {
+      ok: false,
+      error: "Er ging iets mis. Probeer opnieuw.",
+      reason: "unexpected_error",
+    };
   }
 }

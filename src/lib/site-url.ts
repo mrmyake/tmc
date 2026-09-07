@@ -27,10 +27,27 @@ export function siteUrl(): string {
  * aanroep. Op production staat Deployment Protection niet aan, dus daar
  * blijft de URL ongewijzigd (en ontbreekt de env var doorgaans toch).
  */
-export function mollieWebhookUrl(): string {
+export function mollieWebhookUrl(mode: "live" | "test"): string {
   const base = `${siteUrl()}/api/mollie/webhook`;
+  const params = new URLSearchParams();
+  // Alleen gezet voor test: afwezigheid betekent live. Nodig voor
+  // achterwaartse compatibiliteit, want Mollie bewaart de webhookUrl per
+  // resource en bestaande subscriptions dragen een URL zonder parameter
+  // (spec-facturatie.md 6.5).
+  if (mode === "test") params.set("mode", "test");
   if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
-    return `${base}?x-vercel-protection-bypass=${process.env.VERCEL_AUTOMATION_BYPASS_SECRET}`;
+    params.set("x-vercel-protection-bypass", process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
   }
-  return base;
+  return params.size ? `${base}?${params}` : base;
+}
+
+/** Idem voor de proefles-webhook; zelfde parameteropbouw, eigen route. */
+export function trialWebhookUrl(mode: "live" | "test"): string {
+  const base = `${siteUrl()}/api/trial-bookings/webhook`;
+  const params = new URLSearchParams();
+  if (mode === "test") params.set("mode", "test");
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    params.set("x-vercel-protection-bypass", process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
+  }
+  return params.size ? `${base}?${params}` : base;
 }

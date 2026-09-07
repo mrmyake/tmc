@@ -21,10 +21,13 @@ export interface CatalogueRow {
   early_member_commit_months: number | null;
   early_member_price_lock: boolean;
   age_category: string;
+  /** Sinds PR 1 (facturatie): default-tarief voor de regels-editor (9.3). */
+  vat_rate_bp: number;
+  revenue_category: string;
 }
 
 const CATALOGUE_COLUMNS =
-  "slug,kind,family,display_name,price_cents,billing_cycle_weeks,frequency_cap,commit_months,commit_24m_discount_factor,price_cents_24m_computed,extended_access_mode,credits,validity_months,purchasable,early_member_eligible,early_member_price_cents,early_member_commit_months,early_member_price_lock,age_category";
+  "slug,kind,family,display_name,price_cents,billing_cycle_weeks,frequency_cap,commit_months,commit_24m_discount_factor,price_cents_24m_computed,extended_access_mode,credits,validity_months,purchasable,early_member_eligible,early_member_price_cents,early_member_commit_months,early_member_price_lock,age_category,vat_rate_bp,revenue_category";
 
 async function fetchCatalogueRows(): Promise<CatalogueRow[]> {
   const supabase = getPublicClient();

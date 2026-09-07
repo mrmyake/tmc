@@ -7,7 +7,6 @@ import {
   requestMembershipPause,
   type PauseReason,
 } from "@/lib/member/membership-actions";
-import { trackMembershipPauseRequest } from "@/lib/analytics";
 
 interface PauseDialogProps {
   membershipId: string;
@@ -54,17 +53,6 @@ export const PauseDialog = forwardRef<HTMLDialogElement, PauseDialogProps>(
           setError(res.message);
         } else {
           setSuccess(res.message);
-          const weeks = Math.max(
-            1,
-            Math.round(
-              (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-                (7 * 86_400_000),
-            ),
-          );
-          trackMembershipPauseRequest({
-            weeks,
-            reason,
-          });
           window.setTimeout(() => {
             onDone?.();
           }, 1600);

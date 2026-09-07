@@ -5,7 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
-import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, isStudioOpen, isEarlyMemberActive } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
@@ -16,14 +16,6 @@ import { getSiteSettings, getSiteImages } from "../../sanity/lib/fetch";
 import { urlFor } from "../../sanity/lib/client";
 
 const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
-
-// Chrome/Safari cachen het tab-favicon los van de normale HTTP-cache en
-// negeren daarbij vaak Cache-Control — na een icoonwijziging blijft het
-// oude icoon soms dagenlang hangen op een domein dat al eerder bezocht is
-// (preview-URLs zijn altijd vers, dus daar valt dit nooit op). Bump deze
-// versie bij elke favicon-wijziging zodat de URL verandert en browsers
-// het als een nieuwe resource ophalen.
-const FAVICON_VERSION = "2";
 
 /**
  * Consent Mode v2 defaults — MOET geïnjecteerd worden vóór gtag.js
@@ -106,19 +98,16 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: SITE_URL,
     },
+    // Er staat bewust GEEN favicon.ico in src/app/ — die file-convention
+    // injecteert z'n eigen gehashte <link> én bedient de route /favicon.ico,
+    // en wint van public/favicon.ico. Chrome cachet het tab-icoon bovendien
+    // in een aparte database die Cache-Control negeert; de ?v= dwingt daar
+    // een refetch af. Bump 'm bij elke icoonwijziging.
     icons: {
-      // SVG eerst voor moderne browsers; de .ico in /app blijft de fallback
-      // voor clients die hardcoded /favicon.ico opvragen. Query param
-      // voorkomt stale browser-favicon-cache na een icoonwijziging, zie
-      // FAVICON_VERSION hierboven.
       icon: [
-        {
-          url: `/images/tmc-favicon.svg?v=${FAVICON_VERSION}`,
-          type: "image/svg+xml",
-        },
-        { url: `/favicon.ico?v=${FAVICON_VERSION}`, sizes: "256x256" },
+        { url: "/images/tmc-favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico?v=3", sizes: "any" },
       ],
-      shortcut: `/favicon.ico?v=${FAVICON_VERSION}`,
     },
   };
 }
@@ -143,10 +132,13 @@ export default async function RootLayout({
   const settings = await getSiteSettings();
   // getCampaignWindow() is getagd + 300s-gecached (src/lib/campaign.ts),
   // dus dit voegt geen per-request DB-call toe: de root layout blijft
-  // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
+  // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic. studioOpen en
+  // emActive zijn onafhankelijke signalen (fix/campagne-fasering): de
+  // studio kan dicht zijn terwijl de Early Member-actie al loopt.
   const campaignWindow = await getCampaignWindow();
   const campaignDeadlineIso = campaignWindow.closesAtIso;
-  const campaignPhase = getCampaignPhase(campaignWindow);
+  const studioOpen = isStudioOpen();
+  const emActive = isEarlyMemberActive(campaignWindow);
 
   return (
     <html
@@ -186,7 +178,8 @@ export default async function RootLayout({
         />
         <SiteShell
           settings={settings}
-          campaignPhase={campaignPhase}
+          studioOpen={studioOpen}
+          emActive={emActive}
           campaignDeadline={campaignDeadlineIso}
         >
           {children}
