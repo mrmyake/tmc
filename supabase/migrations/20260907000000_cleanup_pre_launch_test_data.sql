@@ -37,6 +37,20 @@
 -- aantal geraakte rijen zoals live gemeten tijdens de discovery van deze
 -- migratie -- wijkt het aantal af (nieuwe data sinds de discovery), dan
 -- faalt de migratie in plaats van iets onbedoelds te raken.
+--
+-- Replay-edit 2026-09-07 (na de oorspronkelijke toepassing op live, zelfde
+-- lijn als fix/migratie-replay-20260820): dit is een opruiming, geen
+-- backfill, dus de asserties zijn gesplitst in twee soorten.
+--   - Controles op de migratie zelf ("heeft mijn delete geraakt wat hij
+--     moest raken") blijven altijd draaien, maar alleen over de rijen die
+--     aanwezig waren: "na de delete is er niets meer over" is op een lege
+--     database vanzelf waar.
+--   - Controles op de omgeving ("bestonden die tien profielen, bestond die
+--     conceptfactuur, staat het cockpit-cijfer op nul") draaien alleen als
+--     de doelrijen er zijn en slaan zichzelf anders over met raise notice.
+-- In een lege shadow-database (db diff) valt er niets op te ruimen en loopt
+-- de migratie schoon door zonder iets te asserteren. Op live heeft hij bij
+-- de oorspronkelijke toepassing aangetoond dat de doelrijen weg zijn.
 
 begin;
 
@@ -65,11 +79,17 @@ insert into cleanup_target_profiles (id, email) values
 do $$
 declare
   v_mismatched int;
+  v_present int;
 begin
+  -- Migratie-eigen: de doellijst zelf is een literal en hoort 10 rijen te
+  -- hebben, ongeacht de database.
   if (select count(*) from cleanup_target_profiles) <> 10 then
     raise exception 'cleanup_pre_launch_test_data: doellijst heeft niet 10 rijen';
   end if;
 
+  -- Migratie-eigen, over de aanwezige rijen: een aanwezig profiel dat wel
+  -- op id maar niet op e-mail matcht is een verkeerde rij; op een lege
+  -- database is dit vanzelf 0.
   select count(*) into v_mismatched
   from cleanup_target_profiles t
   join tmc.profiles p on p.id = t.id
@@ -78,8 +98,14 @@ begin
     raise exception 'cleanup_pre_launch_test_data: % profiel(en) matchen niet op id EN email, mogelijk verkeerde rij', v_mismatched;
   end if;
 
-  if (select count(*) from cleanup_target_profiles t join tmc.profiles p on p.id = t.id) <> 10 then
-    raise exception 'cleanup_pre_launch_test_data: niet alle 10 doelprofielen bestaan (meer) in tmc.profiles';
+  -- Omgeving (replay-edit): profielen zijn app-data. Ontbreken ze, dan
+  -- valt er niets op te ruimen en gaat de migratie schoon door.
+  select count(*) into v_present
+  from cleanup_target_profiles t join tmc.profiles p on p.id = t.id;
+  if v_present = 0 then
+    raise notice 'cleanup_pre_launch_test_data: geen van de 10 doelprofielen aanwezig (lege database), niets op te ruimen';
+  elsif v_present <> 10 then
+    raise notice 'cleanup_pre_launch_test_data: % van de 10 doelprofielen aanwezig, opruiming beperkt tot die rijen', v_present;
   end if;
 end $$;
 
@@ -133,12 +159,25 @@ declare
   v_status text;
 begin
   select status into v_status from tmc.invoices where id = '9f996448-2112-40f6-a550-ebe4335e9d6c';
-  if v_status is distinct from 'draft' then
+  -- Omgeving (replay-edit): bestaat de rij niet, dan is er niets te
+  -- verwijderen. Bestaat hij wel en is hij geen draft, dan blijft de
+  -- weigering staan: deze migratie verwijdert nooit een gefinaliseerde rij.
+  if v_status is null then
+    raise notice 'cleanup_pre_launch_test_data: draft-factuur niet aanwezig, overgeslagen';
+  elsif v_status <> 'draft' then
     raise exception 'cleanup_pre_launch_test_data: verwachte draft-factuur is niet (meer) draft (status=%), niet verwijderd', v_status;
   end if;
 end $$;
 
 delete from tmc.invoices where id = '9f996448-2112-40f6-a550-ebe4335e9d6c' and status = 'draft';
+
+-- Migratie-eigen: na de delete mag de rij niet meer als draft bestaan.
+do $$
+begin
+  if exists (select 1 from tmc.invoices where id = '9f996448-2112-40f6-a550-ebe4335e9d6c' and status = 'draft') then
+    raise exception 'cleanup_pre_launch_test_data: draft-factuur niet verwijderd';
+  end if;
+end $$;
 
 -- 2c. Payments: order-gekoppeld (5) plus trial_booking-gekoppeld (2, via
 --     payments.trial_booking_id -- profile_id/order_id staan hier null,
@@ -220,11 +259,28 @@ commit;
 select tmc.refresh_admin_kpis();
 
 -- Zelfcontrole, los van de migratietransactie: nul echte klanten dus nul
--- actieve leden en nul mrr.
+-- actieve leden en nul mrr. Omgeving (replay-edit): dit is een uitspraak
+-- over de pre-launch-database waarop deze migratie draaide, dus alleen
+-- asserteren als de 10 doelprofielen er werkelijk zijn; anders overslaan.
 do $$
 declare
   v_kpi tmc.vw_admin_kpis%rowtype;
+  v_present int;
 begin
+  select count(*) into v_present
+  from tmc.profiles
+  where id in (
+    'c2c398d5-f6d0-4e67-8a6a-b235b50853f9', '20cdeaf4-6d58-4c3a-befc-4ae2a4d75f2e',
+    '6bf08764-deda-40f3-ade0-d107ea1d77c1', 'c32a7fa9-5be8-406e-8811-9818617de3c1',
+    '6f537e9c-cd22-4d10-a3b4-99918cee5110', 'd8a13a0f-d038-4c43-ba2d-de3e3e1bd2ec',
+    '97a69c91-8306-479a-85ef-a463e342d219', '4fdb2887-97a5-41dd-93e7-77a778d3b1d7',
+    '186cc8f9-7f09-4f68-89f0-189955a5aac2', '59cf9687-eeb4-49b4-bc7b-b7b108e42f13'
+  );
+  if v_present <> 10 then
+    raise notice 'cleanup_pre_launch_test_data: KPI-zelfcontrole overgeslagen, % van de 10 doelprofielen aanwezig', v_present;
+    return;
+  end if;
+
   select * into v_kpi from tmc.vw_admin_kpis limit 1;
   if v_kpi.active_members <> 0 or v_kpi.mrr_cents <> 0
      or v_kpi.new_signups_week <> 0 or v_kpi.new_signups_month <> 0 then
