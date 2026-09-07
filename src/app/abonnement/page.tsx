@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
 import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
+import { getCancellationNoticeDays } from "@/lib/cancellation-notice";
 import { createClient } from "@/lib/supabase/server";
 import { AbonnementConfigurator } from "./AbonnementConfigurator";
 import { FAMILIES, FREQUENCIES, planSlug } from "./lib";
@@ -64,6 +65,9 @@ export default async function AbonnementPage({
 
   const extendedAccessAddon = catalogue.get("extended_access") ?? null;
   const signupFee = catalogue.get("signup_fee") ?? null;
+  // Opzegtermijn uit dezelfde bron als request_membership_cancellation, voor
+  // de bevestigingsstap (PayStage).
+  const cancellationNoticeDays = await getCancellationNoticeDays();
 
   return (
     <AbonnementConfigurator
@@ -72,6 +76,7 @@ export default async function AbonnementPage({
       signupFee={signupFee}
       emActive={emActive}
       loggedIn={Boolean(user)}
+      cancellationNoticeDays={cancellationNoticeDays}
     />
   );
 }

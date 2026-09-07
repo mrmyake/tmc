@@ -410,19 +410,18 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
             </div>
 
             {/* Verlengde toegang. Prijs uit de catalogus (addon-rij
-                extended_access); de inbegrepen-vs-betaald-regel staat al
-                hierboven per kolom (All Access Onbeperkt heeft het gratis
-                inbegrepen, op elke andere kolom is het deze meerprijs). */}
+                extended_access). Sinds migratie 20260907120000 staat
+                extended_access_mode op 'included' voor alle drie de All
+                Access-tiers; alleen Vrij Trainen kan het nog los bijkopen. */}
             <div className="border border-text-muted/15 bg-bg px-5 py-4 mt-6">
               {/* COPY: confirm met Marlon */}
               <p className="text-text-muted text-sm leading-relaxed">
                 <span className="text-text font-medium">
                   Verlengde toegang (06:00-23:00)
                 </span>{" "}
-                is {fmt(pricing.extendedAccessCents)} per 4 weken
-                extra op All Access 2x/3x en op Vrij Trainen, en gratis
-                inbegrepen bij All Access Onbeperkt. Niet beschikbaar op
-                Groepslessen-only.
+                is inbegrepen bij elk All Access-abonnement. Op Vrij Trainen
+                is het {fmt(pricing.extendedAccessCents)} per 4 weken extra.
+                Niet beschikbaar op Groepslessen-only.
               </p>
             </div>
 

@@ -10,6 +10,8 @@ interface MembershipActionsProps {
   canPause: boolean;
   canCancel: boolean;
   currentPlan: string;
+  /** Opzegtermijn in dagen, uit getCancellationNoticeDays() op de pagina. */
+  noticeDays: number;
 }
 
 function todayIso(): string {
@@ -22,6 +24,7 @@ export function MembershipActions({
   canPause,
   canCancel,
   currentPlan,
+  noticeDays,
 }: MembershipActionsProps) {
   const pauseRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLDialogElement>(null);
@@ -69,6 +72,7 @@ export function MembershipActions({
           membershipId={membershipId}
           commitEndDate={commitEndDate}
           currentPlan={currentPlan}
+          noticeDays={noticeDays}
           onDone={() => cancelRef.current?.close()}
         />
       )}

@@ -166,7 +166,8 @@ async function CheckInView({
           Vrij trainen.
         </h1>
         <p className="text-text-muted text-lg leading-relaxed max-w-xl">
-          Kom wanneer je wil tussen 06:00 en 22:00. Tik bij binnenkomst je
+          {/* COPY: confirm met Marlon */}
+          Kom wanneer je wil tussen 06:00 en 23:00. Tik bij binnenkomst je
           nummer op de tablet, dan staat de check-in direct geregistreerd.
         </p>
       </header>
@@ -323,7 +324,8 @@ async function BookingView({
           Vrij trainen.
         </h1>
         <p className="text-text-muted text-lg leading-relaxed max-w-xl">
-          Kom wanneer je wil tussen 06:00 en 22:00. Boek een dag van tevoren,
+          {/* COPY: confirm met Marlon */}
+          Kom wanneer je wil tussen 06:00 en 23:00. Boek een dag van tevoren,
           cancel kan tot {cancelWindowMinutes} minuten voor sluiting.
         </p>
       </header>
