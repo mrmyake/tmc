@@ -3,6 +3,7 @@ import { FOOTER_NAV_LINKS } from "@/lib/constants";
 import { Container } from "./Container";
 import { QuietLink } from "@/components/ui/QuietLink";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
+import { toTelHref } from "@/lib/phone";
 
 interface FooterProps {
   settings: SanitySettings;
@@ -94,7 +95,7 @@ export function Footer({ settings }: FooterProps) {
                 </QuietLink>
               </p>
               <p>
-                <QuietLink href={`tel:${settings.phone.replace(/\s/g, "")}`}>
+                <QuietLink href={toTelHref(settings.phone)}>
                   {settings.phone}
                 </QuietLink>
               </p>

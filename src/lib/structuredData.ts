@@ -1,4 +1,5 @@
 import { SITE } from "./constants";
+import { toE164 } from "./phone";
 
 export function getLocalBusinessSchema() {
   return {
@@ -8,7 +9,7 @@ export function getLocalBusinessSchema() {
     description:
       "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength.",
     url: SITE.url,
-    telephone: SITE.phone,
+    telephone: toE164(SITE.phone),
     email: SITE.email,
     address: {
       "@type": "PostalAddress",

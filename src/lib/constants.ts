@@ -66,18 +66,24 @@ export const SITE = {
     "Boutique training studio in Loosdrecht. Persoonlijk. Exclusief. Resultaatgericht.",
   url: SITE_URL,
   email: "info@themovementclub.nl",
-  phone: "+31 6 00 00 00 00", // TODO: echte nummer
-  whatsapp: "https://wa.me/31600000000", // TODO: echte nummer
-  instagram: "https://instagram.com/themovementclub", // TODO: echte link
+  // COPY: confirm met Marlon (weergaveformaat: gegroepeerd per twee cijfers,
+  // gebruikelijke Nederlandse notatie). Voor tel:-links en JSON-LD altijd via
+  // toE164()/toTelHref() (src/lib/phone.ts), nooit deze string direct
+  // gebruiken als linkdoel.
+  phone: "06 25 13 05 84",
+  whatsapp: "https://wa.me/31625130584",
+  // Het bestaande account (ptloosdrecht) blijft voorlopig in gebruik; dit is
+  // bewust niet het themovementclub-handle.
+  instagram: "https://instagram.com/ptloosdrecht",
   address: {
     street: "Industrieweg 14P",
     city: "Loosdrecht",
-    zip: "1231 MX", // TODO: echte postcode
+    zip: "1231 KH",
     region: "Wijdemeren",
     country: "Nederland",
   },
-  kvk: "00000000", // TODO
-  btw: "NL000000000B01", // TODO
+  kvk: "42063910",
+  btw: "NL869541651B01",
   trainer: {
     name: "Marlon",
     role: "Head Trainer & Oprichtster",
@@ -176,22 +182,5 @@ export const OFFERINGS = [
     description:
       "Gestructureerde krachtprogramma's voor duurzame progressie en resultaat.",
     href: "/aanbod#strength",
-  },
-] as const;
-
-// TODO: Vervang met echte Google Reviews van ptloosdrecht.nl
-// Kopieer de beste reviews uit het Google Business Profile
-export const TESTIMONIALS = [
-  {
-    name: "Sophie V.",
-    text: "Na jaren van sportscholen waar ik een nummer was, voelt het hier als thuiskomen. Marlon ziet écht waar je lichaam behoefte aan heeft.",
-  },
-  {
-    name: "Thomas B.",
-    text: "De combinatie van strength en mobility heeft mijn rugklachten volledig verholpen. De persoonlijke aanpak maakt het verschil.",
-  },
-  {
-    name: "Lisa M.",
-    text: "Ik train nu 6 maanden bij Marlon en heb meer resultaat dan in 3 jaar reguliere sportschool. De sfeer is geweldig.",
   },
 ] as const;

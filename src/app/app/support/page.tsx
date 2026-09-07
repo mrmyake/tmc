@@ -3,6 +3,7 @@ import { MessageCircle, Phone, Mail } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { TrackedContactLink } from "@/components/ui/TrackedLink";
 import { SITE } from "@/lib/constants";
+import { toTelHref } from "@/lib/phone";
 
 export const metadata = {
   title: "Support | The Movement Club",
@@ -46,7 +47,6 @@ export default function SupportPage() {
           </p>
           <TrackedContactLink
             method="whatsapp"
-            // COPY: confirm with Marlon — SITE.whatsapp is nog een placeholder-nummer
             href={SITE.whatsapp}
             className="inline-flex items-center justify-center px-6 py-3 text-[11px] font-medium uppercase tracking-[0.18em] bg-accent text-bg hover:bg-accent-hover transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer"
           >
@@ -74,8 +74,7 @@ export default function SupportPage() {
           <div className="space-y-3">
             <TrackedContactLink
               method="phone"
-              // COPY: confirm with Marlon — SITE.phone is nog een placeholder-nummer
-              href={`tel:${SITE.phone.replace(/\s+/g, "")}`}
+              href={toTelHref(SITE.phone)}
               className="inline-flex items-center gap-2 text-text hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] text-sm"
             >
               <Phone size={14} strokeWidth={1.5} aria-hidden />

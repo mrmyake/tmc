@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SITE } from "@/lib/constants";
 import {
   TrainerInvoicePdf,
   type TrainerInvoiceData,
@@ -135,8 +136,8 @@ export async function GET(
     lines,
     totalHours,
     totalCents,
-    tmcName: "The Movement Club",
-    tmcAddress: "Industrieweg 14P, 1231 MX Loosdrecht",
+    tmcName: SITE.name,
+    tmcAddress: `${SITE.address.street}, ${SITE.address.zip} ${SITE.address.city}`,
     tmcMeta: "themovementclub.nl",
   };
 
