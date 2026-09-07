@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, KeyRound } from "lucide-react";
 import type { MemberSort, MemberStatus } from "@/lib/admin/members-query";
 
 interface MembersToolbarProps {
@@ -11,6 +11,7 @@ interface MembersToolbarProps {
   status: MemberStatus | "all";
   plan: string;
   inactive: boolean;
+  extendedAccess: boolean;
   sort: MemberSort;
 }
 
@@ -46,6 +47,7 @@ export function MembersToolbar({
   status,
   plan,
   inactive,
+  extendedAccess,
   sort,
 }: MembersToolbarProps) {
   const router = useRouter();
@@ -80,7 +82,11 @@ export function MembersToolbar({
   }
 
   const hasFilters =
-    Boolean(q) || status !== "all" || plan !== "all" || inactive;
+    Boolean(q) ||
+    status !== "all" ||
+    plan !== "all" ||
+    inactive ||
+    extendedAccess;
 
   return (
     <div className="flex flex-col gap-4 mb-8">
@@ -147,6 +153,20 @@ export function MembersToolbar({
             }`}
           />
           Inactief &gt; 30 dagen
+        </button>
+        <button
+          type="button"
+          onClick={() => pushWith({ ea: extendedAccess ? null : "1" })}
+          aria-pressed={extendedAccess}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-300 cursor-pointer ${
+            extendedAccess
+              ? "border-accent text-accent"
+              : "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent"
+          }`}
+        >
+          <KeyRound size={12} strokeWidth={1.75} aria-hidden />
+          {/* COPY: confirm met Marlon */}
+          Verlengde toegang
         </button>
         {hasFilters && (
           <Link

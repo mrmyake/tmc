@@ -25,6 +25,31 @@ export const DEFAULT_SORT: MemberSort = "last_session_desc";
 export const PAGE_SIZE = 50;
 export const INACTIVE_WINDOW_DAYS = 30;
 
+/**
+ * Verlengde-toegang-toestand van de primaire membership, afgeleid uit
+ * `memberships.extended_access` (de boolean op de rij) gecombineerd met
+ * `tmc.catalogue.extended_access_mode` van het plan (`plan_variant`).
+ *
+ * - `included`: mode `included`, boolean true (All Access).
+ * - `addon`: mode `addon`, boolean true (betaalde add-on op Vrij Trainen).
+ * - `addon_available`: mode `addon`, boolean false (add-on mogelijk).
+ * - `na`: mode `na` (groepslessen/kids/senior), of een catalogusrij van een
+ *   ander soort dan `plan` (rittenkaart, PT-pakket) waar de mode NULL is.
+ * - `catalogue_missing`: geen catalogusrij voor `plan_variant`. Dat is een
+ *   datafout, geen normale toestand; wordt server-side gelogd.
+ * - `inconsistent`: mode `included` maar boolean false. Ook een datafout
+ *   (activate_order zet de boolean bij All Access altijd op true); gelogd.
+ * - `no_membership`: geen enkele membership-rij voor dit profiel.
+ */
+export type ExtendedAccessState =
+  | "included"
+  | "addon"
+  | "addon_available"
+  | "na"
+  | "catalogue_missing"
+  | "inconsistent"
+  | "no_membership";
+
 export interface MemberRow {
   profileId: string;
   firstName: string;
@@ -39,6 +64,8 @@ export interface MemberRow {
   /** Van de primaire membership, ongeacht status. Sinds PR #164 inbegrepen
    * bij elk All Access-abonnement, optioneel add-on op Vrij Trainen. */
   extendedAccess: boolean;
+  /** Vier-plus-twee-toestanden-afleiding, zie `ExtendedAccessState`. */
+  extendedAccessState: ExtendedAccessState;
 }
 
 export interface ListMembersInput {
@@ -46,6 +73,10 @@ export interface ListMembersInput {
   status?: MemberStatus | "all";
   plan?: string | "all";
   inactive?: boolean;
+  /** Orthogonale filteras: alleen profielen met minstens één membership
+   * waar `extended_access = true`. Combineert via ids-intersectie met de
+   * status- en planfilters. */
+  extendedAccess?: boolean;
   sort?: MemberSort;
   page?: number;
 }
@@ -133,6 +164,45 @@ function pickPrimaryMembership(
   return memberships[0];
 }
 
+type CatalogueMode = "included" | "addon" | "na" | null;
+
+function resolveExtendedAccessState(
+  profileId: string,
+  primary: ProfileJoinRow["memberships"][number] | null,
+  modeBySlug: Map<string, CatalogueMode>,
+): ExtendedAccessState {
+  if (!primary) return "no_membership";
+
+  const variant = primary.plan_variant;
+  const hasRow = variant != null && modeBySlug.has(variant);
+  if (!hasRow) {
+    // Datafout: een membership zonder (herleidbare) catalogusrij. Geen
+    // stille fallback op plan_type; expliciet loggen en tonen.
+    console.error("[listMembers] geen catalogusrij voor plan_variant", {
+      profileId,
+      plan_variant: variant,
+    });
+    return "catalogue_missing";
+  }
+
+  const mode = modeBySlug.get(variant as string) ?? null;
+  // Rijen van een ander soort dan plan (rittenkaart, PT-pakket) hebben
+  // mode NULL in de check-constraint; verlengde toegang bestaat daar niet.
+  if (mode === "na" || mode === null) return "na";
+  if (mode === "included") {
+    if (primary.extended_access) return "included";
+    // Plan zegt inbegrepen, rij zegt false: de data spreekt zichzelf tegen.
+    // Niet stil naar een van beide kanten afronden; loggen en tonen.
+    console.error("[listMembers] extended_access false op included-plan", {
+      profileId,
+      plan_variant: variant,
+    });
+    return "inconsistent";
+  }
+  // mode === "addon"
+  return primary.extended_access ? "addon" : "addon_available";
+}
+
 /**
  * Server-side aggregate over profiles + active memberships + last session.
  * For sort keys that depend on computed columns (last_session, mrr, credits)
@@ -209,6 +279,21 @@ export async function listMembers(
     query = query.in("id", ids);
   }
 
+  // Verlengde-toegang-filter, zelfde patroon als de statusfilter hierboven:
+  // een losse ongepagineerde query op memberships die alleen profile_id
+  // ophaalt, daarna ids-intersectie op de hoofdquery.
+  if (input.extendedAccess) {
+    const { data: matchingIds } = await admin
+      .from("memberships")
+      .select("profile_id")
+      .eq("extended_access", true);
+    const ids = (matchingIds ?? []).map((r) => r.profile_id);
+    if (ids.length === 0) {
+      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+    }
+    query = query.in("id", ids);
+  }
+
   if (order.column) {
     query = query.order(order.column, { ascending: order.ascending });
   }
@@ -247,8 +332,41 @@ export async function listMembers(
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - INACTIVE_WINDOW_DAYS);
   const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().slice(0, 10);
 
+  // Catalogus-lookup voor de verlengde-toegang-toestand: één gerichte query
+  // op tmc.catalogue voor de plan_variants van de primaire memberships in
+  // deze pagina-slice. Bewust geen extra join op de hoofdquery en bewust
+  // geen fallback op plan_type: een ontbrekende catalogusrij is een
+  // datafout die zichtbaar moet blijven (state `catalogue_missing`).
+  const primaryByProfile = new Map<
+    string,
+    ProfileJoinRow["memberships"][number] | null
+  >();
+  for (const p of profiles) {
+    primaryByProfile.set(p.id, pickPrimaryMembership(p.memberships));
+  }
+  const variantSlugs = Array.from(
+    new Set(
+      Array.from(primaryByProfile.values())
+        .map((m) => m?.plan_variant)
+        .filter((v): v is string => typeof v === "string" && v.length > 0),
+    ),
+  );
+  const modeBySlug = new Map<string, CatalogueMode>();
+  if (variantSlugs.length > 0) {
+    const { data: catalogueRows, error: catalogueErr } = await admin
+      .from("catalogue")
+      .select("slug, extended_access_mode")
+      .in("slug", variantSlugs);
+    if (catalogueErr) {
+      console.error("[listMembers] catalogue lookup failed", catalogueErr);
+    }
+    for (const row of catalogueRows ?? []) {
+      modeBySlug.set(row.slug, (row.extended_access_mode ?? null) as CatalogueMode);
+    }
+  }
+
   let rows: MemberRow[] = profiles.map((p) => {
-    const primary = pickPrimaryMembership(p.memberships);
+    const primary = primaryByProfile.get(p.id) ?? null;
     const mrrCents = primary
       ? Math.round((primary.price_per_cycle_cents ?? 0) * (13 / 12))
       : 0;
@@ -264,6 +382,11 @@ export async function listMembers(
       lastSessionDate: lastBySession.get(p.id) ?? null,
       mrrCents: primary?.status === "active" ? mrrCents : 0,
       extendedAccess: primary?.extended_access ?? false,
+      extendedAccessState: resolveExtendedAccessState(
+        p.id,
+        primary,
+        modeBySlug,
+      ),
     };
   });
 

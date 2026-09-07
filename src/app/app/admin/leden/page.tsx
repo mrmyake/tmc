@@ -66,12 +66,15 @@ function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
   const planRaw = get("plan") ?? "all";
   const plan = VALID_PLANS.includes(planRaw) ? planRaw : "all";
   const inactive = get("inactive") === "1";
+  // Losse, orthogonale filteras (niet een waarde binnen MemberStatus).
+  // Whitelist: alleen de exacte string "1" telt als aan.
+  const extendedAccess = get("ea") === "1";
   const sortRaw = get("sort") ?? DEFAULT_SORT;
   const sort = (VALID_SORTS as string[]).includes(sortRaw)
     ? (sortRaw as MemberSort)
     : DEFAULT_SORT;
   const page = Math.max(1, Number(get("page") ?? "1") || 1);
-  return { q, status, plan, inactive, sort, page };
+  return { q, status, plan, inactive, extendedAccess, sort, page };
 }
 
 export default async function AdminMembersPage(props: {
@@ -102,6 +105,7 @@ export default async function AdminMembersPage(props: {
         status={parsed.status}
         plan={parsed.plan}
         inactive={parsed.inactive}
+        extendedAccess={parsed.extendedAccess}
         sort={parsed.sort}
       />
 
@@ -113,6 +117,7 @@ export default async function AdminMembersPage(props: {
           status: parsed.status,
           plan: parsed.plan,
           inactive: parsed.inactive,
+          extendedAccess: parsed.extendedAccess,
           page: parsed.page,
         }}
       />
@@ -125,6 +130,7 @@ export default async function AdminMembersPage(props: {
           status: parsed.status,
           plan: parsed.plan,
           inactive: parsed.inactive ? "1" : "",
+          ea: parsed.extendedAccess ? "1" : "",
           sort: parsed.sort,
         }}
       />
