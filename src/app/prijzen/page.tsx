@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCatalogue, commit24mDiscountPercent } from "@/lib/catalogue";
-import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
 import { PrijzenContent, type PrijzenPricing } from "./PrijzenContent";
 
 export const metadata: Metadata = {
@@ -40,8 +40,7 @@ async function getPricing(): Promise<PrijzenPricing> {
     throw new Error("[prijzen] catalogue fetch returned no rows");
   }
 
-  const phase = getCampaignPhase(campaignWindow);
-  const emActive = phase === "open-em";
+  const emActive = isEarlyMemberActive(campaignWindow);
 
   const price = (slug: string): number | null => catalogue.get(slug)?.price_cents ?? null;
 

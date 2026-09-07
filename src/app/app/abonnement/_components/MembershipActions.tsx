@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import { PauseDialog } from "./PauseDialog";
 import { CancellationDialog } from "./CancellationDialog";
-import { trackMembershipCancelAttempt } from "@/lib/analytics";
 
 interface MembershipActionsProps {
   membershipId: string;
@@ -11,6 +10,8 @@ interface MembershipActionsProps {
   canPause: boolean;
   canCancel: boolean;
   currentPlan: string;
+  /** Opzegtermijn in dagen, uit getCancellationNoticeDays() op de pagina. */
+  noticeDays: number;
 }
 
 function todayIso(): string {
@@ -23,16 +24,14 @@ export function MembershipActions({
   canPause,
   canCancel,
   currentPlan,
+  noticeDays,
 }: MembershipActionsProps) {
   const pauseRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLDialogElement>(null);
 
   if (!canPause && !canCancel) return null;
 
-  const withinLockIn = new Date(commitEndDate) > new Date();
-
   function openCancel() {
-    trackMembershipCancelAttempt({ withinLockIn, currentPlan });
     cancelRef.current?.showModal();
   }
 
@@ -73,6 +72,7 @@ export function MembershipActions({
           membershipId={membershipId}
           commitEndDate={commitEndDate}
           currentPlan={currentPlan}
+          noticeDays={noticeDays}
           onDone={() => cancelRef.current?.close()}
         />
       )}

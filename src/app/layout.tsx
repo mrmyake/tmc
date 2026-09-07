@@ -5,7 +5,7 @@ import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
-import { getCampaignWindow, getCampaignPhase } from "@/lib/campaign";
+import { getCampaignWindow, isStudioOpen, isEarlyMemberActive } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import {
   getLocalBusinessSchema,
@@ -132,10 +132,13 @@ export default async function RootLayout({
   const settings = await getSiteSettings();
   // getCampaignWindow() is getagd + 300s-gecached (src/lib/campaign.ts),
   // dus dit voegt geen per-request DB-call toe: de root layout blijft
-  // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic.
+  // binnen de bestaande ISR (revalidate=60) i.p.v. dynamic. studioOpen en
+  // emActive zijn onafhankelijke signalen (fix/campagne-fasering): de
+  // studio kan dicht zijn terwijl de Early Member-actie al loopt.
   const campaignWindow = await getCampaignWindow();
   const campaignDeadlineIso = campaignWindow.closesAtIso;
-  const campaignPhase = getCampaignPhase(campaignWindow);
+  const studioOpen = isStudioOpen();
+  const emActive = isEarlyMemberActive(campaignWindow);
 
   return (
     <html
@@ -175,7 +178,8 @@ export default async function RootLayout({
         />
         <SiteShell
           settings={settings}
-          campaignPhase={campaignPhase}
+          studioOpen={studioOpen}
+          emActive={emActive}
           campaignDeadline={campaignDeadlineIso}
         >
           {children}

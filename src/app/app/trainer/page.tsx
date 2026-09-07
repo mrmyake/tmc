@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
+import { TrainerScopePicker } from "@/components/trainer/TrainerScopePicker";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import {
   amsterdamParts,
@@ -70,20 +72,28 @@ function toHoursNumber(v: unknown): number {
   return 0;
 }
 
-export default async function TrainerHomePage() {
+export default async function TrainerHomePage(props: {
+  searchParams: Promise<{ trainerId?: string }>;
+}) {
+  const { trainerId: requestedTrainerId } = await props.searchParams;
+  const scope = await resolveTrainerScope(requestedTrainerId);
+  if (!scope.ok) redirect("/app");
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) notFound();
+  if (!user) redirect("/login");
 
   const admin = createAdminClient();
 
-  const { data: trainer } = await admin
-    .from("trainers")
-    .select("id, display_name, pillar_specialties, is_active")
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  const { data: trainer } = scope.selectedTrainerId
+    ? await admin
+        .from("trainers")
+        .select("id, display_name, pillar_specialties, is_active")
+        .eq("id", scope.selectedTrainerId)
+        .maybeSingle()
+    : { data: null };
 
   const firstName =
     user.user_metadata?.first_name ?? user.email?.split("@")[0] ?? "";
@@ -103,9 +113,8 @@ export default async function TrainerHomePage() {
   const announcements = await listVisibleAnnouncements(5);
 
   if (!trainer) {
-    // Admins zonder eigen trainer-rij komen hier ook — minder volledige
-    // pagina, geen agenda, alleen een pointer naar admin-surfaces en een
-    // eventueel aankondigingen-blok.
+    // Alleen nog bereikbaar als er helemaal geen actieve trainers zijn:
+    // een admin met een kiezer valt terug op de eerste actieve trainer.
     return (
       <div className="px-6 md:px-10 lg:px-12 py-14">
         <header className="mb-10">
@@ -115,17 +124,21 @@ export default async function TrainerHomePage() {
           <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
             Hé {firstName}.
           </h1>
+          {/* COPY: confirm met Marlon */}
           <p className="text-text-muted mt-4 max-w-md">
-            Je staat niet als trainer in het systeem. Admins kunnen trainers
-            beheren via onderstaande link.
+            {scope.isAdmin
+              ? "Er staan nog geen actieve trainers in het systeem. Voeg er een toe via onderstaande link."
+              : "Je staat niet als trainer in het systeem. Admins kunnen trainers beheren via onderstaande link."}
           </p>
-          <Link
-            href="/app/admin/trainers"
-            className="inline-flex items-center gap-2 mt-6 px-5 py-3 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text hover:border-accent hover:text-accent transition-colors"
-          >
-            Trainers beheren
-            <ChevronRight size={14} strokeWidth={1.5} />
-          </Link>
+          {scope.isAdmin && (
+            <Link
+              href="/app/admin/trainers"
+              className="inline-flex items-center gap-2 mt-6 px-5 py-3 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text hover:border-accent hover:text-accent transition-colors"
+            >
+              Trainers beheren
+              <ChevronRight size={14} strokeWidth={1.5} />
+            </Link>
+          )}
         </header>
 
         {announcements.length > 0 && (
@@ -222,20 +235,37 @@ export default async function TrainerHomePage() {
   const lastWeek = getIsoWeekYear(lastWeekStart);
   const urenHref = `/app/trainer/uren?week=${weekParam(lastWeek.isoYear, lastWeek.isoWeek)}`;
 
+  // Houd de gekozen trainer vast bij doorklikken naar de andere schermen.
+  const scopeQuery =
+    !scope.isOwnData && scope.selectedTrainerId
+      ? `?trainerId=${scope.selectedTrainerId}`
+      : "";
+
   return (
     <div className="px-6 md:px-10 lg:px-12 py-14">
-      <header className="mb-10">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Trainer
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
-          Hé {firstName}.
-        </h1>
-        {!trainer.is_active && (
-          <p className="tmc-eyebrow text-[color:var(--warning)] mt-4">
-            Je staat op inactief. Sessies komen niet meer je kant op.
-          </p>
-        )}
+      <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div>
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+            Trainer
+          </span>
+          {/* COPY: confirm met Marlon */}
+          <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
+            {scope.isOwnData ? `Hé ${firstName}.` : trainer.display_name}
+          </h1>
+          {!trainer.is_active && (
+            // COPY: confirm met Marlon
+            <p className="tmc-eyebrow text-[color:var(--warning)] mt-4">
+              {scope.isOwnData
+                ? "Je staat op inactief. Sessies komen niet meer je kant op."
+                : "Deze trainer staat op inactief. Sessies komen niet meer die kant op."}
+            </p>
+          )}
+        </div>
+        <TrainerScopePicker
+          isAdmin={scope.isAdmin}
+          options={scope.options}
+          selectedTrainerId={scope.selectedTrainerId}
+        />
       </header>
 
       {announcements.length > 0 && (
@@ -265,12 +295,19 @@ export default async function TrainerHomePage() {
         />
       </div>
 
-      <LastWeekHoursCTA
-        href={urenHref}
-        weekNumber={lastWeek.isoWeek}
-        approvedHours={lastWeekHoursApproved}
-        pendingHours={lastWeekHoursPending}
-      />
+      {/*
+        Deze CTA duwt naar uren indienen, en dat kan alleen voor jezelf
+        (submitOwnHours schrijft altijd naar de eigen trainers-rij). Bij
+        het bekijken van een andere trainer laten we hem dus weg.
+      */}
+      {scope.isOwnData && (
+        <LastWeekHoursCTA
+          href={urenHref}
+          weekNumber={lastWeek.isoWeek}
+          approvedHours={lastWeekHoursApproved}
+          pendingHours={lastWeekHoursPending}
+        />
+      )}
 
       <section className="mt-14 mb-14">
         <header className="mb-6">
@@ -282,8 +319,11 @@ export default async function TrainerHomePage() {
           </h2>
         </header>
         {todaySessions.length === 0 ? (
+          // COPY: confirm met Marlon
           <p className="text-text-muted text-sm">
-            Niks in je agenda vandaag. Tijd voor je eigen training.
+            {scope.isOwnData
+              ? "Niks in je agenda vandaag. Tijd voor je eigen training."
+              : "Deze trainer heeft vandaag geen sessies."}
           </p>
         ) : (
           <ul className="flex flex-col border-t border-[color:var(--ink-500)]/60">
@@ -344,14 +384,19 @@ export default async function TrainerHomePage() {
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
         <QuickLink
-          href="/app/trainer/sessies"
-          title="Alle eigen sessies"
+          href={`/app/trainer/sessies${scopeQuery}`}
+          // COPY: confirm met Marlon
+          title={scope.isOwnData ? "Alle eigen sessies" : "Alle sessies"}
           hint="Deze en komende weken"
         />
         <QuickLink
-          href="/app/trainer/uren"
+          href={`/app/trainer/uren${scopeQuery}`}
           title="Urenregistratie"
-          hint="Historie en handmatig invoeren"
+          hint={
+            scope.isOwnData
+              ? "Historie en handmatig invoeren"
+              : "Historie van deze trainer"
+          }
         />
       </section>
     </div>

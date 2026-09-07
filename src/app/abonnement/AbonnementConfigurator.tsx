@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
+import { trackConfiguratorStageView } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { ConfigureStage } from "./ConfigureStage";
 import { IdentifyStage } from "./IdentifyStage";
@@ -14,6 +15,8 @@ interface Props {
   signupFee: CatalogueRow | null;
   emActive: boolean;
   loggedIn: boolean;
+  /** Opzegtermijn in dagen, uit getCancellationNoticeDays() in page.tsx. */
+  cancellationNoticeDays: number;
 }
 
 type Stage = "configure" | "identify" | "pay";
@@ -33,6 +36,7 @@ export function AbonnementConfigurator({
   signupFee,
   emActive,
   loggedIn,
+  cancellationNoticeDays,
 }: Props) {
   const [stage, setStage] = useState<Stage>("configure");
   const [selection, setSelection] = useState<Selection>(() => initialSelection(plans));
@@ -42,6 +46,13 @@ export function AbonnementConfigurator({
   const [identified, setIdentified] = useState(loggedIn);
 
   const plan = plans[planSlug(selection.family, selection.frequency)];
+
+  // Vuurt óók bij mount (stage "configure"), wat meteen het ontbrekende
+  // view-event op pagina-load van /abonnement oplevert. Geen URL-state:
+  // de stage blijft puur React-state.
+  useEffect(() => {
+    trackConfiguratorStageView(stage);
+  }, [stage]);
 
   function handleConfigured(next: Selection) {
     setSelection(next);
@@ -78,6 +89,7 @@ export function AbonnementConfigurator({
           extendedAccessAddon={extendedAccessAddon}
           signupFee={signupFee}
           emActive={emActive}
+          cancellationNoticeDays={cancellationNoticeDays}
           onBack={() => setStage("configure")}
         />
       )}

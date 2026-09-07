@@ -4,12 +4,14 @@ import { forwardRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { requestMembershipCancellation } from "@/lib/member/membership-actions";
 import { formatDateLong } from "@/lib/format-date";
-import { trackMembershipCancelComplete } from "@/lib/analytics";
+import { formatNoticePeriod } from "@/lib/cancellation-notice";
 
 interface CancellationDialogProps {
   membershipId: string;
   commitEndDate: string;
   currentPlan: string;
+  /** Uit getCancellationNoticeDays() (src/lib/cancellation-notice.ts): dezelfde bron als de RPC. */
+  noticeDays: number;
   onDone?: () => void;
 }
 
@@ -22,9 +24,12 @@ function formatDate(d: string | null): string {
   }
 }
 
-function expectedEffectiveDate(commitEndDate: string): string {
+// Zelfde rekenregel als tmc.request_membership_cancellation:
+// greatest(commit_end_date, vandaag + opzegtermijn). De termijn komt uit
+// dezelfde bron als de RPC, niet uit een lokale constante.
+function expectedEffectiveDate(commitEndDate: string, noticeDays: number): string {
   const notice = new Date();
-  notice.setDate(notice.getDate() + 28);
+  notice.setDate(notice.getDate() + noticeDays);
   const commit = new Date(commitEndDate);
   return (notice > commit ? notice : commit).toISOString().slice(0, 10);
 }
@@ -33,14 +38,15 @@ export const CancellationDialog = forwardRef<
   HTMLDialogElement,
   CancellationDialogProps
 >(function CancellationDialog(
-  { membershipId, commitEndDate, currentPlan, onDone },
+  { membershipId, commitEndDate, currentPlan, noticeDays, onDone },
   ref,
 ) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const estEffective = expectedEffectiveDate(commitEndDate);
+  const estEffective = expectedEffectiveDate(commitEndDate, noticeDays);
+  const noticeLabel = formatNoticePeriod(noticeDays);
 
   function handleSubmit() {
     setError(null);
@@ -65,18 +71,6 @@ export const CancellationDialog = forwardRef<
         setError(res.message);
       } else {
         setSuccess(res.message);
-        const effectiveDate = estEffective;
-        const daysUntil = Math.max(
-          0,
-          Math.round(
-            (new Date(effectiveDate).getTime() - Date.now()) / 86_400_000,
-          ),
-        );
-        trackMembershipCancelComplete({
-          currentPlan,
-          effectiveDate,
-          daysUntilEffective: daysUntil,
-        });
         window.setTimeout(() => {
           onDone?.();
         }, 1600);
@@ -114,16 +108,17 @@ export const CancellationDialog = forwardRef<
         >
           Abbo opzeggen.
         </h2>
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-sm leading-relaxed mb-6">
           Je commitment loopt tot <strong className="text-text">{formatDate(commitEndDate)}</strong>.
-          Daarna geldt een opzegtermijn van vier weken.
+          Daarna geldt een opzegtermijn van {noticeLabel}.
         </p>
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-sm leading-relaxed mb-8">
           Je abbo blijft actief tot{" "}
           <strong className="text-text">{formatDate(estEffective)}</strong>. Tot
           die datum kun je gewoon doorboeken. Daarna stopt de incasso
           automatisch.
-          {/* COPY: confirm with Marlon — 4 weken opzegtermijn per spec, check of dit klopt met AV. */}
         </p>
 
         {error && (

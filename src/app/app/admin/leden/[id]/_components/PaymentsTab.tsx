@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { MaakFactuurKnop } from "./MaakFactuurKnop";
 import { PaymentRow } from "@/app/app/facturen/_components/PaymentRow";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";
 
@@ -38,6 +39,7 @@ export function PaymentsTab({ detail }: { detail: MemberDetail }) {
                 mollieId: p.mollieId,
               }}
             />
+            {p.status === "paid" && <MaakFactuurKnop paymentId={p.id} />}
             {p.mollieId && (
               <a
                 href={`https://my.mollie.com/dashboard/payments/${p.mollieId}`}

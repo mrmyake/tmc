@@ -7,7 +7,6 @@ import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
 import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { UtmTracker } from "./UtmTracker";
-import type { CampaignPhase } from "@/lib/campaign";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
 // Below-the-fold + interaction-triggered. Both ship framer-motion.
@@ -28,14 +27,17 @@ const CookieConsent = dynamic(
 interface SiteShellProps {
   children: React.ReactNode;
   settings: SanitySettings;
-  campaignPhase: CampaignPhase;
+  /** Onafhankelijk van emActive, zie src/lib/campaign.ts. */
+  studioOpen: boolean;
+  emActive: boolean;
   campaignDeadline: string;
 }
 
 export function SiteShell({
   children,
   settings,
-  campaignPhase,
+  studioOpen,
+  emActive,
   campaignDeadline,
 }: SiteShellProps) {
   const pathname = usePathname();
@@ -62,12 +64,40 @@ export function SiteShell({
   if (isStudio || isApp || isLogin || isCheckin || isProgramma || isBetaal) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
-    return <>{children}</>;
+    //
+    // ── De meetgrens ──────────────────────────────────────────────────
+    // Dat /app/**, /login, /checkin en /betaal/* hier geen CookieConsent
+    // krijgen is een ARCHITECTUURBESLISSING, geen bug en geen omissie.
+    // GA4 meet uitsluitend acquisitie op de publieke site: hoe iemand
+    // binnenkomt, wat 'm overtuigt, en of 'ie converteert. Achter die grens
+    // gaat productgedrag naar `tmc.events` — server-side, gekoppeld aan een
+    // profile_id, en niet afhankelijk van cookie-consent. Vandaar dat je
+    // hier geen banner nodig hebt: er valt op deze routes niets te meten
+    // waarvoor toestemming vereist is.
+    //
+    // Voeg hier dus GEEN CookieConsent toe om "het gat te dichten". Zie
+    // spec-analytics.md en de header van src/lib/analytics.ts.
+    //
+    // UtmTracker is de uitzondering, en hoort hier wél op de twee kale
+    // routes waar een campagne rechtstreeks op kan landen: /login
+    // (MailerLite-mails) en /betaal/<token> (WS-5 betaallink via mail/
+    // WhatsApp). Dat is acquisitie-data, geen productgedrag. Zonder deze
+    // mount leest signInWithOtp een lege sessionStorage en schrijft de
+    // signup lege acquisition_*-velden weg — door ON CONFLICT DO NOTHING in
+    // handle_new_auth_user zijn die daarna permanent leeg. UtmTracker
+    // rendert niets en raakt geen consent-state aan (sessionStorage, geen
+    // cookie).
+    return (
+      <>
+        {children}
+        {(isLogin || isBetaal) && <UtmTracker />}
+      </>
+    );
   }
 
   return (
     <>
-      <Navbar campaignPhase={campaignPhase} campaignDeadline={campaignDeadline} />
+      <Navbar studioOpen={studioOpen} emActive={emActive} campaignDeadline={campaignDeadline} />
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>

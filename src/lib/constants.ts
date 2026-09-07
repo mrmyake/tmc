@@ -15,11 +15,14 @@ function resolveSiteUrl(): string {
 export const SITE_URL = resolveSiteUrl();
 
 // PLACEHOLDER: bevestig de daadwerkelijke openingsdatum met Marlon. Bepaalt
-// de copy-fase op /early-member ("binnenkort open" vs. "we zijn open") en is
-// bewust losgekoppeld van de Early Member-deadline (closes_at, via
-// get_campaign_deadline()): de opening kan verschuiven zonder dat de
-// Early Member-actie zelf verandert.
-export const STUDIO_OPENING_DATE = new Date("2026-08-15T00:00:00+02:00");
+// alleen de "is de studio open"-copy (isStudioOpen() in src/lib/campaign.ts,
+// o.a. /early-member's hero en de campagne-teaser). Puur een TS-constante,
+// geen DB-kolom: sinds fix/campagne-fasering (2026-09-06) is de Early
+// Member-deadline (EARLY_MEMBER_DEADLINE, campaign.ts) volledig losgekoppeld
+// van deze datum, ook server-side in _compute_order_price. De studio-opening
+// en de Early Member-actie zijn dus onafhankelijk combineerbaar: de actie
+// kan lopen terwijl de studio nog niet open is.
+export const STUDIO_OPENING_DATE = new Date("2026-09-15T00:00:00+02:00");
 
 /**
  * Groepsgrootte per discipline. Bron van waarheid is
@@ -85,8 +88,8 @@ export const SITE = {
 // Primaire navigatie (top-nav content-cluster), vier items. Labels zijn
 // user-facing NL-copy // COPY: confirm met Marlon, ook al zijn de meeste al
 // bestaande labels. Het "Early Member"-label wordt in de Navbar zelf
-// vervangen door "Word lid" zodra getCampaignPhase() (src/lib/campaign.ts)
-// 'closed' teruggeeft; de href blijft ongewijzigd.
+// vervangen door "Word lid" zodra isEarlyMemberActive() (src/lib/campaign.ts)
+// false teruggeeft; de href blijft ongewijzigd.
 //
 // "Home" en "Contact" staan hier bewust niet meer in (nav-cleanup): het
 // logo dekt Home al (dubbele ingang weg), en Contact is verplaatst naar

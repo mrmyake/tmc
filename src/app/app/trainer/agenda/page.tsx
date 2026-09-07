@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
 import { getAgendaSessions } from "@/lib/trainer/pt-agenda-actions";
 import { getPtBusy } from "@/lib/admin/pt-busy-actions";
 import {
@@ -116,28 +115,15 @@ function navHref(
 
 // ---------- Page --------------------------------------------------------
 
-interface TrainerRow {
-  id: string;
-  display_name: string;
-  slug: string;
-  is_active: boolean;
-}
-
 export default async function TrainerAgendaPage(props: {
   searchParams: Promise<{ view?: string; date?: string; trainerId?: string }>;
 }) {
-  const gate = await requireTrainerOrAdmin();
-  if (!gate.ok) redirect("/app");
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const searchParams = await props.searchParams;
+  const scope = await resolveTrainerScope(searchParams.trainerId);
+  if (!scope.ok) redirect("/app");
 
   const admin = createAdminClient();
 
-  const searchParams = await props.searchParams;
   const view: AgendaViewMode =
     searchParams.view === "day" || searchParams.view === "month"
       ? searchParams.view
@@ -147,48 +133,12 @@ export default async function TrainerAgendaPage(props: {
     parseIsoDateToAmsterdamMidnight(anchorIso) ??
     parseIsoDateToAmsterdamMidnight(todayIsoAmsterdam())!;
 
-  const [{ data: ownTrainerRow }, { data: allTrainersRows }] =
-    await Promise.all([
-      admin
-        .from("trainers")
-        .select("id, display_name, slug, is_active")
-        .eq("profile_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle<TrainerRow>(),
-      gate.actorType === "admin"
-        ? admin
-            .from("trainers")
-            .select("id, display_name, slug, is_active")
-            .eq("is_active", true)
-            .order("display_order", { ascending: true })
-            .returns<TrainerRow[]>()
-        : Promise.resolve({ data: null }),
-    ]);
-
-  const isAdmin = gate.actorType === "admin";
-  const trainerOptions: TrainerOption[] = isAdmin
-    ? (allTrainersRows ?? []).map((t) => ({
-        id: t.id,
-        displayName: t.display_name,
-        slug: t.slug,
-      }))
-    : ownTrainerRow
-      ? [{ id: ownTrainerRow.id, displayName: ownTrainerRow.display_name, slug: ownTrainerRow.slug }]
-      : [];
-
-  // Een trainer (niet-admin) kan het trainerId-queryparam niet gebruiken
-  // om andermans agenda te bekijken — altijd de eigen rij.
-  const requestedTrainerId = isAdmin ? searchParams.trainerId : undefined;
-  const defaultTrainerId = isAdmin
-    ? (ownTrainerRow?.id ??
-        trainerOptions.find((t) => t.slug === "marlon")?.id ??
-        trainerOptions[0]?.id ??
-        null)
-    : (ownTrainerRow?.id ?? null);
-  const selectedTrainerId =
-    requestedTrainerId && trainerOptions.some((t) => t.id === requestedTrainerId)
-      ? requestedTrainerId
-      : defaultTrainerId;
+  // Wie mag welke agenda zien: resolveTrainerScope is de gedeelde bron
+  // voor alle /app/trainer/**-schermen (admin superset + kiezer, trainer
+  // uitsluitend de eigen rij).
+  const isAdmin = scope.isAdmin;
+  const trainerOptions: TrainerOption[] = scope.options;
+  const selectedTrainerId = scope.selectedTrainerId;
 
   if (!selectedTrainerId) {
     // Geen actieve trainers-rij te vinden — admin zonder trainer-rij zou

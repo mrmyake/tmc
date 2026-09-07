@@ -6,6 +6,10 @@ import { createClient as createBareClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
+import {
+  recordAcquisitionOnLogin,
+  type AcquisitionInput,
+} from "@/lib/acquisition";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -75,6 +79,7 @@ export async function verifyLoginOtp(
   email: string,
   token: string,
   next?: string,
+  acquisition?: AcquisitionInput,
 ): Promise<VerifyOtpResult> {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedToken = token.replace(/\D/g, "");
@@ -151,6 +156,14 @@ export async function verifyLoginOtp(
     // COPY: confirm with Marlon
     return { ok: false, error: "Er ging iets mis. Probeer het opnieuw." };
   }
+
+  // Acquisition-attributie, first-touch-wint. Vult alleen nog-lege velden;
+  // de trigger handle_new_auth_user vuurt namelijk uitsluitend bij
+  // account-aanmaak en kan een later binnengekomen campagnebron nooit meer
+  // oppikken. Scope loopt via de zojuist geverifieerde sessie-user plus RLS
+  // (profiles_self_update: auth.uid() = id) — nooit een id uit clientinvoer.
+  // Mag de login nooit blokkeren: de helper throwt niet en logt alleen.
+  await recordAcquisitionOnLogin(supabase, data.session.user.id, acquisition);
 
   const { data: profile } = await supabase
     .from("profiles")

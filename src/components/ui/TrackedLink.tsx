@@ -1,7 +1,15 @@
 "use client";
 
-import { trackContact, trackCTA } from "@/lib/analytics";
-import { usePathname } from "next/navigation";
+/**
+ * Vuurt bewust geen `trackContact` meer. De enige mount van deze component
+ * zit op `/app/support`, dus achter de meetgrens — daar hoort geen GA4-event
+ * te vuren (zie de header van `src/lib/analytics.ts`).
+ *
+ * De component blijft staan als vehikel voor de publieke footer-`tel:`/
+ * `mailto:`-links (audit gap #4). Zet bij die mount de
+ * `onClick={() => trackContact(method)}` terug: dáár is het event wél op zijn
+ * plek, want dat is acquisitie.
+ */
 
 interface TrackedContactLinkProps {
   method: "phone" | "whatsapp" | "email";
@@ -19,36 +27,10 @@ export function TrackedContactLink({
   return (
     <a
       href={href}
-      onClick={() => trackContact(method)}
       className={className}
       {...(method === "whatsapp"
         ? { target: "_blank", rel: "noopener noreferrer" }
         : {})}
-    >
-      {children}
-    </a>
-  );
-}
-
-interface TrackedCTAProps {
-  label: string;
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function TrackedCTA({
-  label,
-  href,
-  children,
-  className,
-}: TrackedCTAProps) {
-  const pathname = usePathname();
-  return (
-    <a
-      href={href}
-      onClick={() => trackCTA(label, pathname)}
-      className={className}
     >
       {children}
     </a>

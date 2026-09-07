@@ -1,10 +1,12 @@
-# Review met Marlon: eerste keer door de app en het admin cockpit
+# Review met Marlon: door de app en het admin cockpit, per rol
 
 ## Voor jij begint
 
 We willen dat je de app en het admin cockpit een keer echt gebruikt, niet er even doorheen klikken. Daarom krijg je hieronder concrete opdrachten in plaats van "kijk eens rond". Elke opdracht beschrijft een doel, niet de knoppen die je moet indrukken. Vind je zelf niet meteen de weg naar dat doel? Dat is precies waardevolle informatie voor ons, geen fout van jou. Hoe meer je vastloopt of twijfelt, hoe meer we leren.
 
-Reken op ongeveer 30 minuten voor de eerste sessie (alleen) en 90 minuten voor de tweede sessie (samen met Ilja).
+Dit document is ingedeeld op rol, niet op sessie. Je doorloopt achtereenvolgens Klant, Trainer en Admin, elk met een eigen account. Houd die volgorde aan, ook al lijkt het alsof je vrij kan kiezen: een paar scenario's zetten iets klaar dat je in een later blok afhandelt. Begin je bij Admin, dan staat de helft daarvan nog niet klaar.
+
+Belangrijk over het wisselen tussen die rollen: elke rolwissel kost een uitlogactie plus een nieuwe inlogcode die per mail binnenkomt. Je logt dus uit, vult het volgende e-mailadres in, wacht op de code en typt die over. Maak daarom eerst een heel blok af voordat je naar het volgende account wisselt. Halverwege heen en weer springen kost je onnodig veel tijd.
 
 Belangrijk: alles wat je doet gebeurt tegen de echte database, dezelfde die straks door leden gebruikt wordt. Blijf daarom bij de scenario's hieronder en ga niet zelf verder experimenteren in het admin cockpit buiten wat gevraagd wordt, ook niet uit nieuwsgierigheid. Sommige knoppen daar sturen echte e-mails of raken echt geld. Waar dat risico speelt, staat dat er expliciet bij, en die scenario's doen we samen.
 
@@ -12,154 +14,74 @@ Noteer je antwoorden direct bij elk scenario, ook als het antwoord simpelweg "ge
 
 ### Hoe je feedback geeft
 
-Al je feedback, dus ook opmerkingen over de teksten op de publieke pagina's uit Blok A0, vul je in het werkboek in, in de kolom "Copy die niet klopt". Blijkt niet al uit de rij zelf op welke pagina de tekst staat, noteer dat er dan even bij.
+Al je feedback vul je in het werkboek in, in de kolom "Copy die niet klopt". Blijkt niet al uit de rij zelf op welk scherm de tekst staat, noteer dat er dan even bij.
 
 Ilja stuurt je het werkboek toe. Vul ook de andere antwoordvelden (Gelukt zonder hulp, Waar twijfelde je, Status) in diezelfde sheet in.
 
 ---
 
-## Sessie 1: alleen (ongeveer 30 minuten)
+## Blok K: Klant
 
-Voor deze sessie krijg je een apart testaccount (niet je eigen admin-account) met inloggegevens. Dat mailen we je vooraf.
+Account: `marlonvanderleij@gmail.com`
 
-### Blok A0: de route van een geïnteresseerde
+Dit blok doorloop je als gewoon lid. Je ziet hier precies wat een lid ziet, niet meer.
 
-Dit blok doorloop je zoals een bezoeker die nog geen lid is. Je bent hier niet ingelogd. Let hier extra goed op de tekst: is dit hoe jij het zou zeggen, klopt de prijs, snap je precies wat je koopt en wat er na een knop gebeurt.
+### K1: Bekijk het rooster en boek een les
 
-#### A0.1: Maak kennis met de studio
-
-**Doel:** beoordelen of de homepage en de aanbodpagina overkomen zoals jij The Movement Club wilt presenteren.
-**Startpunt:** de homepage (themovementclub.nl), klik door naar de aanbodpagina (themovementclub.nl/aanbod).
-**Opdracht:** bekijk de site zoals een nieuwe bezoeker die voor het eerst van de studio hoort. Vorm je een beeld van wat er wordt aangeboden en voor wie.
-**Let op:**
-- Is dit jouw toon, jouw woorden?
-- De aanbodpagina noemt bij Small Group Training "maximaal 6 personen". Is dat het getal dat je nu hanteert?
-- Mis je iets dat een geïnteresseerde eigenlijk direct zou willen weten?
-**Neveneffect:** veilig. Je bekijkt alleen, er wordt niets opgeslagen.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A0.2: Bekijk de tarieven
-
-**Doel:** beoordelen of de tarievenpagina duidelijk en correct is.
-**Startpunt:** themovementclub.nl/prijzen
-**Opdracht:** zoek uit wat een abonnement kost en wat het verschil is tussen de opties.
-**Let op:**
-- De pagina toont nu (rechtstreeks uit de live catalogus) onder meer Groepslessen Onbeperkt voor €119 per 4 weken, Vrij Trainen Onbeperkt voor €69 per 4 weken en All Access Onbeperkt voor €149 per 4 weken. Kloppen deze bedragen met wat jij voor ogen hebt?
-  *(Prijzen opgehaald uit tmc.catalogue op 24-07-2026. Wijkt het scherm af van wat hier staat, dan is de catalogue leidend, niet dit document.)*
-- Deze pagina noemt bij Mobility "max. 8 personen", terwijl de aanbodpagina bij Small Group Training "maximaal 6 personen" noemt. Zijn dit voor jou twee verschillende dingen met elk hun eigen aantal, of hoort dit hetzelfde getal te zijn?
-- Snap je zonder uitleg het verschil tussen de opties?
-**Neveneffect:** veilig. Alleen bekijken.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A0.3: Stel een abonnement samen (zonder af te rekenen)
-
-**Doel:** beoordelen of het samenstellen van een abonnement logisch en overtuigend aanvoelt.
-**Startpunt:** de configurator die je vanaf themovementclub.nl/prijzen bereikt.
-**Opdracht:** stel een abonnement samen zoals jij dat zelf zou willen, tot op het scherm waar de knop "Betaal nu" staat. Klik die knop niet aan, dat opent een echte betaalpagina.
-**Let op:**
-- Is op elk moment duidelijk wat je precies kiest en wat het gaat kosten?
-- Voelt de opbouw (stap voor stap) logisch, of mis je iets?
-- Snap je, vlak voor de "Betaal nu"-knop, precies waar je voor gaat betalen en wat je krijgt?
-**Neveneffect:** veilig, zolang je niet op "Betaal nu" klikt. Die knop stuurt je door naar een echte betaalpagina.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A0.4: Meld je aan voor een proefles
-
-**Doel:** beoordelen of het aanmelden voor een gratis proefles laagdrempelig en duidelijk is.
-**Startpunt:** themovementclub.nl/proefles
-**Opdracht:** meld je aan voor een proefles, met je eigen e-mailadres.
-**Let op:**
-- Snap je vooraf wat er na het versturen gebeurt (bevestiging, wie neemt contact op)?
-- Voelt dit vrijblijvend, zoals het bedoeld is?
-- Komt de bevestiging aan zoals je zou verwachten?
-**Neveneffect:** terug te draaien. Dit maakt een echte proeflesboeking met jouw eigen e-mailadres aan; die annuleer of verwijder ik na de sessie.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
----
-
-### Blok A: als lid (met het testaccount)
-
-Log nu in met het testaccount dat je vooraf hebt gekregen (niet je eigen admin-account).
-
-#### A1: Vraag op te zeggen
-
-**Doel:** beoordelen of opzeggen begrijpelijk is, ook al is het niet iets wat je licht doet.
-**Startpunt:** je accountinstellingen in de app.
-**Opdracht:** zorg dat je lidmaatschap wordt opgezegd.
-**Let op:**
-- Is duidelijk per wanneer de opzegging ingaat, en wat er tot die datum nog kan?
-- Voelt dit onnodig moeilijk, of juist te makkelijk voor zoiets definitiefs?
-- Snap je wat er hierna nog van jou verwacht wordt (bijvoorbeeld: neemt iemand contact op)?
-**Neveneffect:** terug te draaien, dit test-lidmaatschap is speciaal voor deze sessie aangemaakt en heeft geen echte betaling erachter. Ik zet het na de sessie terug of verwijder het account.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A2: Vraag een pauze aan
-
-**Doel:** beoordelen of een tijdelijke pauze op je abonnement duidelijk is.
-**Startpunt:** je accountinstellingen in de app.
-**Opdracht:** zorg dat je abonnement voor een periode gepauzeerd wordt.
-**Let op:**
-- Is duidelijk wat er met je toegang gebeurt tijdens de pauze?
-- Snap je wanneer de pauze weer stopt en wat daarna gebeurt?
-**Neveneffect:** terug te draaien, zelfde testaccount zonder echte betaling.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A3: Nodig een gast uit voor een les
-
-**Doel:** beoordelen of het meenemen van een gast naar een les duidelijk is.
-**Startpunt:** het rooster in de app.
-**Opdracht:** nodig iemand uit om samen met jou een les bij te wonen. Gebruik hiervoor een tweede e-mailadres van jezelf, geen adres van iemand anders, want er gaat een echte bevestigingsmail naartoe.
-**Let op:**
-- Is duidelijk hoeveel gasten je nog mag meenemen en wat dat kost of verbruikt?
-- Komt de bevestigingsmail bij de gast begrijpelijk over?
-**Neveneffect:** terug te draaien, maar verbruikt een echte gastenpas-toewijzing van het testaccount en verstuurt een echte e-mail naar het opgegeven adres.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### A4: Boek een plek in een les
-
-**Doel:** beoordelen of het boeken van een les vlot en logisch verloopt.
+**Doel:** beoordelen of het vinden en boeken van een les vlot en logisch verloopt.
 **Startpunt:** het rooster in de app.
 **Opdracht:** zorg dat je op een les van de komende week staat.
 **Let op:**
 - Is in één oogopslag duidelijk welke lessen er zijn, door wie gegeven, en of er plek is?
 - Snap je na het boeken meteen dat het gelukt is en wat je nu weet (tijd, locatie)?
+- Zie je genoeg vooruit, of mis je dagen?
 **Neveneffect:** terug te draaien, gewoon te annuleren.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
 
-#### A5: Annuleer een boeking
+### K2: Annuleer je boeking
 
 **Doel:** beoordelen of afmelden voor een les duidelijk is.
 **Startpunt:** je boekingen in de app.
-**Opdracht:** meld je weer af voor de les die je bij A4 hebt geboekt.
+**Opdracht:** meld je weer af voor de les die je bij K1 hebt geboekt.
 **Let op:**
-- Is duidelijk of en wanneer je je plek/credit terugkrijgt?
+- Is duidelijk of en wanneer je je plek of credit terugkrijgt?
 - Weet je zeker dat de afmelding gelukt is?
+- Is duidelijk tot wanneer annuleren nog kan zonder gevolgen?
 **Neveneffect:** veilig, dit hoort bij de normale flow.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
 
-#### A6: Kom op een wachtlijst terecht
+### K3: Bekijk je boekingen en je historie
 
-**Doel:** beoordelen of de wachtlijst-ervaring begrijpelijk is als een les vol zit.
-**Startpunt:** het rooster in de app.
-**Opdracht:** probeer je in te schrijven voor de les die we vooraf voor je hebben klaargezet met nog maar één plek. Zorg dat je op de wachtlijst komt in plaats van een plek te krijgen.
+**Doel:** beoordelen of een lid kan terugvinden waar het aan toe is.
+**Startpunt:** je boekingen in de app.
+**Opdracht:** zoek uit welke lessen je nog voor de boeg hebt en welke je al hebt gehad.
 **Let op:**
-- Snap je meteen dat je op een wachtlijst staat en niet gewoon geboekt bent?
-- Is duidelijk wat er gebeurt als er een plek vrijkomt?
-**Neveneffect:** terug te draaien.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Is het onderscheid tussen komende en geweeste lessen duidelijk?
+- Zie je wat je deze periode hebt verbruikt van je abonnement?
+**Neveneffect:** veilig, alleen bekijken.
 
-#### A7: Bekijk je trainingsschema en log een workout
+### K4: Open je trainingsschema en log een workout
 
-**Doel:** beoordelen of het trainingsschema-onderdeel duidelijk is voor een lid dat dit voor het eerst ziet.
+**Doel:** beoordelen of het trainingsschema duidelijk is voor een lid dat dit voor het eerst ziet.
 **Startpunt:** het "Meer"-menu in de app.
 **Opdracht:** vind je trainingsschema en rond een workout af zoals een lid dat zou doen.
 **Let op:**
 - Is duidelijk wat er van je verwacht wordt per oefening?
 - Snap je na afloop wat er is vastgelegd?
-**Neveneffect:** veilig, testdata op het testaccount.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Kun je terugvinden wat je de vorige keer deed?
+**Neveneffect:** veilig, testdata op dit account.
 
-#### A8: Bekijk en wijzig je profielgegevens
+### K5: Bekijk je abonnement en je facturen
+
+**Doel:** beoordelen of een lid kan zien wat het betaalt en waarvoor.
+**Startpunt:** account en instellingen in de app.
+**Opdracht:** zoek uit welk abonnement op jouw naam staat, wat het kost en waar je je facturen vindt.
+**Let op:**
+- Klopt het bedrag met wat je zou verwachten voor dit abonnement?
+- De catalogus die deze bedragen voedt, voedt ook de publieke prijspagina. Die toont nu onder meer Groepslessen Onbeperkt voor €119 per 4 weken, Vrij Trainen Onbeperkt voor €69 per 4 weken en All Access Onbeperkt voor €149 per 4 weken. Kloppen deze bedragen met wat jij voor ogen hebt?
+  *(Prijzen opgehaald uit tmc.catalogue op 24-07-2026. Wijkt het scherm af van wat hier staat, dan is de catalogue leidend, niet dit document.)*
+- Is duidelijk wanneer de volgende incasso valt?
+**Neveneffect:** veilig, alleen bekijken.
+
+### K6: Werk je profiel en noodcontact bij
 
 **Doel:** beoordelen of profiel- en noodcontactgegevens duidelijk te beheren zijn.
 **Startpunt:** je profiel in de app.
@@ -168,125 +90,210 @@ Log nu in met het testaccount dat je vooraf hebt gekregen (niet je eigen admin-a
 - Is duidelijk welke gegevens verplicht zijn en waarom?
 - Voelt dit vertrouwd genoeg aan om er persoonlijke gegevens in te zetten?
 **Neveneffect:** veilig, altijd opnieuw aan te passen.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
 
-#### A9: Zet marketing e-mails aan of uit
+### K7: Vraag een pauze aan
 
-**Doel:** beoordelen of leden zelf kunnen bepalen of ze marketingmails krijgen.
-**Startpunt:** je profiel in de app.
-**Opdracht:** zet de marketingmails uit, en daarna weer aan.
+**Doel:** beoordelen of een tijdelijke pauze op je abonnement duidelijk is.
+**Startpunt:** account en instellingen in de app.
+**Opdracht:** zorg dat je abonnement voor een periode gepauzeerd wordt.
 **Let op:**
-- Is duidelijk wat "aan" precies betekent (welke mails, hoe vaak)?
-**Neveneffect:** terug te draaien, wijzigt direct een echte inschrijving in ons e-mailsysteem voor dit testaccount.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Is duidelijk wat er met je toegang gebeurt tijdens de pauze?
+- Snap je wanneer de pauze weer stopt en wat daarna gebeurt?
+- Is duidelijk of iemand dit nog moet goedkeuren?
+- Dit scenario zet iets klaar voor later: het verzoek dat je hier indient handel je in A6 zelf af, als admin. Sla dit dus niet over.
+**Neveneffect:** terug te draaien, dit testlidmaatschap heeft geen echte betaling erachter.
 
 ---
 
-## Sessie 2: samen met Ilja (ongeveer 90 minuten)
+## Blok T: Trainer
 
-### Blok B: het admin cockpit
+Account: `marlon@ptloosdrecht.nl`
 
-Dit blok doen we samen, niet solo. De reden: deze acties mailen echte (test-)klanten en enkele zijn niet met een simpele knop terug te draaien. We zitten er samen bij zodat ik meteen kan opruimen en ingrijpen als iets misgaat, en zodat we ter plekke kunnen bespreken wat logisch aanvoelt en wat niet.
+Je logt hier bewust in met het traineraccount en niet met admin, ook al kan een admin sinds de laatste wijziging dezelfde schermen zien. Het doel van dit blok is juist te controleren of een trainer precies genoeg ziet en niet meer.
 
-Log hiervoor in met je eigen admin-account.
+### T1: Begin je dag op de trainer-home
 
-#### B1: Verwerk een pauze- of opzegverzoek
-
-**Doel:** beoordelen of jij als beheerder een pauze- of opzegverzoek van een lid kan afhandelen.
-**Startpunt:** ledenbeheer in het admin cockpit.
-**Opdracht:** verwerk het pauze- of opzegverzoek dat in Sessie 1 is ingediend op het testaccount.
+**Doel:** beoordelen of een trainer bij het inloggen meteen ziet wat er vandaag speelt.
+**Startpunt:** de trainer-startpagina, direct na inloggen.
+**Opdracht:** zoek uit wat je vandaag te doen hebt en hoeveel mensen je verwacht.
 **Let op:**
-- Is in één oogopslag duidelijk wat het lid gevraagd heeft en per wanneer?
-- Snap je wat er na jouw goedkeuring gebeurt, en of het lid daar iets van merkt?
-**Neveneffect:** terug te draaien voor dit testaccount, geen echte betaling erachter. Bij een echt lid raakt deze actie de incasso.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Staat het belangrijkste bovenaan, of moet je zoeken?
+- Kloppen de aantallen met wat je zou verwachten?
+- Zie je hier dingen die een trainer juist niet hoort te zien?
+**Neveneffect:** veilig, alleen bekijken.
 
-#### B2: Annuleer een les
+### T2: Bekijk je eigen rooster van deze week
 
-**Doel:** beoordelen of het annuleren van een les vanuit beheer duidelijk is, inclusief de gevolgen voor ingeschreven leden.
-**Startpunt:** het rooster in het admin cockpit, op de testles die we vooraf hebben klaargezet.
-**Opdracht:** annuleer de testles. Gebruik uitsluitend de testles die we samen hebben aangewezen, nooit een echte les.
+**Doel:** beoordelen of een trainer haar eigen weekrooster snel kan overzien.
+**Startpunt:** je sessies in de trainersomgeving.
+**Opdracht:** zoek uit welke lessen jij deze en komende weken geeft.
 **Let op:**
-- Is vooraf duidelijk wie er allemaal een mail krijgt en wat daarin staat?
-- Voelt de bevestigingsstap veilig genoeg om vergissingen te voorkomen?
-**Neveneffect:** onomkeerbaar richting de (test-)leden die een annuleringsmail krijgen. Doe dit uitsluitend op de vooraf aangewezen testles.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Kun je in één blik zien hoe vol je week zit?
+- Zie je uitsluitend je eigen lessen, of ook die van collega's?
+- Is duidelijk welke lessen eventueel geannuleerd zijn?
+**Neveneffect:** veilig, alleen bekijken.
 
-#### B3: Maak een betaalverzoek aan
+### T3: Bekijk de deelnemers van een les
 
-**Doel:** beoordelen of het aanmaken van een betaalverzoek voor een klant duidelijk is.
-**Startpunt:** betaalverzoeken in het admin cockpit.
-**Opdracht:** maak een betaalverzoek aan voor de testklant die we hiervoor hebben klaargezet.
+**Doel:** beoordelen of een trainer voor aanvang weet wie er komt en wat ze moet weten.
+**Startpunt:** een van je eigen lessen in je sessieoverzicht.
+**Opdracht:** zoek uit wie er op een van je komende lessen staat ingeschreven.
 **Let op:**
-- Is duidelijk wat de klant straks in de mail en op de betaalpagina te zien krijgt?
-- Klopt het bedrag met wat je zou verwachten voor deze klant?
-**Neveneffect:** onomkeerbaar in de zin dat er een echte e-mail met een echte betaallink naar het testklant-adres gaat. Niet doen richting een echt lid tijdens deze sessie.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Zie je wat je als trainer moet weten (namen, aantal, eventuele bijzonderheden)?
+- Zie je gezondheidsgegevens die je hier wel of juist niet zou verwachten?
+- Is duidelijk of iemand voor het eerst komt?
+**Neveneffect:** veilig, alleen bekijken.
 
-#### B4: Boek een PT-sessie voor een klant
+### T4: Check een les in
 
-**Doel:** beoordelen of het inplannen van personal training voor een klant logisch verloopt.
-**Startpunt:** de trainersagenda in het admin cockpit.
-**Opdracht:** plan een PT-sessie in voor de testklant.
+**Doel:** beoordelen of aanwezigheid registreren snel genoeg gaat voor een echte les.
+**Startpunt:** de deelnemerslijst van een van je lessen.
+**Opdracht:** registreer voor een van je lessen wie er aanwezig was.
 **Let op:**
-- Is duidelijk of en hoeveel dit de klant kost of van haar/zijn tegoed afgaat?
+- Is dit snel genoeg als er acht mensen tegelijk binnenlopen?
+- Is duidelijk wat er gebeurt als je iemand als afwezig markeert?
+- Kun je een vergissing makkelijk herstellen?
+**Neveneffect:** terug te draaien, betreft testboekingen op deze les.
+
+### T5: Bekijk je PT-agenda
+
+**Doel:** beoordelen of de personal training-agenda bruikbaar is voor het plannen van je week.
+**Startpunt:** de agenda in de trainersomgeving.
+**Opdracht:** zoek uit wanneer je deze week PT-afspraken hebt en waar je ruimte over hebt.
+**Let op:**
+- Is het verschil tussen groepslessen, PT-afspraken en geblokkeerde tijd duidelijk?
+- Kun je makkelijk wisselen tussen dag, week en maand?
+- Zie je hier alleen je eigen agenda?
+**Neveneffect:** veilig, alleen bekijken.
+
+### T6: Open een klantdetail
+
+**Doel:** beoordelen of een trainer genoeg context heeft over een klant voor een sessie.
+**Startpunt:** een klant vanuit je agenda of je deelnemerslijst.
+**Opdracht:** zoek uit wat je over een van je klanten kan vinden voordat je met haar gaat trainen.
+**Let op:**
+- Staat hier wat je nodig hebt om goed les te geven?
+- Mis je iets, of zie je juist meer dan een trainer zou moeten zien?
+- Is duidelijk waar deze klant in haar traject staat?
+**Neveneffect:** veilig, alleen bekijken.
+
+### T7: Plan een PT-afspraak voor een klant
+
+**Doel:** beoordelen of een trainer zelf een personal training kan inplannen.
+**Startpunt:** boeken in de trainersomgeving.
+**Opdracht:** plan een PT-afspraak in voor de testklant die we hiervoor hebben klaargezet.
+**Let op:**
+- Is duidelijk of en hoeveel dit de klant kost of van haar tegoed afgaat?
+- Zie je als trainer opties die volgens jou alleen admin zou moeten hebben?
 - Komt de bevestiging die de klant krijgt overeen met wat jij verwacht?
 **Neveneffect:** onomkeerbaar in de zin dat er een echte bevestigingsmail naar de testklant gaat en er mogelijk tegoed wordt verbruikt.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
 
-#### B5: Beheer een lid
+### T8: Dien je uren in
 
-**Doel:** beoordelen of je een lid kan opzoeken en iets aan diens gegevens of tegoed kan corrigeren.
+**Doel:** beoordelen of urenregistratie begrijpelijk en snel genoeg is om wekelijks te doen.
+**Startpunt:** uren in de trainersomgeving.
+**Opdracht:** dien de uren in die je afgelopen week gewerkt zou hebben.
+**Let op:**
+- Is duidelijk wat er met je ingediende uren gebeurt en wie ze goedkeurt?
+- Zie je terug wat je eerder hebt ingediend en wat de status daarvan is?
+- Zou je dit wekelijks volhouden, of is het te veel werk?
+**Neveneffect:** terug te draaien, ingediende uren kunnen door admin afgewezen of verwijderd worden.
+
+---
+
+## Blok A: Admin
+
+Account: `marlon@themovementclub.nl`
+
+Dit blok doen we samen, niet solo. Enkele acties hier mailen echte adressen of zijn niet met een simpele knop terug te draaien.
+
+### A1: Maak een eenmalige training aan
+
+**Doel:** beoordelen of het inplannen van een losse les duidelijk is.
+**Startpunt:** het rooster in het admin cockpit.
+**Opdracht:** zet één losse les in het rooster, op een moment dat nu leeg is.
+**Let op:**
+- Is duidelijk welke gegevens je minimaal moet invullen?
+- Snap je wanneer deze les voor leden zichtbaar en boekbaar wordt?
+- Is duidelijk wat er gebeurt als je een trainer kiest die dan al bezet is?
+**Neveneffect:** terug te draaien, deze les kan verwijderd worden zolang er geen boekingen op staan.
+
+### A2: Maak een terugkerende training aan
+
+**Doel:** beoordelen of het inrichten van een wekelijks terugkerende les werkbaar is.
+**Startpunt:** het rooster in het admin cockpit.
+**Opdracht:** zet een les op die zich wekelijks herhaalt, zoals je dat voor het echte rooster zou doen.
+**Let op:**
+- Is duidelijk hoe ver vooruit de herhaling loopt?
+- Snap je wat er gebeurt als je later één losse les uit de reeks wilt wijzigen of annuleren?
+- Voelt dit als iets wat je zelf durft in te richten voor het echte rooster?
+**Neveneffect:** terug te draaien, maar dit maakt in één keer meerdere lessen aan. Ruim ze samen met Ilja op.
+
+### A3: Plan een PT-les voor een klant
+
+**Doel:** beoordelen of het inplannen van personal training vanuit admin logisch verloopt.
+**Startpunt:** de trainersagenda of PT-boeken in het admin cockpit.
+**Opdracht:** plan een PT-sessie in voor de testklant die we hiervoor hebben klaargezet.
+**Let op:**
+- Is duidelijk of en hoeveel dit de klant kost of van haar tegoed afgaat?
+- Zie je hier meer mogelijkheden dan je in T7 als trainer zag, en klopt dat verschil?
+- Komt de bevestiging die de klant krijgt overeen met wat jij verwacht?
+**Neveneffect:** onomkeerbaar in de zin dat er een echte bevestigingsmail naar de testklant gaat en er mogelijk tegoed wordt verbruikt.
+
+### A4: Nodig een trainer uit
+
+**Doel:** beoordelen of het toevoegen van een nieuwe trainer duidelijk is.
+**Startpunt:** trainers in het admin cockpit.
+**Opdracht:** nodig een nieuwe trainer uit. Gebruik uitsluitend het wegwerpadres dat Ilja je aan het begin van dit blok geeft, nooit het adres van een echte trainer.
+**Let op:**
+- Is duidelijk wat de uitgenodigde persoon in de mail krijgt en wat zij vervolgens moet doen?
+- Snap je welke toegang deze trainer hiermee krijgt?
+- Is duidelijk hoe je een uitnodiging weer intrekt?
+**Neveneffect:** onomkeerbaar in de zin dat dit een echt inlogaccount aanmaakt en een echte uitnodigingsmail verstuurt. Uitsluitend naar het wegwerpadres van Ilja. Het account wordt na afloop verwijderd.
+
+### A5: Zoek een lid op en bekijk het detail
+
+**Doel:** beoordelen of je een lid kan opzoeken en ziet wat je over haar moet weten.
 **Startpunt:** ledenbeheer in het admin cockpit.
-**Opdracht:** zoek de testklant op en corrigeer iets in haar/zijn tegoed of gegevens, zoals je dat ook voor een echt lid zou doen.
+**Opdracht:** zoek de testklant op en zoek uit wat haar situatie is: abonnement, boekingen, tegoed en betalingen.
 **Let op:**
 - Vind je snel genoeg wat je zoekt in het ledendetail?
-- Is duidelijk wat een correctie voor gevolg heeft?
-**Neveneffect:** terug te draaien, dit betreft een testklant.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Staat het belangrijkste bovenaan, of moet je scrollen naar wat je echt nodig hebt?
+- Mis je een gegeven dat je bij een telefoontje van een lid direct zou willen zien?
+**Neveneffect:** veilig zolang je alleen bekijkt. Corrigeer hier niets zonder Ilja erbij.
 
-#### B6: Genereer en trek een proefcode in
+### A6: Verwerk het pauzeverzoek
 
-**Doel:** beoordelen of het uitgeven van proeflescodes (bijvoorbeeld voor een actie of samenwerking) duidelijk is.
-**Startpunt:** proefcodes in het admin cockpit.
-**Opdracht:** maak een proefcode aan, en trek diezelfde code weer in.
+**Doel:** beoordelen of je een pauzeverzoek van een lid kan afhandelen.
+**Startpunt:** pauzes in het admin cockpit.
+**Opdracht:** handel het pauzeverzoek af dat je in K7 als klant hebt ingediend.
 **Let op:**
-- Is duidelijk hoe iemand deze code moet gebruiken?
-- Snap je hoe je een code weer ongeldig maakt?
-**Neveneffect:** veilig, geen mail of betaling.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
+- Dit werkt alleen als je K7 hebt gedaan. Heb je dat overgeslagen, dan is er niets aan te vinken en zie je een leeg overzicht zonder openstaande verzoeken. Doe K7 dan alsnog eerst.
+- Is in één oogopslag duidelijk wat het lid gevraagd heeft en per wanneer?
+- Snap je wat er na jouw goedkeuring gebeurt, en of het lid daar iets van merkt?
+- Is duidelijk wat dit voor de incasso betekent?
+**Neveneffect:** terug te draaien voor dit testaccount, geen echte betaling erachter. Bij een echt lid raakt deze actie de incasso.
 
-#### B7: Maak een aankondiging
+### A7: Lees het dashboard
 
-**Doel:** beoordelen of het plaatsen van een aankondiging voor leden duidelijk is.
+**Doel:** beoordelen of het dashboard je in één oogopslag vertelt hoe de studio ervoor staat.
+**Startpunt:** het admin cockpit, startpagina.
+**Opdracht:** kijk naar de kerncijfers en probeer te vertellen wat ze zeggen over de afgelopen periode.
+**Let op:**
+- Snap je de cijfers zonder uitleg?
+- Mis je een getal dat je juist wel graag zou zien?
+- Is duidelijk over welke periode elk getal gaat?
+**Neveneffect:** veilig, puur ter inzage.
+
+### A8: Plaats een aankondiging
+
+**Doel:** beoordelen of het plaatsen van een bericht voor leden duidelijk is.
 **Startpunt:** aankondigingen in het admin cockpit.
 **Opdracht:** maak een aankondiging aan zoals je die voor leden zou willen tonen.
 **Let op:**
 - Is duidelijk voor wie de aankondiging zichtbaar wordt en vanaf wanneer?
+- Snap je hoe je hem weer weghaalt?
 **Neveneffect:** veilig. Een aankondiging is puur een bericht dat leden zien wanneer ze inloggen, er gaat geen automatische mail of pushmelding uit.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### B8: Rond een check-in af
-
-**Doel:** beoordelen of het inchecken van een klant aan de balie/tablet logisch is.
-**Startpunt:** de check-in kiosk (of de check-in flow in admin).
-**Opdracht:** check de testklant in voor een les.
-**Let op:**
-- Is dit snel genoeg voor een drukke ochtend?
-- Wat gebeurt er als iemand nog niet in het systeem staat, zoals bij een nieuwe naam die je hier intikt?
-**Neveneffect:** terug te draaien voor de testklant, maar het aanmaken van een geheel nieuwe naam maakt een echt, blijvend account aan.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
-
-#### B9: Bekijk het dashboard
-
-**Doel:** beoordelen of het dashboard je in één oogopslag vertelt hoe de studio ervoor staat.
-**Startpunt:** het admin cockpit, startpagina.
-**Opdracht:** kijk naar het dashboard en probeer te vertellen wat het je zegt over de afgelopen periode.
-**Let op:**
-- Snap je de cijfers zonder uitleg?
-- Mis je een getal dat je juist wel graag zou zien?
-**Neveneffect:** veilig, puur ter inzage.
-**Ruimte voor je antwoord:** Gelukt zonder hulp: ja/nee. Waar twijfelde je: ____. Copy die niet klopt: ____.
 
 ---
 
@@ -297,6 +304,7 @@ De studio-opening staat gepland op 15 augustus 2026. Tot die datum draait de sit
 - De Early Member-kortingen en -teksten op /early-member, /prijzen en in de abonnementsconfigurator zijn nu onderdrukt. Je ziet dus nog geen actieprijzen, ook al bestaan de tarieven al in de catalogus.
 - De menutekst "Early Member" wisselt pas naar "Word lid" op het moment dat de actieperiode zelf sluit (dat is niet hetzelfde moment als de opening, maar een latere datum die we samen nog vaststellen).
 - De opening-specifieke teksten op /early-member (bijvoorbeeld framing als "we zijn nu open" in plaats van "binnenkort open") verschijnen pas na 15 augustus.
+- Het daadwerkelijk stoppen of hervatten van een incasso via Mollie. De pauze- en opzegflows draaien in deze review op een lidmaatschap zonder Mollie-koppeling, dus ze valideren de flow en de copy, niet de betaling zelf.
 
 Deze onderdelen nemen we mee in een vervolgronde, dichter bij of na de opening.
 
@@ -306,30 +314,41 @@ Deze onderdelen nemen we mee in een vervolgronde, dichter bij of na de opening.
 
 ### Testdata vooraf klaarzetten
 
-1. Eén los testlid-account (aparte inlog, niet Marlons eigen admin-account), e-mailadres onder mijn beheer:
-   - profiel met rol `member`
-   - een `tmc.memberships`-rij met status `active`, `mollie_customer_id = NULL`, `mollie_subscription_id = NULL`, gekoppeld aan een bestaand abonnement (bijvoorbeeld Groepslessen Onbeperkt) zodat er boekbare toegang is. Dit is nodig en voldoende: de pauze- en opzegflow raken bij een lege Mollie-koppeling geen Mollie-API, dat heb ik in de code geverifieerd.
-   - minstens één trainingsprogramma of workout-sessie, zodat A7 (schema) iets te tonen heeft
-   - een gastenpas-toewijzing, zodat A3 (gast uitnodigen) iets te verbruiken heeft
-   - inloggegevens (magic link) vooraf naar Marlon gestuurd, apart van haar admin-login
-2. Eén les met nog precies één vrije plek, al bezet door een dummyboeking, zodat A6 (wachtlijst) direct raak is.
-3. Voor Sessie 2: twee tot drie losse testklant-profielen (eigen e-mailadressen onder mijn beheer) als doelwit voor B3 (betaalverzoek), B4 (PT-boeking) en B5 (ledenbeheer).
-4. Eén testles, los van het echte rooster, met uitsluitend testboekingen erop, voor B2 (les annuleren). Wijs deze les expliciet samen met Marlon aan voor de sessie begint.
-5. Vooraf in het Mollie-dashboard en in Vercel controleren welke sleutel achter `MOLLIE_API_KEY` zit (test of live). Dit staat niet los in de code als aparte variabele, dus dit is een handmatige check.
+1. Klantaccount `marlonvanderleij@gmail.com`, rol `member`:
+   - een `tmc.memberships`-rij met status `active`, `mollie_customer_id = NULL` en `mollie_subscription_id = NULL`, gekoppeld aan een bestaand abonnement (bijvoorbeeld Groepslessen Onbeperkt) zodat er boekbare toegang is. Dit is het minimum en tevens voldoende: de pauzeflow raakt bij een lege Mollie-koppeling geen Mollie-API.
+   - minstens één actief trainingsprogramma met een programmadag, zodat K4 (schema en workout) iets te tonen heeft
+   - minstens één afgeronde boeking in het verleden, zodat K3 (historie) niet leeg is
+   - minstens één factuurregel of betaling, zodat K5 (abonnement en facturen) iets te tonen heeft
+2. Traineraccount `marlon@ptloosdrecht.nl`, rol `trainer`:
+   - de bestaande actieve `tmc.trainers`-rij blijft aan dit profiel hangen, dus na de rolwissel van admin naar trainer werkt dit account als volwaardige trainer
+   - minstens drie `class_sessions` deze en komende week op deze trainer, met testboekingen erop, voor T2, T3 en T4
+   - minstens één PT-sessie op deze trainer, voor T5
+   - minstens één klant gekoppeld via een boeking of PT-afspraak, voor T6
+3. Adminaccount `marlon@themovementclub.nl`, rol `admin`:
+   - dit profiel bestaat pas nadat Marlon er één keer mee heeft ingelogd via de OTP-flow. Zet de rol daarna pas, en controleer dat `/app/admin` bereikbaar is voordat je het traineraccount degradeert.
+4. Eén wegwerp-e-mailadres onder mijn beheer voor A4 (trainer uitnodigen). Geef dit adres aan het begin van Blok A aan Marlon, niet eerder.
+5. Eén tot twee losse testklant-profielen (eigen e-mailadressen onder mijn beheer) als doelwit voor T7 (PT-afspraak door trainer), A3 (PT-les door admin) en A5 (ledenbeheer).
+6. Vooraf in het Mollie-dashboard en in Vercel controleren welke sleutel achter `MOLLIE_API_KEY` zit (test of live). Dit staat niet los in de code als aparte variabele, dus dit is een handmatige check.
 
 ### Opruimen na afloop
 
-- Testlidmaatschap en testboekingen van het losse testlid-account, of het account zelf verwijderen.
-- De dummyboeking die de wachtlijst-testles vulde.
-- Testklant-profielen aangemaakt tijdens B3, B4, B8.
-- De geannuleerde testles uit B2 (of de testboekingen erin).
-- Concept-aankondiging uit B7 weer verwijderen of depubliceren, tenzij Marlon hem echt wil laten staan.
-- Marketing-optin van het testlid-account terugzetten in MailerLite als A9 hem heeft aangezet.
-- De proeflesboeking die Marlon zelf maakt in A0.4, met haar eigen e-mailadres: annuleren of verwijderen.
+- De boekingen die Marlon in K1 maakt, voor zover niet al geannuleerd in K2.
+- De workout-sessie en set-logs uit K4, of het trainingsprogramma terugzetten naar de uitgangssituatie.
+- De pauze op het klantlidmaatschap uit K7 en A6 terugdraaien, of het lidmaatschap terugzetten naar `active`.
+- De aanwezigheidsregistratie uit T4 terugzetten op de testboekingen.
+- De ingediende uren uit T8 verwijderen of afwijzen.
+- De PT-afspraken uit T7 en A3, inclusief het verbruikte tegoed van de testklant.
+- De losse les uit A1 en de volledige reeks lessen uit A2.
+- **Het uitgenodigde trainer-wegwerpaccount uit A4**: zowel de `tmc.trainers`-rij, het profiel als het onderliggende auth-account verwijderen. Dit is een echt inlogaccount, laat het niet staan.
+- De aankondiging uit A8 verwijderen of depubliceren, tenzij Marlon hem echt wil laten staan.
+- Testklant-profielen die tijdens deze sessie zijn aangemaakt.
+
+Let op: `tmc.events` is append-only, met update en delete geblokkeerd via een trigger. De eventrijen die deze reviewsessie produceert blijven dus staan en horen niet in de opruimlijst. Dat is bedoeld gedrag, geen restafval.
 
 ### Niet zelfstandig of niet in deze ronde testen
 
 - **Lid verwijderen** (harde delete van een account): onomkeerbaar, geen self-service scenario, buiten scope van deze review.
-- **Trainer uitnodigen**: maakt een echt inlogaccount aan en verstuurt een echte uitnodigingsmail, buiten scope van deze review.
+- **Les annuleren vanuit admin**: mailt alle ingeschreven leden. Alleen samen en uitsluitend op een vooraf aangewezen testles, of deze ronde overslaan.
+- **Betaalverzoek versturen**: stuurt een echte mail met een echte betaallink. Alleen samen, en alleen naar een testadres onder mijn beheer.
 - **Pakket of tienrittenkaart kopen** (de knop "Betaal nu" in de abonnementsconfigurator, of "Koop" op de productenpagina): stuurt door naar een echte Mollie-checkout. Alleen samen doen, en alleen nadat de testmodus van Mollie bevestigd is. Is het onverhoopt toch een live sleutel, dan doen we dit scenario niet of accepteren we vooraf dat het een echte, kleine transactie is die we handmatig terugstorten.
-- De opzeg- en pauzescenario's (A1, A2) draaien op een testlidmaatschap met `mollie_subscription_id` en `mollie_customer_id` op NULL, waardoor het Mollie-pad niet wordt geraakt. Deze scenario's valideren de flow en de copy, niet het daadwerkelijk stoppen van een incasso. Dat laatste blijft openstaan en hoort bij de handmatige Mollie-controle in de open-em fase.
+- **Opzeggen als lid**: bewust uit het klantblok gehouden. Het is geen wekelijkse handeling en het zet een lopend testlidmaatschap in een eindtoestand die K5 en A6 in de weg zit. Apart te testen in de vervolgronde.
