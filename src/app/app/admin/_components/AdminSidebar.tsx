@@ -42,6 +42,11 @@ interface ExternalItem {
  * features — die blijven in de secondary sectie. Rapportage is nog
  * niet gebouwd en staat niet in de sidebar (spec: "don't add empty
  * shell now"). Content↗ opent /studio in nieuw tabblad.
+ *
+ * Check-in↗ opent /checkin in nieuw tabblad, zelfde patroon als
+ * Content. /checkin is en blijft een publieke route met eigen
+ * PIN-gate; deze link wijzigt daar niets aan, hij bespaart Marlon
+ * alleen het onthouden van de URL.
  */
 const DAILY: NavItem[] = [
   { href: "/app/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -75,6 +80,8 @@ const SECONDARY: NavItem[] = [
 ];
 
 const EXTERNAL: ExternalItem[] = [
+  // COPY: confirm met Marlon
+  { href: "/checkin", label: "Check-in", icon: ExternalLink, external: true },
   { href: "/studio", label: "Content", icon: ExternalLink, external: true },
 ];
 
