@@ -36,6 +36,9 @@ export interface MemberRow {
   creditsRemaining: number | null;
   lastSessionDate: string | null;
   mrrCents: number;
+  /** Van de primaire membership, ongeacht status. Sinds PR #164 inbegrepen
+   * bij elk All Access-abonnement, optioneel add-on op Vrij Trainen. */
+  extendedAccess: boolean;
 }
 
 export interface ListMembersInput {
@@ -66,6 +69,7 @@ type ProfileJoinRow = {
     credits_remaining: number | null;
     price_per_cycle_cents: number;
     start_date: string;
+    extended_access: boolean;
   }>;
 };
 
@@ -157,7 +161,7 @@ export async function listMembers(
         id, first_name, last_name, email,
         memberships:memberships(
           plan_type, plan_variant, status, credits_remaining,
-          price_per_cycle_cents, start_date
+          price_per_cycle_cents, start_date, extended_access
         )
       `,
       { count: "exact" },
@@ -259,6 +263,7 @@ export async function listMembers(
       creditsRemaining: primary?.credits_remaining ?? null,
       lastSessionDate: lastBySession.get(p.id) ?? null,
       mrrCents: primary?.status === "active" ? mrrCents : 0,
+      extendedAccess: primary?.extended_access ?? false,
     };
   });
 
