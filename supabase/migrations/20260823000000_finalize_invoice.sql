@@ -366,6 +366,14 @@ declare
   v_next integer;
 begin
   select id into v_profile from tmc.profiles where role = 'admin' limit 1;
+  -- Replay-edit 2026-09-07 (fix/migratie-replay-20260820): profiles is
+  -- app-data. Zonder admin-profiel zou finalize_invoice op is_admin()
+  -- weigeren; de zelfcontrole slaat zichzelf dan over. Met een
+  -- admin-profiel draait hij onveranderd.
+  if v_profile is null then
+    raise notice 'finalize_invoice: zelfcontrole overgeslagen, geen admin-profiel (lege database)';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_profile, 'role', 'authenticated')::text, true);
 

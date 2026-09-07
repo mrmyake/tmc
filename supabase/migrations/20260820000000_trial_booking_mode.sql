@@ -24,6 +24,20 @@
 -- Alleen v_session_availability heeft een eigen inline telling. De
 -- wijziging landt dus op precies twee plekken: session_occupancy en de
 -- view. Sectie 2.9 en 14 van de spec zijn hierop bijgewerkt in deze PR.
+--
+-- Replay-edit 2026-09-07 (fix/migratie-replay-20260820, na de
+-- oorspronkelijke toepassing; zelfde patroon als PR #76 voor 20260715):
+-- de backfill in sectie 4 verwees naar twee trial_bookings-rijen die door
+-- de app zijn aangemaakt, nooit door een migratie, en de zelfcontrole in
+-- sectie 5 leunde op een bestaande class_types- en trainers-rij. Op een
+-- verse shadow-database (db diff, lokale stack) bestaan die niet, de FK
+-- payments_trial_booking_id_fkey weigerde en de keten was niet meer
+-- from-scratch afspeelbaar. Nu: de backfill voegt alleen in wat werkelijk
+-- bestaat en de zelfcontrole slaat zichzelf over als de app-data ontbreekt.
+-- Op elke database waar deze migratie al draaide verandert er niets:
+-- dezelfde ON CONFLICT DO NOTHING, en de payments-rijen bestaan daar al of
+-- zijn (sinds 20260907) samen met hun trial_bookings opgeruimd, waardoor de
+-- EXISTS-voorwaarde nul rijen oplevert.
 
 begin;
 
@@ -128,16 +142,25 @@ create or replace view tmc.v_session_availability as
 -- zelfde behandeling als de expired rijen uit de PR 2-backfill).
 -- ---------------------------------------------------------------------------
 
+-- Voorwaardelijk (replay-edit): alleen de rijen waarvan de trial_booking
+-- werkelijk bestaat. Op een lege database is dit een no-op zonder
+-- FK-fout; op de oorspronkelijke productiedatabase precies de twee rijen.
 insert into tmc.payments (
   mollie_payment_id, amount_cents, status, method, description, paid_at,
   kind, trial_booking_id, is_test, vat_rate_bp, vat_amount_cents, net_amount_cents
-) values
+)
+select v.mollie_payment_id, v.amount_cents, v.status, v.method, v.description, v.paid_at,
+       v.kind, v.trial_booking_id, v.is_test, v.vat_rate_bp, v.vat_amount_cents, v.net_amount_cents
+from (values
   ('tr_dF2fufM8697aFeXXLwgTJ', 1700, 'paid', 'ideal',
    'Proefles (backfill PR 5)', timestamptz '2026-07-08 15:01:33+00',
-   'trial_booking', '72655e88-3e21-448c-83b0-20cc9bf9ae57', false, 900, 140, 1560),
-  ('tr_pcCJ9FUeYp8GVTdTDvpTJ', 1700, 'expired', null,
-   'Proefles (backfill PR 5)', null,
-   'trial_booking', '1db18a42-572c-4c09-a02d-7f43471323f8', false, 900, 140, 1560)
+   'trial_booking', '72655e88-3e21-448c-83b0-20cc9bf9ae57'::uuid, false, 900, 140, 1560),
+  ('tr_pcCJ9FUeYp8GVTdTDvpTJ', 1700, 'expired', null::text,
+   'Proefles (backfill PR 5)', null::timestamptz,
+   'trial_booking', '1db18a42-572c-4c09-a02d-7f43471323f8'::uuid, false, 900, 140, 1560)
+) as v(mollie_payment_id, amount_cents, status, method, description, paid_at,
+       kind, trial_booking_id, is_test, vat_rate_bp, vat_amount_cents, net_amount_cents)
+where exists (select 1 from tmc.trial_bookings tb where tb.id = v.trial_booking_id)
 on conflict (mollie_payment_id) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -154,9 +177,29 @@ declare
   v_sid uuid;
   v_ct uuid;
   v_tr uuid;
+  v_backfill_targets integer;
 begin
+  -- Backfill-controle (replay-edit): het aantal payments-rijen hoort gelijk
+  -- te zijn aan het aantal doelrijen dat werkelijk bestaat; op een lege
+  -- database is dat 0 = 0.
+  select count(*) into v_backfill_targets
+  from tmc.trial_bookings
+  where id in ('72655e88-3e21-448c-83b0-20cc9bf9ae57', '1db18a42-572c-4c09-a02d-7f43471323f8');
+  if (select count(*) from tmc.payments
+      where trial_booking_id in ('72655e88-3e21-448c-83b0-20cc9bf9ae57', '1db18a42-572c-4c09-a02d-7f43471323f8'))
+     < v_backfill_targets then
+    raise exception 'trial_booking_mode: backfill onvolledig';
+  end if;
+
   select id into v_ct from tmc.class_types limit 1;
   select id into v_tr from tmc.trainers limit 1;
+  -- Replay-edit: class_types en trainers zijn app-data. Zonder die rijen
+  -- kan de synthetische sessie niet bestaan (beide FK's NOT NULL); de
+  -- zelfcontrole slaat zichzelf dan over in plaats van de keten te breken.
+  if v_ct is null or v_tr is null then
+    raise notice 'trial_booking_mode: zelfcontrole overgeslagen, geen class_types/trainers-rij (lege database)';
+    return;
+  end if;
   insert into tmc.class_sessions (class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status)
   values (v_ct, v_tr, 'yoga_mobility', 'adult', now() + interval '365 days', now() + interval '365 days 1 hour', 2, 'scheduled')
   returning id into v_sid;
@@ -215,11 +258,6 @@ begin
   -- Opruimen binnen de transactie.
   delete from tmc.trial_bookings where session_id = v_sid;
   delete from tmc.class_sessions where id = v_sid;
-
-  -- Backfill-controle: beide rijen aanwezig en gekoppeld.
-  if (select count(*) from tmc.payments where kind = 'trial_booking' and trial_booking_id is not null) < 2 then
-    raise exception 'trial_booking_mode: backfill onvolledig';
-  end if;
 end $$;
 
 commit;
