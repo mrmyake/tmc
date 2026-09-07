@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
 import { PtBookScreen } from "./_components/PtBookScreen";
 
 export const metadata = {
@@ -28,12 +28,17 @@ interface TrainerRow {
  * nogmaals. Betaallinks (tmc.admin_create_order) blijven admin-only, dus
  * die betaalmodus gaat alleen als prop aan voor admins.
  */
-export default async function PtBoekenPage() {
-  const gate = await requireTrainerOrAdmin();
-  if (!gate.ok) redirect("/app");
+export default async function PtBoekenPage(props: {
+  searchParams: Promise<{ trainerId?: string }>;
+}) {
+  const { trainerId: requestedTrainerId } = await props.searchParams;
+  const scope = await resolveTrainerScope(requestedTrainerId);
+  if (!scope.ok) redirect("/app");
 
+  // Boeken werkt bewust met de volledige trainerlijst: ook een trainer mag
+  // een PT-sessie voor een collega inplannen. resolveTrainerScope levert
+  // hier alleen de voorselectie (eigen rij, of de admin-keuze).
   const admin = createAdminClient();
-
   const [{ data: trainerRows }, catalogue] = await Promise.all([
     admin
       .from("trainers")
@@ -45,8 +50,11 @@ export default async function PtBoekenPage() {
   ]);
 
   const trainers = trainerRows ?? [];
-  const defaultTrainer =
-    trainers.find((t) => t.slug === "marlon") ?? trainers[0] ?? null;
+  const defaultTrainerId =
+    scope.selectedTrainerId ??
+    trainers.find((t) => t.slug === "marlon")?.id ??
+    trainers[0]?.id ??
+    null;
 
   const studioProgram = catalogue.get("program_studio_12w");
   const onlineProgram = catalogue.get("program_online_12w");
@@ -54,7 +62,7 @@ export default async function PtBoekenPage() {
   return (
     <PtBookScreen
       trainers={trainers.map((t) => ({ id: t.id, displayName: t.display_name }))}
-      defaultTrainerId={defaultTrainer?.id ?? null}
+      defaultTrainerId={defaultTrainerId}
       studioProgram={{
         priceCents: studioProgram?.price_cents ?? 240000,
         displayName: studioProgram?.display_name ?? "12-weken-programma studio",
@@ -63,7 +71,7 @@ export default async function PtBoekenPage() {
         priceCents: onlineProgram?.price_cents ?? 125000,
         displayName: onlineProgram?.display_name ?? "12-weken-programma online",
       }}
-      paymentLinksEnabled={gate.actorType === "admin"}
+      paymentLinksEnabled={scope.isAdmin}
     />
   );
 }
