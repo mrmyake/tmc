@@ -32,17 +32,21 @@ interface EarlyMemberContentProps {
   studioOpen: boolean;
   /** isEarlyMemberActive() (src/lib/campaign.ts) — bepaalt de EM-voordelen. */
   emActive: boolean;
+  /** "15 september", geformatteerd uit STUDIO_OPENING_DATE in page.tsx. */
+  openingDateLabel: string;
 }
 
 // Copy hieronder volgt de zes-secties rebuild (zie PR-beschrijving). Bewust
-// nergens plek-tellingen, reservering/hold-taal of "1 augustus" meer — de
-// enige schaarste is de deadline-countdown, en de opening heet "medio
-// augustus" tot de echte datum vaststaat.
+// nergens plek-tellingen of reservering/hold-taal: de enige schaarste is de
+// deadline-countdown. De openingsdatum staat nergens uitgeschreven maar komt
+// als openingDateLabel uit STUDIO_OPENING_DATE, zodat de tekst niet kan
+// verlopen.
 export function EarlyMemberContent({
   deadline,
   pricing,
   studioOpen,
   emActive,
+  openingDateLabel,
 }: EarlyMemberContentProps) {
   const deadlineLabel = formatDateLong(new Date(deadline));
   // hasOpened bepaalt alleen de hero-framing (voor/na de studio-opening);
@@ -97,8 +101,8 @@ export function EarlyMemberContent({
               ) : (
                 // COPY: confirm met Marlon
                 <p className="text-text-muted text-lg mt-7 max-w-2xl mx-auto leading-relaxed">
-                  Medio augustus opent The Movement Club in Loosdrecht. Wie nu
-                  instapt, traint zonder inschrijfkosten, zonder
+                  Op {openingDateLabel} opent The Movement Club in Loosdrecht.
+                  Wie nu instapt, traint zonder inschrijfkosten, zonder
                   jaarcontract en met een All Access-tarief dat daarna
                   verdwijnt.
                 </p>

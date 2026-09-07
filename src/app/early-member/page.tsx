@@ -1,22 +1,39 @@
 import type { Metadata } from "next";
 import { getCatalogue } from "@/lib/catalogue";
-import { getCampaignWindow, isStudioOpen, isEarlyMemberActive } from "@/lib/campaign";
+import {
+  getCampaignWindow,
+  isStudioOpen,
+  isEarlyMemberActive,
+  formatCampaignDeadline,
+} from "@/lib/campaign";
+import { STUDIO_OPENING_DATE } from "@/lib/constants";
 import { EarlyMemberContent, type EarlyMemberPricing } from "./EarlyMemberContent";
 
 // ISR: prijzen en de countdown-deadline mogen maximaal een minuut achterlopen.
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Early Member | The Movement Club Loosdrecht",
-  description:
-    "Medio augustus opent The Movement Club in Loosdrecht. Word Early Member en train zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt.",
-  alternates: { canonical: "/early-member" },
-  openGraph: {
+// "15 september": de openingsdatum wordt altijd geformatteerd uit
+// STUDIO_OPENING_DATE, nooit uitgeschreven in copy, zodat een tekst niet
+// opnieuw kan verlopen zoals "medio augustus" deed.
+const openingDateLabel = formatCampaignDeadline(STUDIO_OPENING_DATE);
+
+// Description volgt dezelfde hero-framing als de pagina (voor/na de
+// opening) en wordt bij elke ISR-render herberekend, dus hij verloopt niet.
+export function generateMetadata(): Metadata {
+  // COPY: confirm met Marlon
+  const description = isStudioOpen()
+    ? "The Movement Club is open in Loosdrecht. Word Early Member en train zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt."
+    : `Op ${openingDateLabel} opent The Movement Club in Loosdrecht. Word Early Member en train zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt.`;
+  return {
     title: "Early Member | The Movement Club Loosdrecht",
-    description:
-      "Medio augustus opent The Movement Club in Loosdrecht. Word Early Member en train zonder inschrijfkosten, zonder jaarcontract en met een All Access-tarief dat daarna verdwijnt.",
-  },
-};
+    description,
+    alternates: { canonical: "/early-member" },
+    openGraph: {
+      title: "Early Member | The Movement Club Loosdrecht",
+      description,
+    },
+  };
+}
 
 // Noodgreep, alleen gebruikt als de Supabase-fetch faalt. Bewust niet de
 // bron van waarheid, zie tmc.catalogue.
@@ -87,6 +104,7 @@ export default async function EarlyMemberPage() {
       pricing={pricing}
       studioOpen={studioOpen}
       emActive={emActive}
+      openingDateLabel={openingDateLabel}
     />
   );
 }
