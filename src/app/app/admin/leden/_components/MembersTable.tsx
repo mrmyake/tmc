@@ -99,6 +99,10 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
               <th scope="col" className="py-3 px-4 text-left">
                 <span className="tmc-eyebrow">Status</span>
               </th>
+              <th scope="col" className="py-3 px-4 text-left">
+                {/* COPY: confirm met Marlon */}
+                <span className="tmc-eyebrow">Verlengde toegang</span>
+              </th>
               <th scope="col" className="py-3 px-4 text-right">
                 <SortableHeader
                   label="Credits"
@@ -166,6 +170,16 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                   <td className="py-4 px-4 align-middle">
                     <MembershipStatusBadge status={r.membershipStatus} />
                   </td>
+                  <td className="py-4 px-4 align-middle text-sm">
+                    <span
+                      className={
+                        r.extendedAccess ? "text-accent" : "text-text-muted"
+                      }
+                    >
+                      {/* COPY: confirm met Marlon */}
+                      {r.extendedAccess ? "Ja" : "—"}
+                    </span>
+                  </td>
                   <td className="py-4 px-4 align-middle text-right text-sm text-text tabular-nums">
                     {r.creditsRemaining == null ? "—" : r.creditsRemaining}
                   </td>
@@ -231,6 +245,12 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                     planVariant={r.planVariant}
                   />
                   <MembershipStatusBadge status={r.membershipStatus} />
+                  {r.extendedAccess && (
+                    // COPY: confirm met Marlon
+                    <span className="text-accent text-xs">
+                      Verlengde toegang
+                    </span>
+                  )}
                 </div>
                 <p className="text-text-muted text-xs mt-2">
                   {formatLastSession(r.lastSessionDate)} ·{" "}
