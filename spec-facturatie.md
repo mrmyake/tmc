@@ -3091,12 +3091,38 @@ het overzicht, niet de waarheid.
   onschuldige, voorbestaande console-fout (Turbopack chunk-laadfout, ook aanwezig op de
   ongewijzigde `/app/admin/facturen`-pagina) hoort niet bij deze PR.
 
+- **PR #161, 2026-09-07** (migratie `20260907000000_cleanup_pre_launch_test_data.sql`,
+  vervolg op 6.9/6.10 en besluitenlog 34). De "opruim-check voor de test-orders": er zijn nog
+  geen echte klanten, maar van de 11 profielen met test-activiteit had er maar 1
+  (`invoice-e2e-verify@tmc.test`) `is_test = true` staan -- precies de omissie uit
+  besluitenlog 34. Live gemeten gevolg vóór deze migratie: `tmc.vw_admin_kpis` toonde
+  `active_members: 4, mrr_cents: 16197`, volledig fictief (de zes `dash-*@tmc.test`
+  dashboard-UI-fixtures telden mee als echte leden). Migratie in twee stappen: (1)
+  `profiles.is_test = true` met terugwerkende kracht op de 10 betrokken profielen (Ilja's
+  eigen admin/trainer/member-accounts plus de zes `dash-*@tmc.test`-fixtures), elk
+  geselecteerd op id + e-mail samen, nooit op een patroon; (2) het in 6.9 gespecificeerde
+  opruimscript daadwerkelijk gebouwd en gedraaid: 7 orders, 9 memberships, 4 bookings, 3
+  trial_bookings, 7 payments en 1 (nooit-gefinaliseerde) factuur verwijderd, in FK-veilige
+  volgorde (`information_schema.referential_constraints` gemeten tijdens de discovery), elke
+  stap met een assertie op het exact gemeten aantal. `tmc.vw_admin_kpis` na
+  `refresh_admin_kpis()`: `active_members: 0, mrr_cents: 0`.
+  **Bewust niet aangeraakt:** de 10 profielen zelf blijven bestaan (Ilja's eigen login en de
+  dashboardfixtures blijven bruikbaar voor toekomstig UI-hertesten, nu correct uitgesloten
+  van de KPI's/omzet); `invoice-e2e-verify@tmc.test` (al `is_test = true`) en zijn 7
+  gefinaliseerde TEST-facturen plus 3 payments -- die blijven staan per 6.9 ("gefinaliseerde
+  testfacturen verwijderen" gebeurt niet) en vervuilden al niets; pt_bookings,
+  workout_sessions, training_programs, pt_programs en de trainers-rijen onder deze profielen
+  -- een bredere PT-/trainer-testvoetafdruk, geen "test-order", apart gesprek. De
+  beheerinterface zelf (6.10, fase 2) is hiermee niet gebouwd; dit is alleen de eenmalige
+  data-opruiming.
+
 ### Nog te doen
 
 Sectie 14 is nu volledig gemergd (9a, 9b, 9c) -- geen resterende PR's meer in de
 oorspronkelijke opdeling. Wat overblijft staat in de openstaande-gates-tabel bovenaan dit
 document: de fiscale bevestiging van negen procent door de accountant, en het echte KvK-
-en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers.
+en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers. Fase 2 van de
+testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een apart akkoord.
 
 ---
 
