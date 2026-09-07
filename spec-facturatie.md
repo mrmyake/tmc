@@ -3116,6 +3116,31 @@ het overzicht, niet de waarheid.
   beheerinterface zelf (6.10, fase 2) is hiermee niet gebouwd; dit is alleen de eenmalige
   data-opruiming.
 
+- **PR #169, 2026-09-07** (branch `fix/testdata-markeren`, migratie
+  `20260907130000_mark_fixture_profiles_is_test.sql`, vervolg op PR #161). De opruimmigratie
+  zette `is_test` alleen op de 10 profielen met test-activiteit; de overige fixtures bleven
+  op false. Discovery: 21 profielen met `is_test = false`, waarvan 15 fixtures (14 op
+  `@tmc.test` plus `me@ilja.cpom`, een typefout-signup die nooit bevestigd is), allemaal rol
+  member, allemaal zonder membership, order, payment of trial_booking. Zonder vlag zouden ze
+  bij Mollie-tests de live-key krijgen (`create_order`, `admin_create_order`,
+  `mollie-mode.ts`, `payment-link.ts`) en meetellen in `vw_admin_kpis`. Migratie: één
+  update op criterium (e-mail eindigt op `@tmc.test` of is exact `me@ilja.cpom`, én
+  `role = 'member'`, én nog false), geraakte rijen in een tijdelijke tabel; asserties die
+  altijd draaien ("nul rijen over die aan het criterium voldoen met false", "geen uitgesloten
+  adres geraakt", "alleen rol member geraakt") plus een omgevingsassertie op exact 15 die
+  alleen draait als er doelrijen waren, anders een notice. Replay bewezen met
+  `supabase db diff --linked --schema tmc` (loopt door, geen schemaverschil) en een
+  teruggerolde proefrun op live (15 geraakt, de 6 uitgesloten adressen onaangeroerd).
+  Geen refresh van `vw_admin_kpis`: geen van de 15 heeft een membership, de waarden
+  veranderen niet.
+  **Bewust niet aangeraakt:** `marlon@ptloosdrecht.nl` (admin), `marlonvanderleij@gmail.com`
+  en `ewoutintveld@gmail.com` (echte adressen), en de drie `@trainers.test`-profielen (ander
+  domein, buiten het criterium; `remi` en `fenna` hebben een trainers-rij). **Openstaand punt,
+  niet in deze PR:** de ledenlijst (`members-query.ts`) en het lidbeeld
+  (`member-detail-query.ts`) filteren nergens op `is_test`, dus deze 15 profielen blijven in
+  `/app/admin/leden` zichtbaar tussen de echte leden. Of dat een filter, een badge of een
+  toggle moet worden hoort bij de testmodus-beheerinterface (6.10, fase 2).
+
 ### Nog te doen
 
 Sectie 14 is nu volledig gemergd (9a, 9b, 9c) -- geen resterende PR's meer in de
