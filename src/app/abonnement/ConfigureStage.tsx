@@ -414,6 +414,13 @@ export function ConfigureStage({
           </label>
         )}
 
+        {plan.extended_access_mode === "included" && (
+          <p className="text-xs text-text-muted py-3 border-t border-text-muted/10">
+            {/* COPY: confirm met Marlon */}
+            Verlengde toegang 06:00-23:00 inbegrepen.
+          </p>
+        )}
+
         {!hasVtToggle && id === "groepslessen-onbeperkt" && (
           <p className="text-xs text-text-muted py-3 border-t border-text-muted/10 mt-3">
             {/* COPY: confirm met Marlon */}

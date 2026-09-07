@@ -8,6 +8,7 @@ import { readGaIds } from "@/lib/ga-ids";
 import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "./lib";
+import { formatNoticePeriod } from "@/lib/cancellation-notice";
 
 interface Props {
   plan: CatalogueRow;
@@ -15,6 +16,8 @@ interface Props {
   extendedAccessAddon: CatalogueRow | null;
   signupFee: CatalogueRow | null;
   emActive: boolean;
+  /** Uit getCancellationNoticeDays(): dezelfde bron als request_membership_cancellation. */
+  cancellationNoticeDays: number;
   onBack: () => void;
 }
 
@@ -24,6 +27,7 @@ export function PayStage({
   extendedAccessAddon,
   signupFee,
   emActive,
+  cancellationNoticeDays,
   onBack,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
@@ -90,8 +94,9 @@ export function PayStage({
       {/* COPY: confirm met Marlon */}
       <p className="text-text-muted mb-8 max-w-xl">
         Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische
-        SEPA-incasso elke 4 weken. Opzegtermijn: 4 weken, in acht genomen na
-        je commitment-periode.
+        SEPA-incasso elke 4 weken. Opzegtermijn:{" "}
+        {formatNoticePeriod(cancellationNoticeDays)}, in acht genomen na je
+        commitment-periode.
       </p>
 
       <div className="border border-bg-subtle bg-bg-elevated p-6 mb-8">

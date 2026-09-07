@@ -15,6 +15,8 @@ interface Props {
   signupFee: CatalogueRow | null;
   emActive: boolean;
   loggedIn: boolean;
+  /** Opzegtermijn in dagen, uit getCancellationNoticeDays() in page.tsx. */
+  cancellationNoticeDays: number;
 }
 
 type Stage = "configure" | "identify" | "pay";
@@ -34,6 +36,7 @@ export function AbonnementConfigurator({
   signupFee,
   emActive,
   loggedIn,
+  cancellationNoticeDays,
 }: Props) {
   const [stage, setStage] = useState<Stage>("configure");
   const [selection, setSelection] = useState<Selection>(() => initialSelection(plans));
@@ -86,6 +89,7 @@ export function AbonnementConfigurator({
           extendedAccessAddon={extendedAccessAddon}
           signupFee={signupFee}
           emActive={emActive}
+          cancellationNoticeDays={cancellationNoticeDays}
           onBack={() => setStage("configure")}
         />
       )}
