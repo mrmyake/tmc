@@ -175,11 +175,11 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
         </Container>
       </Section>
 
-      {/* Early Member callout, alleen zichtbaar terwijl de campagnefase
-          open is. Alle waarden komen uit de catalogus (pricing.earlyMember,
+      {/* Early Member callout, alleen zichtbaar terwijl de EM-actie loopt.
+          Alle waarden komen uit de catalogus (pricing.earlyMember,
           server-side samengesteld in page.tsx uit tmc.catalogue +
-          getCampaignPhase); bij een gesloten fase verdwijnt dit blok
-          vanzelf, zonder codewijziging. */}
+          isEarlyMemberActive); zodra de deadline verstrijkt verdwijnt dit
+          blok vanzelf, zonder codewijziging. */}
       {pricing.earlyMember.active && (
         <Section>
           <Container className="max-w-3xl">

@@ -7,7 +7,6 @@ import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
 import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { UtmTracker } from "./UtmTracker";
-import type { CampaignPhase } from "@/lib/campaign";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
 // Below-the-fold + interaction-triggered. Both ship framer-motion.
@@ -28,14 +27,17 @@ const CookieConsent = dynamic(
 interface SiteShellProps {
   children: React.ReactNode;
   settings: SanitySettings;
-  campaignPhase: CampaignPhase;
+  /** Onafhankelijk van emActive, zie src/lib/campaign.ts. */
+  studioOpen: boolean;
+  emActive: boolean;
   campaignDeadline: string;
 }
 
 export function SiteShell({
   children,
   settings,
-  campaignPhase,
+  studioOpen,
+  emActive,
   campaignDeadline,
 }: SiteShellProps) {
   const pathname = usePathname();
@@ -95,7 +97,7 @@ export function SiteShell({
 
   return (
     <>
-      <Navbar campaignPhase={campaignPhase} campaignDeadline={campaignDeadline} />
+      <Navbar studioOpen={studioOpen} emActive={emActive} campaignDeadline={campaignDeadline} />
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>
