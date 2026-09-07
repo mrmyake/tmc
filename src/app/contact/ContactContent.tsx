@@ -9,6 +9,7 @@ import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { SITE } from "@/lib/constants";
+import { toTelHref } from "@/lib/phone";
 
 export function ContactContent() {
   return (
@@ -56,7 +57,7 @@ export function ContactContent() {
 
                 <div>
                   <span className="tmc-eyebrow block mb-3">Telefoon</span>
-                  <QuietLink href={`tel:${SITE.phone.replace(/\s/g, "")}`}>
+                  <QuietLink href={toTelHref(SITE.phone)}>
                     {SITE.phone}
                   </QuietLink>
                 </div>

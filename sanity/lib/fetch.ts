@@ -90,7 +90,10 @@ export async function getSiteSettings(): Promise<SanitySettings> {
     tagline: SITE.tagline,
     phone: SITE.phone,
     email: SITE.email,
-    whatsappNumber: "31600000000",
+    // Sanity's whatsappNumber-veld verwacht "internationaal formaat, zonder
+    // + of spaties" (zie sanity/schemas/siteSettings.ts); niet dezelfde vorm
+    // als SITE.whatsapp (een volledige wa.me-URL).
+    whatsappNumber: "31625130584",
     address: {
       street: SITE.address.street,
       postalCode: SITE.address.zip,

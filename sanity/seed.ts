@@ -24,17 +24,17 @@ async function seed() {
     _type: "siteSettings",
     studioName: "The Movement Club",
     tagline: "Where Strength Meets Movement",
-    phone: "+31 6 00 00 00 00",
+    phone: "06 25 13 05 84",
     email: "info@themovementclub.nl",
-    whatsappNumber: "31600000000",
+    whatsappNumber: "31625130584",
     address: {
       street: "Industrieweg 14P",
-      postalCode: "1231 MX",
+      postalCode: "1231 KH",
       city: "Loosdrecht",
     },
-    kvkNumber: "00000000",
-    btwNumber: "NL000000000B01",
-    instagramUrl: "https://instagram.com/themovementclub",
+    kvkNumber: "42063910",
+    btwNumber: "NL869541651B01",
+    instagramUrl: "https://instagram.com/ptloosdrecht",
   });
   console.log("✓ siteSettings");
 
