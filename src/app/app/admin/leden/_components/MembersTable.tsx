@@ -6,6 +6,7 @@ import type { MemberRow, MemberSort } from "@/lib/admin/members-query";
 import { AvatarBubble } from "@/app/app/_shared/attendance/AvatarBubble";
 import { PlanBadge } from "@/app/app/_shared/attendance/PlanBadge";
 import { MembershipStatusBadge } from "./MembershipStatusBadge";
+import { ExtendedAccessBadge } from "./ExtendedAccessBadge";
 import { SortableHeader } from "./SortableHeader";
 import { BulkActions } from "./BulkActions";
 import { formatEuro } from "@/lib/format";
@@ -19,6 +20,7 @@ interface MembersTableProps {
     status: string;
     plan: string;
     inactive: boolean;
+    extendedAccess: boolean;
     page: number;
   };
 }
@@ -171,14 +173,14 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                     <MembershipStatusBadge status={r.membershipStatus} />
                   </td>
                   <td className="py-4 px-4 align-middle text-sm">
-                    <span
-                      className={
-                        r.extendedAccess ? "text-accent" : "text-text-muted"
+                    {/* Bij no_membership blijft het bestaande streepje;
+                        dat staat nu alleen nog voor "geen abonnement". */}
+                    <ExtendedAccessBadge
+                      state={r.extendedAccessState}
+                      emptyFallback={
+                        <span className="text-text-muted">—</span>
                       }
-                    >
-                      {/* COPY: confirm met Marlon */}
-                      {r.extendedAccess ? "Ja" : "—"}
-                    </span>
+                    />
                   </td>
                   <td className="py-4 px-4 align-middle text-right text-sm text-text tabular-nums">
                     {r.creditsRemaining == null ? "—" : r.creditsRemaining}
@@ -245,12 +247,7 @@ export function MembersTable({ rows, sort }: MembersTableProps) {
                     planVariant={r.planVariant}
                   />
                   <MembershipStatusBadge status={r.membershipStatus} />
-                  {r.extendedAccess && (
-                    // COPY: confirm met Marlon
-                    <span className="text-accent text-xs">
-                      Verlengde toegang
-                    </span>
-                  )}
+                  <ExtendedAccessBadge state={r.extendedAccessState} />
                 </div>
                 <p className="text-text-muted text-xs mt-2">
                   {formatLastSession(r.lastSessionDate)} ·{" "}

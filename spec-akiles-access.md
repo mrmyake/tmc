@@ -75,3 +75,11 @@ The minimal shape that supports both candidate policies (flat after-hours flag v
 - The cancellation lifecycle fix (own ticket, prerequisite — see top).
 - Kiosk/staff interfaces, Sonos/lighting, TMM/Movement Profile.
 - Any schema change, Edge Function, Capacitor build change or Akiles account setup in the drafting phase. All of that waits for "decided" status plus the spike outcome.
+
+---
+
+## Ledger
+
+Regel: elke PR die gedrag, schema of data raakt dat voor de deurtoegang relevant is, voegt hier in dezelfde PR een regel toe. Identificatie op PR-nummer.
+
+- **PR #168, 2026-09-07, verlengde-toegang-toestanden en filter in de ledenlijst** (branch `feat/leden-verlengde-toegang`). Handmatige overbrugging tot de Akiles-sync bestaat: Marlon kan in `/app/admin/leden` per lid zien of verlengde toegang inbegrepen is, een betaalde add-on is, mogelijk maar niet afgenomen is, of niet van toepassing is, plus een filter op leden met verlengde toegang. De bron voor "bestaat verlengde toegang voor dit plan" is `tmc.catalogue.extended_access_mode` (`included` / `addon` / `na`, `NULL` op productrijen) opgezocht via `plan_variant` van de primaire membership; de rechten-laag blijft `memberships.extended_access`. Bewust niet aangeraakt: geen schema, geen RPC, geen Akiles-code, geen wijziging aan `deleteMember` of aan de statuslogica. Twee bevindingen uit de voorafgaande discovery, hier vastgelegd zodat de sync-laag ze niet opnieuw hoeft te vinden: (1) `deleteMember` in `src/lib/admin/member-actions.ts` regel 822 doet een rechtstreekse `.update()` op `memberships` buiten de RPC-laag om; een toekomstige toegangsintrekking die aan het opzeg-RPC (`admin_cancel_membership` / `request_membership_cancellation`) wordt gehangen, vuurt daar niet. (2) `memberships.status = 'expired'` wordt nergens weggeschreven, niet in TypeScript en niet in een RPC (live geverifieerd via `pg_get_functiondef`); elke beëindiging loopt via `cancelled`, en het bereiken van `commit_end_date` of `end_date` triggert op zichzelf geen enkele statusovergang.
