@@ -58,3 +58,6 @@ supabase/.temp/
 
 # Gegenereerd artefact, bron is review-scenarios-marlon.md
 /review-scenarios-marlon.xlsx
+
+# route-smoke.ts output
+/screenshots/
