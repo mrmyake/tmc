@@ -324,8 +324,13 @@ declare
   v_msg         text;
 begin
   select id into v_profile from tmc.profiles where role = 'admin' limit 1;
+  -- Replay-edit 2026-09-07 (fix/migratie-replay-20260820): profiles is
+  -- app-data. Op een lege database slaat de zelfcontrole zichzelf over in
+  -- plaats van de keten te breken; op een database met een admin-profiel
+  -- draait hij onveranderd.
   if v_profile is null then
-    raise exception 'invoice_schema: geen profiel gevonden om tegen te testen';
+    raise notice 'invoice_schema: zelfcontrole overgeslagen, geen admin-profiel (lege database)';
+    return;
   end if;
 
   -- --- invoice_series: de twee CHECKs ---
