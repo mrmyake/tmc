@@ -1483,6 +1483,24 @@ bedoelde rij op `id` verwijdert (nooit op een afgeleid kenmerk als fiscal_year o
 en de trigger voor de commit weer aanzet met een zelfcontrole die dat bevestigt -- nooit een
 ad-hoc statement in een sessie. Zie besluitenlog 32.
 
+### 6.10 Beheerinterface voor is_test: een omissie
+
+**`tmc.profiles.is_test` heeft geen enkele UI.** De testmodus is alleen aan te zetten via
+een direct SQL-statement, in geen enkel admin-scherm. Dat is geen bewuste keuze geweest,
+het is nooit gebouwd: sectie 14 heeft geen PR die er ooit om vroeg, en `company_name` en
+`vat_number`, in dezelfde migratie als `is_test` toegevoegd (2.1, 2.3), hebben evenmin een
+scherm.
+
+Dit is precies hoe de synthetische testfactuur `7777.001` (besluitenlog 32, 6.9) op een
+echt profiel belandde: er was geen scherm om een testprofiel aan te maken of te
+markeren, dus is er rechtstreeks tegen de database getest, op een profiel dat toevallig bij
+de hand was. Een beheerinterface had dat pad niet onmogelijk gemaakt, maar wel de
+voor-de-hand-liggende route geweest in plaats van SQL.
+
+Fase 1 van het ontwerp (welk scherm, wat er gebeurt met bestaande snapshot-rijen, of
+converteren geblokkeerd moet worden, of een testprofiel via de normale signup-flow kan
+ontstaan) staat in besluitenlog 34. De bouw zelf is fase 2, met een apart akkoord.
+
 ## 7. Omzetrapportage
 
 ### 7.1 Waarom vw_admin_kpis niet de plek is
@@ -2518,6 +2536,7 @@ index staat er.
 | 31 | **Ingelost in #157** (migratie `20260826000000_payments_rls_is_test.sql`): `payments_self_read` is nu `profile_id = auth.uid() and is_test = false`. Oorspronkelijk besluit: het RLS-gat op `tmc.payments` bleef in PR 9a ongewijzigd; de dubbele bescherming op de ledenkant leunde tijdelijk alleen op de query-filter | Zelf een migratie schrijven om `payments_self_read` een `is_test`-check te geven, binnen deze frontend-PR. Verworpen: een RLS-wijziging op een tabel die vijf eerdere PR's aan schrijfpaden droeg, hoort niet stilzwijgend meegelift te worden in een PR die "uitsluitend de ledenkant" moest leveren. Het gat is nu wel gedocumenteerd (6.8) en de tekortkoming zit in wat 6.8 beweerde, niet in wat de app doet: de query-filter houdt zelf stand. Een losse migratie-PR die `payments_self_read` uitbreidt met `and is_test = false` is de nette vervolgstap, en is nu een concreet, aanwijsbaar te plannen stuk werk in plaats van een impliciete aanname |
 | 32 | **Ingelost in migratie `20260827000000_cleanup_test_invoice_7777.sql`**: een gefinaliseerde testfactuur (`7777.001`, sentinel-jaar 7777) op een écht profiel (`is_test = false`, aangemaakt tijdens handmatige verificatie van `finalize_invoice` en C3 rechtstreeks tegen de database, niet via het -- toen nog niet bestaande -- admin-scherm) bleek onverwijderbaar: `invoices_finalised_no_delete` kent geen `is_test`-uitzondering en de immutability-trigger laat niet toe hem alsnog als test te markeren. `payment_id` was `null`, dus de rij is nooit op `/app/facturen` (ledenkant) verschenen -- wel op `/app/admin/facturen`, dat ongefilterd toont. Opgelost met een migratie die de trigger binnen één transactie uitschakelt, exact de ene rij op `id` verwijdert, de bijbehorende `invoice_series`-rij opruimt, de trigger weer aanzet en met een zelfcontrole bevestigt dat die weer actief staat (`tgenabled`, niet alleen dat het statement slaagde) | Ad-hoc `delete` in de sessie zelf, buiten een migratie om. Verworpen: hetzelfde argument als besluit 31 -- een ingreep die een beschermingslaag van een productiedatabase omzeilt hoort een aanwijsbaar, reviewbaar stuk werk te zijn, geen sessie-statement zonder sporen. Zie 6.9 |
 | 33 | `tmc.v_revenue_lines` filtert niet langer hardgecodeerd op `is_test = false` in de WHERE-clausule; `is_test` is nu een gewone kolom en de rapportagequery filtert er zelf op, default uit. Migratie `20260828000000_revenue_lines_test_toggle.sql`, PR 9c (#159). De 7.4-rekenregel (`refunded_amount_cents` als bron, `credit_excess_cents = greatest(0, credited_gross_cents - refunded_amount_cents)`, twee aparte periodes) is letterlijk ongewijzigd overgenomen | Het hardgecodeerde filter laten staan en de admin-toggle uit 9c ergens anders oplossen, bijvoorbeeld met een tweede view of een query die om het filter heen leest. Verworpen: een tweede view op dezelfde brondata is een tweede plek die uit de pas kan lopen met de eerste (precies het patroon dat deze spec overal elders vermijdt, zie besluit 14 over de omzetview zelf als gewone view i.p.v. materialized), en om een hardgecodeerd filter heen lezen kan sowieso niet via de view zelf. Dezelfde les als besluit 31 op `payments_self_read`: een filter dat ooit bedoeld was als de enige, permanente scoping wordt een blokkade zodra een latere PR er om een goede reden voorbij moet kunnen -- de kolom zichtbaar maken en het filter naar de aanroeper verplaatsen is dan de juiste richting, niet een tweede verborgen filter erbovenop |
+| 34 | Fase 1 (read-only onderzoek, geen bouw) naar een beheerinterface voor `profiles.is_test` (6.10). Vier bevindingen. **Plek:** een nieuwe `ActionButton` plus dialoog in `ActionMenu.tsx` (admin-ledendetail), naast het bestaande `EmailCorrectionDialog`-patroon: profielattribuut wijzigen via een gerichte server action, met een waarschuwingstekst en `router.refresh()` erna. **Snapshot-gevolg, verrast in de praktijk:** `payments`, `invoices` en `trial_bookings` bevriezen `is_test` bij het schrijven (6.1) en een latere profielwijziging raakt bestaande rijen niet, dus de omzetrapportage en `/app/facturen` blijven historisch correct. Maar `orders` en `memberships` hebben helemaal geen eigen `is_test`-kolom (besluit 28: "modus woont op het profiel"); hun testmodus wordt overal live bepaald met een join naar `profiles.is_test`, zoals `vw_admin_kpis` doet (`join tmc.profiles p on ... and not p.is_test`). Een omzetting raakt dus met`payments`/`invoices` niet met terugwerkende kracht, maar met memberships wel: `active_members` en `mrr_cents` verspringen bij de eerstvolgende matview-refresh, met of zonder nieuwe activiteit. **Blokkade-voorstel:** alleen de richting fout naar test blokkeren, en dat alleen als het profiel al een niet-test `payments`- of gefinaliseerde `invoices`-rij draagt. De omgekeerde richting (test naar echt) blijft vrij: bestaande testrijen blijven `is_test = true` staan (6.1) en veranderen niet met terugwerkende kracht, dus daar valt niets te beschermen. De asymmetrie is opzettelijk: een profiel met echte betaalhistorie dat alsnog op test gezet wordt, zou door het opruimscript uit 6.9 (dat op `profiles.is_test = true` selecteert) gecascadeerd verwijderd kunnen worden -- exact het scenario waar 6.9 juist tegen beschermt voor facturen, nu via een omweg op profielniveau. **Signup-flow:** geen van beide aanmaakpaden (`ensureProfile` voor de publieke magic-link-flow, `findOrCreateCustomer` voor de admin-wizard) zet ooit `is_test`; een testprofiel ontstaat vandaag uitsluitend door een admin die de kolom achteraf zet, precies het gat dat deze fase dicht | Geen, dit is onderzoek. Fase 2 (de bouw) volgt met een apart akkoord |
 
 ## 13. Open vragen
 
@@ -3072,12 +3091,38 @@ het overzicht, niet de waarheid.
   onschuldige, voorbestaande console-fout (Turbopack chunk-laadfout, ook aanwezig op de
   ongewijzigde `/app/admin/facturen`-pagina) hoort niet bij deze PR.
 
+- **PR #161, 2026-09-07** (migratie `20260907000000_cleanup_pre_launch_test_data.sql`,
+  vervolg op 6.9/6.10 en besluitenlog 34). De "opruim-check voor de test-orders": er zijn nog
+  geen echte klanten, maar van de 11 profielen met test-activiteit had er maar 1
+  (`invoice-e2e-verify@tmc.test`) `is_test = true` staan -- precies de omissie uit
+  besluitenlog 34. Live gemeten gevolg vóór deze migratie: `tmc.vw_admin_kpis` toonde
+  `active_members: 4, mrr_cents: 16197`, volledig fictief (de zes `dash-*@tmc.test`
+  dashboard-UI-fixtures telden mee als echte leden). Migratie in twee stappen: (1)
+  `profiles.is_test = true` met terugwerkende kracht op de 10 betrokken profielen (Ilja's
+  eigen admin/trainer/member-accounts plus de zes `dash-*@tmc.test`-fixtures), elk
+  geselecteerd op id + e-mail samen, nooit op een patroon; (2) het in 6.9 gespecificeerde
+  opruimscript daadwerkelijk gebouwd en gedraaid: 7 orders, 9 memberships, 4 bookings, 3
+  trial_bookings, 7 payments en 1 (nooit-gefinaliseerde) factuur verwijderd, in FK-veilige
+  volgorde (`information_schema.referential_constraints` gemeten tijdens de discovery), elke
+  stap met een assertie op het exact gemeten aantal. `tmc.vw_admin_kpis` na
+  `refresh_admin_kpis()`: `active_members: 0, mrr_cents: 0`.
+  **Bewust niet aangeraakt:** de 10 profielen zelf blijven bestaan (Ilja's eigen login en de
+  dashboardfixtures blijven bruikbaar voor toekomstig UI-hertesten, nu correct uitgesloten
+  van de KPI's/omzet); `invoice-e2e-verify@tmc.test` (al `is_test = true`) en zijn 7
+  gefinaliseerde TEST-facturen plus 3 payments -- die blijven staan per 6.9 ("gefinaliseerde
+  testfacturen verwijderen" gebeurt niet) en vervuilden al niets; pt_bookings,
+  workout_sessions, training_programs, pt_programs en de trainers-rijen onder deze profielen
+  -- een bredere PT-/trainer-testvoetafdruk, geen "test-order", apart gesprek. De
+  beheerinterface zelf (6.10, fase 2) is hiermee niet gebouwd; dit is alleen de eenmalige
+  data-opruiming.
+
 ### Nog te doen
 
 Sectie 14 is nu volledig gemergd (9a, 9b, 9c) -- geen resterende PR's meer in de
 oorspronkelijke opdeling. Wat overblijft staat in de openstaande-gates-tabel bovenaan dit
 document: de fiscale bevestiging van negen procent door de accountant, en het echte KvK-
-en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers.
+en BTW-nummer van TMC in Sanity (1.5) -- opleverblockers, geen bouwblockers. Fase 2 van de
+testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een apart akkoord.
 
 ---
 

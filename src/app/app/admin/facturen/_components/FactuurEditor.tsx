@@ -77,6 +77,30 @@ function euroInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/** Komma en punt allebei toegestaan als decimaalscheiding (NL toetsenbord
+ * typt komma). Staan beide in de invoer, dan is de LAATSTE de
+ * decimaalscheiding en is de andere een duizendtal-scheiding (dekt zowel
+ * "1.234,56" als "1,234.56"). Nooit een spinner-input: die is onwerkbaar
+ * voor bedragen en levert bovendien geen komma-invoer. Ongeldige invoer
+ * valt terug op 0, net als de bestaande `Number(...) || 0`-aanpak elders
+ * in dit scherm. */
+function parseDecimalInput(raw: string): number {
+  const trimmed = raw.trim();
+  if (!trimmed) return 0;
+  const lastComma = trimmed.lastIndexOf(",");
+  const lastDot = trimmed.lastIndexOf(".");
+  let normalized: string;
+  if (lastComma > lastDot) {
+    normalized = trimmed.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot > lastComma) {
+    normalized = trimmed.replace(/,/g, "");
+  } else {
+    normalized = trimmed;
+  }
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function FactuurEditor({
   invoice,
   initialLines,
@@ -282,23 +306,23 @@ export function FactuurEditor({
               </div>
               <input
                 disabled={!isDraft}
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={l.quantity}
                 onChange={(e) =>
-                  updateLine(i, { quantity: Number(e.target.value) || 0 })
+                  updateLine(i, { quantity: parseDecimalInput(e.target.value) })
                 }
                 className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1 text-right"
                 aria-label="Aantal"
               />
               <input
                 disabled={!isDraft}
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={euroInput(l.grossCents)}
                 onChange={(e) =>
                   updateLine(i, {
-                    grossCents: Math.round(Number(e.target.value) * 100) || 0,
+                    grossCents: Math.round(parseDecimalInput(e.target.value) * 100),
                   })
                 }
                 className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1 text-right"
