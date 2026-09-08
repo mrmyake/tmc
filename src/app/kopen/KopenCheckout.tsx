@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { IdentifyStage } from "@/components/checkout/IdentifyStage";
 import { PayStage } from "@/components/checkout/PayStage";
@@ -32,6 +32,19 @@ export function KopenCheckout({ products, loggedIn }: Props) {
   // dus de twee checkouts blijven in de rapportage uit elkaar te houden.
   useEffect(() => {
     trackConfiguratorStageView(stage);
+  }, [stage]);
+
+  // "Ga verder" staat onder een lange productlijst; zonder dit blijft de
+  // bezoeker na de stage-wissel op de footer staan en ziet hij de volgende
+  // stap niet (gezien in de browsertest). Niet bij mount: dan is er nog
+  // niets gewisseld.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [stage]);
 
   function handleChosen(next: CatalogueRow) {
