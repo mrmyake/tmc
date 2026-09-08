@@ -89,7 +89,12 @@ export type EventType =
   | "trial_booking.created"
   | "trial_booking.paid"
   | "trial_booking.cancelled"
-  | "member.milestone_reached";
+  | "member.milestone_reached"
+  // Deurtoegang (Akiles, spec-akiles-access.md; src/lib/access/)
+  | "access.granted"
+  | "access.revoked"
+  | "access.lockdown_enabled"
+  | "access.lockdown_disabled";
 
 export type ActorType =
   | "member"

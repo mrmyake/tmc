@@ -7,6 +7,7 @@ import { emitEvent } from "@/lib/events/emit";
 import { cancelMollieSubscription } from "@/lib/mollie";
 import { mollieModeForProfile } from "@/lib/mollie-mode";
 import { sendNotification } from "@/lib/ntfy";
+import { syncMembershipAccess } from "@/lib/access/sync";
 import {
   cancelMembershipCore,
   cancelMembershipChangeCore,
@@ -859,6 +860,12 @@ export async function deleteMember(
       "warning",
     );
   }
+
+  // Deurtoegang (spec-akiles-access.md): de memberships staan nu op
+  // cancelled, dus deze sync zet member.ends_at in Akiles in het verleden
+  // en verwijdert de PIN. Moet VOOR de hard-delete: de FK-cascade op
+  // access_credentials wist daarna de Akiles-ids. Throwt nooit.
+  await syncMembershipAccess(profile.id);
 
   const { error: delErr } = await admin.auth.admin.deleteUser(profile.id);
   if (delErr) {

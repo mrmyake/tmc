@@ -16,7 +16,8 @@
     "build:review-workbook": "node scripts/build-review-workbook.ts",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
-    "cap:open:android": "cap open android"
+    "cap:open:android": "cap open android",
+    "test:access": "node --import ./scripts/ts-loader.mjs --test scripts/access/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

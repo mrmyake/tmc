@@ -3,6 +3,7 @@ import { SequenceType } from "@mollie/api-client";
 import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
+import { syncMembershipAccess } from "@/lib/access/sync";
 import { sendPurchaseToGa4 } from "@/lib/orders/ga-purchase";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
@@ -12,6 +13,19 @@ import { formatEuro } from "@/lib/format";
 import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
 
 /** Fire-and-forget payment-failed email. Never throws. */
+/** Profiel achter een membership, voor de toegangssync als de Mollie-metadata geen profileId draagt. */
+async function profileIdForMembership(
+  supabase: ReturnType<typeof createAdminClient>,
+  membershipId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("memberships")
+    .select("profile_id")
+    .eq("id", membershipId)
+    .maybeSingle();
+  return (data as { profile_id: string } | null)?.profile_id ?? null;
+}
+
 async function notifyMemberPaymentFailed(args: {
   profileId: string;
   amountCents: number;
@@ -382,6 +396,17 @@ export async function POST(request: Request) {
         void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
           console.error("[mollie/webhook] sendPurchaseToGa4", e),
         );
+
+        // Deurtoegang (spec-akiles-access.md): zelfde functie als de
+        // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet
+        // tot de volgende nacht wacht. Awaited, maar syncMembershipAccess
+        // throwt nooit en zonder AKILES_API_KEY doet hij niets; de
+        // betaalflow kan hier niet op stuklopen.
+        if (activation.membership_id) {
+          const accessProfileId =
+            profileId ?? (await profileIdForMembership(supabase, activation.membership_id));
+          if (accessProfileId) await syncMembershipAccess(accessProfileId);
+        }
       }
 
       // Subscription-order: maak de Mollie-subscription één cyclus na de
