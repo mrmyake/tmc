@@ -57,8 +57,9 @@ export function LoginForm({ initialError, next }: Props) {
     // shouldCreateUser: true maakte elk willekeurig adres al bij het
     // aanvragen van de code een auth-user plus profielrij aan, zonder
     // order of membership. Nieuwe accounts ontstaan nu uitsluitend in de
-    // checkout (src/app/abonnement/IdentifyStage.tsx). Daarom ook geen
-    // attributie-metadata meer hier: die is alleen zinvol bij aanmaak.
+    // checkout (src/components/checkout/IdentifyStage.tsx, gebruikt door
+    // /abonnement en /kopen). Daarom ook geen attributie-metadata meer
+    // hier: die is alleen zinvol bij aanmaak.
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { shouldCreateUser: false },
@@ -279,17 +280,25 @@ export function LoginForm({ initialError, next }: Props) {
  * Permanente verwijzing naar het aanbod, op beide stappen. Bewust altijd
  * zichtbaar en niet alleen na een onbekend adres: een link die pas bij een
  * fout verschijnt, verklapt zelf of een adres bestaat.
+ *
+ * Twee bestemmingen, want er zijn twee checkouts waar een account kan
+ * ontstaan: /abonnement (abonnementen) en /kopen (rittenkaart, PT- en
+ * Duo-pakketten). Wie hier zonder account belandt, moet naar een van die
+ * twee kunnen zonder eerst de andere te doorlopen.
  */
 function NoMembershipYet() {
+  const linkClasses =
+    "text-accent hover:text-text underline underline-offset-4 transition-colors";
   return (
     // COPY: confirm met Marlon
     <p className="text-xs text-text-muted leading-relaxed text-center border-t border-bg-subtle pt-5">
       Nog geen lid?{" "}
-      <Link
-        href="/abonnement"
-        className="text-accent hover:text-text underline underline-offset-4 transition-colors"
-      >
-        Bekijk de abonnementen
+      <Link href="/abonnement" className={linkClasses}>
+        Kies een abonnement
+      </Link>{" "}
+      of{" "}
+      <Link href="/kopen" className={linkClasses}>
+        koop een rittenkaart of PT-pakket
       </Link>
     </p>
   );

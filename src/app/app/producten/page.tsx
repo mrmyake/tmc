@@ -6,6 +6,7 @@ import { ProductenTabs, type ProductenView } from "./_components/ProductenTabs";
 import { KopenPanel } from "./_components/KopenPanel";
 import { TegoedPanel, type ProductHistoryRow } from "./_components/TegoedPanel";
 import type { CreditMembershipRow } from "./lib";
+import { PRODUCT_SLUGS } from "@/lib/product-groups";
 
 export const metadata = {
   title: "Producten | The Movement Club",
@@ -13,8 +14,6 @@ export const metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const KOPEN_SLUGS = ["ten_ride_card", "pt_single", "pt_10", "duo_single", "duo_10"];
 
 function parseTab(value: string | undefined): ProductenView {
   return value === "tegoed" ? "tegoed" : "kopen";
@@ -41,7 +40,7 @@ export default async function ProductenPage(props: {
   if (tab === "kopen") {
     const catalogue = await getCatalogue();
     const plans: Record<string, CatalogueRow> = {};
-    for (const slug of KOPEN_SLUGS) {
+    for (const slug of PRODUCT_SLUGS) {
       // getCatalogue() filtert zelf al op is_active=true; hier alleen nog
       // purchasable checken (ten_ride_card_kids/_senior zijn sowieso
       // is_active=false en dus al afwezig uit de Map).
