@@ -322,7 +322,7 @@ function memberCalls(akiles: FakeAkiles): string[] {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("zonder AKILES_API_KEY: schone no-op, geen enkele DB-read of -write, een logregel", async () => {
+test("zonder Akiles-configuratie: schone no-op, geen enkele DB-read of -write, een logregel", async () => {
   const { deps, db, events, logs } = makeDeps({ akiles: null });
   db.profiles.set("p1", profile("p1", "member", [ACTIVE]));
 
@@ -345,7 +345,7 @@ test("zonder AKILES_API_KEY: schone no-op, geen enkele DB-read of -write, een lo
   assert.equal(db.writes, 0, "geen writes");
   assert.equal(db.credentials.size, 0);
   assert.equal(events.length, 0);
-  assert.equal(logs.filter((l) => l.includes("AKILES_API_KEY ontbreekt")).length, 2, "een keer per run");
+  assert.equal(logs.filter((l) => l.includes("Akiles niet geconfigureerd")).length, 2, "een keer per run");
 });
 
 test("eerste run provisiont config en member; tweede run is identiek en maakt niets nieuws aan", async () => {

@@ -36,7 +36,7 @@ import {
  * sync.ts; de tests in scripts/access/ draaien exact deze code met fakes.
  *
  * Invarianten:
- *  - Zonder Akiles-client (geen API-key) raakt geen enkel pad de DB.
+ *  - Zonder Akiles-client (niet geconfigureerd) raakt geen enkel pad de DB.
  *  - Idempotent: een tweede run met dezelfde invoer maakt niets nieuws aan.
  *  - Per profiel foutgeisoleerd: een fout landt in last_error, de run loopt door.
  *  - PIN- en magic-link-waarden komen hier nooit voorbij, alleen hun ids.
@@ -553,7 +553,7 @@ export async function syncProfileCore(
 // ---------------------------------------------------------------------------
 
 const NOT_CONFIGURED_MESSAGE =
-  "[access-sync] AKILES_API_KEY ontbreekt; sync overgeslagen (geen DB-writes)";
+  "[access-sync] Akiles niet geconfigureerd (client id, secret, refresh token, of geen productie); sync overgeslagen (geen DB-writes)";
 
 export async function syncOneCore(
   deps: SyncDeps,

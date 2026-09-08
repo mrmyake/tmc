@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { emitEvent } from "@/lib/events/emit";
-import { getAkilesClient, isAkilesConfigured } from "@/lib/akiles";
+import { getAkilesClient } from "@/lib/akiles";
 import { ACCESS_CONFIG_ID } from "./constants";
 import { applyGroupSchedules } from "./sync-core";
 import type { AccessConfigRow, ResolvedAccessConfig } from "./types";
@@ -19,8 +19,9 @@ export type LockdownActionResult =
  * schedule). Staf houdt toegang. De nachtelijke sync leest dezelfde vlag,
  * dus een gemiste Akiles-call hier wordt de volgende run alsnog toegepast.
  *
- * Zonder AKILES_API_KEY of zonder geprovisionde groepen wordt alleen de
- * vlag opgeslagen; de eerste sync met key past hem toe.
+ * Zonder Akiles-configuratie (client id, secret en refresh token, alleen op
+ * productie) of zonder geprovisionde groepen wordt alleen de vlag
+ * opgeslagen; de eerste sync met werkende koppeling past hem toe.
  */
 export async function setAccessLockdown(
   enabled: boolean,
@@ -63,7 +64,8 @@ export async function setAccessLockdown(
     row.group_staff_id;
 
   let appliedInAkiles = false;
-  const akiles = getAkilesClient();
+  const akiles = await getAkilesClient();
+  const configured = akiles !== null;
   if (akiles && provisioned) {
     try {
       await applyGroupSchedules(akiles, {
@@ -87,13 +89,13 @@ export async function setAccessLockdown(
     subjectId: auth.userId,
     payload: {
       applied_in_akiles: appliedInAkiles,
-      akiles_configured: isAkilesConfigured(),
+      akiles_configured: configured,
     },
   });
 
   revalidatePath("/app/admin/instellingen");
 
-  if (!isAkilesConfigured()) {
+  if (!configured) {
     return {
       ok: true,
       lockdown: enabled,

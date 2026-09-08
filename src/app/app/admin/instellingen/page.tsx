@@ -27,6 +27,7 @@ export default async function AdminSettingsPage() {
     { data: hoursData },
     { data: exceptionsData },
     { data: accessConfig },
+    akilesConfigured,
   ] =
     await Promise.all([
       admin
@@ -55,6 +56,7 @@ export default async function AdminSettingsPage() {
         .select("lockdown")
         .eq("id", ACCESS_CONFIG_ID)
         .maybeSingle(),
+      isAkilesConfigured(),
     ]);
 
   const openingHoursRows: OpeningHoursRowInput[] = (hoursData ?? []).map(
@@ -133,7 +135,7 @@ export default async function AdminSettingsPage() {
       <div className="mt-16">
         <AccessLockdownToggle
           lockdown={Boolean(accessConfig?.lockdown)}
-          akilesConfigured={isAkilesConfigured()}
+          akilesConfigured={akilesConfigured}
         />
       </div>
 
