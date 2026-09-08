@@ -30,6 +30,9 @@ export type EventType =
   | "order.created"
   | "order.activated"
   | "order.cancelled"
+  // Bevestigingsmail na activatie, exact één keer per order (de poort is
+  // het bestaan van dit event; zie src/lib/orders/order-confirmation-core.ts)
+  | "order.confirmation_sent"
   // Membership lifecycle
   | "membership.signup_started"
   | "membership.activated"

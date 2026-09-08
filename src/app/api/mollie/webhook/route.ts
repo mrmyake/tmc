@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { syncMembershipAccess } from "@/lib/access/sync";
 import { sendPurchaseToGa4 } from "@/lib/orders/ga-purchase";
+import { sendOrderConfirmation } from "@/lib/orders/order-confirmation";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
@@ -390,6 +391,26 @@ export async function POST(request: Request) {
             payment_id: payment.id,
           },
         });
+
+        // Bevestigingsmail naar het lid (spec-facturatie.md, sectie
+        // "Bevestigingsmail na betaling"): exact één keer per order, met
+        // tmc.events (order.confirmation_sent) als poort. Awaited zodat het
+        // event geschreven is voor deze request eindigt, maar de helper
+        // throwt nooit en een mislukte mail verandert niets aan de
+        // activatie of aan de 2xx; alleen een ntfy zodat iemand het ziet.
+        const confirmation = await sendOrderConfirmation(orderId);
+        if (confirmation.outcome === "failed") {
+          await sendNotification(
+            "Bevestigingsmail niet verstuurd",
+            `Order ${orderId} is geactiveerd, maar de bevestigingsmail naar het lid is niet verstuurd. Handmatig nasturen of MailerSend checken.`,
+            "warning"
+          );
+        } else if (confirmation.outcome === "skipped") {
+          console.warn("[mollie/webhook] confirmation skipped", {
+            orderId,
+            reason: confirmation.reason,
+          });
+        }
         // Conversiebrug (spec-analytics.md): server-side GA4 purchase,
         // fire-and-forget en buiten het idempotentiepad. Deze
         // !already_activated-tak is het exactly-once-signaal (rijlock +
