@@ -185,7 +185,7 @@ export interface AccessEvent {
 
 export interface SyncDeps {
   db: AccessDb;
-  /** null zolang AKILES_API_KEY ontbreekt: de hele sync no-opt dan. */
+  /** null zolang de OAuth-koppeling niet geconfigureerd is: de hele sync no-opt dan. */
   akiles: AkilesApi | null;
   emit(event: AccessEvent): Promise<void>;
   now(): Date;

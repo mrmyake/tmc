@@ -400,7 +400,7 @@ export async function POST(request: Request) {
         // Deurtoegang (spec-akiles-access.md): zelfde functie als de
         // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet
         // tot de volgende nacht wacht. Awaited, maar syncMembershipAccess
-        // throwt nooit en zonder AKILES_API_KEY doet hij niets; de
+        // throwt nooit en zonder Akiles-configuratie doet hij niets; de
         // betaalflow kan hier niet op stuklopen.
         if (activation.membership_id) {
           const accessProfileId =

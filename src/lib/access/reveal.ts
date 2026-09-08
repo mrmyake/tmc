@@ -49,7 +49,7 @@ function accessIsOpen(endsAt: string | null): boolean {
 export async function revealAccessPin(
   profileId: string,
 ): Promise<RevealResult<"pin">> {
-  const akiles = getAkilesClient();
+  const akiles = await getAkilesClient();
   if (!akiles) return { ok: false, reason: "not_configured" };
   const cred = await loadCredentials(profileId);
   if (!cred?.akiles_member_id || !cred.akiles_pin_id) {
@@ -73,7 +73,7 @@ export async function revealAccessPin(
 export async function revealMagicLink(
   profileId: string,
 ): Promise<RevealResult<"link">> {
-  const akiles = getAkilesClient();
+  const akiles = await getAkilesClient();
   if (!akiles) return { ok: false, reason: "not_configured" };
   const cred = await loadCredentials(profileId);
   if (!cred?.akiles_member_id || !cred.akiles_magic_link_id) {

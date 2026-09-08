@@ -45,6 +45,30 @@ export const SYNC_TIME_BUDGET_MS = 240_000;
 /** Vaste id van de single-row tmc.access_config (geseed in de migratie). */
 export const ACCESS_CONFIG_ID = "a0000000-0000-4000-8000-000000000001";
 
+/** Vaste id van de single-row tmc.akiles_oauth_token (geseed leeg in de migratie). */
+export const AKILES_TOKEN_ID = "a0000000-0000-4000-8000-000000000002";
+
+/**
+ * OAuth 2.0 authorization_code bij Akiles (auth.akiles.app). Er is geen
+ * client_credentials-flow en geen kleinere scope dan full_read_write; de
+ * scope offline levert het refresh token dat de sync nodig heeft.
+ */
+export const AKILES_OAUTH_AUTHORIZE_URL = "https://auth.akiles.app/oauth2/auth";
+export const AKILES_OAUTH_TOKEN_URL = "https://auth.akiles.app/oauth2/token";
+export const AKILES_OAUTH_SCOPE = "full_read_write offline";
+/**
+ * Een OAuth-applicatie voor alle omgevingen, dus een vaste productie-URL.
+ * Moet exact zo geregistreerd staan in het Akiles Developer Center; de
+ * eenmalige autorisatie kan daardoor alleen op productie worden afgerond.
+ */
+export const AKILES_OAUTH_REDIRECT_URI =
+  "https://www.themovementclub.nl/api/akiles/oauth/callback";
+
+/** Access token geldt als "nog goed" zolang er meer dan dit resteert. */
+export const ACCESS_TOKEN_MIN_REMAINING_MS = 10 * 60_000;
+/** Lease op de refresh-claim; een gecrashte verversing wordt hierna overgenomen. */
+export const REFRESH_CLAIM_LEASE_MS = 30_000;
+
 /** Lengte van de door Akiles gegenereerde PIN. Nooit zelf een waarde aanleveren. */
 export const ACCESS_PIN_LENGTH = 6;
 

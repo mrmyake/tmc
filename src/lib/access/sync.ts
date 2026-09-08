@@ -161,10 +161,10 @@ function buildDb(admin: SupabaseClient): AccessDb {
   };
 }
 
-function buildDeps(): SyncDeps {
+async function buildDeps(): Promise<SyncDeps> {
   return {
     db: buildDb(createAdminClient()),
-    akiles: getAkilesClient(),
+    akiles: await getAkilesClient(),
     emit: (event) =>
       emitEvent({
         type: event.type,
@@ -185,7 +185,7 @@ export async function syncMembershipAccess(
   profileId: string,
 ): Promise<ProfileSyncResult> {
   try {
-    return await syncOneCore(buildDeps(), profileId);
+    return await syncOneCore(await buildDeps(), profileId);
   } catch (err) {
     console.error("[access-sync] syncMembershipAccess threw", profileId, err);
     return {
@@ -199,7 +199,7 @@ export async function syncMembershipAccess(
 
 export async function syncAllAccess(options: SyncOptions = {}): Promise<SyncAllResult> {
   try {
-    return await syncAllCore(buildDeps(), options);
+    return await syncAllCore(await buildDeps(), options);
   } catch (err) {
     console.error("[access-sync] syncAllAccess threw", err);
     return {

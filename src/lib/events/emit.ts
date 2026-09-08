@@ -94,7 +94,8 @@ export type EventType =
   | "access.granted"
   | "access.revoked"
   | "access.lockdown_enabled"
-  | "access.lockdown_disabled";
+  | "access.lockdown_disabled"
+  | "access.oauth_authorized";
 
 export type ActorType =
   | "member"
