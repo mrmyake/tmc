@@ -39,6 +39,11 @@ export function IdentifyStage({ onDone, onBack }: Props) {
   async function requestCode(): Promise<boolean> {
     const supabase = createClient();
     const utm = getStoredUtm();
+    // Bewust afwijkend van /login (src/app/login/LoginForm.tsx, dat
+    // shouldCreateUser: false zet). Dit is de enige plek waar een nieuw
+    // account mag ontstaan: hier heeft de bezoeker net een plan gekozen en
+    // is aanmaken de bedoeling. Niet "consistent maken" met /login; zie
+    // spec-otp-login.md, "Scheiding /login en checkout" (2026-09-08).
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { getStoredUtm } from "@/lib/utm";
@@ -25,7 +26,7 @@ const RESEND_COOLDOWN_S = 60;
 
 interface Props {
   initialError?: string;
-  /** Waar na succesvol inloggen heen — bijv. terug naar de flow die inloggen vereiste. */
+  /** Waar na succesvol inloggen heen, bijv. terug naar de flow die inloggen vereiste. */
   next?: string;
 }
 
@@ -51,29 +52,26 @@ export function LoginForm({ initialError, next }: Props) {
 
   async function requestCode(): Promise<boolean> {
     const supabase = createClient();
-    // Attribution meegeven bij eerste signup. De trigger
-    // handle_new_auth_user leest raw_user_meta_data en kopieert naar
-    // profiles. Bestaande users behouden hun originele attribution
-    // (trigger doet ON CONFLICT DO NOTHING). shouldCreateUser blijft
-    // op de default (true): /login is bewust het gecombineerde
-    // login- plus signup-entrypoint (besluit bij spec-otp-login.md).
-    const utm = getStoredUtm();
+    // /login is inloggen, geen registratie (besluit 2026-09-08, zie
+    // spec-otp-login.md, "Scheiding /login en checkout"). Met de default
+    // shouldCreateUser: true maakte elk willekeurig adres al bij het
+    // aanvragen van de code een auth-user plus profielrij aan, zonder
+    // order of membership. Nieuwe accounts ontstaan nu uitsluitend in de
+    // checkout (src/app/abonnement/IdentifyStage.tsx). Daarom ook geen
+    // attributie-metadata meer hier: die is alleen zinvol bij aanmaak.
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        data: {
-          acquisition_source: utm.utm_source,
-          acquisition_medium: utm.utm_medium,
-          acquisition_campaign: utm.utm_campaign,
-          acquisition_content: utm.utm_content,
-          signup_path: window.location.pathname,
-          first_touch_at: new Date().toISOString(),
-        },
-      },
+      options: { shouldCreateUser: false },
     });
 
     if (error) {
-      // COPY: confirm with Marlon
+      // Onbekend adres: Supabase antwoordt 422 met code "otp_disabled"
+      // ("Signups not allowed for otp") en stuurt niets. We behandelen dat
+      // bewust als succes, zodat een bestaand en een onbekend adres exact
+      // dezelfde vervolgstap en tekst krijgen. Anders is het loginformulier
+      // een orakel waarmee je het ledenbestand kunt aftasten.
+      if (error.code === "otp_disabled") return true;
+      // COPY: confirm met Marlon
       setErrorMsg(error.message || "Er ging iets mis. Probeer het opnieuw.");
       return false;
     }
@@ -115,7 +113,7 @@ export function LoginForm({ initialError, next }: Props) {
 
     // Zelfde UTM-set als requestCode meestuurt. Die route vult alleen een
     // nieuw profiel (via de trigger); deze vult een bestaand profiel waar de
-    // velden nog leeg zijn — first-touch blijft bewaakt, server-side.
+    // velden nog leeg zijn; first-touch blijft bewaakt, server-side.
     const utm = getStoredUtm();
     const result = await verifyLoginOtp(email, code, next, {
       acquisitionSource: utm.utm_source,
@@ -153,11 +151,13 @@ export function LoginForm({ initialError, next }: Props) {
           <div className="text-accent text-xs font-medium uppercase tracking-[0.25em] mb-3">
             Check je mail
           </div>
-          {/* COPY: confirm with Marlon */}
+          {/* Neutraal geformuleerd: deze tekst is identiek voor een bestaand
+              en een onbekend adres, zie requestCode. */}
+          {/* COPY: confirm met Marlon */}
           <p className="text-text-muted text-sm leading-relaxed">
-            We hebben een code van {OTP_LENGTH} cijfers gestuurd naar{" "}
-            <span className="text-text">{email}</span>. De code is 10 minuten
-            geldig.
+            Als er een account hoort bij{" "}
+            <span className="text-text">{email}</span>, is er nu een code van{" "}
+            {OTP_LENGTH} cijfers onderweg. De code is 10 minuten geldig.
           </p>
         </div>
 
@@ -223,6 +223,8 @@ export function LoginForm({ initialError, next }: Props) {
             {cooldown > 0 ? `Nieuwe code (${cooldown}s)` : "Nieuwe code"}
           </button>
         </div>
+
+        <NoMembershipYet />
       </form>
     );
   }
@@ -267,6 +269,28 @@ export function LoginForm({ initialError, next }: Props) {
       <p className="text-xs text-text-muted leading-relaxed text-center">
         Geen wachtwoord nodig. Je ontvangt een eenmalige inlogcode per mail.
       </p>
+
+      <NoMembershipYet />
     </form>
+  );
+}
+
+/**
+ * Permanente verwijzing naar het aanbod, op beide stappen. Bewust altijd
+ * zichtbaar en niet alleen na een onbekend adres: een link die pas bij een
+ * fout verschijnt, verklapt zelf of een adres bestaat.
+ */
+function NoMembershipYet() {
+  return (
+    // COPY: confirm met Marlon
+    <p className="text-xs text-text-muted leading-relaxed text-center border-t border-bg-subtle pt-5">
+      Nog geen lid?{" "}
+      <Link
+        href="/abonnement"
+        className="text-accent hover:text-text underline underline-offset-4 transition-colors"
+      >
+        Bekijk de abonnementen
+      </Link>
+    </p>
   );
 }
