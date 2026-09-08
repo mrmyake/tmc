@@ -37,14 +37,17 @@ export function KopenCheckout({ products, loggedIn }: Props) {
   // "Ga verder" staat onder een lange productlijst; zonder dit blijft de
   // bezoeker na de stage-wissel op de footer staan en ziet hij de volgende
   // stap niet (gezien in de browsertest). Niet bij mount: dan is er nog
-  // niets gewisseld.
+  // niets gewisseld. Expliciet "instant": globals.css zet html op
+  // scroll-behavior smooth, en een lopende smooth scroll wordt door Chrome
+  // afgebroken zodra de documenthoogte verandert, wat hier precies gebeurt
+  // (de nieuwe stage is veel korter dan de productlijst).
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "instant" });
   }, [stage]);
 
   function handleChosen(next: CatalogueRow) {
