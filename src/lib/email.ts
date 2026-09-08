@@ -20,13 +20,19 @@ interface SendArgs {
  *
  * If MAILERSEND_API_KEY is unset we log-and-skip — this keeps local dev
  * and CI from hanging on missing creds.
+ *
+ * Geeft `true` terug als MailerSend de mail heeft geaccepteerd, `false` bij
+ * skip (niet geconfigureerd) of fout. Bestaande callers negeren de waarde;
+ * de bevestigingsmail (order-confirmation) gebruikt hem om het
+ * `order.confirmation_sent`-event alleen na een geslaagde verzending te
+ * schrijven.
  */
 export async function sendEmail({
   to,
   toName,
   subject,
   react,
-}: SendArgs): Promise<void> {
+}: SendArgs): Promise<boolean> {
   const apiKey = process.env.MAILERSEND_API_KEY;
   const fromEmail = process.env.MAILERSEND_FROM_EMAIL;
   const fromName = process.env.MAILERSEND_FROM_NAME ?? "The Movement Club";
@@ -36,7 +42,7 @@ export async function sendEmail({
       "[email] MAILERSEND niet geconfigureerd — skipping",
       { to, subject },
     );
-    return;
+    return false;
   }
 
   try {
@@ -52,7 +58,9 @@ export async function sendEmail({
       .setText(text);
 
     await mailerSend.email.send(params);
+    return true;
   } catch (err) {
     console.error("[email] send failed", { to, subject, err });
+    return false;
   }
 }

@@ -1073,6 +1073,42 @@ Consequenties voor het ontwerp:
   voor status `refunded`. Dat label wordt nooit getoond. De badge moet in plaats daarvan op
   `refunded_amount_cents > 0` reageren.
 
+### 4.9 Bevestigingsmail na betaling (geen factuur)
+
+Sinds PR #176 vertrekt er na een geslaagde eerste betaling (abonnement, `sequenceType
+first`) of productbetaling (`oneoff`) een bevestigingsmail naar het lid. Dat is een
+bevestiging van de betaling en van wat er is afgeschreven, uitdrukkelijk **geen factuur**:
+er wordt nog steeds geen factuur automatisch aangemaakt of verstuurd (4.1 t/m 4.5 en 9
+blijven het enige factuurpad, handmatig vanuit de admin), er staat geen factuurnummer in
+de mail en de mail zegt dat ook letterlijk.
+
+- **Template** `src/emails/order_confirmation.tsx`, één component met twee varianten op
+  `kind`. Abonnement: catalogusnaam, eerste incassobedrag met het btw-deel apart,
+  terugkerend bedrag met "per N weken" (uit `billing_cycle_weeks`, nooit "per maand"),
+  eerstvolgende incassodatum, inschrijfkosten (in rekening gebracht, of niet met de reden
+  uit `signup_fee_waiver`), opzegtermijn uit `get_cancellation_notice_days()`, link naar
+  `/app`. Product: catalogusnaam, ritten en geldigheid uit `tmc.catalogue`, betaald bedrag
+  met btw apart, expliciet dat het eenmalig is zonder machtiging, link naar `/app`.
+- **Bron van de bedragen**: uitsluitend de order-rij (`first_charge_cents`,
+  `recurring_cents`, `signup_fee_cents`, `signup_fee_waiver`, `vat_amount_cents`,
+  `pricing_snapshot.recurring_vat_amount_cents`, `billing_cycle_weeks`) en de catalogusrij
+  (`display_name`, `credits`, `validity_months`, `vat_rate_bp`). Er wordt in de mailketen
+  niets herberekend; de rekenregel voor de eerstvolgende incasso is dezelfde als die van de
+  Mollie-subscription in de webhook (nu plus `billing_cycle_weeks` maal 7 dagen).
+- **Aanhechtpunt** `src/app/api/mollie/webhook/route.ts`, direct na het
+  `order.activated`-event en vóór de GA4-conversiebrug en de Akiles-sync. Een mislukte
+  mail blokkeert de activatie niet en verandert niets aan de 2xx; er gaat dan een ntfy
+  "Bevestigingsmail niet verstuurd".
+- **Exact één keer per order.** Poort is het append-only `tmc.events`: de mail vertrekt
+  alleen als er nog geen event `order.confirmation_sent` met `subject_id` = order bestaat,
+  en dat event wordt pas geschreven ná een geslaagde verzending (`sendEmail` geeft sinds
+  deze PR een boolean terug). Een dubbele webhook-aanroep levert dus geen tweede mail op;
+  een mislukte verzending laat de order zonder event achter zodat een latere aanroep alsnog
+  kan versturen. `tmc.events.type` is vrije tekst, dus het nieuwe type vergde geen migratie.
+  Kern zonder afhankelijkheden in `src/lib/orders/order-confirmation-core.ts`, wrapper in
+  `order-confirmation.ts`, bewijs in `scripts/orders/order-confirmation.test.mts`
+  (`npm run test:orders`).
+
 ## 5. PDF-generatie en uitlevering
 
 ### 5.1 Waarom de PDF buiten de RPC blijft
@@ -3192,6 +3228,20 @@ het overzicht, niet de waarheid.
   `payments.get` blijft bewust 200, `trialBookingMode()` (proefles op productie faalt nog
   steeds voor testprofielen; apart voorstel), en `scripts/test-pause-resume-mollie.ts`, dat al
   sinds #150 de oude signatuur zonder modus gebruikt.
+
+- **PR #176, 2026-09-08** (branch `feat/order-confirmation-email`, geen migratie;
+  `src/emails/order_confirmation.tsx`, `src/lib/orders/order-confirmation-core.ts`,
+  `src/lib/orders/order-confirmation.ts`, `src/app/api/mollie/webhook/route.ts`,
+  `src/lib/email.ts`, `src/lib/format.ts`, `src/lib/events/emit.ts`,
+  `scripts/orders/order-confirmation.test.mts`, `package.json`). Bevestigingsmail na een
+  geslaagde eerste betaling of productbetaling, twee varianten in één template, alle
+  bedragen uit de order-rij en `tmc.catalogue`, verstuurd direct na `order.activated` en
+  exact één keer per order met `tmc.events` (`order.confirmation_sent`, pas geschreven na
+  een geslaagde verzending) als poort. Zie 4.9. **Dit is een bevestiging, geen factuur: er
+  wordt nog steeds geen factuur automatisch gegenereerd of verstuurd.** **Bewust niet
+  aangeraakt:** de 2xx-afhandeling en het `needs_subscription`-herstelpad in de webhook,
+  `_compute_order_price`, `create_order`, `activate_order` en de Akiles-sync, de
+  factuurketen (4.1 t/m 4.5, 9), en de bestaande `payment_failed`-mail.
 
 ### Nog te doen
 

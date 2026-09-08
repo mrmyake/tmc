@@ -18,7 +18,8 @@
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
     "test:access": "node --import ./scripts/ts-loader.mjs --test scripts/access/*.test.mts",
-    "test:mollie": "node --import ./scripts/ts-loader.mjs --test scripts/mollie/*.test.mts"
+    "test:mollie": "node --import ./scripts/ts-loader.mjs --test scripts/mollie/*.test.mts",
+    "test:orders": "node --import ./scripts/ts-loader.mjs --test scripts/orders/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
