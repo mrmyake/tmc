@@ -1404,7 +1404,7 @@ probleem dat we oplossen.
 
 `isMollieConfigured()` krijgt dezelfde parameter.
 
-**Twee vangrails bovenop de keuze van de env-var** (branch `feat/mollie-live-guardrails`,
+**Twee vangrails bovenop de keuze van de env-var** (PR #172, branch `feat/mollie-live-guardrails`,
 naar aanleiding van de ontdekking dat productie een maand lang zonder live-key heeft
 gedraaid zonder dat iets dat luid maakte):
 
@@ -2711,8 +2711,8 @@ het overzicht, niet de waarheid.
   env-var `MOLLIE_API_KEY` zelf, die blijft bestaan tot na de deploy maar door de code
   nergens meer gelezen wordt. *Gesloten 2026-09-08:* `MOLLIE_API_KEY` is handmatig uit
   Vercel verwijderd, tegelijk met het zetten van `MOLLIE_API_KEY_LIVE` (Production) en
-  `MOLLIE_API_KEY_TEST` (Production, Development); zie de ledger-regel van de
-  live-vangrails hieronder.
+  `MOLLIE_API_KEY_TEST` (Production, Development); zie de ledger-regel van
+  PR #172 hieronder.
   **Tijdelijke afwijking, dwingend gemarkeerd:** `expire-orders` bepaalt de modus per run
   via `trialBookingMode()` in plaats van per rij; de `// TODO PR 5`-comment staat op de
   regel en de vervanging is als voorwaarde bij PR 5 in sectie 14 gezet.
@@ -3174,6 +3174,24 @@ het overzicht, niet de waarheid.
   (`member-detail-query.ts`) filteren nergens op `is_test`, dus deze 15 profielen blijven in
   `/app/admin/leden` zichtbaar tussen de echte leden. Of dat een filter, een badge of een
   toggle moet worden hoort bij de testmodus-beheerinterface (6.10, fase 2).
+
+- **PR #172, 2026-09-08** (branch `feat/mollie-live-guardrails`, geen migratie; `src/lib/mollie.ts`,
+  beide webhook-routes, `scripts/mollie/mollie-client.test.mts`, `scripts/ts-resolve-hooks.mjs`,
+  `package.json`). Aanleiding: productie draaide sinds #150 zonder live-key (de code las
+  `MOLLIE_API_KEY_LIVE`, Vercel had alleen het oude `MOLLIE_API_KEY` met een `test_`-waarde) en
+  niets maakte dat luid. De configuratie is handmatig hersteld op 2026-09-08 (zie de
+  gates-tabel bovenaan); deze PR voegt de vangrails toe: omgevingsguard op de live-modus
+  (alleen `VERCEL_ENV=production`), prefix-check in beide richtingen (`live_`/`test_`),
+  luide log zonder key, pure `resolveMollieApiKey(mode, env)` met een cache die de key
+  onthoudt, en een 500 in plaats van 200 op beide webhook-routes als de client ontbreekt
+  (6.5, 6.6). Tests via `npm run test:mollie`; de resolve-hook laat `node_modules` met rust en
+  de Mollie-factory wordt als named export geïmporteerd.
+  **Bewust niet aangeraakt:** de overige 2xx-paden in beide webhook-routes die niets
+  verwerken (activate_order-fout, mislukte subscription-aanmaak, onbekende subscription,
+  ontbrekende trial-rij, mislukte trial-update en de buitenste catch), een mislukte
+  `payments.get` blijft bewust 200, `trialBookingMode()` (proefles op productie faalt nog
+  steeds voor testprofielen; apart voorstel), en `scripts/test-pause-resume-mollie.ts`, dat al
+  sinds #150 de oude signatuur zonder modus gebruikt.
 
 ### Nog te doen
 
