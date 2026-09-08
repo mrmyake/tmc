@@ -1,5 +1,8 @@
 import {
   ACCESS_TOKEN_MIN_REMAINING_MS,
+  AKILES_OAUTH_AUTHORIZE_URL,
+  AKILES_OAUTH_REDIRECT_URI,
+  AKILES_OAUTH_SCOPE,
   REFRESH_CLAIM_LEASE_MS,
 } from "./constants";
 
@@ -98,6 +101,40 @@ export class AkilesTokenError extends Error {
 const LOSER_WAIT_MS = 1_000;
 /** Aantal herlezingen van een verliezer; blijft ruim binnen de lease van 30 s. */
 const LOSER_MAX_ATTEMPTS = 8;
+
+/**
+ * Vertaalt de procesomgeving naar de env-vlaggen van de tokenlaag. Pure
+ * functie, zodat de test kan bewijzen dat VERCEL_ENV=production het pad
+ * doorlaat en elke andere waarde (preview, development, ontbrekend) niet.
+ */
+export function resolveOAuthEnv(
+  processEnv: Record<string, string | undefined>,
+): OAuthDeps["env"] {
+  return {
+    isProduction: processEnv.VERCEL_ENV === "production",
+    clientId: processEnv.AKILES_CLIENT_ID ?? null,
+    clientSecret: processEnv.AKILES_CLIENT_SECRET ?? null,
+  };
+}
+
+/**
+ * Autorisatie-URL voor /api/akiles/oauth/start. Handmatig gecodeerd met
+ * encodeURIComponent: URLSearchParams zou de spatie in de scope als een
+ * letterlijke plus serialiseren, en de scope moet als
+ * "full_read_write%20offline" aankomen.
+ */
+export function buildAuthorizeUrl(params: { clientId: string; state: string }): string {
+  const query = [
+    ["client_id", params.clientId],
+    ["redirect_uri", AKILES_OAUTH_REDIRECT_URI],
+    ["response_type", "code"],
+    ["scope", AKILES_OAUTH_SCOPE],
+    ["state", params.state],
+  ]
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  return `${AKILES_OAUTH_AUTHORIZE_URL}?${query}`;
+}
 
 export function hasEnvConfig(env: OAuthDeps["env"]): boolean {
   return Boolean(env.clientId && env.clientSecret);

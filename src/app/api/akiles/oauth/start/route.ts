@@ -1,10 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import {
-  AKILES_OAUTH_AUTHORIZE_URL,
-  AKILES_OAUTH_REDIRECT_URI,
-  AKILES_OAUTH_SCOPE,
-} from "@/lib/access/constants";
+import { buildAuthorizeUrl } from "@/lib/access/oauth-core";
 import {
   OAUTH_COOKIE_PATH,
   OAUTH_STATE_COOKIE,
@@ -33,14 +29,12 @@ export async function GET(): Promise<Response> {
   }
 
   const state = randomBytes(32).toString("base64url");
-  const url = new URL(AKILES_OAUTH_AUTHORIZE_URL);
-  url.searchParams.set("client_id", process.env.AKILES_CLIENT_ID);
-  url.searchParams.set("redirect_uri", AKILES_OAUTH_REDIRECT_URI);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", AKILES_OAUTH_SCOPE);
-  url.searchParams.set("state", state);
+  const authorizeUrl = buildAuthorizeUrl({
+    clientId: process.env.AKILES_CLIENT_ID,
+    state,
+  });
 
-  const res = NextResponse.redirect(url.toString(), { status: 302 });
+  const res = NextResponse.redirect(authorizeUrl, { status: 302 });
   res.cookies.set({
     name: OAUTH_STATE_COOKIE,
     value: state,

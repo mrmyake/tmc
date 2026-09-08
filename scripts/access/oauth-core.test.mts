@@ -9,8 +9,10 @@ import assert from "node:assert/strict";
 import {
   AkilesNotProductionError,
   AkilesTokenError,
+  buildAuthorizeUrl,
   getAccessTokenCore,
   isConfiguredCore,
+  resolveOAuthEnv,
   type OAuthDeps,
   type OAuthTokenDb,
   type OAuthTokenRow,
@@ -287,4 +289,51 @@ test("lopende claim zonder afloop: verliezer ververst nooit zelf en geeft op na 
   });
   assert.equal(h.refreshCalls.length, 0, "nooit zelf verversen terwijl een ander de claim heeft");
   assert.equal(h.db.row.refresh_token, "rt_0");
+});
+
+test("productieconfiguratie (VERCEL_ENV=production) laat de guard door en levert een token", async () => {
+  const env = resolveOAuthEnv({
+    VERCEL_ENV: "production",
+    AKILES_CLIENT_ID: "client_x",
+    AKILES_CLIENT_SECRET: "secret_x",
+  });
+  assert.deepEqual(env, { isProduction: true, clientId: "client_x", clientSecret: "secret_x" });
+  const h = makeHarness();
+  h.deps.env = env;
+  assert.equal(await isConfiguredCore(h.deps), true);
+  assert.equal(await getAccessTokenCore(h.deps), "at_1", "het volledige pad loopt door tot een token");
+  assert.equal(h.refreshCalls.length, 1);
+});
+
+test("elke andere VERCEL_ENV blokkeert: preview, development, ontbrekend", async () => {
+  for (const vercelEnv of ["preview", "development", undefined]) {
+    const env = resolveOAuthEnv({
+      VERCEL_ENV: vercelEnv,
+      AKILES_CLIENT_ID: "client_x",
+      AKILES_CLIENT_SECRET: "secret_x",
+    });
+    assert.equal(env.isProduction, false, String(vercelEnv));
+    const h = makeHarness();
+    h.deps.env = env;
+    assert.equal(await isConfiguredCore(h.deps), false, String(vercelEnv));
+    await assert.rejects(() => getAccessTokenCore(h.deps), AkilesNotProductionError);
+    assert.equal(h.db.reads, 0, String(vercelEnv));
+  }
+});
+
+test("autorisatie-URL: scope met %20, geen plus en geen komma, redirect_uri exact", () => {
+  const url = buildAuthorizeUrl({ clientId: "CLIENT_ID_X", state: "STATE_X" });
+  assert.equal(
+    url,
+    "https://auth.akiles.app/oauth2/auth?client_id=CLIENT_ID_X&redirect_uri=https%3A%2F%2Fwww.themovementclub.nl%2Fapi%2Fakiles%2Foauth%2Fcallback&response_type=code&scope=full_read_write%20offline&state=STATE_X",
+  );
+  assert.ok(!url.includes("+"), "geen letterlijke plus");
+  assert.ok(!url.includes(","), "geen komma");
+  const parsed = new URL(url);
+  assert.equal(parsed.searchParams.get("scope"), "full_read_write offline");
+  assert.equal(
+    parsed.searchParams.get("redirect_uri"),
+    "https://www.themovementclub.nl/api/akiles/oauth/callback",
+  );
+  assert.equal(parsed.searchParams.get("response_type"), "code");
 });

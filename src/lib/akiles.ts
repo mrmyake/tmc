@@ -14,6 +14,7 @@ import {
 import {
   getAccessTokenCore,
   isConfiguredCore,
+  resolveOAuthEnv,
   type OAuthDeps,
   type OAuthTokenDb,
   type OAuthTokenRow,
@@ -58,11 +59,7 @@ export class AkilesApiError extends Error {
 // ---------------------------------------------------------------------------
 
 function oauthEnv(): OAuthDeps["env"] {
-  return {
-    isProduction: process.env.VERCEL_ENV === "production",
-    clientId: process.env.AKILES_CLIENT_ID ?? null,
-    clientSecret: process.env.AKILES_CLIENT_SECRET ?? null,
-  };
+  return resolveOAuthEnv(process.env);
 }
 
 function buildTokenDb(): OAuthTokenDb {
@@ -229,7 +226,15 @@ export async function exchangeAuthorizationCode(code: string): Promise<void> {
     redirect_uri: AKILES_OAUTH_REDIRECT_URI,
   });
   if (!res.refresh_token) {
-    throw new AkilesApiError(502, "POST /oauth2/token", "antwoord zonder refresh_token; is scope offline aangevraagd?");
+    // Niets opslaan: een access token zonder refresh token is na een uur
+    // dood en zou de koppeling "gekoppeld" laten lijken terwijl hij dat
+    // niet is. De offline scope levert het refresh token; ontbreekt die
+    // in de app-registratie of in de toestemming, dan komt hij niet mee.
+    throw new AkilesApiError(
+      502,
+      "POST /oauth2/token",
+      "antwoord zonder refresh_token: de offline scope ontbrak in de registratie of de toestemming; er is niets opgeslagen",
+    );
   }
   await buildTokenDb().saveRefreshed({
     access_token: res.access_token,
