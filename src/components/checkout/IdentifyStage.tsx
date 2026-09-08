@@ -17,9 +17,20 @@ type Step = "email" | "code" | "details";
 interface Props {
   onDone: () => void;
   onBack: () => void;
+  /**
+   * event_label voor form_start op de gegevensstap. Default is de
+   * bestaande /abonnement-naam; /kopen geeft "kopen_identify" mee zodat de
+   * twee checkouts in GA4 uit elkaar te houden zijn (spec-analytics.md,
+   * eventregister form_start).
+   */
+  formName?: string;
 }
 
-export function IdentifyStage({ onDone, onBack }: Props) {
+export function IdentifyStage({
+  onDone,
+  onBack,
+  formName = "abonnement_identify",
+}: Props) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -40,10 +51,11 @@ export function IdentifyStage({ onDone, onBack }: Props) {
     const supabase = createClient();
     const utm = getStoredUtm();
     // Bewust afwijkend van /login (src/app/login/LoginForm.tsx, dat
-    // shouldCreateUser: false zet). Dit is de enige plek waar een nieuw
-    // account mag ontstaan: hier heeft de bezoeker net een plan gekozen en
-    // is aanmaken de bedoeling. Niet "consistent maken" met /login; zie
-    // spec-otp-login.md, "Scheiding /login en checkout" (2026-09-08).
+    // shouldCreateUser: false zet). Dit is de enige component waar een
+    // nieuw account mag ontstaan, op precies twee routes: /abonnement en
+    // /kopen. Op beide heeft de bezoeker net iets gekozen en is aanmaken de
+    // bedoeling. Niet "consistent maken" met /login; zie spec-otp-login.md,
+    // "Scheiding /login en checkout" (2026-09-08).
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -116,7 +128,7 @@ export function IdentifyStage({ onDone, onBack }: Props) {
 
   function handleDetailsFocus() {
     if (!detailsTracked.current) {
-      trackFormStart("abonnement_identify");
+      trackFormStart(formName);
       detailsTracked.current = true;
     }
   }

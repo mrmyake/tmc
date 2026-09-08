@@ -10,6 +10,7 @@ import {
   GROUPS,
 } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { toE164 } from "@/lib/phone";
 
 export type ActionResult =
   | { ok: true }
@@ -121,12 +122,16 @@ export async function saveIdentityDetails(data: FormData): Promise<ActionResult>
       };
     }
 
+    // profiles_phone_e164_nl eist +31 plus negen cijfers. Zonder
+    // normalisatie strandt een gewoon "06 12345678" hier op een opaak
+    // "Opslaan mislukt" (gezien in de /kopen-browsertest, PR #175); dezelfde
+    // helper als de tel:-links en het JSON-LD-veld gebruiken.
     const { error } = await supabase
       .from("profiles")
       .update({
         first_name: first,
         last_name: last,
-        phone,
+        phone: toE164(phone),
         street_address: street,
         postal_code: postal,
         city,

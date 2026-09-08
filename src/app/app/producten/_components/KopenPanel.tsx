@@ -1,46 +1,12 @@
 import { formatEuro } from "@/lib/format";
 import type { CatalogueRow } from "@/lib/catalogue";
+import { PRODUCT_DESCRIPTIONS, PRODUCT_GROUPS } from "@/lib/product-groups";
 import { BuyButton } from "./BuyButton";
 
-// COPY: confirm met Marlon — lokale marketing-copy per slug, zelfde
-// patroon als PLAN_BENEFITS in /app/abonnement/page.tsx: tmc.catalogue
-// draagt bewust geen marketing-tekst, alleen prijsdata.
-const PRODUCT_DESCRIPTIONS: Record<string, string> = {
-  ten_ride_card: "Tien groepslessen, vrij in te zetten.",
-  pt_single: "Eén persoonlijke sessie met een trainer.",
-  pt_10: "Tien persoonlijke sessies.",
-  duo_single: "Eén sessie voor twee personen.",
-  duo_10: "Tien duo-sessies.",
-};
-
-interface ProductGroup {
-  // COPY: confirm met Marlon
-  title: string;
-  // COPY: confirm met Marlon
-  hint: string;
-  slugs: string[];
-}
-
-// GEEN drop_in/drop_in_kids/drop_in_senior — bewust buiten scope (blijft op
-// de publieke/proefles-kant). GEEN ten_ride_card_kids/_senior — is_active
-// false in de catalogus.
-const GROUPS: ProductGroup[] = [
-  {
-    title: "Groepslessen los",
-    hint: "Zonder abonnement",
-    slugs: ["ten_ride_card"],
-  },
-  {
-    title: "Personal Training",
-    hint: "1 op 1 met een trainer",
-    slugs: ["pt_single", "pt_10"],
-  },
-  {
-    title: "Duo Training",
-    hint: "Samen trainen, 2 personen",
-    slugs: ["duo_single", "duo_10"],
-  },
-];
+// Slug-selectie, groepering en marketing-copy per slug staan sinds /kopen
+// in src/lib/product-groups.ts, gedeeld met de publieke productcheckout.
+// Nog steeds GEEN drop_in* (proeflesflow) en GEEN ten_ride_card_kids/
+// _senior (is_active false); zie de toelichting daar.
 
 function ProductCard({ product }: { product: CatalogueRow }) {
   return (
@@ -81,7 +47,7 @@ export function KopenPanel({
 }) {
   return (
     <div role="tabpanel" aria-label="Producten kopen" className="animate-tab-in">
-      {GROUPS.map((group) => {
+      {PRODUCT_GROUPS.map((group) => {
         const products = group.slugs
           .map((slug) => plans[slug])
           .filter((p): p is CatalogueRow => Boolean(p));

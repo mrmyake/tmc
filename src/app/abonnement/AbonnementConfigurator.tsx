@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { trackConfiguratorStageView } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
+import { IdentifyStage } from "@/components/checkout/IdentifyStage";
+import { PayStage } from "@/components/checkout/PayStage";
 import { ConfigureStage } from "./ConfigureStage";
-import { IdentifyStage } from "./IdentifyStage";
-import { PayStage } from "./PayStage";
 import { FAMILIES, FREQUENCIES, planSlug, type Selection } from "./lib";
 
 interface Props {

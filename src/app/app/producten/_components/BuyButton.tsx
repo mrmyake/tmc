@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
 import { trackPaymentStart, trackCTA } from "@/lib/analytics";
+import { paymentContextForProduct } from "@/lib/product-groups";
 
 interface Props {
   slug: string;
@@ -29,9 +30,7 @@ export function BuyButton({ slug, productLabel }: Props) {
       }
       trackPaymentStart({
         amount: res.amountCents / 100,
-        context: slug.startsWith("ten_ride_card")
-          ? "ten_ride_card"
-          : "pt_package",
+        context: paymentContextForProduct(slug),
         planVariant: slug,
       });
       window.location.href = res.checkoutUrl;

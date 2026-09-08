@@ -180,14 +180,14 @@ Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uit
 |---|---|---|---|---|
 | `generate_lead` | Submit van een lead-formulier | `event_category: lead_magnet`, `event_label` (type), `value` | 12 publieke formulieren | Levend |
 | `cta_click` | Klik op een CTA-knop | `event_category: engagement`, `event_label` (knoptekst), `page_location` | `/proefles`, `/app/producten` | Levend |
-| `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 13 formulieren, publiek plus `/abonnement` | Levend |
+| `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 14 formulieren, publiek plus `/abonnement` (`abonnement_identify`) en `/kopen` (`kopen_identify`, zelfde `IdentifyStage`-component) | Levend |
 | `click_phone` · `click_whatsapp` · `click_email` | Klik op een contactlink | `event_category: contact`, `event_label` | Geen | **Helper aanwezig, nul call-sites.** Wacht op mount op de footer-`tel:`/`mailto:`-links, audit gap #4 |
-| `configurator_stage_view` | Stage-wissel in de configurator, inclusief mount | `event_category: configurator`, `stage` | `/abonnement` | Levend, arrival-event |
+| `configurator_stage_view` | Stage-wissel in de configurator, inclusief mount | `event_category: configurator`, `stage` | `/abonnement`, `/kopen` (onderscheid via `page_location`) | Levend, arrival-event |
 | `configurator_select` | Kaartselectie, vrij-trainen-swap, verlengde toegang, 12/24 maanden | `event_category: configurator`, `item_id`, `family`, `frequency`, `commitment_months`, `addon_vrij_trainen`, `addon_extended_access` | `/abonnement` | Levend |
-| `begin_checkout` | Klik op "Ga verder" | `event_category: configurator`, `items[0]` met `item_id`, `item_name`, `item_category` | `/abonnement` | Levend, bewust zonder bedrag |
-| `checkout_rejected` | Server-side weigering van `create_order` | `event_category: configurator`, `item_id`, `reason` | `/abonnement` | Levend |
+| `begin_checkout` | Klik op "Ga verder" | `event_category: configurator`, `items[0]` met `item_id`, `item_name`, `item_category` | `/abonnement`, `/kopen` (`item_category` is daar de catalogus-`family` van het product) | Levend, bewust zonder bedrag |
+| `checkout_rejected` | Server-side weigering van `create_order` | `event_category: configurator`, `item_id`, `reason` | `/abonnement`, `/kopen` | Levend |
 | `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | `/login` | Levend |
-| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` | ⚠️ **Uitzondering, zie hieronder** |
+| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` (`context: first_membership`), `/kopen` (`context: ten_ride_card` of `pt_package`, zelfde call-site) | ⚠️ **Uitzondering, zie hieronder** |
 | `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/app/producten` | ⚠️ **Uitzondering, zie hieronder** |
 | `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | `/app/abonnement/bedankt` | Levend, arrival-event. Verving `payment_success` en `payment_failed` in #139 |
 | `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0].item_id` | Server-side (Measurement Protocol) | Levend. Enige plek met een bedrag; zie "De conversiebrug" |

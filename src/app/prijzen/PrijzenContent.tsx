@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -8,59 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { CLASS_CAPACITY } from "@/lib/constants";
 
-type AuthState = "unknown" | "out" | "in";
-
-// Zelfde client-only auth-check als Navbar.tsx: lazy import van de
-// browser-Supabase-client zodat deze pagina op ISR blijft draaien
-// (geen cookies()/auth.getUser() in page.tsx, dat zou de hele pagina
-// naar force-dynamic zetten). Lokaal hier ipv gedeeld, want alleen deze
-// twee koop-CTA's hebben de auth-staat nodig.
-function useAuthState(): AuthState {
-  const [authState, setAuthState] = useState<AuthState>("unknown");
-
-  useEffect(() => {
-    let mounted = true;
-    import("@/lib/supabase/client")
-      .then(({ createClient }) => {
-        if (!mounted) return;
-        return createClient().auth.getUser();
-      })
-      .then((result) => {
-        if (mounted) setAuthState(result?.data.user ? "in" : "out");
-      })
-      .catch(() => {
-        if (mounted) setAuthState("out");
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return authState;
-}
-
-// PT en rittenkaarten tonen hun prijs aan iedereen; de koop-CTA zelf is
-// alleen voor ingelogde leden (koopt via /app/producten, WS-6). Voor
-// "unknown" blijft de knop onzichtbaar EN onklikbaar (pointer-events-none),
-// zodat er geen fout label wegflitst en er niets te klikken valt voordat
-// de auth-staat bekend is.
-function BuyOrLoginButton({ authState, label }: { authState: AuthState; label: string }) {
-  if (authState === "in") {
-    return <Button href="/app/producten">{label}</Button>;
-  }
-  if (authState === "out") {
-    return (
-      <Button href="/login?next=/app/producten">
-        {/* COPY: confirm met Marlon */}
-        Log in om te kopen
-      </Button>
-    );
-  }
-  return (
-    <span className="inline-block opacity-0 pointer-events-none" aria-hidden="true">
-      <Button href="/app/producten">{label}</Button>
-    </span>
-  );
+// PT en rittenkaarten zijn voor iedereen koopbaar via de publieke
+// productcheckout op /kopen: uitgelogd is de identificatiestap daar de
+// signup, ingelogd wordt die stap overgeslagen. Daarom geen client-side
+// auth-check meer op deze pagina (die stuurde uitgelogde bezoekers naar
+// /login, waar sinds #173 geen account meer kan ontstaan) en een enkele
+// bestemming voor beide staten.
+function KoopButton({ label }: { label: string }) {
+  return <Button href="/kopen">{label}</Button>;
 }
 
 // Copy hieronder is een eerste voorstel voor een evergreen prijspagina,
@@ -102,8 +56,6 @@ interface PrijzenContentProps {
 }
 
 export function PrijzenContent({ pricing }: PrijzenContentProps) {
-  const authState = useAuthState();
-
   // Enige prijsbron is tmc.catalogue; een ontbrekend veld is null, nooit
   // een verzonnen bedrag. fmt() is de standaard weergave daarvoor overal
   // op deze pagina.
@@ -506,10 +458,9 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
             </div>
 
             <div className="mt-8">
-              {/* COPY: confirm met Marlon — "Koop" ipv "Boek": de
-                  bestemming is een koop-pagina (/app/producten), geen
-                  boekflow. */}
-              <BuyOrLoginButton authState={authState} label="Koop personal training" />
+              {/* COPY: confirm met Marlon. "Koop" ipv "Boek": de
+                  bestemming is een koop-pagina (/kopen), geen boekflow. */}
+              <KoopButton label="Koop personal training" />
             </div>
           </ScrollReveal>
         </Container>
@@ -596,11 +547,28 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
               </h2>
             </div>
             <ul className="divide-y divide-bg-subtle border-t border-b border-bg-subtle">
-              <li className="flex items-center justify-between py-4">
-                {/* COPY: confirm met Marlon */}
-                <span className="text-text">Losse les (drop-in)</span>
-                <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
-                  {fmt(pricing.dropInCents)}
+              {/* Losse les is bewust niet online koopbaar als product
+                  (drop_in staat niet in de whitelist van
+                  _compute_order_price); de weg naar een losse les is de
+                  proefles op /proefles/boeken, die hetzelfde
+                  drop-in-tarief rekent. */}
+              <li className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-4">
+                <span className="text-text">
+                  {/* COPY: confirm met Marlon */}
+                  Losse les (drop-in)
+                  <span className="block text-text-muted text-xs mt-0.5">
+                    {/* COPY: confirm met Marlon */}
+                    Boek een losse les als proefles
+                  </span>
+                </span>
+                <span className="flex items-center gap-5">
+                  <span className="font-[family-name:var(--font-playfair)] text-lg text-text">
+                    {fmt(pricing.dropInCents)}
+                  </span>
+                  <Button href="/proefles/boeken" variant="secondary">
+                    {/* COPY: confirm met Marlon */}
+                    Boek een proefles
+                  </Button>
                 </span>
               </li>
               <li className="flex items-center justify-between py-4">
@@ -624,7 +592,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
               </li>
             </ul>
             <div className="mt-8">
-              <BuyOrLoginButton authState={authState} label="Koop een rittenkaart" />
+              <KoopButton label="Koop een rittenkaart" />
             </div>
           </ScrollReveal>
         </Container>
