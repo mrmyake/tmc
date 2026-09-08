@@ -102,7 +102,7 @@ Smoke test results: existing-member login end-to-end in browser (role redirect t
 
 **Randgeval: account zonder membership.** Wie op `/abonnement` de identificatiestap doorliep (code geverifieerd) maar nooit betaalde, heeft een bevestigde auth-user en een profiel. Zo iemand logt gewoon in via `/login`: `shouldCreateUser: false` weigert alleen adressen die Supabase niet kent. In `/app` landt die persoon op het onboarding-scherm (`loadDashboardData`, kind `onboarding`) met de weg naar `/abonnement`. Wie op `/abonnement` alleen een code aanvroeg en die nooit invulde, heeft een onbevestigde auth-user; ook dat adres is bekend en krijgt via `/login` een code (de `confirmation`-template, die net als `magic_link` `{{ .Token }}` rendert).
 
-**Rate limit.** `rate_limit_email_sent` staat op 30 per uur voor het hele project, gezet via de Management API op 2026-07-03 (zie implementation record). Het is een projectinstelling die zelf aan te passen is in het Supabase-dashboard onder Authentication, Rate Limits, "Rate limit for sending emails", beschikbaar omdat custom SMTP (MailerSend) aanstaat; of via `PATCH /v1/projects/<ref>/config/auth` met `rate_limit_email_sent`. Niet gewijzigd in PR #173.
+**Rate limit.** `rate_limit_email_sent` staat op 30 per uur voor het hele project, gezet via de Management API op 2026-07-03 (zie implementation record). Het is een projectinstelling die zelf aan te passen is in het Supabase-dashboard onder Authentication, Rate Limits, "Rate limit for sending emails", beschikbaar omdat custom SMTP (MailerSend) aanstaat; of via `PATCH /v1/projects/<ref>/config/auth` met `rate_limit_email_sent`. Niet gewijzigd in PR #173; op 2026-09-08 na de merge door Ilja via de Management API verhoogd van 30 naar 100 per uur.
 
 **Ledger.**
 
