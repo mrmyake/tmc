@@ -105,8 +105,12 @@ export async function POST(request: Request) {
     const mollie = getMollieClient(mode);
     const supabase = createAdminClient();
     if (!mollie) {
+      // Geen 2xx: Mollie herhaalt een webhook alleen na een niet-2xx-
+      // respons. Een key die wegvalt (of een vangrail in mollie.ts die
+      // weigert) mag geen betalingsbevestigingen stil laten verdwijnen;
+      // met een 500 blijft Mollie proberen tot de configuratie klopt.
       console.error(`[mollie/webhook] mollie not configured (mode=${mode})`);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: false, error: "mollie_not_configured" }, { status: 500 });
     }
 
     // Eigen try/catch: een mislukte get (echte 404 of modus-mismatch) mag
@@ -446,10 +450,14 @@ export async function POST(request: Request) {
             .eq("id", activation.membership_id)
             .is("mollie_subscription_id", null);
         } catch (e) {
+          // Geen retry beloven: deze route antwoordt 200 en Mollie herhaalt
+          // niet na een 2xx. Het herstelpad via needs_subscription bestaat
+          // wel, maar alleen als er om een andere reden nog een webhook voor
+          // dezelfde payment komt; daar mag niemand op rekenen.
           console.error("[mollie/webhook] subscription create failed", e);
           await sendNotification(
             "Subscription aanmaken mislukt",
-            `Membership ${activation.membership_id} is actief, maar de Mollie-subscription kon niet aangemaakt worden. De volgende webhook-retry probeert dit opnieuw; anders handmatig afronden.`,
+            `Order ${orderId}, membership ${activation.membership_id}: het lid is actief en heeft betaald, maar de Mollie-subscription voor de recurring incasso is niet aangemaakt. Handmatig ingrijpen nodig: subscription in Mollie aanmaken op customer ${activation.mollie_customer_id} en mollie_subscription_id op de membership zetten.`,
             "warning"
           );
         }

@@ -1,4 +1,8 @@
-import createMollieClient, {
+// Named import: de default-export bestaat alleen via de bundler-interop; onder
+// native Node ESM (scripts/mollie/*.test.mts) is createMollieClient een named
+// export van de CJS-bundle. Beide omgevingen zien dezelfde functie.
+import {
+  createMollieClient,
   MandateStatus,
   type MollieClient,
 } from "@mollie/api-client";
@@ -11,30 +15,90 @@ import createMollieClient, {
  * een key waarvan niemand meer weet of hij test of live is, is precies het
  * probleem dat dit oplost. Ontbreekt de key voor een modus, dan geeft
  * getMollieClient null en weigeren de betaalpaden netjes.
+ *
+ * Twee vangrails bovenop de keuze van de env-var (spec-facturatie.md 6.6):
+ *
+ * 1. Omgevingsguard. De live-modus geeft uitsluitend op productie
+ *    (VERCEL_ENV === "production") een client. Preview-deployments draaien
+ *    tegen hetzelfde Supabase-project als productie, dus een profiel met
+ *    is_test = false zou daar anders echt geld incasseren; lokale
+ *    ontwikkeling valt bewust onder dezelfde regel. Zelfde discipline als
+ *    src/lib/akiles.ts. De testmodus werkt in elke omgeving.
+ * 2. Prefix-vangrail, beide richtingen. Een live-key begint bij Mollie
+ *    altijd met "live_", een testkey met "test_". Een key met de verkeerde
+ *    prefix wordt geweigerd. De test-richting is de belangrijkste: een
+ *    testprofiel op een live-key incasseert echt geld.
+ *
+ * Een weigering door een vangrail is luid (één console.error met modus en
+ * reden, nooit de key zelf, ook niet afgekort); een ONTBREKENDE key blijft
+ * stil null, zoals voorheen.
  */
 export type MollieMode = "live" | "test";
 
-const clients = new Map<MollieMode, MollieClient>();
+export type MollieKeyResolution =
+  | { ok: true; apiKey: string }
+  | { ok: false; reason: "missing" }
+  | { ok: false; reason: "wrong_environment"; vercelEnv: string }
+  | { ok: false; reason: "wrong_prefix"; prefix: string };
+
+const KEY_PREFIX: Record<MollieMode, string> = { live: "live_", test: "test_" };
+
+/** Alleen de bekende prefixen benoemen; nooit tekens uit de key zelf. */
+function describePrefix(apiKey: string): string {
+  if (apiKey.startsWith("live_")) return "live_";
+  if (apiKey.startsWith("test_")) return "test_";
+  return "geen live_/test_";
+}
+
+/**
+ * Pure keuze van de key voor een modus, zonder cache of client. Gescheiden
+ * van getMollieClient zodat de vangrails per omgeving testbaar zijn
+ * (scripts/mollie/mollie-client.test.mts). Volgorde: ontbrekend (stil),
+ * omgeving, prefix.
+ */
+export function resolveMollieApiKey(
+  mode: MollieMode,
+  env: NodeJS.ProcessEnv = process.env,
+): MollieKeyResolution {
+  const apiKey = mode === "test" ? env.MOLLIE_API_KEY_TEST : env.MOLLIE_API_KEY_LIVE;
+  if (!apiKey) return { ok: false, reason: "missing" };
+  if (mode === "live" && env.VERCEL_ENV !== "production") {
+    return { ok: false, reason: "wrong_environment", vercelEnv: env.VERCEL_ENV ?? "(leeg)" };
+  }
+  if (!apiKey.startsWith(KEY_PREFIX[mode])) {
+    return { ok: false, reason: "wrong_prefix", prefix: describePrefix(apiKey) };
+  }
+  return { ok: true, apiKey };
+}
+
+// Cache per modus, met de key erbij: verandert de env (tests, of een
+// herconfiguratie zonder herstart), dan wordt de client opnieuw gebouwd in
+// plaats van dat een oude client een vangrail omzeilt.
+const clients = new Map<MollieMode, { apiKey: string; client: MollieClient }>();
 
 export function getMollieClient(mode: MollieMode): MollieClient | null {
+  const resolved = resolveMollieApiKey(mode);
+  if (!resolved.ok) {
+    if (resolved.reason === "wrong_environment") {
+      console.error(
+        `[mollie] live-modus geweigerd: VERCEL_ENV=${resolved.vercelEnv} is geen production`,
+      );
+    } else if (resolved.reason === "wrong_prefix") {
+      console.error(
+        `[mollie] ${mode}-modus geweigerd: key heeft prefix ${resolved.prefix}, verwacht ${KEY_PREFIX[mode]}`,
+      );
+    }
+    return null;
+  }
   const existing = clients.get(mode);
-  if (existing) return existing;
-  const apiKey =
-    mode === "test"
-      ? process.env.MOLLIE_API_KEY_TEST
-      : process.env.MOLLIE_API_KEY_LIVE;
-  if (!apiKey) return null;
-  const client = createMollieClient({ apiKey });
-  clients.set(mode, client);
+  if (existing && existing.apiKey === resolved.apiKey) return existing.client;
+  const client = createMollieClient({ apiKey: resolved.apiKey });
+  clients.set(mode, { apiKey: resolved.apiKey, client });
   return client;
 }
 
 export function isMollieConfigured(mode: MollieMode): boolean {
-  return Boolean(
-    mode === "test"
-      ? process.env.MOLLIE_API_KEY_TEST
-      : process.env.MOLLIE_API_KEY_LIVE,
-  );
+  return resolveMollieApiKey(mode).ok;
 }
 
 /**

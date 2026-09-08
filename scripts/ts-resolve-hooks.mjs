@@ -33,9 +33,12 @@ export function resolve(specifier, context, nextResolve) {
     if (resolved) return nextResolve(pathToFileURL(resolved).href, context);
   }
 
+  // Alleen eigen code: een CJS-pakket in node_modules (bv. whatwg-url onder
+  // @mollie/api-client) kan de file://-URL die hier ontstaat niet require'n.
   if (
     (specifier.startsWith("./") || specifier.startsWith("../")) &&
-    context.parentURL?.startsWith("file:")
+    context.parentURL?.startsWith("file:") &&
+    !context.parentURL.includes("/node_modules/")
   ) {
     const base = path.resolve(path.dirname(fileURLToPath(context.parentURL)), specifier);
     const resolved = withExtension(base);
