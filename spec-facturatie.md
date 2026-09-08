@@ -20,7 +20,7 @@ daarop aan en vervangt hem niet.
 | KvK- en BTW-nummer van TMC in het systeem | open | oplevering, niet de bouw |
 | Creditnota in dezelfde reeks of een eigen reeks | besloten: dezelfde reeks | nee |
 | `/app/facturen` uitbreiden of nieuwe route | besloten: uitbreiden | nee |
-| Twee Mollie-keys aangemaakt en in Vercel gezet | open | PR 4 |
+| Twee Mollie-keys aangemaakt en in Vercel gezet | gedaan 2026-09-08: `MOLLIE_API_KEY_LIVE` (Production), `MOLLIE_API_KEY_TEST` (Production, Development), oude `MOLLIE_API_KEY` verwijderd | nee |
 | Bucket `tmc-invoices` aangemaakt | open | PR 6 |
 
 **Post-opening (niet blokkerend, wel gepland):**
@@ -1353,6 +1353,14 @@ de buitenste `try/catch` dat af en retourneert `{ ok: true }`. Dat blijft zo (Mo
 niet gaan retryen), maar er komt een `console.error` met het id en de gekozen modus bij,
 zodat een modus-mismatch in de logs zichtbaar is in plaats van als stilte.
 
+**Ontbrekende configuratie is een 500, geen 200** (sinds de live-vangrails, zie 6.6). Geeft
+`getMollieClient(mode)` `null` terug, dan antwoorden beide webhook-routes met status 500.
+Mollie herhaalt een webhook alleen na een niet-2xx-respons; een 200 op een route die niets
+kon ophalen zou een betalingsbevestiging definitief laten verdwijnen zodra een key wegvalt
+of een vangrail weigert. Met een 500 blijft Mollie proberen tot de configuratie klopt. Dit
+geldt uitsluitend voor de configuratiecheck: een mislukte `payments.get` (echte 404 of
+modus-mismatch) blijft een 200, zoals hierboven.
+
 ### 6.6 Twee env-vars en een Map in plaats van een cache
 
 `src/lib/mollie.ts` heeft nu:
@@ -1395,6 +1403,29 @@ fallback op een key waarvan niemand meer weet of hij test of live is, is precies
 probleem dat we oplossen.
 
 `isMollieConfigured()` krijgt dezelfde parameter.
+
+**Twee vangrails bovenop de keuze van de env-var** (branch `feat/mollie-live-guardrails`,
+naar aanleiding van de ontdekking dat productie een maand lang zonder live-key heeft
+gedraaid zonder dat iets dat luid maakte):
+
+1. *Omgevingsguard.* `getMollieClient("live")` geeft uitsluitend een client als
+   `VERCEL_ENV === "production"`. Preview-deployments draaien tegen hetzelfde
+   Supabase-project als productie, dus een profiel met `is_test = false` zou daar anders
+   echt geld incasseren zodra iemand de live-key op Preview zet. Lokale ontwikkeling valt
+   bewust onder dezelfde regel. Zelfde discipline als `src/lib/akiles.ts`. De testmodus
+   werkt in elke omgeving.
+2. *Prefix-vangrail, beide richtingen.* Een Mollie-live-key begint met `live_`, een testkey
+   met `test_`. De live-modus weigert een key zonder `live_`, de testmodus een key zonder
+   `test_`. De test-richting is de belangrijkste: een testprofiel op een live-key incasseert
+   echt geld.
+
+Een weigering door een vangrail is luid: één `console.error` met modus en reden (welke
+omgeving, of welke prefix er kwam en welke verwacht werd), nooit de key zelf, ook niet
+afgekort. Een ontbrekende key blijft stil `null`, zoals voorheen. De keuze zit in de pure
+functie `resolveMollieApiKey(mode, env)`, gescheiden van de cache en de client, zodat de
+vangrails per omgeving testbaar zijn (`npm run test:mollie`,
+`scripts/mollie/mollie-client.test.mts`). De cache bewaart de key naast de client en bouwt
+opnieuw als de key verandert, zodat een eerder gebouwde client nooit een vangrail omzeilt.
 
 **Alle aanroepplaatsen krijgen een modus.** Dit is de grootste mechanische wijziging van
 deze spec, dus hier de volledige lijst zoals aanwezig op `main`:
@@ -2678,7 +2709,10 @@ het overzicht, niet de waarheid.
   **Bewust niet aangeraakt:** het verwerken van `amountRefunded` (alleen niet-stilvallen,
   verwerken is later werk), het proefles-pad (`trial_bookings.is_test` is PR 5) en de
   env-var `MOLLIE_API_KEY` zelf, die blijft bestaan tot na de deploy maar door de code
-  nergens meer gelezen wordt.
+  nergens meer gelezen wordt. *Gesloten 2026-09-08:* `MOLLIE_API_KEY` is handmatig uit
+  Vercel verwijderd, tegelijk met het zetten van `MOLLIE_API_KEY_LIVE` (Production) en
+  `MOLLIE_API_KEY_TEST` (Production, Development); zie de ledger-regel van de
+  live-vangrails hieronder.
   **Tijdelijke afwijking, dwingend gemarkeerd:** `expire-orders` bepaalt de modus per run
   via `trialBookingMode()` in plaats van per rij; de `// TODO PR 5`-comment staat op de
   regel en de vervanging is als voorwaarde bij PR 5 in sectie 14 gezet.

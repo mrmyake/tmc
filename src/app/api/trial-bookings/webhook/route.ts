@@ -22,8 +22,12 @@ export async function POST(request: Request) {
         : "live";
     const mollie = getMollieClient(mode);
     if (!mollie) {
+      // Geen 2xx: Mollie herhaalt een webhook alleen na een niet-2xx-
+      // respons. Een key die wegvalt (of een vangrail in mollie.ts die
+      // weigert) mag geen betalingsbevestigingen stil laten verdwijnen;
+      // met een 500 blijft Mollie proberen tot de configuratie klopt.
       console.error(`[trial-bookings/webhook] mollie not configured (mode=${mode})`);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: false, error: "mollie_not_configured" }, { status: 500 });
     }
 
     const admin = createAdminClient();
