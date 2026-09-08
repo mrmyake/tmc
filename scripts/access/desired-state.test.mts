@@ -32,6 +32,7 @@ test("active zonder pauze: toegang, standaard, rollend venster", () => {
   assert.equal(d.enabled, true);
   assert.equal(d.group, "standard");
   assert.equal(d.endsAt?.toISOString(), ROLLING_END, "rollend venster, nooit voor altijd");
+  assert.equal(d.endsAtKind, "rolling");
 });
 
 test("rittenkaart en PT-pakket geven geen zelfstandige toegang", () => {
@@ -194,6 +195,7 @@ test("meerdere rijen: maximum van de einddatums, een rij zonder harde datum telt
     NOW,
   );
   assert.equal(laterHard.endsAt?.toISOString(), "2026-09-30T22:00:00.000Z", "harde datum na het venster wint");
+  assert.equal(laterHard.endsAtKind, "hard");
 
   const soonHard = resolveDesiredAccess(
     {
@@ -206,6 +208,7 @@ test("meerdere rijen: maximum van de einddatums, een rij zonder harde datum telt
     NOW,
   );
   assert.equal(soonHard.endsAt?.toISOString(), ROLLING_END, "doorlopende rij houdt het venster, nooit oneindig");
+  assert.equal(soonHard.endsAtKind, "rolling");
 
   const hard = resolveDesiredAccess(
     {

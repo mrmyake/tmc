@@ -10,9 +10,11 @@ import {
   applyGroupSchedules,
   ensureAccessConfig,
   groupScheduleIds,
+  needsAkilesUpdate,
   syncAllCore,
   syncOneCore,
 } from "../../src/lib/access/sync-core";
+import type { DesiredAccess } from "../../src/lib/access/desired-state";
 import type {
   AccessConfigRow,
   AccessCredentialsRow,
@@ -300,6 +302,22 @@ function snapshot(db: FakeDb, akiles: FakeAkiles) {
   });
 }
 
+const MEMBER_LEVEL_CALLS = new Set([
+  "createMember",
+  "editMember",
+  "createPin",
+  "deletePin",
+  "createMagicLink",
+  "listGroupAssociations",
+  "createGroupAssociation",
+  "deleteGroupAssociation",
+]);
+
+/** Akiles-calls die een lid raken; config-calls (schedules, groepen) tellen niet mee. */
+function memberCalls(akiles: FakeAkiles): string[] {
+  return akiles.calls.filter((c) => MEMBER_LEVEL_CALLS.has(c));
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -309,7 +327,15 @@ test("zonder AKILES_API_KEY: schone no-op, geen enkele DB-read of -write, een lo
   db.profiles.set("p1", profile("p1", "member", [ACTIVE]));
 
   const all = await syncAllCore(deps);
-  assert.deepEqual(all, { ok: true, skipped: true, processed: 0, failed: 0, failures: [] });
+  assert.deepEqual(all, {
+    ok: true,
+    notConfigured: true,
+    processed: 0,
+    skipped: 0,
+    remaining: 0,
+    failed: 0,
+    failures: [],
+  });
 
   const one = await syncOneCore(deps, "p1");
   assert.equal(one.ok, true);
@@ -384,19 +410,170 @@ test("eerste run provisiont config en member; tweede run is identiek en maakt ni
   assert.equal(events.filter((e) => e.type === "access.granted").length, 3);
   assert.equal(events.filter((e) => e.type === "access.revoked").length, 0);
 
-  // Tweede run: zelfde invoer, zelfde uitkomst, geen creates.
+  // Tweede run: zelfde invoer, zelfde uitkomst, en de diff-check houdt
+  // elke lid-call tegen. Alleen cancelled1 (geen credentials, geen toegang)
+  // telt als processed-noop; de drie anderen zijn skipped.
   const before = snapshot(db, akiles);
   akiles.calls = [];
   events.length = 0;
   const second = await syncAllCore(deps);
   assert.equal(second.ok, true);
-  assert.equal(second.processed, 4);
+  assert.equal(second.processed, 1);
+  assert.equal(second.skipped, 3);
+  assert.equal(second.remaining, 0);
   assert.equal(second.failed, 0);
   assert.equal(snapshot(db, akiles), before, "identieke toestand");
-  const creates = akiles.calls.filter((c) => c.startsWith("create"));
-  assert.deepEqual(creates, [], "geen enkele create in de tweede run");
+  assert.deepEqual(memberCalls(akiles), [], "nul Akiles-calls op lidniveau zonder wijzigingen");
   assert.equal(events.length, 0, "geen nieuwe events zonder overgang");
   assert.ok(akiles.calls.includes("editSchedule"), "schedules worden wel bijgepatcht");
+  for (const id of ["member1", "ext1", "staff1"]) {
+    assert.equal(db.credentials.get(id)?.last_synced_at, NOW.toISOString(), `${id} last_synced_at bijgewerkt`);
+  }
+});
+
+test("diff-check: gewijzigd extended_access lokt wel een call uit", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db } = makeDeps({ akiles });
+  db.profiles.set("u", profile("u", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  akiles.calls = [];
+  db.profiles.set("u", profile("u", "member", [{ ...ACTIVE, extended_access: true }]));
+  const run = await syncAllCore(deps);
+  assert.equal(run.processed, 1);
+  assert.equal(run.skipped, 0);
+  assert.ok(memberCalls(akiles).includes("createGroupAssociation"), "groep gewisseld in Akiles");
+  assert.equal(db.credentials.get("u")?.access_group, "extended");
+});
+
+test("diff-check: verstreken harde datum lokt een call uit (intrekken)", async () => {
+  const akiles = new FakeAkiles();
+  let now = NOW;
+  const { deps, db, events } = makeDeps({ akiles });
+  deps.now = () => now;
+  db.profiles.set("c", profile("c", "member", [
+    { ...ACTIVE, status: "cancellation_requested", cancellation_effective_date: "2026-09-10" },
+  ]));
+  await syncAllCore(deps);
+  assert.equal(db.credentials.get("c")?.access_ends_at, "2026-09-10T22:00:00.000Z");
+
+  // Volgende nacht: datum nog niet verstreken, dezelfde harde datum: geen call.
+  now = new Date("2026-09-09T02:15:00.000Z");
+  akiles.calls = [];
+  let run = await syncAllCore(deps);
+  assert.equal(run.skipped, 1);
+  assert.deepEqual(memberCalls(akiles), []);
+
+  // Na de effectieve datum: intrekken, dus wel calls.
+  now = new Date("2026-09-11T02:15:00.000Z");
+  akiles.calls = [];
+  events.length = 0;
+  run = await syncAllCore(deps);
+  assert.equal(run.processed, 1);
+  assert.ok(memberCalls(akiles).includes("editMember"));
+  assert.ok(memberCalls(akiles).includes("deletePin"));
+  assert.deepEqual(events.map((e) => e.type), ["access.revoked"]);
+});
+
+test("diff-check: gewijzigde harde datum is altijd een wijziging, ook ver in de toekomst", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db } = makeDeps({ akiles });
+  db.profiles.set("c", profile("c", "member", [
+    { ...ACTIVE, status: "cancellation_requested", cancellation_effective_date: "2026-12-01" },
+  ]));
+  await syncAllCore(deps);
+  akiles.calls = [];
+  db.profiles.set("c", profile("c", "member", [
+    { ...ACTIVE, status: "cancellation_requested", cancellation_effective_date: "2026-12-15" },
+  ]));
+  const run = await syncAllCore(deps);
+  assert.equal(run.processed, 1);
+  assert.ok(memberCalls(akiles).includes("editMember"));
+  assert.equal(db.credentials.get("c")?.access_ends_at, "2026-12-15T23:00:00.000Z");
+});
+
+test("needsAkilesUpdate: eenheidsgevallen", () => {
+  const cred: AccessCredentialsRow = {
+    profile_id: "p",
+    akiles_member_id: "mem_1",
+    akiles_pin_id: "pin_1",
+    akiles_magic_link_id: "ml_1",
+    access_group: "standard",
+    access_ends_at: "2026-09-15T10:00:00.000Z",
+    last_synced_at: null,
+    last_error: null,
+  };
+  const rolling: DesiredAccess = {
+    enabled: true,
+    group: "standard",
+    endsAt: new Date("2026-09-15T10:00:00.000Z"),
+    endsAtKind: "rolling",
+    reason: "t",
+  };
+  assert.equal(needsAkilesUpdate(null, rolling, NOW), true, "geen credentials");
+  assert.equal(needsAkilesUpdate({ ...cred, akiles_pin_id: null }, rolling, NOW), true, "PIN ontbreekt");
+  assert.equal(needsAkilesUpdate(cred, rolling, NOW), false, "7 dagen vooruit: geen call");
+  assert.equal(needsAkilesUpdate(cred, rolling, new Date("2026-09-11T09:00:00.000Z")), false, "iets meer dan 4 dagen: geen call");
+  assert.equal(needsAkilesUpdate(cred, rolling, new Date("2026-09-11T11:00:00.000Z")), true, "onder 4 dagen: verversen");
+  assert.equal(needsAkilesUpdate(cred, { ...rolling, group: "extended" }, NOW), true, "groep anders");
+  const hard: DesiredAccess = { ...rolling, endsAtKind: "hard", endsAt: new Date("2026-09-15T10:00:00.000Z") };
+  assert.equal(needsAkilesUpdate(cred, hard, NOW), false, "zelfde harde datum");
+  assert.equal(needsAkilesUpdate(cred, { ...hard, endsAt: new Date("2026-09-15T10:00:01.000Z") }, NOW), true, "harde datum een seconde anders");
+});
+
+test("tijdsbudget: run stopt tussen profielen, laat geen halve toestand achter en rapporteert remaining", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db, events } = makeDeps({ akiles });
+  for (const id of ["a", "b", "c", "d"]) db.profiles.set(id, profile(id, "member", [ACTIVE]));
+
+  // now(): eerst de budgetcheck voor profiel 1, dan de start van profiel 1,
+  // daarna is de tijd op. De budgetcheck voor profiel 2 ziet dus de deadline.
+  const deadline = NOW.getTime() + 60_000;
+  let calls = 0;
+  deps.now = () => (++calls <= 2 ? NOW : new Date(deadline + 1));
+
+  const run = await syncAllCore(deps, { deadlineMs: deadline });
+  assert.equal(run.ok, true);
+  assert.equal(run.processed, 1);
+  assert.equal(run.skipped, 0);
+  assert.equal(run.remaining, 3);
+  assert.equal(run.failed, 0);
+
+  // Het ene verwerkte profiel is compleet: member, PIN, link, associatie, event.
+  const done = [...db.credentials.values()];
+  assert.equal(done.length, 1, "alleen het verwerkte profiel heeft een rij");
+  assert.ok(done[0].akiles_member_id && done[0].akiles_pin_id && done[0].akiles_magic_link_id);
+  assert.equal(done[0].access_group, "standard");
+  assert.equal(akiles.members.size, 1, "geen half aangemaakte members voor de rest");
+  assert.equal(events.length, 1);
+
+  // Volgende run zonder budgetdruk maakt het af; het al gedane profiel wordt overgeslagen.
+  deps.now = () => NOW;
+  const next = await syncAllCore(deps, { deadlineMs: NOW.getTime() + 60_000 });
+  assert.equal(next.processed, 3);
+  assert.equal(next.skipped, 1);
+  assert.equal(next.remaining, 0);
+  assert.equal(akiles.members.size, 4);
+});
+
+test("volledige reconciliatie (force) slaat de diff-check over", async () => {
+  const akiles = new FakeAkiles();
+  const { deps, db } = makeDeps({ akiles });
+  db.profiles.set("m", profile("m", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  akiles.calls = [];
+  const plain = await syncAllCore(deps);
+  assert.equal(plain.skipped, 1);
+  assert.deepEqual(memberCalls(akiles), []);
+
+  akiles.calls = [];
+  const before = snapshot(db, akiles);
+  const forced = await syncAllCore(deps, { force: true });
+  assert.equal(forced.processed, 1);
+  assert.equal(forced.skipped, 0);
+  assert.ok(memberCalls(akiles).includes("editMember"));
+  assert.ok(memberCalls(akiles).includes("listGroupAssociations"));
+  assert.deepEqual(memberCalls(akiles).filter((c) => c.startsWith("create")), [], "force maakt niets dubbel aan");
+  assert.equal(snapshot(db, akiles), before, "toestand ongewijzigd");
 });
 
 test("gewijzigde openingstijd komt de volgende run door in het standaardschedule", async () => {
@@ -413,7 +590,7 @@ test("gewijzigde openingstijd komt de volgende run door in het standaardschedule
   assert.equal(akiles.schedules.size, 4, "geen nieuw schedule, bestaand gepatcht");
 });
 
-test("rollend venster schuift elke run op", async () => {
+test("rollend venster: geen call zolang de opgeslagen einddatum boven de drempel ligt, daarna verversen", async () => {
   const akiles = new FakeAkiles();
   let now = NOW;
   const { deps, db } = makeDeps({ akiles });
@@ -421,11 +598,26 @@ test("rollend venster schuift elke run op", async () => {
   db.profiles.set("m", profile("m", "member", [ACTIVE]));
   await syncAllCore(deps);
   assert.equal(db.credentials.get("m")?.access_ends_at, "2026-09-15T10:00:00.000Z");
-  now = new Date("2026-09-09T02:15:00.000Z");
-  await syncAllCore(deps);
-  assert.equal(db.credentials.get("m")?.access_ends_at, "2026-09-16T02:15:00.000Z");
+
+  // Nacht 1 t/m 3: nog 6, 5 en 4+ dagen speling: overslaan, ends_at blijft staan.
+  for (const day of ["09", "10", "11"]) {
+    now = new Date(`2026-09-${day}T02:15:00.000Z`);
+    akiles.calls = [];
+    const run = await syncAllCore(deps);
+    assert.equal(run.skipped, 1, `nacht ${day}`);
+    assert.deepEqual(memberCalls(akiles), [], `nacht ${day}: geen lid-call`);
+    assert.equal(db.credentials.get("m")?.access_ends_at, "2026-09-15T10:00:00.000Z");
+  }
+
+  // Nacht 4: nog 3 dagen en een paar uur, onder de drempel van 4: verversen.
+  now = new Date("2026-09-12T02:15:00.000Z");
+  akiles.calls = [];
+  const run = await syncAllCore(deps);
+  assert.equal(run.processed, 1);
+  assert.ok(memberCalls(akiles).includes("editMember"));
+  assert.equal(db.credentials.get("m")?.access_ends_at, "2026-09-19T02:15:00.000Z");
   const member = akiles.members.get(db.credentials.get("m")?.akiles_member_id as string);
-  assert.equal(member?.ends_at, "2026-09-16T02:15:00.000Z");
+  assert.equal(member?.ends_at, "2026-09-19T02:15:00.000Z");
 });
 
 test("harde datum wint: opzegging zet ends_at op de effectieve datum, niet op het rollende venster", async () => {
@@ -637,7 +829,10 @@ test("in Akiles verwijderd schedule of member wordt opnieuw aangemaakt", async (
 
   akiles.schedules.delete(cfgBefore.schedule_standard_id as string);
   akiles.members.delete(memberBefore);
-  const run = await syncAllCore(deps);
+  // Een in het Akiles-paneel verwijderde member valt buiten de diff-check
+  // (credentials zien er compleet uit); de volledige reconciliatie vangt
+  // hem direct, de gewone run uiterlijk bij de venster-verversing.
+  const run = await syncAllCore(deps, { force: true });
   assert.equal(run.failed, 0);
   const cfgAfter = db.config as AccessConfigRow;
   assert.notEqual(cfgAfter.schedule_standard_id, cfgBefore.schedule_standard_id);

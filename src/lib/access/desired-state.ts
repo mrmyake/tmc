@@ -30,7 +30,14 @@ import { ROLLING_ACCESS_WINDOW_DAYS, type AccessGroup } from "./constants";
  * altijd gevuld zodra enabled true is.
  */
 
-/** plan_type-waarden die geen abonnement zijn en dus geen deurtoegang dragen. */
+/**
+ * plan_type-waarden die geen abonnement zijn en dus geen deurtoegang dragen.
+ * twelve_week_program staat hier voorlopig ook: of een twaalfwekenprogramma
+ * vrij trainen (en dus zelfstandige toegang) bevat, wordt nog bevestigd met
+ * de eigenaar (Ilja checkt bij Marlon, 2026-09-08). Valt dat anders uit, dan
+ * is het deze ene regel. activate_order maakt er nu overigens geen
+ * memberships-rij voor aan, dus in de praktijk komt de waarde niet voor.
+ */
 export const NON_SUBSCRIPTION_PLAN_TYPES: ReadonlySet<string> = new Set([
   "ten_ride_card",
   "pt_package",
@@ -61,6 +68,12 @@ export interface DesiredAccess {
   group: AccessGroup | null;
   /** Einddatum voor Akiles; altijd gevuld als enabled true is, nooit "voor altijd". */
   endsAt: Date | null;
+  /**
+   * "hard": een datum uit de membership (opzegging, pauze); elke afwijking
+   * is een wijziging. "rolling": nu plus het venster; schuift elke run op
+   * en telt pas als wijziging onder ROLLING_REFRESH_THRESHOLD_DAYS.
+   */
+  endsAtKind: "hard" | "rolling" | null;
   reason: string;
 }
 
@@ -151,6 +164,7 @@ export function resolveDesiredAccess(
       enabled: true,
       group: "staff",
       endsAt: rollingWindowEnd(now),
+      endsAtKind: "rolling",
       reason: `role:${input.role}`,
     };
   }
@@ -161,7 +175,13 @@ export function resolveDesiredAccess(
     .filter((r) => r.access.enabled);
 
   if (enabledRows.length === 0) {
-    return { enabled: false, group: null, endsAt: null, reason: "no_covering_membership" };
+    return {
+      enabled: false,
+      group: null,
+      endsAt: null,
+      endsAtKind: null,
+      reason: "no_covering_membership",
+    };
   }
 
   const group: AccessGroup = enabledRows.some((r) => r.row.extended_access)
@@ -172,11 +192,16 @@ export function resolveDesiredAccess(
   // maximum. Een rij zonder harde datum draagt dus nooit oneindig bij; bij
   // een enkele rij komt dit neer op "harde datum wint altijd".
   const rolling = rollingWindowEnd(now);
-  const endsAt = enabledRows.reduce<Date>((latest, r) => {
+  let endsAt = new Date(0);
+  let endsAtKind: "hard" | "rolling" = "rolling";
+  for (const r of enabledRows) {
     const end = r.access.hardEnd ?? rolling;
-    return end > latest ? end : latest;
-  }, new Date(0));
+    if (end > endsAt) {
+      endsAt = end;
+      endsAtKind = r.access.hardEnd ? "hard" : "rolling";
+    }
+  }
 
   const statuses = enabledRows.map((r) => r.row.status).sort().join(",");
-  return { enabled: true, group, endsAt, reason: `membership:${statuses}` };
+  return { enabled: true, group, endsAt, endsAtKind, reason: `membership:${statuses}` };
 }

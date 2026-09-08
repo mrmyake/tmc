@@ -160,7 +160,12 @@ export interface AccessDb {
   >;
   /** null als het profiel niet (meer) bestaat. */
   getProfile(profileId: string): Promise<AccessProfile | null>;
-  /** Profielen die een sync verdienen: staf, iedereen met een membership-rij, iedereen met credentials. */
+  /**
+   * Profielen die een sync verdienen: staf, iedereen met een membership-rij,
+   * iedereen met credentials. Volgorde: nooit gesynct eerst, daarna oplopend
+   * op last_synced_at, zodat een door het tijdsbudget afgebroken run de
+   * volgende nacht niet steeds dezelfde staart overslaat.
+   */
   listSyncCandidateProfileIds(): Promise<string[]>;
   getCredentials(profileId: string): Promise<AccessCredentialsRow | null>;
   upsertCredentials(
@@ -190,7 +195,8 @@ export interface SyncDeps {
   };
 }
 
-export type ProfileSyncOutcome = "granted" | "revoked" | "updated" | "noop";
+/** "skipped": diff-check zag geen afwijking, geen Akiles-call gedaan. */
+export type ProfileSyncOutcome = "granted" | "revoked" | "updated" | "noop" | "skipped";
 
 export interface ProfileSyncResult {
   profileId: string;
@@ -199,11 +205,23 @@ export interface ProfileSyncResult {
   error?: string;
 }
 
+export interface SyncOptions {
+  /** Volledige reconciliatie: diff-check overslaan en elk profiel naar Akiles schrijven. */
+  force?: boolean;
+  /** Epoch-ms; na dit moment start de run geen nieuw profiel meer. */
+  deadlineMs?: number;
+}
+
 export interface SyncAllResult {
   ok: boolean;
   /** True als er geen API-key is en er dus niets is gedaan. */
-  skipped: boolean;
+  notConfigured: boolean;
+  /** Profielen waarvoor Akiles is aangeroepen (of die zonder afwijking waren, zie skipped). */
   processed: number;
+  /** Profielen die de diff-check zonder Akiles-call passeerden. */
+  skipped: number;
+  /** Profielen die door het tijdsbudget niet aan de beurt kwamen. */
+  remaining: number;
   failed: number;
   failures: Array<{ profileId: string; error: string }>;
   error?: string;

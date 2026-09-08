@@ -1,6 +1,7 @@
 import {
   ACCESS_PIN_LENGTH,
   AKILES_OBJECT_NAMES,
+  ROLLING_REFRESH_THRESHOLD_DAYS,
   type AccessGroup,
 } from "./constants";
 import {
@@ -10,7 +11,11 @@ import {
   buildStandardWeekdays,
   type ScheduleWeekday,
 } from "./schedule";
-import { resolveDesiredAccess, rollingWindowEnd } from "./desired-state";
+import {
+  resolveDesiredAccess,
+  rollingWindowEnd,
+  type DesiredAccess,
+} from "./desired-state";
 import {
   isAkilesNotFound,
   type AccessConfigRow,
@@ -22,6 +27,7 @@ import {
   type ResolvedAccessConfig,
   type SyncAllResult,
   type SyncDeps,
+  type SyncOptions,
 } from "./types";
 
 /**
@@ -36,6 +42,11 @@ import {
  *  - PIN- en magic-link-waarden komen hier nooit voorbij, alleen hun ids.
  *  - Elk id dat Akiles teruggeeft wordt meteen naar access_credentials
  *    geschreven, zodat een latere fout in dezelfde run geen wees achterlaat.
+ *  - Diff-check: Akiles wordt alleen gebeld als de gewenste toestand afwijkt
+ *    van wat access_credentials zegt (groep, ids, einddatum). Het rollende
+ *    venster telt pas als afwijking onder ROLLING_REFRESH_THRESHOLD_DAYS.
+ *  - Tijdsbudget: de run stopt alleen tussen twee profielen in, nooit
+ *    middenin; een profiel is dus altijd volledig of helemaal niet gedaan.
  */
 
 const PERMISSION_ACCESS_METHODS = {
@@ -309,11 +320,39 @@ async function reconcileGroupAssociation(
   return changed;
 }
 
+/**
+ * Diff-check voor een profiel met gewenste toegang: true als Akiles gebeld
+ * moet worden. Zonder afwijking slaan we het profiel over en werken we
+ * alleen last_synced_at bij; access_ends_at blijft dan staan op wat er
+ * werkelijk in Akiles staat.
+ */
+export function needsAkilesUpdate(
+  cred: AccessCredentialsRow | null,
+  desired: DesiredAccess,
+  now: Date,
+): boolean {
+  if (!cred || !cred.akiles_member_id || !cred.akiles_pin_id || !cred.akiles_magic_link_id) {
+    return true;
+  }
+  if (cred.access_group !== desired.group) return true;
+  if (!cred.access_ends_at || !desired.endsAt) return true;
+  const stored = new Date(cred.access_ends_at);
+  if (desired.endsAtKind === "hard") {
+    // Een harde datum die verandert is altijd een wijziging.
+    return stored.getTime() !== desired.endsAt.getTime();
+  }
+  // Rollend: alleen verversen als de opgeslagen einddatum onder de drempel
+  // zakt (of al voorbij is). Zie ROLLING_REFRESH_THRESHOLD_DAYS.
+  const threshold = now.getTime() + ROLLING_REFRESH_THRESHOLD_DAYS * 86_400_000;
+  return stored.getTime() < threshold;
+}
+
 export async function syncProfileCore(
   deps: SyncDeps,
   akiles: AkilesApi,
   cfg: ResolvedAccessConfig,
   profileId: string,
+  options: Pick<SyncOptions, "force"> = {},
 ): Promise<ProfileSyncResult> {
   const now = deps.now();
   const nowIso = now.toISOString();
@@ -329,12 +368,18 @@ export async function syncProfileCore(
 
     // Profiel verdwenen (of nog nooit in Akiles): niets om aan te zetten.
     // Bestond er wel een Akiles-member, dan dicht.
-    const desired = profile
+    const desired: DesiredAccess = profile
       ? resolveDesiredAccess(
           { role: profile.role, memberships: profile.memberships },
           now,
         )
-      : { enabled: false, group: null, endsAt: null, reason: "profile_missing" };
+      : {
+          enabled: false,
+          group: null,
+          endsAt: null,
+          endsAtKind: null,
+          reason: "profile_missing",
+        };
 
     if (!desired.enabled) {
       if (!cred || !cred.akiles_member_id) {
@@ -358,17 +403,32 @@ export async function syncProfileCore(
         last_synced_at: nowIso,
         last_error: null,
       });
-      if (wasEnabled) {
-        await deps.emit({
-          type: "access.revoked",
-          subjectId: profileId,
-          payload: { profile_id: profileId, reason: desired.reason },
-        });
-      }
-      return { profileId, ok: true, outcome: wasEnabled ? "revoked" : "updated" };
+      // Altijd een event zodra we daadwerkelijk iets intrekken (PIN weg of
+      // einddatum naar voren gehaald), ook als de harde einddatum in Akiles
+      // al verstreken was: het spoor moet laten zien wanneer de sleutel is
+      // ingenomen, niet alleen wanneer de deur dichtging.
+      await deps.emit({
+        type: "access.revoked",
+        subjectId: profileId,
+        payload: {
+          profile_id: profileId,
+          reason: desired.reason,
+          was_enabled: wasEnabled,
+        },
+      });
+      return { profileId, ok: true, outcome: "revoked" };
     }
 
-    // Toegang aan.
+    // Toegang aan. Eerst de diff-check: zonder afwijking geen Akiles-call.
+    if (!options.force && !needsAkilesUpdate(cred, desired, now)) {
+      await deps.db.upsertCredentials({
+        profile_id: profileId,
+        last_synced_at: nowIso,
+        last_error: null,
+      });
+      return { profileId, ok: true, outcome: "skipped" };
+    }
+
     const target = profile as AccessProfile;
     const group = desired.group as AccessGroup;
     // desired.endsAt is bij enabled altijd gevuld; de fallback is puur
@@ -498,6 +558,7 @@ const NOT_CONFIGURED_MESSAGE =
 export async function syncOneCore(
   deps: SyncDeps,
   profileId: string,
+  options: Pick<SyncOptions, "force"> = {},
 ): Promise<ProfileSyncResult> {
   if (!deps.akiles) {
     deps.log.info(NOT_CONFIGURED_MESSAGE, { profileId });
@@ -505,7 +566,7 @@ export async function syncOneCore(
   }
   try {
     const cfg = await ensureAccessConfig(deps, deps.akiles);
-    return await syncProfileCore(deps, deps.akiles, cfg, profileId);
+    return await syncProfileCore(deps, deps.akiles, cfg, profileId, options);
   } catch (err) {
     const message = errorMessage(err);
     deps.log.error("[access-sync] config-provisioning mislukt", { error: message });
@@ -513,11 +574,27 @@ export async function syncOneCore(
   }
 }
 
-export async function syncAllCore(deps: SyncDeps): Promise<SyncAllResult> {
+function emptyResult(overrides: Partial<SyncAllResult>): SyncAllResult {
+  return {
+    ok: true,
+    notConfigured: false,
+    processed: 0,
+    skipped: 0,
+    remaining: 0,
+    failed: 0,
+    failures: [],
+    ...overrides,
+  };
+}
+
+export async function syncAllCore(
+  deps: SyncDeps,
+  options: SyncOptions = {},
+): Promise<SyncAllResult> {
   if (!deps.akiles) {
     // Een keer per run, daarna stil.
     deps.log.info(NOT_CONFIGURED_MESSAGE);
-    return { ok: true, skipped: true, processed: 0, failed: 0, failures: [] };
+    return emptyResult({ notConfigured: true });
   }
 
   let cfg: ResolvedAccessConfig;
@@ -526,32 +603,44 @@ export async function syncAllCore(deps: SyncDeps): Promise<SyncAllResult> {
   } catch (err) {
     const message = errorMessage(err);
     deps.log.error("[access-sync] config-provisioning mislukt", { error: message });
-    return {
-      ok: false,
-      skipped: false,
-      processed: 0,
-      failed: 0,
-      failures: [],
-      error: message,
-    };
+    return emptyResult({ ok: false, error: message });
   }
 
   const profileIds = await deps.db.listSyncCandidateProfileIds();
   let processed = 0;
+  let skipped = 0;
+  let remaining = 0;
   const failures: Array<{ profileId: string; error: string }> = [];
-  for (const profileId of profileIds) {
-    const result = await syncProfileCore(deps, deps.akiles, cfg, profileId);
-    if (result.ok) {
-      processed++;
-    } else {
+
+  for (let i = 0; i < profileIds.length; i++) {
+    // Budgetcheck uitsluitend hier, tussen twee profielen in: een profiel
+    // wordt nooit halverwege losgelaten.
+    if (options.deadlineMs !== undefined && deps.now().getTime() >= options.deadlineMs) {
+      remaining = profileIds.length - i;
+      deps.log.error("[access-sync] tijdsbudget op; rest naar de volgende run", {
+        processed,
+        skipped,
+        remaining,
+      });
+      break;
+    }
+    const profileId = profileIds[i];
+    const result = await syncProfileCore(deps, deps.akiles, cfg, profileId, {
+      force: options.force,
+    });
+    if (!result.ok) {
       failures.push({ profileId, error: result.error ?? "onbekend" });
+    } else if (result.outcome === "skipped") {
+      skipped++;
+    } else {
+      processed++;
     }
   }
-  return {
-    ok: true,
-    skipped: false,
+  return emptyResult({
     processed,
+    skipped,
+    remaining,
     failed: failures.length,
     failures,
-  };
+  });
 }

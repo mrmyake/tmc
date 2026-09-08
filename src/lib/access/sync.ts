@@ -13,6 +13,7 @@ import type {
   ProfileSyncResult,
   SyncAllResult,
   SyncDeps,
+  SyncOptions,
 } from "./types";
 
 /**
@@ -113,21 +114,29 @@ function buildDb(admin: SupabaseClient): AccessDb {
             admin.from("memberships").select("profile_id").order("id").range(from, to),
           "memberships",
         ),
-        selectAllPaged<{ profile_id: string }>(
+        selectAllPaged<{ profile_id: string; last_synced_at: string | null }>(
           (from, to) =>
             admin
               .from("access_credentials")
-              .select("profile_id")
+              .select("profile_id, last_synced_at")
               .order("profile_id")
               .range(from, to),
           "access_credentials",
         ),
       ]);
+      // Nooit gesynct eerst (geen credentials-rij of last_synced_at null),
+      // daarna oplopend op last_synced_at; zie AccessDb.listSyncCandidateProfileIds.
+      const lastSynced = new Map<string, string | null>();
+      for (const r of creds) lastSynced.set(r.profile_id, r.last_synced_at);
       const ids = new Set<string>();
       for (const r of staff) ids.add(r.id);
       for (const r of members) ids.add(r.profile_id);
       for (const r of creds) ids.add(r.profile_id);
-      return [...ids].sort();
+      return [...ids].sort((a, b) => {
+        const sa = lastSynced.get(a) ?? "";
+        const sb = lastSynced.get(b) ?? "";
+        return sa < sb ? -1 : sa > sb ? 1 : a < b ? -1 : a > b ? 1 : 0;
+      });
     },
     async getCredentials(profileId) {
       const { data, error } = await admin
@@ -188,15 +197,17 @@ export async function syncMembershipAccess(
   }
 }
 
-export async function syncAllAccess(): Promise<SyncAllResult> {
+export async function syncAllAccess(options: SyncOptions = {}): Promise<SyncAllResult> {
   try {
-    return await syncAllCore(buildDeps());
+    return await syncAllCore(buildDeps(), options);
   } catch (err) {
     console.error("[access-sync] syncAllAccess threw", err);
     return {
       ok: false,
-      skipped: false,
+      notConfigured: false,
       processed: 0,
+      skipped: 0,
+      remaining: 0,
       failed: 0,
       failures: [],
       error: err instanceof Error ? err.message : String(err),
