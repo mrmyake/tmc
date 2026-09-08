@@ -84,6 +84,32 @@ Smoke test results: existing-member login end-to-end in browser (role redirect t
 
 ---
 
+## Scheiding /login en checkout (2026-09-08, PR #173)
+
+**Besluit.** `/login` is inloggen. Aanmelden gebeurt uitsluitend via de checkout op `/abonnement`. Dit vervangt de keuze uit het implementation record van 2026-07-03 ("`/login` remains the combined login/signup entrypoint").
+
+**Waarom.** Met `shouldCreateUser` op de default (true) maakte elk willekeurig adres in het loginformulier al bij het aanvragen van de code een auth-user plus profielrij aan (trigger `on_auth_user_created`), zonder order en zonder membership. Live stonden op 2026-09-08 32 profielen zonder membership, waarvan twee echte auto-signup-gevallen zonder enige koopintentie. Er is geen registratieknop op de site; de pagina presenteerde zich als inloggen maar registreerde.
+
+**Wat er nu geldt.**
+
+- `src/app/login/LoginForm.tsx` zet `shouldCreateUser: false` en stuurt geen attributie-metadata meer mee bij de OTP-aanvraag (die is alleen zinvol bij aanmaak). De attributie op een bestaand profiel met lege velden blijft lopen via `verifyLoginOtp` en `recordAcquisitionOnLogin`.
+- `src/app/abonnement/IdentifyStage.tsx` houdt de default (true). Dit is de enige plek waar een nieuw account mag ontstaan: de bezoeker heeft daar net een plan gekozen. Bewust afwijkend van `/login`; niet "consistent maken".
+- Supabase-instelling `disable_signup` blijft `false`, anders breekt de checkout.
+
+**Neutrale melding.** Bij een onbekend adres antwoordt Supabase met HTTP 422, `error_code: otp_disabled`, `msg: "Signups not allowed for otp"`, en verstuurt niets. `LoginForm` behandelt precies die code als succes en gaat naar de codestap. De tekst daar is voor een bestaand en een onbekend adres identiek: "Als er een account hoort bij [adres], is er nu een code van 6 cijfers onderweg." De pagina mag nooit verklappen of een adres bestaat, anders is het loginformulier een orakel waarmee iedereen het ledenbestand kan aftasten. Om dezelfde reden staat de verwijzing "Nog geen lid? Bekijk de abonnementen" (naar `/abonnement`) permanent onder beide stappen en niet alleen na een onbekend adres: een link die pas bij een fout verschijnt, is zelf het signaal. Andere fouten (rate limit, netwerk) tonen wel een melding; die zeggen niets over het bestaan van een adres.
+
+**Bekend restrisico.** Een onbekend adres antwoordt zonder mail te versturen en dus sneller dan een bestaand adres. Dat tijdsverschil is in theorie meetbaar. Geaccepteerd op TMC-schaal, in lijn met besluit 3 hierboven.
+
+**Randgeval: account zonder membership.** Wie op `/abonnement` de identificatiestap doorliep (code geverifieerd) maar nooit betaalde, heeft een bevestigde auth-user en een profiel. Zo iemand logt gewoon in via `/login`: `shouldCreateUser: false` weigert alleen adressen die Supabase niet kent. In `/app` landt die persoon op het onboarding-scherm (`loadDashboardData`, kind `onboarding`) met de weg naar `/abonnement`. Wie op `/abonnement` alleen een code aanvroeg en die nooit invulde, heeft een onbevestigde auth-user; ook dat adres is bekend en krijgt via `/login` een code (de `confirmation`-template, die net als `magic_link` `{{ .Token }}` rendert).
+
+**Rate limit.** `rate_limit_email_sent` staat op 30 per uur voor het hele project, gezet via de Management API op 2026-07-03 (zie implementation record). Het is een projectinstelling die zelf aan te passen is in het Supabase-dashboard onder Authentication, Rate Limits, "Rate limit for sending emails", beschikbaar omdat custom SMTP (MailerSend) aanstaat; of via `PATCH /v1/projects/<ref>/config/auth` met `rate_limit_email_sent`. Niet gewijzigd in PR #173.
+
+**Ledger.**
+
+- **PR #173, 2026-09-08.** `/login` zet `shouldCreateUser: false`, behandelt `otp_disabled` als succes met een neutrale bevestigingstekst en toont permanent een verwijzing naar `/abonnement`; `IdentifyStage` krijgt alleen een comment. Bewust niet aangeraakt: `IdentifyStage`-gedrag, Supabase-config (`disable_signup`, rate limits), `/auth/callback` en de invite-flows, de 32 bestaande profielen zonder membership.
+
+---
+
 ## Locked constraint: member email templates stay code-only
 
 **De templates `magic_link` en `confirmation` moeten `{{ .Token }}` blijven renderen en mogen geen `{{ .ConfirmationURL }}` bevatten.** Dit is niet alleen een UX-keuze uit de OTP-migratie, het is inmiddels een harde afhankelijkheid.
