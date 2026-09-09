@@ -1104,7 +1104,10 @@ de mail en de mail zegt dat ook letterlijk.
   en dat event wordt pas geschreven ná een geslaagde verzending (`sendEmail` geeft sinds
   deze PR een boolean terug). Een dubbele webhook-aanroep levert dus geen tweede mail op;
   een mislukte verzending laat de order zonder event achter zodat een latere aanroep alsnog
-  kan versturen. `tmc.events.type` is vrije tekst, dus het nieuwe type vergde geen migratie.
+  kan versturen. Sinds PR #178 gebeurt dat ook echt: op een `already_activated`-retry van de webhook
+  roept de route de helper opnieuw aan, en alleen het ontbreken van het event laat de mail dan
+  vertrekken (ntfy "Bevestigingsmail alsnog verstuurd"). Een webhook opnieuw aanbieden (Mollie-
+  dashboard, of een POST met het payment-id) is daarmee de herstelroute na een mailstoring. `tmc.events.type` is vrije tekst, dus het nieuwe type vergde geen migratie.
   Kern zonder afhankelijkheden in `src/lib/orders/order-confirmation-core.ts`, wrapper in
   `order-confirmation.ts`, bewijs in `scripts/orders/order-confirmation.test.mts`
   (`npm run test:orders`).
@@ -3242,6 +3245,8 @@ het overzicht, niet de waarheid.
   aangeraakt:** de 2xx-afhandeling en het `needs_subscription`-herstelpad in de webhook,
   `_compute_order_price`, `create_order`, `activate_order` en de Akiles-sync, de
   factuurketen (4.1 t/m 4.5, 9), en de bestaande `payment_failed`-mail.
+
+- **PR #178, 2026-09-09** (branch `feat/confirmation-retry`, geen migratie; `src/app/api/mollie/webhook/route.ts`). Vervolg op #176: de bevestigingsmail wordt nu ook op een `already_activated`-retry van de webhook geprobeerd, met het `order.confirmation_sent`-event als enige poort, zodat een mislukte verzending (de 401 van MailerSend op 2026-09-08 bij de eerste echte order) hersteld kan worden door de webhook opnieuw aan te bieden. Zie 4.9. **Bewust niet aangeraakt:** de 2xx-afhandeling, het `needs_subscription`-herstelpad, de kern in `order-confirmation-core.ts` en de factuurketen.
 
 ### Nog te doen
 
