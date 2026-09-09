@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getConsent, setConsent } from "@/lib/consent";
 import { Button } from "@/components/ui/Button";
+import { QuietLink } from "@/components/ui/QuietLink";
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(false);
@@ -39,9 +40,14 @@ export function CookieConsent() {
             <p className="text-text text-sm leading-relaxed mb-1">
               Wij gebruiken cookies
             </p>
-            <p className="text-text-muted text-sm leading-relaxed mb-6">
+            <p className="text-text-muted text-sm leading-relaxed mb-2">
               We gebruiken analytische cookies om onze website te verbeteren.
               Geen advertentiecookies, geen tracking door derden.
+            </p>
+            {/* COPY: confirm met Marlon */}
+            <p className="text-text-muted text-sm leading-relaxed mb-6">
+              Meer weten? Lees onze{" "}
+              <QuietLink href="/privacybeleid">privacyverklaring</QuietLink>.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button onClick={accept} className="text-sm">
