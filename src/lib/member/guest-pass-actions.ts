@@ -370,9 +370,14 @@ export async function bookGuest(
     .eq("id", user.id)
     .maybeSingle();
 
-  // 6. Fire-and-forget guest email. Also mark reminder_sent so follow-up
-  //    crons don't re-send. Mail is best-effort: de boeking staat al vast
-  //    in de DB, dus een ontbrekende sessie-rij slaat alleen de mail over.
+  // 6. Fire-and-forget guest email. reminder_sent is de afleverstempel van
+  //    deze bevestigingsmail (er is geen aparte herinneringsmail voor
+  //    gasten; de send-reminders-cron leest guest_bookings niet) en gaat
+  //    alleen op true als MailerSend de mail heeft geaccepteerd. sendEmail
+  //    throwt nooit en logt zelf bij een weigering; een false blijft hier
+  //    zichtbaar in de database in plaats van gemaskeerd. Mail is
+  //    best-effort: de boeking staat al vast in de DB, dus een ontbrekende
+  //    sessie-rij slaat alleen de mail over.
   if (session) {
     const classType = (
       Array.isArray(session.class_type)
@@ -389,7 +394,7 @@ export async function bookGuest(
 
     void (async () => {
       try {
-        await sendEmail({
+        const sent = await sendEmail({
           to: email,
           toName: name,
           subject: `Je staat op de lijst: ${classType?.name ?? "een sessie"} bij The Movement Club`,
@@ -402,6 +407,14 @@ export async function bookGuest(
             siteUrl: siteUrl(),
           }),
         });
+        if (!sent) {
+          // Geen gast-PII in de log; het adres staat al op de rij zelf.
+          console.error("[bookGuest] guest confirmation not sent", {
+            guestBookingId: result.guest_booking_id ?? null,
+            sessionId: input.sessionId,
+          });
+          return;
+        }
         await admin
           .from("guest_bookings")
           .update({ reminder_sent: true })
