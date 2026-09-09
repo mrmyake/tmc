@@ -432,6 +432,28 @@ export async function POST(request: Request) {
             profileId ?? (await profileIdForMembership(supabase, activation.membership_id));
           if (accessProfileId) await syncMembershipAccess(accessProfileId);
         }
+      } else {
+        // Retry-pad (webhook opnieuw aangeboden voor een al geactiveerde
+        // order): de bevestigingsmail mag alsnog, want de poort is niet
+        // deze tak maar het order.confirmation_sent-event in tmc.events.
+        // Is de mail eerder wel verstuurd, dan doet de helper niets
+        // (already_sent); is hij eerder mislukt (bijvoorbeeld een
+        // geweigerde MailerSend-key, gezien op 2026-09-08), dan vertrekt hij
+        // nu alsnog exact één keer. Zelfde meldingen als hierboven.
+        const retry = await sendOrderConfirmation(orderId);
+        if (retry.outcome === "sent") {
+          await sendNotification(
+            "Bevestigingsmail alsnog verstuurd",
+            `Order ${orderId}: bevestigingsmail is bij een herhaalde webhook alsnog verstuurd.`,
+            "envelope"
+          );
+        } else if (retry.outcome === "failed") {
+          await sendNotification(
+            "Bevestigingsmail niet verstuurd",
+            `Order ${orderId} (retry): de bevestigingsmail naar het lid is opnieuw niet verstuurd. MailerSend checken.`,
+            "warning"
+          );
+        }
       }
 
       // Subscription-order: maak de Mollie-subscription één cyclus na de
