@@ -9,6 +9,8 @@ import { EmergencyContactForm } from "./EmergencyContactForm";
 import { AvatarUpload } from "./AvatarUpload";
 import { MarketingOptInToggle } from "./_components/MarketingOptInToggle";
 import { AccountDeletionSection } from "./_components/AccountDeletionSection";
+import { AccessPinCard } from "./_components/AccessPinCard";
+import { getAccessSummary } from "@/lib/access/summary";
 import { MobileAccountActions } from "@/components/nav/MobileAccountActions";
 import type {
   ActiveContext,
@@ -41,6 +43,10 @@ export default async function ProfielPage({
     )
     .eq("id", user.id)
     .maybeSingle();
+
+  // Deurtoegang (Akiles): alleen de toestand, nooit de code zelf; die haalt
+  // AccessPinCard pas na een expliciete tik op via een server action.
+  const accessSummary = await getAccessSummary(user.id);
 
   const role: Role = (profile?.role as Role) ?? "member";
   // Profiel is context-agnostisch — standaard member-context (trainer/
@@ -116,6 +122,14 @@ export default async function ProfielPage({
           niet zelf wijzigen. Laat het Marlon weten als je hier aanpassingen
           voor nodig hebt.
         </p>
+      </div>
+
+      <div className="mt-14 border-t border-[color:var(--ink-500)]/60 pt-10">
+        {/* COPY: confirm met Marlon */}
+        <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text leading-[1.05] tracking-[-0.02em] mb-3">
+          Toegang tot de studio
+        </h2>
+        <AccessPinCard summary={accessSummary} />
       </div>
 
       <div className="mt-14 border-t border-[color:var(--ink-500)]/60 pt-10">
