@@ -96,13 +96,15 @@ export function PrivacybeleidContent() {
               <p>Afhankelijk van hoe je met ons in aanraking komt, verwerken we:</p>
               <ul className="list-disc list-inside space-y-2 marker:text-accent">
                 <li>
-                  <strong className="text-text">Profielgegevens</strong> —
+                  <strong className="text-text">Profielgegevens</strong>{" "}
+                  —
                   voornaam, achternaam, e-mailadres, telefoonnummer,
                   geboortedatum en adresgegevens, zodra je lid wordt of een
                   account aanmaakt in de member-app.
                 </li>
                 <li>
-                  <strong className="text-text">Noodcontactgegevens</strong> —
+                  <strong className="text-text">Noodcontactgegevens</strong>{" "}
+                  —
                   naam en telefoonnummer van een contactpersoon die we alleen
                   in een noodsituatie tijdens een sessie benaderen.
                 </li>
@@ -112,14 +114,16 @@ export function PrivacybeleidContent() {
                   geboekt, gevolgd of geannuleerd.
                 </li>
                 <li>
-                  <strong className="text-text">Betaalgegevens</strong> —
+                  <strong className="text-text">Betaalgegevens</strong>{" "}
+                  —
                   welk bedrag, voor welk abonnement of welke sessie, en de
                   status van die betaling. We slaan zelf geen
                   creditcard- of bankgegevens op; het betaalproces zelf loopt
                   via onze betaalverwerker Mollie (zie hieronder).
                 </li>
                 <li>
-                  <strong className="text-text">Device-pushtoken</strong> —
+                  <strong className="text-text">Device-pushtoken</strong>{" "}
+                  —
                   als je de native app op je telefoon gebruikt en
                   meldingen toestaat, slaan we een technisch token op
                   (gekoppeld aan jouw account en het type toestel, ios of
@@ -144,7 +148,8 @@ export function PrivacybeleidContent() {
                 Als lid vul je bij aanmelding een intake in over blessures,
                 klachten, medicatiegebruik en eventuele zwangerschap. Dit
                 zijn <strong className="text-text">bijzondere
-                persoonsgegevens</strong> in de zin van de AVG — gegevens over
+                persoonsgegevens</strong>{" "}
+                in de zin van de AVG — gegevens over
                 je gezondheid — waar we extra zorgvuldig mee omgaan.
               </p>
               <p>
@@ -155,7 +160,7 @@ export function PrivacybeleidContent() {
                 nadrukkelijk toegang toe hebben gekregen — niet standaard
                 voor iedere trainer. Je kunt je toestemming voor het delen
                 van deze gegevens op elk moment intrekken door contact met
-                ons op te nemen; zie sectie 09 hieronder.
+                ons op te nemen; zie sectie 11 hieronder.
               </p>
             </PolicySection>
 
@@ -195,29 +200,34 @@ export function PrivacybeleidContent() {
               </p>
               <ul className="list-disc list-inside space-y-2 marker:text-accent">
                 <li>
-                  <strong className="text-text">Supabase</strong> — hosting
+                  <strong className="text-text">Supabase</strong>{" "}
+                  — hosting
                   van onze database en het inlogsysteem (authenticatie) voor
                   de member-app. {/* COPY: confirm — Supabase-regio/infrastructuurlocatie bevestigen voor deze paragraaf. */}
                 </li>
                 <li>
-                  <strong className="text-text">Mollie</strong> — verwerkt
+                  <strong className="text-text">Mollie</strong>{" "}
+                  — verwerkt
                   al onze betalingen. Mollie ontvangt de betaalgegevens die
                   nodig zijn om een betaling te verwerken; wij ontvangen
                   alleen het resultaat (gelukt/mislukt) en een transactie-ID.
                 </li>
                 <li>
-                  <strong className="text-text">MailerLite</strong> —
+                  <strong className="text-text">MailerLite</strong>{" "}
+                  —
                   verstuurt e-mails waarvoor je je actief hebt aangemeld,
                   zoals de Beweeg Beter guide, de Mobility Reset e-mailreeks
                   en overige marketingcommunicatie.
                 </li>
                 <li>
-                  <strong className="text-text">MailerSend</strong> —
+                  <strong className="text-text">MailerSend</strong>{" "}
+                  —
                   verstuurt transactionele e-mails die bij je account of
                   boeking horen, zoals bevestigingen en herinneringen.
                 </li>
                 <li>
-                  <strong className="text-text">Firebase (Google)</strong> —
+                  <strong className="text-text">Firebase (Google)</strong>{" "}
+                  —
                   voor pushmeldingen vanuit de native app. Dit onderdeel is
                   nog niet actief; het Firebase-project moet nog worden
                   aangemaakt.{" "}
@@ -226,12 +236,14 @@ export function PrivacybeleidContent() {
                   src/components/capacitor/PushNotificationRegister.tsx. */}
                 </li>
                 <li>
-                  <strong className="text-text">Sanity</strong> — ons
+                  <strong className="text-text">Sanity</strong>{" "}
+                  — ons
                   content-systeem voor de website (teksten, foto&apos;s,
                   openingstijden). Hier slaan we geen ledengegevens in op.
                 </li>
                 <li>
-                  <strong className="text-text">Vercel</strong> — host de
+                  <strong className="text-text">Vercel</strong>{" "}
+                  — host de
                   website en de member-app.
                 </li>
               </ul>
@@ -292,7 +304,146 @@ export function PrivacybeleidContent() {
               </p>
             </PolicySection>
 
-            <PolicySection eyebrow="09 · Jouw rechten" heading="Jouw rechten onder de AVG">
+            {/*
+              // COPY: confirm met Marlon
+              Aangeleverd via legal-source/privacyverklaring-aanvulling-camera-en-toegang.md
+              (niet gecommit, zie .gitignore). Deze twee secties zijn geen
+              losse pagina — ze horen bij dit document, zoals aangeleverd.
+              De CHECKLIST die bij deze secties hoorde is voor Ilja, niet voor
+              de pagina; die staat bewust alleen hier als comment, niet
+              gepubliceerd:
+              1. Bordje bij de entree en bij de achteringang: "Dit pand staat
+                 onder cameratoezicht". Vermeld TMC als verantwoordelijke en
+                 verwijs naar de privacyverklaring.
+              2. Belangenafweging in twee alinea's op papier zetten en
+                 bewaren.
+              3. Camera's en toegangslogs opnemen in het verwerkingsregister,
+                 samen met de andere verwerkers.
+              4. Audio-opname uitzetten in de NVR-instellingen, standaard
+                 staat die vaak aan.
+              5. Automatische overschrijving instellen op 28 dagen.
+              6. Verwerkersovereenkomst met Akiles opvragen en de
+                 bewaartermijn van hun logs navragen.
+              7. Cameratoezicht opnemen in de overeenkomst of het reglement
+                 voor trainers.
+            */}
+            <PolicySection eyebrow="09 · Cameratoezicht" heading="Cameratoezicht">
+              <p>
+                <strong className="text-text">Waar hangen camera&apos;s.</strong>{" "}
+                Bij de entree, op de trainingsvloer en bij de achteringang.
+                Nergens anders.
+              </p>
+              <p>
+                <strong className="text-text">Waar hangen ze niet.</strong>{" "}
+                Niet in de kleedkamers, niet in de toiletten, niet in de
+                doucheruimte. Nergens waar je je omkleedt of waar je privacy
+                vanzelfsprekend is. Er zijn geen verborgen camera&apos;s.
+              </p>
+              <p>
+                <strong className="text-text">Waarom.</strong>{" "}
+                Om de
+                veiligheid van mensen en spullen te beschermen, vooral op de
+                uren dat er geen trainer aanwezig is en leden met hun eigen
+                toegangscode binnenkomen. Zonder toezicht zouden we bij een
+                ongeval, diefstal of schade buiten de begeleide uren geen
+                enkel beeld hebben van wat er gebeurd is.
+              </p>
+              <p>
+                <strong className="text-text">Grondslag.</strong>{" "}
+                Gerechtvaardigd belang. We hebben de afweging tussen jouw
+                privacy en onze veiligheidsbelangen schriftelijk vastgelegd
+                en kunnen die op verzoek toelichten.
+              </p>
+              <p>
+                <strong className="text-text">Geen geluid.</strong>{" "}
+                De
+                camera&apos;s nemen geen geluid op.
+              </p>
+              <p>
+                <strong className="text-text">Hoe lang.</strong>{" "}
+                Maximaal 28
+                dagen. Daarna worden de beelden automatisch overschreven. Is
+                er een incident, dan bewaren we alleen het fragment dat
+                daarop betrekking heeft, en niet langer dan nodig om het af
+                te handelen.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Waar staan de beelden.
+                </strong>{" "}
+                Op een recorder in de studio zelf, niet in de cloud. Alleen
+                Marlon heeft toegang tot de beelden.
+              </p>
+              <p>
+                <strong className="text-text">Wie krijgt ze te zien.</strong>{" "}
+                Niemand, tenzij het nodig is bij een incident. Bij een
+                aangifte kunnen we beelden delen met de politie. We delen
+                nooit beelden met andere leden.
+              </p>
+              <p>
+                <strong className="text-text">Jouw rechten.</strong>{" "}
+                Je kunt
+                opvragen of er beelden van jou zijn en die inzien. Stuur een
+                verzoek naar{" "}
+                {/* PLACEHOLDER: e-mailadres — staat ook in Sanity siteSettings, bewust niet overgenomen. */}
+                [e-mailadres] met de datum en het tijdstip erbij, zo precies
+                mogelijk. Omdat er meestal ook anderen op de beelden staan,
+                laten we je de beelden ter plaatse zien of maken we andere
+                personen onherkenbaar. We reageren binnen een maand.
+              </p>
+              <p>
+                <strong className="text-text">Trainers.</strong>{" "}
+                Onze
+                trainers werken onder cameratoezicht. Dat is met hen apart
+                besproken en vastgelegd in hun overeenkomst.
+              </p>
+            </PolicySection>
+
+            <PolicySection
+              eyebrow="10 · Toegangsgegevens"
+              heading="Toegangsgegevens"
+            >
+              <p>
+                <strong className="text-text">Wat we vastleggen.</strong>{" "}
+                Als
+                je een persoonlijke toegangscode hebt, registreren we per
+                keer welke code welke deur op welk moment heeft geopend.
+              </p>
+              <p>
+                <strong className="text-text">Waarom.</strong>{" "}
+                Om te kunnen
+                zien wie er in het pand is geweest, om misbruik van codes op
+                te merken, en om bij een incident te kunnen nagaan wat er
+                gebeurd is.
+              </p>
+              <p>
+                <strong className="text-text">Grondslag.</strong>{" "}
+                Uitvoering
+                van de overeenkomst en gerechtvaardigd belang.
+              </p>
+              <p>
+                <strong className="text-text">Waar.</strong>{" "}
+                De
+                toegangslogs worden bijgehouden in het systeem van Akiles,
+                onze leverancier van het slotsysteem. In ons eigen
+                ledensysteem bewaren we alleen of je toegang hebt en tot
+                wanneer, niet de afzonderlijke deuropeningen.
+              </p>
+              <p>
+                <strong className="text-text">Hoe lang.</strong>{" "}
+                {/* PLACEHOLDER: bewaartermijn toegangslogs — nog vast te stellen in overleg met Akiles. Streef naar niet langer dan strikt nodig. */}
+                [Bewaartermijn nog vast te stellen, in overleg met Akiles.
+                Streef naar niet langer dan strikt nodig.]
+              </p>
+              <p>
+                <strong className="text-text">Verwerker.</strong>{" "}
+                Akiles is
+                verwerker voor deze gegevens. Met hen is een
+                verwerkersovereenkomst gesloten.
+              </p>
+            </PolicySection>
+
+            <PolicySection eyebrow="11 · Jouw rechten" heading="Jouw rechten onder de AVG">
               <p>Je hebt altijd het recht op:</p>
               <ul className="list-disc list-inside space-y-2 marker:text-accent">
                 <li>Inzage in de gegevens die we van je hebben.</li>
@@ -325,7 +476,7 @@ export function PrivacybeleidContent() {
             </PolicySection>
 
             <PolicySection
-              eyebrow="10 · Wijzigingen"
+              eyebrow="12 · Wijzigingen"
               heading="Wijzigingen in deze verklaring"
             >
               <p>
@@ -336,7 +487,7 @@ export function PrivacybeleidContent() {
               </p>
             </PolicySection>
 
-            <PolicySection eyebrow="11 · Contact" heading="Vragen?">
+            <PolicySection eyebrow="13 · Contact" heading="Vragen?">
               <p>
                 Neem gerust contact op via{" "}
                 <QuietLink href={`mailto:${SITE.email}`}>
