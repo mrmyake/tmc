@@ -1,0 +1,348 @@
+/*
+ * Scoped 1:1 vertaling van stitch/kiosk-vandaag.html (de goedgekeurde
+ * mockup). Kleuren en class-namen volgen dat bestand exact; alleen de
+ * mockup-only .stage/.frame-schaal-hack (voor het bekijken van het
+ * bestand op willekeurige vensterformaten) is weggelaten, want op de
+ * echte tablet is het frame altijd al 1340x800 — hier vult het gewoon
+ * de viewport.
+ */
+
+.kiosk {
+  --warm-black: #0e0c0b;
+  --surface: #171412;
+  --surface-lift: #1f1b18;
+  --stone: #f4efe6;
+  --stone-muted: rgba(244, 239, 230, 0.56);
+  --stone-faint: rgba(244, 239, 230, 0.16);
+  --champagne: #b9986a;
+  --card-radius: 8px;
+  --button-radius: 4px;
+
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--warm-black);
+  color: var(--stone);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+
+  /* Tabletgedrag, alleen binnen /kiosk: geen dubbeltik-zoom, geen
+     tekstselectie bij lang indrukken, geen overscroll-bounce. */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+.frame {
+  height: 100%;
+  width: 100%;
+  display: grid;
+  grid-template-rows: 104px 1fr;
+  overflow: hidden;
+}
+
+/* ---------- Kop ---------- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  border-bottom: 1px solid var(--stone-faint);
+}
+
+.wordmark {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 0.02em;
+  color: var(--stone);
+}
+.wordmarkAccent {
+  color: var(--champagne);
+}
+
+.headerRight {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+}
+
+.todayDate {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--stone-muted);
+}
+
+.clock {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 44px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Hoofdvlak ---------- */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 456px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------- Les die nu bezig is, of de eerstvolgende ---------- */
+.now {
+  padding: 44px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--stone-faint);
+  min-height: 0;
+}
+
+.nowFlag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--champagne);
+  margin-bottom: 22px;
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--champagne);
+  animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+
+.nowTime {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 40px;
+  font-weight: 300;
+  color: var(--stone-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+
+.nowTitle {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 68px;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+}
+
+.nowTrainer {
+  font-size: 23px;
+  color: var(--stone-muted);
+  margin-bottom: auto;
+}
+
+/* Voortgang van het inchecken */
+.progressBlock {
+  margin: 36px 0 30px;
+}
+
+.progressFigure {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.progressCount {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.progressCountOf {
+  font-style: normal;
+  color: var(--stone-muted);
+}
+
+.progressLabel {
+  font-size: 22px;
+  color: var(--stone-muted);
+}
+
+.bar {
+  height: 10px;
+  background: var(--surface-lift);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barFill {
+  height: 100%;
+  background: var(--champagne);
+  border-radius: 999px;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96px;
+  border-radius: var(--button-radius);
+  background: var(--champagne);
+  color: var(--warm-black);
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-decoration: none;
+}
+.cta:focus-visible {
+  outline: 3px solid var(--stone);
+  outline-offset: 4px;
+}
+
+/* Rustige lege staat: geen les nu, en geen volgende les meer vandaag
+   (of helemaal geen les vandaag). Vervangt de flag/tijd/titel/
+   voortgang/CTA-stapel hierboven; niet in de mockup, want die toont
+   alleen het "nu bezig"-scenario. */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.emptyTitle {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1.05;
+  margin-bottom: 14px;
+}
+.emptySubtitle {
+  font-size: 20px;
+  color: var(--stone-muted);
+}
+
+/* ---------- Rest van de dag ---------- */
+.day {
+  padding: 44px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dayHeading {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--stone-muted);
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+.classRow {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 104px;
+  padding: 18px 22px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--card-radius);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-decoration: none;
+}
+.classRow:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+.rowTime {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 27px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--stone);
+}
+
+.rowTitle {
+  font-size: 23px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+.rowTrainer {
+  font-size: 18px;
+  color: var(--stone-muted);
+}
+
+.rowCount {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stone-muted);
+  white-space: nowrap;
+}
+
+/* De les die nu bezig is, gemarkeerd in de dagkolom */
+.classRowIsNow {
+  background: var(--surface-lift);
+  border-color: var(--champagne);
+}
+.classRowIsNow .rowCount {
+  color: var(--champagne);
+}
+
+/* Afgelopen lessen: gedempt, maar nog steeds aan te tikken */
+.classRowIsPast {
+  opacity: 0.42;
+}
+.classRowIsPast .rowTitle {
+  font-weight: 400;
+}
+
+/* Volledig ingecheckte afgelopen les */
+.rowCountComplete::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--champagne);
+  margin-right: 9px;
+  vertical-align: 2px;
+}
+
+/* ---------- Voettekst van de dagkolom ---------- */
+.dayFooter {
+  margin-top: auto;
+  padding: 20px 4px 0;
+  border-top: 1px solid var(--stone-faint);
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  color: var(--stone-muted);
+}

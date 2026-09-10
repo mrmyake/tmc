@@ -17,7 +17,15 @@ const AI_CRAWLERS = [
 
 // Prive/utility-paden die niet in de index horen. Raakt bewust geen
 // publieke route (en geen /yoga-route).
-const DISALLOW = ["/api/", "/studio/", "/app/", "/auth/", "/login", "/checkin"];
+const DISALLOW = [
+  "/api/",
+  "/studio/",
+  "/app/",
+  "/auth/",
+  "/login",
+  "/checkin",
+  "/kiosk",
+];
 
 export default function robots(): MetadataRoute.Robots {
   return {
