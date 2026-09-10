@@ -32,7 +32,7 @@ export function Keypad({
     <div
       role="group"
       aria-label="Nummer invoeren"
-      className="grid grid-cols-3 gap-2 md:gap-3 w-full max-w-xs"
+      className="grid grid-cols-3 gap-1.5 md:gap-2 w-full max-w-[260px]"
     >
       {KEYS.map((key, i) => {
         if (key === "") return <div key={i} aria-hidden />;
@@ -44,9 +44,9 @@ export function Keypad({
             onClick={() => press(key)}
             disabled={disabled}
             aria-label={isDelete ? "Wissen" : `Cijfer ${key}`}
-            className="aspect-square flex items-center justify-center bg-bg-elevated border border-[color:var(--ink-500)]/60 text-text font-[family-name:var(--font-playfair)] text-2xl md:text-3xl transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+            className="aspect-square flex items-center justify-center bg-bg-elevated border border-[color:var(--ink-500)]/60 text-text font-[family-name:var(--font-playfair)] text-xl md:text-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
           >
-            {isDelete ? <Delete size={20} strokeWidth={1.5} /> : key}
+            {isDelete ? <Delete size={16} strokeWidth={1.5} /> : key}
           </button>
         );
       })}

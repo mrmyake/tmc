@@ -141,7 +141,7 @@ export function CheckInTablet({ adminUnlocked }: Props) {
   }
 
   return (
-    <div className="relative flex-1 flex items-center justify-center p-4 md:p-6">
+    <div className="relative flex-1 flex items-center justify-center p-3 md:p-4">
       <button
         type="button"
         onClick={openAdminLock}
@@ -205,20 +205,20 @@ function IdleView({
 }) {
   return (
     <>
-      <span className="tmc-eyebrow tmc-eyebrow--accent block mb-2">
+      <span className="tmc-eyebrow tmc-eyebrow--accent block mb-1">
         Check in
       </span>
-      <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text leading-[1.02] tracking-[-0.02em] mb-4 text-center">
+      <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-[1.02] tracking-[-0.02em] mb-2 text-center">
         Welkom terug.
       </h1>
-      <p className="text-text-muted text-sm mb-3 text-center">
+      <p className="text-text-muted text-xs md:text-sm mb-2 text-center">
         Tik je telefoonnummer of je 6-cijferige member-code.
       </p>
       <div
         role="status"
         aria-live="polite"
         aria-label={input ? `Ingevoerd: ${input}` : "Nog geen invoer"}
-        className="h-12 md:h-14 flex items-center justify-center mb-3 font-[family-name:var(--font-playfair)] text-3xl md:text-4xl tabular-nums tracking-[0.04em] text-text min-w-[12ch]"
+        className="h-9 md:h-10 flex items-center justify-center mb-2 font-[family-name:var(--font-playfair)] text-2xl md:text-3xl tabular-nums tracking-[0.04em] text-text min-w-[12ch]"
       >
         {input ? formatDisplay(input) : <span className="text-text-muted/30">—</span>}
       </div>
