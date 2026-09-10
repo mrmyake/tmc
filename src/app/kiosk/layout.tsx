@@ -42,7 +42,13 @@ export default async function KioskLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // ?next=/kiosk zodat een her-login op de tablet weer op /kiosk landt
+  // i.p.v. op de rol-standaard uit roleRedirect() (voor een admin zonder
+  // eigen trainers-rij is dat /app/admin, dat AdminMobileBlock geeft op
+  // tabletbreedte). Zelfde next-mechanisme als /auth/callback en
+  // verifyLoginOtp al ondersteunen voor elke andere expliciete interne
+  // route.
+  if (!user) redirect("/login?next=/kiosk");
 
   const { data: profile } = await supabase
     .from("profiles")
