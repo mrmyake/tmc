@@ -6,6 +6,14 @@
 
 ---
 
+## Ledger
+
+Bijgewerkt bij elke PR die gedrag, schema of data van het (inmiddels gebouwde) check-in-model wijzigt, in dezelfde PR. Regel: PR-nummer, datum, wat gewijzigd in één zin, wat bewust niet aangeraakt.
+
+- **PR #185** (2026-09-10): zelf-check-in verwijderd uit `/checkin` — de keypad-flow waarmee een lid zelf zijn telefoonnummer/member-code intikte is weg; de route landt nu altijd direct op het PIN-lockscherm, en check-in gebeurt voortaan uitsluitend door staff (trainer/admin) via de bestaande admin-modus (zoeken, walk-in, undo). `checkInForProfile()` zet nu ook `bookings.attended_at` (+ reset `no_show_at`) als er een bijbehorende booking bestaat, consistent met `markAttendance()`; `undoCheckIn()` maakt die `attended_at` bij undo weer leeg. Bewust niet aangeraakt: de PIN-vergrendeling zelf (`AdminLockScreen`, de `tmc_admin_unlock`-cookie, `verify_admin_checkin_pin`, de brute-force-rem via `checkin_pin_attempts`) en het PIN-beheer op `/app/admin/instellingen`; `Keypad.tsx` blijft bestaan omdat `AdminLockScreen` 'm ook gebruikt voor PIN-invoer; de `check_in_method`-check-constraint (`self_tablet` blijft toegestaan, al schrijft na deze PR geen code-pad die waarde meer weg — `lookupByIdentifier`/`checkInByIdentifier` zijn nu ongebruikte exports, bewust niet opgeruimd). Zie de PR-body voor de volledige bevinding: de nieuwe `bookings.attended_at`-sync activeert momenteel door geen enkel live UI-pad, omdat `checkInByProfileId` (de enige overgebleven caller van `checkInForProfile()`, via `AdminPanel.tsx`) nooit een `sessionId` meegeeft — de tablet-admin-modus is en blijft zuiver pillar-gebaseerd.
+
+---
+
 ## Re-evaluation gate
 
 Na fase 1 is Vrij Trainen losgeknipt van rooster. Voor we hieraan beginnen, beantwoord:
