@@ -45,6 +45,9 @@ export function SiteShell({
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
   const isLogin = pathname === "/login";
   const isCheckin = pathname === "/checkin" || pathname.startsWith("/checkin/");
+  // Muurtablet-kiosk, zelfde behandeling als /checkin: eigen kale chrome
+  // (src/app/kiosk/layout.tsx), geen marketing-navbar/footer.
+  const isKiosk = pathname === "/kiosk" || pathname.startsWith("/kiosk/");
   // WS-5 PR C: een betaallink-ontvanger heeft nog nooit ingelogd en komt
   // hier vaak rechtstreeks vanuit een mail of WhatsApp-bericht binnen. De
   // pagina zelf (src/app/betaal/[token]/page.tsx) is al zelfstandig
@@ -61,12 +64,12 @@ export function SiteShell({
   // is — niet hier herhalen).
   const isProgramma = pathname.startsWith("/12-weken-programma");
 
-  if (isStudio || isApp || isLogin || isCheckin || isProgramma || isBetaal) {
+  if (isStudio || isApp || isLogin || isCheckin || isKiosk || isProgramma || isBetaal) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer CTA of lead magnet banner.
     //
     // ── De meetgrens ──────────────────────────────────────────────────
-    // Dat /app/**, /login, /checkin en /betaal/* hier geen CookieConsent
+    // Dat /app/**, /login, /checkin, /kiosk en /betaal/* hier geen CookieConsent
     // krijgen is een ARCHITECTUURBESLISSING, geen bug en geen omissie.
     // GA4 meet uitsluitend acquisitie op de publieke site: hoe iemand
     // binnenkomt, wat 'm overtuigt, en of 'ie converteert. Achter die grens
