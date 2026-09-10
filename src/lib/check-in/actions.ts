@@ -420,6 +420,26 @@ export async function undoCheckIn(checkInId: string): Promise<
     console.error("[undoCheckIn] delete", error);
     return { ok: false, message: FAIL_COPY.db_error };
   }
+
+  // Tegenkant van de attended_at-sync in checkInForProfile: volgt hetzelfde
+  // patroon als markAttendance's reset-naar-"booked"-pad, zodat check_ins en
+  // bookings na undo allebei weer leeg zijn.
+  if (ci?.session_id && ci?.profile_id) {
+    const { data: booking } = await admin
+      .from("bookings")
+      .select("id")
+      .eq("session_id", ci.session_id)
+      .eq("profile_id", ci.profile_id)
+      .eq("status", "booked")
+      .maybeSingle();
+    if (booking) {
+      await admin
+        .from("bookings")
+        .update({ no_show_at: null, attended_at: null })
+        .eq("id", booking.id);
+    }
+  }
+
   await emitEvent({
     type: "checkin.reverted",
     actorType: authCheck.userId ? "admin" : "tablet",
@@ -714,6 +734,27 @@ async function checkInForProfile(input: {
     }
     console.error("[checkInForProfile] insert", insertErr);
     return fail("db_error");
+  }
+
+  // Zelfde tegenkant als markAttendance(): bestaat er een booking voor
+  // deze sessie + profiel, zet dan ook bookings.attended_at zodat de
+  // aanwezigheidslijst en de tablet-check-in hetzelfde beeld geven.
+  // Walk-ins en vrij-trainen hebben geen sessionId of geen bijbehorende
+  // booking — dan blijft dit een no-op.
+  if (input.sessionId) {
+    const { data: booking } = await admin
+      .from("bookings")
+      .select("id")
+      .eq("session_id", input.sessionId)
+      .eq("profile_id", input.profileId)
+      .eq("status", "booked")
+      .maybeSingle();
+    if (booking) {
+      await admin
+        .from("bookings")
+        .update({ no_show_at: null, attended_at: new Date().toISOString() })
+        .eq("id", booking.id);
+    }
   }
 
   // Actor: self-tablet = het lid zelf; admin_tablet = kiosk (PIN); admin_web =
