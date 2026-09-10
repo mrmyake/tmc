@@ -2,9 +2,11 @@
 
 import { cookies, headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CHECKIN_PIN_LENGTH } from "./constants";
 
 const COOKIE_NAME = "tmc_admin_unlock";
 const LOCK_TTL_SECONDS = 5 * 60;
+const PIN_PATTERN = new RegExp(`^[0-9]{${CHECKIN_PIN_LENGTH}}$`);
 
 /** Echte client-IP: op Vercel is de eerste entry van x-forwarded-for
  *  het IP van de bezoeker. */
@@ -28,8 +30,9 @@ async function clientIp(): Promise<string> {
 export async function unlockAdminMode(
   pin: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  if (!/^[0-9]{4,6}$/.test(pin.trim())) {
-    return { ok: false, message: "PIN is 4-6 cijfers." };
+  if (!PIN_PATTERN.test(pin.trim())) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: `PIN is ${CHECKIN_PIN_LENGTH} cijfers.` };
   }
 
   const admin = createAdminClient();
