@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { setAdminCheckinPin } from "@/lib/admin/checkin-pin-actions";
+import { CHECKIN_PIN_LENGTH } from "@/lib/check-in/constants";
+
+const PIN_PATTERN = new RegExp(`^[0-9]{${CHECKIN_PIN_LENGTH}}$`);
 
 interface Props {
   /** True als er al een PIN is ingesteld. */
@@ -20,11 +23,13 @@ export function CheckinPinForm({ isSet }: Props) {
     e.preventDefault();
     setMessage(null);
     if (pin !== confirm) {
+      // COPY: confirm met Marlon
       setMessage({ tone: "error", text: "PIN's komen niet overeen." });
       return;
     }
-    if (!/^[0-9]{4,6}$/.test(pin)) {
-      setMessage({ tone: "error", text: "PIN is 4-6 cijfers." });
+    if (!PIN_PATTERN.test(pin)) {
+      // COPY: confirm met Marlon
+      setMessage({ tone: "error", text: `PIN is ${CHECKIN_PIN_LENGTH} cijfers.` });
       return;
     }
     startTransition(async () => {
@@ -57,9 +62,10 @@ export function CheckinPinForm({ isSet }: Props) {
         >
           Admin-PIN voor kiosk-tablet
         </h2>
+        {/* COPY: confirm met Marlon */}
         <p className="mt-3 text-text-muted text-sm max-w-md">
           Gedeelde PIN voor het team om admin-modus op de studio-tablet
-          te ontgrendelen. 4-6 cijfers. {isSet ? "Er is al een PIN ingesteld — invullen overschrijft de huidige." : "Er is nog geen PIN ingesteld; tablet admin-modus is nu onbereikbaar."}
+          te ontgrendelen. {CHECKIN_PIN_LENGTH} cijfers. {isSet ? "Er is al een PIN ingesteld — invullen overschrijft de huidige." : "Er is nog geen PIN ingesteld; tablet admin-modus is nu onbereikbaar."}
         </p>
       </div>
       <form onSubmit={submit} className="max-w-sm flex flex-col gap-4">
@@ -68,8 +74,8 @@ export function CheckinPinForm({ isSet }: Props) {
           <input
             type="password"
             inputMode="numeric"
-            pattern="[0-9]{4,6}"
-            maxLength={6}
+            pattern={`[0-9]{${CHECKIN_PIN_LENGTH}}`}
+            maxLength={CHECKIN_PIN_LENGTH}
             required
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
@@ -81,8 +87,8 @@ export function CheckinPinForm({ isSet }: Props) {
           <input
             type="password"
             inputMode="numeric"
-            pattern="[0-9]{4,6}"
-            maxLength={6}
+            pattern={`[0-9]{${CHECKIN_PIN_LENGTH}}`}
+            maxLength={CHECKIN_PIN_LENGTH}
             required
             value={confirm}
             onChange={(e) => setConfirm(e.target.value.replace(/[^0-9]/g, ""))}
@@ -103,7 +109,7 @@ export function CheckinPinForm({ isSet }: Props) {
         )}
         <button
           type="submit"
-          disabled={pending || pin.length < 4}
+          disabled={pending || pin.length < CHECKIN_PIN_LENGTH}
           className="self-start inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 cursor-pointer"
         >
           {pending ? "Bezig" : isSet ? "Vervangen" : "Instellen"}
