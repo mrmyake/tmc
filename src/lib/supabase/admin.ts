@@ -1,4 +1,5 @@
 import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_TIMEOUT_MS, fetchWithTimeout } from "@/lib/outbound-timeouts";
 
 /**
  * Non-throwing check of de service-role env-vars aanwezig zijn. Bedoeld voor
@@ -29,5 +30,8 @@ export function createAdminClient(): SupabaseClient {
   return createServiceClient(url, serviceKey, {
     db: { schema: process.env.DB_SCHEMA ?? "tmc" },
     auth: { persistSession: false, autoRefreshToken: false },
+    // Timeout per verzoek (3a-bis, outbound-timeouts.ts): een hangende
+    // database komt als { error } terug, nooit als throw.
+    global: { fetch: fetchWithTimeout(SUPABASE_TIMEOUT_MS) },
   }) as unknown as SupabaseClient;
 }

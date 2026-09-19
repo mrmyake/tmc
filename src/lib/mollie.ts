@@ -6,6 +6,7 @@ import {
   MandateStatus,
   type MollieClient,
 } from "@mollie/api-client";
+import { MOLLIE_TIMEOUT_MS, withTimeout } from "@/lib/outbound-timeouts";
 
 /**
  * Test/live-scheiding (spec-facturatie.md 6.5/6.6). Twee env-vars, twee
@@ -92,9 +93,47 @@ export function getMollieClient(mode: MollieMode): MollieClient | null {
   }
   const existing = clients.get(mode);
   if (existing && existing.apiKey === resolved.apiKey) return existing.client;
-  const client = createMollieClient({ apiKey: resolved.apiKey });
+  const client = withMollieTimeout(createMollieClient({ apiKey: resolved.apiKey }));
   clients.set(mode, { apiKey: resolved.apiKey, client });
   return client;
+}
+
+/**
+ * Timeout op elke Mollie-call (3a-bis, outbound-timeouts.ts). De client
+ * gebruikt node-fetch zonder configureerbare timeout of signal, dus de
+ * enige haak is de promise die een binder-methode teruggeeft: die wordt
+ * geraced tegen MOLLIE_TIMEOUT_MS. Methodes die geen promise teruggeven
+ * (iterate() levert een async iterator) blijven ongemoeid; de iterator
+ * haalt zijn pagina's via page(), dat wel geraced wordt. Een timeout
+ * rejected met OutboundTimeoutError (code ETIMEDOUT) op precies de plek
+ * waar een Mollie-netwerkfout ook zou rejecten, dus elke bestaande
+ * try/catch rond een Mollie-call vangt hem op dezelfde manier.
+ */
+function withMollieTimeout(client: MollieClient): MollieClient {
+  const isThenable = (v: unknown): v is Promise<unknown> =>
+    typeof v === "object" && v !== null && typeof (v as { then?: unknown }).then === "function";
+  const wrapBinder = (binder: object, binderName: string): object =>
+    new Proxy(binder, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value !== "function") return value;
+        return (...args: unknown[]) => {
+          const result = value.apply(target, args);
+          return isThenable(result)
+            ? withTimeout(result, MOLLIE_TIMEOUT_MS, `mollie.${binderName}.${String(prop)}`)
+            : result;
+        };
+      },
+    });
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value === "object" && value !== null && typeof prop === "string") {
+        return wrapBinder(value, prop);
+      }
+      return value;
+    },
+  }) as MollieClient;
 }
 
 export function isMollieConfigured(mode: MollieMode): boolean {
