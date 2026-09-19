@@ -1,4 +1,15 @@
 const NTFY_TOPIC = "tmc-leads";
+const NTFY_TIMEOUT_MS = 5000;
+
+/**
+ * Doel-URL. NTFY_URL is uitsluitend een testhaak (scripts/ntfy/*.test.mts
+ * wijst hem naar een lokale server die niet, traag of fout antwoordt);
+ * in productie is de variabele afwezig en gaat alles naar het vaste topic.
+ * Per aanroep gelezen, niet bij module-load, zodat een test hem kan zetten.
+ */
+function ntfyUrl(): string {
+  return process.env.NTFY_URL || `https://ntfy.sh/${NTFY_TOPIC}`;
+}
 
 /**
  * Stuurt een ntfy-melding. Throwt nooit. Geeft true terug als ntfy de
@@ -13,14 +24,14 @@ export async function sendNotification(
   tags?: string,
 ): Promise<boolean> {
   try {
-    const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    const res = await fetch(ntfyUrl(), {
       method: "POST",
       headers: {
         Title: title,
         Tags: tags || "incoming_envelope",
       },
       body: message,
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(NTFY_TIMEOUT_MS),
     });
     if (!res.ok) {
       console.warn("[ntfy] Notification rejected:", res.status);

@@ -155,6 +155,8 @@ Migration B is the destructive final step and may run only after steps 1 to 4 ar
 
 ---
 
+- **ntfy-hardening in `src/lib/ntfy.ts` (meegelift in PR #193, 2026-09-19, branch `fix/mollie-webhook-non-2xx`; `scripts/ntfy/ntfy.test.mts`, `npm run test:ntfy`).** `sendNotification` heeft nu een timeout van 5 seconden (`AbortSignal.timeout`) en geeft een boolean terug: `true` alleen bij een 2xx van ntfy, `false` bij afwijzing, netwerkfout of timeout. Throwt nooit, ook niet bij de timeout; bewezen met een test tegen een lokale server die niet antwoordt (false na 5,0 s, geen AbortError naar de caller), een 500, en een gesloten poort. `NTFY_URL` is uitsluitend een testhaak, in productie afwezig. Reden: de Mollie-webhook (`registerFailure`) moet `notified` waarheidsgetrouw zetten, en een hangende ntfy mocht geen cron of server action meer onbegrensd laten wachten (er was geen timeout). Tegelijk geeft `emitEvent` (`src/lib/events/emit.ts`) een boolean terug, om dezelfde reden. Gevolg voor de veertig andere aanroeppunten: geen, ze negeren de return-waarde; de twee plekken die de functies als `Promise<void>`-callback doorgaven (`src/lib/akiles.ts` `notify`, `src/lib/access/sync.ts` `emit`) hebben een `async`-wrapper die het resultaat bewust negeert, gedrag bij een trage of mislukte melding is doorlopen zoals voorheen. Bekend en niet opgelost: een cron die meerdere meldingen op rij stuurt verliest bij een dood ntfy-endpoint 5 seconden per melding (`expire-orders` één per verlopen admin-order en per gereconcilieerde proefles zonder eigen `maxDuration`, `sync-akiles-access` maximaal drie na zijn budget van 240 van de 300 seconden); vóór deze wijziging was die wachttijd onbegrensd.
+
 ## Amendments after WS-0 (locked 2026-07-09)
 
 WS-0 reconciliation is done and approved (its sections 7 to 10). These supersede anything earlier in this spec that conflicts; WS-1 builds to these and does not re-derive them.
@@ -421,6 +423,7 @@ These are the exit tests that convert the design intent into a checked guarantee
 4. **Payment-link delivery**: via MailerSend (email).
 5. **Configurator depth**: choose frequency first; then optional extended access, onbeperkt vrij trainen (the add-on that makes Groepslessen into All Access), and an upgrade to a 24-month commitment at the catalogue discount.
 6. **Extended access**: available both at purchase (in the configurator) and afterwards as an add-on to an existing membership.
+7. **ntfy-hardening meegelift in PR #193 (2026-09-19) in plaats van een aparte PR.** De timeout van 5 seconden en de boolean-return op `sendNotification` raken alle aanroeppunten, maar de aanleiding en de enige gebruiker van de return-waarde zitten in de Mollie-webhook (`registerFailure`, het veld `notified`). Een aparte PR had de webhook-PR laten wachten op een infra-wijziging zonder eigen gebruiker, en de wijziging is voor alle andere callers gedragsneutraal op één punt na: een hangende ntfy wacht nu hooguit 5 seconden in plaats van onbegrensd. Voorwaarde was een gerichte test tegen een niet-reagerend endpoint (`npm run test:ntfy`) en een eigen ledger-regel in de WS-ledger hierboven, zodat de wijziging vindbaar is zonder de Mollie-context.
 
 ---
 
