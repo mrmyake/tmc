@@ -139,7 +139,12 @@ export interface EmitEventInput {
   payload?: Record<string, unknown>;
 }
 
-export async function emitEvent(input: EmitEventInput): Promise<void> {
+/**
+ * Geeft true terug als de rij geschreven is, anders false. Bestaande
+ * callers negeren de waarde; de Mollie-webhook gebruikt hem om te kunnen
+ * loggen dat een ntfy verstuurd is zonder bijbehorend webhook.failed-event.
+ */
+export async function emitEvent(input: EmitEventInput): Promise<boolean> {
   try {
     const admin = createAdminClient();
     const { error } = await admin.from("events").insert({
@@ -152,8 +157,11 @@ export async function emitEvent(input: EmitEventInput): Promise<void> {
     });
     if (error) {
       console.error(`[emitEvent] insert failed type=${input.type}`, error);
+      return false;
     }
+    return true;
   } catch (err) {
     console.error(`[emitEvent] threw type=${input.type}`, err);
+    return false;
   }
 }

@@ -165,14 +165,17 @@ async function buildDeps(): Promise<SyncDeps> {
   return {
     db: buildDb(createAdminClient()),
     akiles: await getAkilesClient(),
-    emit: (event) =>
-      emitEvent({
+    // emitEvent geeft sinds PR #193 een boolean terug; de sync-kern verwacht
+    // void en negeert het resultaat bewust (emitEvent logt zelf).
+    emit: async (event) => {
+      await emitEvent({
         type: event.type,
         actorType: "system",
         subjectType: "profile",
         subjectId: event.subjectId,
         payload: event.payload,
-      }),
+      });
+    },
     now: () => new Date(),
     log: {
       info: (message, meta) => console.info(message, meta ?? ""),

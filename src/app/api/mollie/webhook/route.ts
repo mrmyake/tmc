@@ -65,70 +65,309 @@ async function notifyMemberPaymentFailed(args: {
 }
 
 /**
- * Persistente registratie van een mislukte webhook-verwerking (PR 1 van de
- * webhook-betrouwbaarheid, discovery op fix/mollie-webhook-reliability).
- * Deze route antwoordt op elk van deze paden 200 en had tot nu toe alleen
- * console.error; Vercel-logs zijn vluchtig, tmc.events niet. Bewust geen
- * dedupe_key in de payload: dit is geen money-fact en mag nooit meedoen in
- * een eventuele unieke index op payment.*-events. Throwt nooit (emitEvent
- * vangt alles); valt Supabase zelf weg, dan blijft alleen de console-log.
+ * Foutafhandeling van de webhook (PR 1 en PR 2 van de webhook-
+ * betrouwbaarheid, discovery op fix/mollie-webhook-reliability).
+ *
+ * Mollie's retry-gedrag, geverifieerd op https://docs.mollie.com/reference/webhooks:
+ * alleen een 200 telt als succes; een antwoord dat langer dan 15 seconden
+ * duurt telt als mislukt; na een niet-200 herhaalt Mollie op 1, 2, 4, 8, 16
+ * en 29 minuten en daarna op 1, 2 en 22 uur, tien pogingen in totaal,
+ * cumulatief 26 uur, daarna stopt Mollie definitief.
+ *
+ * Classificatie: een TRANSIENTE fout (netwerk, Mollie 5xx of timeout,
+ * Supabase- of PostgREST-fout) krijgt een 500, zodat Mollie herhaalt. Een
+ * PERMANENTE fout (Mollie 404 door modus-mismatch of onbekende payment,
+ * onparseerbare body, integriteits- of programmeerfout in SQL) blijft een
+ * 200 met een luide log en een webhook.failed-event: herhalen geeft per
+ * definitie dezelfde uitkomst. Onbekende fouten gaan naar 500. De kosten
+ * zijn asymmetrisch: 26 uur herhalen met wat ruis is goedkoper dan een
+ * betaling definitief kwijtraken, en de reconciliatie (PR 3) vangt op wat
+ * na 26 uur nog openstaat.
+ *
+ * Registratie: elke mislukte verwerking wordt persistent vastgelegd als
+ * tmc.events-type webhook.failed (Vercel-logs zijn vluchtig, tmc.events
+ * niet). Het event mag herhalen, elke poging is een feit. De ntfy niet:
+ * per (pad, mollie_payment_id) gaat er hooguit een melding uit binnen het
+ * retry-venster van 26 uur, met de al geschreven webhook.failed-rijen als
+ * bron van waarheid. Bewust geen dedupe_key in de payload: dit is geen
+ * money-fact. Registratie throwt nooit (emitEvent vangt alles); valt
+ * Supabase zelf weg, dan blijft alleen de console-log over.
  */
 type WebhookFailurePath =
+  | "malformed_body"
   | "payments_get"
   | "activate_order"
+  | "subscription_create"
   | "subscription_link_write"
   | "unhandled";
 
+type FailureClass = "transient" | "permanent";
+
+/** Mollie's retry-venster: tien pogingen, cumulatief 26 uur (zie docblock). */
+const MOLLIE_RETRY_WINDOW_MS = 26 * 60 * 60 * 1000;
+
+/**
+ * SQLSTATE-klassen waarvan een herhaling een andere uitkomst kan geven:
+ * 08 connection, 40 transaction rollback (serialization, deadlock),
+ * 53 insufficient resources, 55 object not in prerequisite state (locks),
+ * 57 operator intervention (statement timeout 57014, shutdown),
+ * 58 system error, XX internal error.
+ */
+const TRANSIENT_SQLSTATE_CLASSES = new Set(["08", "40", "53", "55", "57", "58", "XX"]);
+
+/** Throwt nooit: ook een object met een gooiende getter of toString levert een beschrijving op. */
 function describeError(err: unknown): { code: string | null; message: string } {
-  if (err && typeof err === "object") {
-    const e = err as {
-      code?: unknown; // PostgrestError
-      statusCode?: unknown; // Mollie ApiError
-      title?: unknown; // Mollie ApiError
-      name?: unknown;
-      message?: unknown;
-    };
-    const code =
-      typeof e.code === "string"
-        ? e.code
-        : typeof e.statusCode === "number"
-          ? String(e.statusCode)
-          : typeof e.title === "string"
-            ? e.title
-            : typeof e.name === "string"
-              ? e.name
-              : null;
-    const message = typeof e.message === "string" ? e.message : String(err);
-    return { code, message: message.slice(0, 500) };
+  try {
+    if (err && typeof err === "object") {
+      const e = err as {
+        code?: unknown; // PostgrestError (SQLSTATE of PGRSTxxx), Node-systeemcode
+        statusCode?: unknown; // Mollie ApiError
+        title?: unknown; // Mollie ApiError
+        name?: unknown;
+        message?: unknown;
+      };
+      const code =
+        typeof e.code === "string" && e.code !== ""
+          ? e.code
+          : typeof e.statusCode === "number"
+            ? String(e.statusCode)
+            : typeof e.title === "string"
+              ? e.title
+              : typeof e.name === "string"
+                ? e.name
+                : null;
+      const message = typeof e.message === "string" ? e.message : String(err);
+      return { code, message: message.slice(0, 500) };
+    }
+    return { code: null, message: String(err).slice(0, 500) };
+  } catch {
+    return { code: null, message: "(fout niet te beschrijven)" };
   }
-  return { code: null, message: String(err).slice(0, 500) };
 }
 
-async function recordWebhookFailure(args: {
+/**
+ * Transiënt of permanent, zie het docblock hierboven. Volgorde van de
+ * checks volgt de bron van de fout:
+ *  - Mollie ApiError met statusCode: 5xx en 429 transiënt; 401 en 403 ook,
+ *    want dat is sleutel of configuratie en het precedent is de 500 op
+ *    mollie_not_configured (spec-facturatie.md 6.5: herhalen tot de
+ *    configuratie klopt); 400, 404, 422 en overige 4xx permanent. Een
+ *    ApiError zonder statusCode is een netwerkfout of een onparseerbaar
+ *    antwoord (mollie.cjs.js throwApiError, processFetchResponse): transiënt.
+ *  - Supabase/PostgREST-fout met code: lege code is een fetch-fout uit
+ *    supabase-js (PostgrestBuilder, "code/hint niet gevuld voor client-side
+ *    netwerkfouten"): transiënt. PGRST1xx is een API-request-fout (client):
+ *    permanent; overige PGRST (connection 0xx, schema cache 2xx, JWT 3xx,
+ *    internal X00): transiënt. SQLSTATE: alleen de klassen hierboven
+ *    transiënt; 22 data, 23 integriteit, 42 syntax/rechten en P0 (plpgsql
+ *    raise) permanent, dezelfde invoer geeft dezelfde uitkomst.
+ *  - Alles zonder herkenbare code (TypeError, AbortError, onbekend): transiënt,
+ *    dus 500. Asymmetrische kosten, zie docblock.
+ */
+function classifyFailure(err: unknown): FailureClass {
+  try {
+    if (!err || typeof err !== "object") return "transient";
+    const e = err as { code?: unknown; statusCode?: unknown; name?: unknown };
+    if (typeof e.statusCode === "number") {
+      const status = e.statusCode;
+      if (status >= 500 || status === 429 || status === 401 || status === 403) return "transient";
+      if (status >= 400) return "permanent";
+      return "transient";
+    }
+    if (typeof e.code === "string") {
+      const code = e.code;
+      if (code === "") return "transient";
+      if (code.startsWith("PGRST")) return code.startsWith("PGRST1") ? "permanent" : "transient";
+      if (code.length === 5) {
+        return TRANSIENT_SQLSTATE_CLASSES.has(code.slice(0, 2)) ? "transient" : "permanent";
+      }
+      return "transient";
+    }
+    return "transient";
+  } catch {
+    // Een fout die zich niet laat inspecteren is per definitie onbekend: 500.
+    return "transient";
+  }
+}
+
+/** 500 richting Mollie: geen 2xx, dus Mollie biedt de webhook opnieuw aan. */
+function retryLater(reason: string) {
+  return NextResponse.json({ ok: false, error: reason, retry: true }, { status: 500 });
+}
+
+/**
+ * Uitkomst van de dedupe-lookup. "lookup_failed" is een eigen uitkomst en
+ * geen verkapte "not_found": de melding die daaruit volgt komt uit
+ * onzekerheid, niet uit een vastgestelde eerste keer, en dat moet achteraf
+ * in het event te zien zijn.
+ */
+type DedupeOutcome = "found" | "not_found" | "lookup_failed" | "not_applicable";
+
+/**
+ * Is er binnen het retry-venster al een webhook.failed voor dit pad en deze
+ * payment geschreven? De payload-containment (@>) loopt over
+ * events_payload_gin (jsonb_path_ops). Fail-open: bij een leesfout of een
+ * throw is de uitkomst "lookup_failed" en meldt de caller wel. Tijdens een
+ * databasestoring falen deze lookup en de webhook.failed-insert samen, en
+ * zwijgen is dan de slechtste uitkomst. Throwt nooit.
+ */
+async function lookupRecentFailure(
+  path: WebhookFailurePath,
+  molliePaymentId: string,
+): Promise<DedupeOutcome> {
+  try {
+    const admin = createAdminClient();
+    const since = new Date(Date.now() - MOLLIE_RETRY_WINDOW_MS).toISOString();
+    const { data, error } = await admin
+      .from("events")
+      .select("id")
+      .eq("type", "webhook.failed")
+      .contains("payload", { path, mollie_payment_id: molliePaymentId })
+      .gte("created_at", since)
+      .limit(1);
+    if (error) {
+      console.error("[mollie/webhook] webhook.failed lookup failed", { path, molliePaymentId }, error);
+      return "lookup_failed";
+    }
+    return (data?.length ?? 0) > 0 ? "found" : "not_found";
+  } catch (err) {
+    console.error("[mollie/webhook] webhook.failed lookup threw", { path, molliePaymentId }, err);
+    return "lookup_failed";
+  }
+}
+
+/**
+ * Payload die gegarandeerd te serialiseren is. Extra velden van de caller
+ * gaan eerst door JSON; lukt dat niet (BigInt, cyclisch), dan vallen ze weg
+ * met een marker, en blijft de kern van het event staan.
+ */
+function safePayload(
+  base: Record<string, unknown>,
+  extra: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!extra) return base;
+  try {
+    return { ...base, ...(JSON.parse(JSON.stringify(extra)) as Record<string, unknown>) };
+  } catch {
+    return { ...base, extra_dropped: true };
+  }
+}
+
+/**
+ * Registreert een mislukte verwerking. Contract, zelfde als de vijf
+ * zijeffecten achter !already_activated: throwt onder geen enkele
+ * omstandigheid, ook niet vanuit de buitenste catch. De classificatie wordt
+ * vóór al het andere bepaald en altijd teruggegeven; de caller kiest daarop
+ * de responscode, en die hangt dus nooit af van het slagen van deze
+ * registratie.
+ *
+ * Volgorde en onafhankelijkheid: eerst de dedupe-lookup (fail-open), dan de
+ * ntfy, dan het webhook.failed-event. De ntfy gaat vóór de insert omdat
+ * tijdens een databasestoring ntfy het enige kanaal is dat nog werkt; de
+ * uitkomst van de een blokkeert de ander niet. Het event draagt de
+ * werkelijke uitkomsten: notified is alleen true als ntfy de melding heeft
+ * geaccepteerd, dedupe zegt waar het besluit op rustte. Kon het event niet
+ * geschreven worden terwijl er wel gemeld is, dan staat dat met payment-id
+ * en pad in de console, zodat de melding achteraf te plaatsen is.
+ */
+async function registerFailure(args: {
   path: WebhookFailurePath;
   molliePaymentId: string | null;
   orderId?: string | null;
   mode: MollieMode | null;
   error: unknown;
+  classification?: FailureClass;
   extra?: Record<string, unknown>;
-}): Promise<void> {
-  const { code, message } = describeError(args.error);
-  await emitEvent({
-    type: "webhook.failed",
-    actorType: "system",
-    subjectType: "payment",
-    subjectId: null,
-    payload: {
-      source: "mollie_webhook",
-      path: args.path,
-      mollie_payment_id: args.molliePaymentId,
-      order_id: args.orderId ?? null,
-      mode: args.mode,
-      error_code: code,
-      error_message: message,
-      ...(args.extra ?? {}),
-    },
-  });
+  notify?: { title: string; message: string; tags?: string };
+}): Promise<FailureClass> {
+  const classification = args.classification ?? classifyFailure(args.error);
+  try {
+    const { code, message } = describeError(args.error);
+
+    // 1. Dedupe, fail-open.
+    let dedupe: DedupeOutcome = "not_applicable";
+    if (args.notify && args.molliePaymentId) {
+      dedupe = await lookupRecentFailure(args.path, args.molliePaymentId);
+    } else if (args.notify) {
+      // Geen payment-id (onparseerbare body): niets om op te dedupliceren.
+      dedupe = "not_found";
+    }
+    const shouldNotify = Boolean(args.notify) && dedupe !== "found";
+
+    // 2. ntfy, onafhankelijk van de insert hieronder. sendNotification
+    //    throwt nooit en geeft aan of ntfy de melding heeft geaccepteerd.
+    let notified = false;
+    if (args.notify && shouldNotify) {
+      const suffix =
+        dedupe === "lookup_failed"
+          ? " (dedupe-lookup mislukt; mogelijk al eerder gemeld)"
+          : "";
+      notified = await sendNotification(
+        args.notify.title,
+        `${args.notify.message}${suffix}`,
+        args.notify.tags ?? "warning",
+      );
+      if (!notified) {
+        console.error("[mollie/webhook] ntfy niet geaccepteerd", {
+          path: args.path,
+          molliePaymentId: args.molliePaymentId,
+        });
+      }
+    } else if (args.notify && dedupe === "found") {
+      console.warn("[mollie/webhook] ntfy onderdrukt, al gemeld binnen het retry-venster", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+      });
+    }
+
+    // 3. Persistent spoor, onafhankelijk van de ntfy hierboven.
+    const written = await emitEvent({
+      type: "webhook.failed",
+      actorType: "system",
+      subjectType: "payment",
+      subjectId: null,
+      payload: safePayload(
+        {
+          source: "mollie_webhook",
+          path: args.path,
+          mollie_payment_id: args.molliePaymentId,
+          order_id: args.orderId ?? null,
+          mode: args.mode,
+          error_code: code,
+          error_message: message,
+          classification,
+          response_status: classification === "transient" ? 500 : 200,
+          notified,
+          dedupe,
+        },
+        args.extra,
+      ),
+    });
+    if (!written) {
+      // emitEvent logt de oorzaak zelf; hier de context om de melding (als
+      // die er was) achteraf aan een payment en pad te kunnen koppelen.
+      console.error("[mollie/webhook] webhook.failed niet geschreven", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+        orderId: args.orderId ?? null,
+        classification,
+        notified,
+        dedupe,
+      });
+    }
+  } catch (err) {
+    // Laatste vangrail; hier hoort nooit iets te komen, maar een fout in
+    // de registratie mag nooit een tweede fout in de route worden.
+    try {
+      console.error("[mollie/webhook] registerFailure threw", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+      }, err);
+    } catch {
+      /* zelfs loggen mag hier niet gooien */
+    }
+  }
+  return classification;
 }
 
 /** Zelfde whitelist als in POST; los herhaald zodat de buitenste catch hem kan gebruiken. */
@@ -185,17 +424,32 @@ async function findExistingSubscriptionId(
  *    ntfy + e-mail naar het lid
  *  - metadata.type='pt_booking' → ongewijzigd (nog niet op de order-pipeline)
  *
- * Altijd 2xx terug richting Mollie, ook bij onbekende payloads — anders
- * blijft Mollie retrying en spammen we onszelf. Een mislukte verwerking
- * wordt sinds PR 1 (webhook-betrouwbaarheid) wel persistent vastgelegd als
- * tmc.events-type webhook.failed; de respons blijft 200, non-2xx is PR 2.
+ * Responscodes (PR 2 webhook-betrouwbaarheid, zie het docblock bij
+ * classifyFailure): 200 op alles wat verwerkt is of waarvan herhaling
+ * dezelfde uitkomst geeft (onbekende payloads, 404 bij Mollie, geblokkeerde
+ * orders); 500 op transiënte fouten zodat Mollie herhaalt. Elke mislukte
+ * verwerking wordt vastgelegd als tmc.events-type webhook.failed.
  */
 export async function POST(request: Request) {
   // Buiten de try, zodat de buitenste catch ze in webhook.failed kan zetten.
   let paymentId: string | null = null;
   let orderIdForFailure: string | null = null;
   try {
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (e) {
+      // Onparseerbare body: herhalen geeft dezelfde body, dus permanent.
+      console.error("[mollie/webhook] body niet te parsen", e);
+      await registerFailure({
+        path: "malformed_body",
+        molliePaymentId: null,
+        mode: modeFromRequest(request),
+        error: e,
+        classification: "permanent",
+      });
+      return NextResponse.json({ ok: true });
+    }
     paymentId = String(formData.get("id") ?? "");
     if (!paymentId) {
       return NextResponse.json({ ok: true });
@@ -222,9 +476,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "mollie_not_configured" }, { status: 500 });
     }
 
-    // Eigen try/catch: een mislukte get (echte 404 of modus-mismatch) mag
-    // niet stil in de buitenste catch verdwijnen; log id en modus zodat
-    // een mismatch in de logs zichtbaar is. Mollie krijgt gewoon 2xx.
+    // Eigen try/catch: een mislukte get mag niet stil in de buitenste catch
+    // verdwijnen; log id en modus zodat een modus-mismatch in de logs
+    // zichtbaar is. Een 404 (mismatch, onbekende payment) blijft 200:
+    // herhalen geeft dezelfde 404. Netwerk, Mollie 5xx of timeout wordt
+    // 500 zodat Mollie herhaalt (herziening van 6.5, PR 2).
     let payment;
     try {
       payment = await mollie.payments.get(paymentId);
@@ -233,14 +489,13 @@ export async function POST(request: Request) {
         `[mollie/webhook] payments.get failed (id=${paymentId}, mode=${mode})`,
         e,
       );
-      // Persistent spoor; het pad blijft bewust 200 (PR 2 beslist over
-      // non-2xx en over het onderscheid 404 versus transiënt).
-      await recordWebhookFailure({
+      const cls = await registerFailure({
         path: "payments_get",
         molliePaymentId: paymentId,
         mode,
         error: e,
       });
+      if (cls === "transient") return retryLater("payments_get_transient");
       return NextResponse.json({ ok: true });
     }
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
@@ -456,18 +711,26 @@ export async function POST(request: Request) {
 
       if (activateErr || !activation) {
         console.error("[mollie/webhook] activate_order failed", activateErr);
-        await recordWebhookFailure({
+        const error = activateErr ?? new Error("activate_order returned null");
+        const cls = classifyFailure(error);
+        await registerFailure({
           path: "activate_order",
           molliePaymentId: payment.id,
           orderId,
           mode,
-          error: activateErr ?? new Error("activate_order returned null"),
+          error,
+          classification: cls,
+          notify: {
+            title: "Order-activatie gefaald",
+            message: `Order ${orderId}: activate_order gaf een fout terug (${
+              cls === "transient"
+                ? "transiënt, Mollie biedt de webhook opnieuw aan"
+                : "blijvend, geen retry"
+            }). Betaling is binnen; handmatig naklopen als het niet vanzelf herstelt.`,
+            tags: "warning",
+          },
         });
-        await sendNotification(
-          "Order-activatie gefaald",
-          `Order ${orderId}: activate_order gaf een fout terug. Betaling is binnen — handmatig naklopen.`,
-          "warning"
-        );
+        if (cls === "transient") return retryLater("activate_order_transient");
         return NextResponse.json({ ok: true });
       }
 
@@ -652,16 +915,31 @@ export async function POST(request: Request) {
             subscriptionId = subscription.id;
           }
         } catch (e) {
-          // Geen retry beloven: deze route antwoordt 200 en Mollie herhaalt
-          // niet na een 2xx. Het herstelpad via needs_subscription bestaat
-          // wel, maar alleen als er om een andere reden nog een webhook voor
-          // dezelfde payment komt; daar mag niemand op rekenen.
+          // Transiënt: 500, Mollie herhaalt, en de retry loopt via
+          // already_activated met needs_subscription opnieuw hier binnen;
+          // findExistingSubscriptionId voorkomt dan een dubbele. Dat maakt
+          // het herstelpad betrouwbaar in plaats van afhankelijk van een
+          // toevallige tweede webhook. Permanent (Mollie 4xx, bv. geen
+          // geldig mandaat): 200, en een mens moet ernaar kijken.
           console.error("[mollie/webhook] subscription create failed", e);
-          await sendNotification(
-            "Subscription aanmaken mislukt",
-            `Order ${orderId}, membership ${membershipId}: het lid is actief en heeft betaald, maar de Mollie-subscription voor de recurring incasso is niet aangemaakt of niet te controleren. Handmatig ingrijpen nodig: eerst in Mollie kijken of customer ${customerId} al een subscription voor dit membership heeft, anders aanmaken, en mollie_subscription_id op de membership zetten.`,
-            "warning"
-          );
+          const cls = await registerFailure({
+            path: "subscription_create",
+            molliePaymentId: payment.id,
+            orderId,
+            mode,
+            error: e,
+            extra: { membership_id: membershipId, mollie_customer_id: customerId },
+            notify: {
+              title: "Subscription aanmaken mislukt",
+              message: `Order ${orderId}, membership ${membershipId}: het lid is actief en heeft betaald, maar de Mollie-subscription voor de recurring incasso is niet aangemaakt of niet te controleren. ${
+                classifyFailure(e) === "transient"
+                  ? "Transiënt: Mollie biedt de webhook opnieuw aan, tot 26 uur lang."
+                  : `Blijvend: handmatig ingrijpen nodig. Eerst in Mollie kijken of customer ${customerId} al een subscription voor dit membership heeft, anders aanmaken, en mollie_subscription_id op de membership zetten.`
+              }`,
+              tags: "warning",
+            },
+          });
+          if (cls === "transient") return retryLater("subscription_create_transient");
         }
 
         if (subscriptionId) {
@@ -682,7 +960,10 @@ export async function POST(request: Request) {
               { orderId, membershipId, subscriptionId },
               linkErr,
             );
-            await recordWebhookFailure({
+            // Transiënt: 500, en de retry vindt de subscription terug via
+            // findExistingSubscriptionId en koppelt hem alsnog. Permanent
+            // (bv. 23505: het id hangt al aan een andere membership): 200.
+            const cls = await registerFailure({
               path: "subscription_link_write",
               molliePaymentId: payment.id,
               orderId,
@@ -694,12 +975,17 @@ export async function POST(request: Request) {
                 mollie_customer_id: customerId,
                 reused_existing: reusedExisting,
               },
+              notify: {
+                title: "Subscription niet gekoppeld",
+                message: `Order ${orderId}, membership ${membershipId}: Mollie-subscription ${subscriptionId} bestaat op customer ${customerId}, maar mollie_subscription_id kon niet worden weggeschreven. ${
+                  classifyFailure(linkErr) === "transient"
+                    ? "Transiënt: Mollie biedt de webhook opnieuw aan en de retry koppelt het bestaande id."
+                    : "Blijvend: handmatig op de membership zetten; NIET opnieuw aanmaken."
+                }`,
+                tags: "warning",
+              },
             });
-            await sendNotification(
-              "Subscription niet gekoppeld",
-              `Order ${orderId}, membership ${membershipId}: Mollie-subscription ${subscriptionId} bestaat op customer ${customerId}, maar mollie_subscription_id kon niet worden weggeschreven. Handmatig op de membership zetten; NIET opnieuw aanmaken.`,
-              "warning"
-            );
+            if (cls === "transient") return retryLater("subscription_link_write_transient");
           } else if ((linked?.length ?? 0) === 0) {
             // Geen rij bijgewerkt: er stond al een id. Hetzelfde id is een
             // onschuldige race met een parallelle levering; een ander id
@@ -713,24 +999,26 @@ export async function POST(request: Request) {
               (current as { mollie_subscription_id: string | null } | null)
                 ?.mollie_subscription_id ?? null;
             if (existingId && existingId !== subscriptionId) {
-              await recordWebhookFailure({
+              // Permanent: herhalen verandert hier niets aan; 200.
+              await registerFailure({
                 path: "subscription_link_write",
                 molliePaymentId: payment.id,
                 orderId,
                 mode,
                 error: new Error("membership already linked to another subscription"),
+                classification: "permanent",
                 extra: {
                   subscription_id: subscriptionId,
                   existing_subscription_id: existingId,
                   membership_id: membershipId,
                   mollie_customer_id: customerId,
                 },
+                notify: {
+                  title: "Twee subscriptions op één membership",
+                  message: `Order ${orderId}, membership ${membershipId} is gekoppeld aan ${existingId}, maar Mollie heeft op customer ${customerId} ook ${subscriptionId}. Een van de twee handmatig annuleren in Mollie.`,
+                  tags: "warning",
+                },
               });
-              await sendNotification(
-                "Twee subscriptions op één membership",
-                `Order ${orderId}, membership ${membershipId} is gekoppeld aan ${existingId}, maar Mollie heeft op customer ${customerId} ook ${subscriptionId}. Een van de twee handmatig annuleren in Mollie.`,
-                "warning"
-              );
             }
           } else if (reusedExisting) {
             await sendNotification(
@@ -827,13 +1115,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[API /api/mollie/webhook]", e);
-    await recordWebhookFailure({
+    const cls = await registerFailure({
       path: "unhandled",
       molliePaymentId: paymentId,
       orderId: orderIdForFailure,
       mode: modeFromRequest(request),
       error: e,
+      notify: {
+        title: "Mollie-webhook: onverwachte fout",
+        message: `Payment ${paymentId ?? "onbekend"}${
+          orderIdForFailure ? `, order ${orderIdForFailure}` : ""
+        }: ${describeError(e).message.slice(0, 200)}${
+          classifyFailure(e) === "transient"
+            ? " (transiënt, Mollie biedt de webhook opnieuw aan)"
+            : " (blijvend, geen retry)"
+        }`,
+        tags: "warning",
+      },
     });
+    if (cls === "transient") return retryLater("unhandled_transient");
     return NextResponse.json({ ok: true });
   }
 }
