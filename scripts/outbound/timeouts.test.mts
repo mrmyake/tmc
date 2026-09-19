@@ -12,7 +12,9 @@ import {
   fetchWithTimeout,
   withTimeout,
 } from "../../src/lib/outbound-timeouts";
-import { getMollieClient } from "../../src/lib/mollie";
+import { getMollieClient, withMollieTimeout } from "../../src/lib/mollie";
+import { createMollieClient } from "@mollie/api-client";
+import { readFileSync } from "node:fs";
 
 let hanging: Server;
 let hangingUrl: string;
@@ -89,4 +91,69 @@ test("Mollie-client: elke binder-call is geraced, iterate() blijft een async ite
     if (previous === undefined) delete process.env.MOLLIE_API_KEY_TEST;
     else process.env.MOLLIE_API_KEY_TEST = previous;
   }
+});
+
+test("Mollie-client: de Proxy racet een hangende binder-methode (fake client met SDK-vorm)", async () => {
+  // Zuivere test van de wrapper-logica, los van netwerk: een object met de
+  // vorm die de SDK heeft (binders als eigenschappen, methodes die een
+  // promise teruggeven, iterate() dat een iterator teruggeeft).
+  const never = () => new Promise<never>(() => {});
+  const fake = {
+    payments: { get: never, create: async () => ({ id: "tr_ok" }) },
+    customerSubscriptions: {
+      iterate: () => ({ [Symbol.asyncIterator]: async function* () {} }),
+    },
+  } as unknown as Parameters<typeof withMollieTimeout>[0];
+  const client = withMollieTimeout(fake, 100);
+  await assert.rejects(client.payments.get("tr_x", {} as never), (err: unknown) => {
+    assert.ok(err instanceof OutboundTimeoutError);
+    assert.equal(err.code, "ETIMEDOUT");
+    assert.match(err.message, /mollie\.payments\.get/);
+    return true;
+  });
+  assert.deepEqual(await client.payments.create({} as never), { id: "tr_ok" });
+  const it = client.customerSubscriptions.iterate({ customerId: "cst_x" });
+  assert.equal(typeof (it as AsyncIterable<unknown>)[Symbol.asyncIterator], "function");
+});
+
+test("Mollie-client: de SDK-aanname houdt voor de geinstalleerde versie", async () => {
+  // Tegen de echte SDK: binders zijn gewone objecten met methodes die
+  // zonder callback een promise teruggeven, en die promise gaat door de
+  // Proxy. Het apiEndpoint wijst naar TEST-NET (RFC 5737, nooit gerouteerd),
+  // dus er gaat niets naar Mollie. Op een netwerk dat het pakket laat vallen
+  // wint de race (ETIMEDOUT); op een netwerk dat het direct weigert komt de
+  // SDK-fout door de Proxy terug. Beide bewijzen de vorm; een hang tot de
+  // test-timeout of een TypeError bij het aanroepen betekent dat de vorm
+  // veranderd is.
+  const raw = createMollieClient({
+    apiKey: "test_abcdefghijklmnopqrstuvwxyz1234",
+    apiEndpoint: "https://192.0.2.1:443/v2/",
+  });
+  for (const binder of ["payments", "customers", "customerSubscriptions"] as const) {
+    assert.equal(typeof raw[binder], "object", `binder ${binder} ontbreekt`);
+  }
+  assert.equal(typeof raw.payments.get, "function");
+  const client = withMollieTimeout(raw, 300);
+  const started = Date.now();
+  await assert.rejects(client.payments.get("tr_test"), (err: unknown) => {
+    const name = err instanceof Error ? err.name : "";
+    assert.ok(
+      err instanceof OutboundTimeoutError || name === "ApiError",
+      `verwacht OutboundTimeoutError of Mollie ApiError, kreeg ${String(err)}`,
+    );
+    return true;
+  });
+  assert.ok(Date.now() - started < 5_000, "de call hoort binnen de race af te lopen");
+
+  // Versiebewaking: de wrapper is geschreven tegen 4.6.x. Een andere
+  // major/minor is niet per se fout, maar vraagt om herverificatie van de
+  // aanname hierboven; daarom faalt de test bewust bij een bump.
+  const installed = JSON.parse(
+    readFileSync(new URL("../../node_modules/@mollie/api-client/package.json", import.meta.url), "utf8"),
+  ) as { version: string };
+  assert.match(
+    installed.version,
+    /^4\.6\./,
+    `@mollie/api-client ${installed.version}: herverifieer withMollieTimeout (src/lib/mollie.ts) en werk deze regel bij`,
+  );
 });

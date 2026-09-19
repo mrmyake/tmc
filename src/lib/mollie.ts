@@ -93,7 +93,7 @@ export function getMollieClient(mode: MollieMode): MollieClient | null {
   }
   const existing = clients.get(mode);
   if (existing && existing.apiKey === resolved.apiKey) return existing.client;
-  const client = withMollieTimeout(createMollieClient({ apiKey: resolved.apiKey }));
+  const client = withMollieTimeout(createMollieClient({ apiKey: resolved.apiKey }), MOLLIE_TIMEOUT_MS);
   clients.set(mode, { apiKey: resolved.apiKey, client });
   return client;
 }
@@ -102,14 +102,27 @@ export function getMollieClient(mode: MollieMode): MollieClient | null {
  * Timeout op elke Mollie-call (3a-bis, outbound-timeouts.ts). De client
  * gebruikt node-fetch zonder configureerbare timeout of signal, dus de
  * enige haak is de promise die een binder-methode teruggeeft: die wordt
- * geraced tegen MOLLIE_TIMEOUT_MS. Methodes die geen promise teruggeven
+ * geraced tegen de timeout. Methodes die geen promise teruggeven
  * (iterate() levert een async iterator) blijven ongemoeid; de iterator
  * haalt zijn pagina's via page(), dat wel geraced wordt. Een timeout
  * rejected met OutboundTimeoutError (code ETIMEDOUT) op precies de plek
  * waar een Mollie-netwerkfout ook zou rejecten, dus elke bestaande
  * try/catch rond een Mollie-call vangt hem op dezelfde manier.
+ *
+ * KOPPELING AAN SDK-INTERNALS. Dit leunt op de vorm van @mollie/api-client
+ * 4.6.0 (package.json: ^4.5.0, lockfile 4.6.0): de client is een object met
+ * binders (payments, customers, customerSubscriptions, ...) als
+ * eigenschappen, elke binder-methode geeft zonder callback een promise
+ * terug, en de client leest die binders via gewone property-access. Een
+ * minor bump die binders lazy maakt, methodes als getters of als eigen
+ * Proxy uitlevert, of promises vervangt door een ander thenable, laat deze
+ * wrapper stil terugvallen op "geen timeout" (of erger: op een throw bij
+ * het aanroepen). scripts/outbound/timeouts.test.mts bewijst de aanname
+ * tegen de geinstalleerde versie met een lokaal hangend apiEndpoint: faalt
+ * die test na een bump, dan is dit de eerste plek om te kijken.
+ * Geexporteerd voor die test; productiecode gebruikt getMollieClient().
  */
-function withMollieTimeout(client: MollieClient): MollieClient {
+export function withMollieTimeout(client: MollieClient, timeoutMs: number): MollieClient {
   const isThenable = (v: unknown): v is Promise<unknown> =>
     typeof v === "object" && v !== null && typeof (v as { then?: unknown }).then === "function";
   const wrapBinder = (binder: object, binderName: string): object =>
@@ -120,7 +133,7 @@ function withMollieTimeout(client: MollieClient): MollieClient {
         return (...args: unknown[]) => {
           const result = value.apply(target, args);
           return isThenable(result)
-            ? withTimeout(result, MOLLIE_TIMEOUT_MS, `mollie.${binderName}.${String(prop)}`)
+            ? withTimeout(result, timeoutMs, `mollie.${binderName}.${String(prop)}`)
             : result;
         };
       },

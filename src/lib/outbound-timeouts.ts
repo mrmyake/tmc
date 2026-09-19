@@ -29,6 +29,33 @@
  * caller die dat niet verwacht. Hoe dat per client werkt staat bij de
  * client zelf (supabase/admin.ts en server.ts, mollie.ts, email.ts,
  * akiles.ts).
+ *
+ * Supabase, twee dingen om te weten (3a-bis, geverifieerd tegen live):
+ *
+ *  1. Een client-side abort annuleert de query niet aan de databasekant.
+ *     Postgres werkt door tot zijn eigen statement_timeout, en die is voor
+ *     al het PostgREST-verkeer 8 s: de rol `authenticator` heeft
+ *     `statement_timeout=8s` (pg_roles.rolconfig) en `service_role` heeft
+ *     geen eigen waarde en erft die (Supabase-docs "Timeouts", role level).
+ *     Beide grenzen zijn dus 8 s, maar de client telt vanaf het verzoek
+ *     (inclusief netwerk) en de server vanaf de start van het statement.
+ *     Een statement dat 7,8 tot 8,0 s rekent kan client-side afgebroken
+ *     zijn en server-side alsnog committen. Voor het betaalpad is dat
+ *     ongevaarlijk: activate_order is idempotent onder een rijlock, de
+ *     webhook antwoordt 500 en de retry ziet already_activated. Voor
+ *     refresh_admin_kpis betekent het dat een "mislukte" refresh geslaagd
+ *     kan zijn; het gevolg is alleen een 500 in de cron-log, geen verkeerde
+ *     vervolgactie (er hangt niets aan het resultaat).
+ *  2. Er is vandaag geen enkele Supabase-call die legitiem boven 8 s komt.
+ *     pg_stat_statements sinds 2026-04-06: het zwaarste PostgREST-statement
+ *     is refresh_admin_kpis met een maximum van 34 ms (42 aanroepen);
+ *     process_due_membership_pauses 20 ms; niets anders boven 40 ms. De
+ *     crons doen per rij losse, korte calls, geen enkele lange. Een
+ *     per-call override is daarom niet aangebracht. Wordt hij ooit nodig,
+ *     dan is het patroon `.abortSignal(AbortSignal.timeout(ms))` op die
+ *     ene query (fetchWithTimeout respecteert een eigen signal), EN een
+ *     `set statement_timeout` op functieniveau voor die RPC, want zonder
+ *     dat tweede kapt de server hem op 8 s af hoe ruim de client ook is.
  */
 export const SUPABASE_TIMEOUT_MS = 8_000;
 export const MOLLIE_TIMEOUT_MS = 8_000;
