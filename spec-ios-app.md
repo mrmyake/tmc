@@ -34,6 +34,8 @@ Zelfde vuistregel als `spec-member-app.md` sectie 8: het duurdere, meest capabel
 
 **PR #190, tweede commit, 2026-09-19: naamcorrectie Firebase-project.** Workstream B en `PushNotificationRegister.tsx:18-36` noemden `tmc-member-app` in regio `europe-west4` als voorgesteld Firebase-project; dat is gecorrigeerd naar `themovementclub`, zonder regio-eis. Reden: `europe-west4` was hier nooit een eis, de default Cloud-resource-locatie die je bij het aanmaken van een Firebase-project kiest, geldt alleen voor Firestore, Cloud Storage en App Engine, niet voor FCM (wereldwijde dienst zonder regiokeuze); die aanname stond fout in de oorspronkelijke discovery en is nu uit beide plekken gehaald. Workstream B kreeg er daarnaast twee expliciete stappen bij die in de eerdere versie ontbraken: de iOS-app in Firebase registreren met bundle id `nl.themovementclub.app` (moet exact gelijk zijn aan `capacitor.config.ts:20`), en `GoogleService-Info.plist` expliciet aan het Xcode-target toevoegen in plaats van alleen in `ios/App/App/` te plaatsen. Bewust niet aangeraakt: de logica in `PushNotificationRegister.tsx`, alleen de comment; geen code, geen migraties.
 
+**PR #191 (branch `docs/ios-dsa-trader-status`), 2026-09-19.** Workstream D uitgebreid met D.3 (DSA trader status, in te vullen onder de organisatie, geblokkeerd op de organisatie-inschrijving in C) en D.4 (Mollie als verplichte betaalmethode onder guideline 3.1.3(e) en 3.1.3(d), geen in-app purchase, abonnementsflow blijft in de app); de C-regel in de sectie Afhankelijkheden noemt nu ook de identifier-migratie, het App Store Connect-record en DSA trader status, en het beslissingenlog kreeg twee regels. Dezelfde PR bevat een read-only discovery van de Mollie-terugkeerflow voor workstream A; de bevindingen staan in de PR-body, niet in dit document. Bewust niet aangeraakt: workstream A t/m C, E en F, geen code, geen migraties.
+
 ---
 
 ## A. Mollie in-app browser
@@ -105,7 +107,7 @@ C is de voorwaarde voor device-verificatie van zowel A als B; zonder een signed 
 
 ## D. App Store compliance
 
-Twee harde afwijzingsgronden bij de eerste review, geen van beide is iets om naar een update na livegang door te schuiven.
+Vier punten. D.1 en D.2 zijn harde afwijzingsgronden bij de eerste review, geen van beide is iets om naar een update na livegang door te schuiven. D.3 is een distributievoorwaarde voor de EU-storefront die vooraf geregeld en geverifieerd moet zijn. D.4 is geen afwijzingsgrond maar een reviewpositie die vooraf vastligt, zodat een onterechte afwijzing direct weerlegd kan worden.
 
 ### D.1 Guideline 4.2 risico (remote URL)
 
@@ -132,6 +134,45 @@ Te ontwerpen: een self-service accountverwijderingsflow die achtereenvolgens het
 // (bijv. "Account verwijderen" knop + waarschuwingstekst over stopzetten
 // abonnement en intrekken toegang)
 ```
+
+### D.3 DSA trader status
+
+Verplicht onder de EU Digital Services Act voor iedereen die via de App Store in de 27 EU-territoria distribueert. TMC verkoopt abonnementen en lessen aan consumenten, dus de trader status is niet optioneel en niet twijfelachtig: TMC is een trader.
+
+**Twee plekken in App Store Connect:**
+
+- Account-niveau: Business, Agreements, Compliance, Digital Services Act.
+- App-niveau: App Information, App Store Regulations and Permits, Digital Services Act.
+
+**Wat ingevuld wordt.** Voor een organisatie-account komt het adres automatisch uit het D-U-N-S-nummer (473930161). Zelf in te vullen: telefoonnummer, e-mailadres en betaalrekeninggegevens, plus een certificering dat het aanbod voldoet aan toepasselijk EU-recht.
+
+**Verificatie.** E-mail en telefoon via two-factor, plus upload van documentatie die bedrijfsnaam en adres bewijst. Alleen de Account Holder of een Admin kan dit invullen.
+
+**Afhankelijkheid, expliciet: dit moet onder de organisatie ingevuld worden, niet onder het persoonlijke team.** Twee redenen:
+
+1. De trader-contactgegevens worden publiek getoond op de App Store-productpagina. Onder een persoonlijk account is dat een privé-woonadres.
+2. Een adreswijziging kan niet zelf worden doorgevoerd; die vereist een support-verzoek bij Apple. Verkeerd invullen is dus niet triviaal terug te draaien.
+
+**Gevolg voor de volgorde.** DSA trader status is geblokkeerd op de organisatie-inschrijving in workstream C, en de verificatie heeft eigen doorlooptijd door de documentupload. Zie de sectie Afhankelijkheden: C blokkeert nu de identifier-migratie, het App Store Connect-record en DSA trader status.
+
+### D.4 Betaalmethode en IAP-positie
+
+Mollie is de juiste en verplichte betaalmethode voor alles wat TMC verkoopt. Guideline 3.1.3(e): diensten die buiten de app worden geconsumeerd moeten een andere betaalmethode dan in-app purchase gebruiken. Abonnementen, rittenkaarten, drop-ins en losse producten vallen hieronder. PT valt daarnaast onder 3.1.3(d), een één-op-één real-time dienst. Apple neemt over geen van deze transacties provisie.
+
+**Risico.** Niet de regel zelf, maar een onterechte 3.1.1-afwijzing bij review, omdat een reviewer een betaalknop ziet zonder in-app purchase.
+
+**Mitigatie.** In de App Review notes bij de eerste submission expliciet vermelden dat alle aankopen lidmaatschappen en lessen betreffen voor een fysieke studio op Industrieweg 14P in Loosdrecht, ter plekke afgenomen, vallend onder 3.1.3(e), en 3.1.3(d) voor PT. Concepttekst voor die notes (reviewer-facing, Engels, geen ledencopy):
+
+```
+All purchases in this app are memberships, class passes and personal
+training sessions for a physical fitness studio (The Movement Club,
+Industrieweg 14P, Loosdrecht, The Netherlands). The services are
+consumed in person at the studio, not inside the app. Payment runs via
+Mollie, in line with guideline 3.1.3(e) (services consumed outside the
+app) and 3.1.3(d) (one-to-one personal training).
+```
+
+**Besluit.** De abonnementsflow blijft om deze reden in de app en wordt niet uitgezet. Deze functionaliteit niet verwijderen ter voorkoming van IAP: dat vergroot juist het 4.2-risico op minimum functionality uit D.1.
 
 ---
 
@@ -171,9 +212,9 @@ Niet blokkerend, laagste prioriteit.
 
 ## Afhankelijkheden
 
-- **C deblokkeert device-verificatie van A en B.** Zonder signed build op een fysiek toestel is er geen betrouwbare manier om de Mollie-fix of de push-keten te testen.
+- **C deblokkeert device-verificatie van A en B, en blokkeert de identifier-migratie, het App Store Connect-record en DSA trader status (D.3).** Zonder signed build op een fysiek toestel is er geen betrouwbare manier om de Mollie-fix of de push-keten te testen. Zonder organisatie-inschrijving kan geen van die drie starten, en de DSA-verificatie heeft daarna nog eigen doorlooptijd door de documentupload.
 - **A en B blokkeren elkaar niet.** Los te bouwen en te verifiëren, wel allebei afhankelijk van C voor echte device-verificatie.
-- **D loopt parallel aan A/B/C, maar moet af zijn voor de eerste submission.** Beide punten (4.2-risico, accountverwijdering) zijn harde afwijzingsgronden bij de eerste review.
+- **D loopt parallel aan A/B/C, maar moet af zijn voor de eerste submission.** D.1 en D.2 (4.2-risico, accountverwijdering) zijn harde afwijzingsgronden bij de eerste review. D.3 moet vóór de eerste submission geverifieerd zijn en hangt aan C. D.4 is een reviewpositie voor de notes bij die submission.
 - **E start pas na de eerste release**, met uitzondering van het Apple HCE-entitlementformulier, dat vanwege doorlooptijd per direct ingediend wordt.
 - **F is volledig onafhankelijk** en kan op elk moment tussendoor.
 
@@ -185,3 +226,5 @@ Niet blokkerend, laagste prioriteit.
 - **2026-09-19.** Workstream E is expliciet additief aan het bestaande Akiles-model. Het besluit van 2026-09-08 in `spec-akiles-access.md` (geen Mobile SDK, geen native bridge, PIN- en magic-link-model als primaire toegangsroute) wordt niet teruggedraaid; dat model blijft de fallback.
 - **2026-09-19.** Het Apple HCE-entitlementformulier voor E wordt los van de rest van de fasering per direct ingediend, vanwege de bekende lange doorlooptijd bij Apple.
 - **2026-09-19.** D.1 en D.2 gelden als harde blockers voor de eerste submission, niet als punten die naar een update na livegang mogen schuiven.
+- **2026-09-19.** DSA trader status (D.3) wordt onder de organisatie-inschrijving ingevuld, niet onder een persoonlijk team: de contactgegevens staan publiek op de productpagina en een adreswijziging vereist een support-verzoek bij Apple. D.3 hangt daarmee aan de organisatie-inschrijving in C.
+- **2026-09-19.** Mollie blijft de enige betaalmethode in de app (guideline 3.1.3(e), plus 3.1.3(d) voor PT), geen in-app purchase. De abonnementsflow wordt niet uit de app gehaald om een IAP-discussie te vermijden; dat zou het 4.2-risico uit D.1 vergroten.
