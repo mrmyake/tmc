@@ -32,6 +32,8 @@ Nog geen entries met een PR-nummer. `spec-ios-app.md` staat nog niet in de ledge
 
 **PR #TBD (branch `docs/spec-ios-app`), 2026-09-19.** Naast het aanmaken van dit document bevat dezelfde PR een correctie in `spec-member-app.md` sectie 7: de verwijzing naar Apple-richtlijn 4.7.2 is vervangen door 4.2 (sub-guideline 4.2.2), met een voetnoot dat 4.7 over mini-apps en plug-ins gaat en hier niet van toepassing is. Reden: `spec-ios-app.md` workstream D.1 gebruikte al 4.2/4.2.2 als het correcte nummer voor het "remote URL/minimum functionality"-risico; twee verschillende richtlijnnummers voor hetzelfde risico in twee specs was verwarrend voor de volgende lezer. Bewust niet aangeraakt: verder niets in `spec-member-app.md`, geen code, geen migraties. Het PR-nummer wordt ingevuld zodra de PR daadwerkelijk geopend wordt.
 
+**Zelfde PR, tweede commit, 2026-09-19: naamcorrectie Firebase-project.** Workstream B en `PushNotificationRegister.tsx:18-36` noemden `tmc-member-app` in regio `europe-west4` als voorgesteld Firebase-project; dat is gecorrigeerd naar `themovementclub`, zonder regio-eis. Reden: `europe-west4` was hier nooit een eis, de default Cloud-resource-locatie die je bij het aanmaken van een Firebase-project kiest, geldt alleen voor Firestore, Cloud Storage en App Engine, niet voor FCM (wereldwijde dienst zonder regiokeuze); die aanname stond fout in de oorspronkelijke discovery en is nu uit beide plekken gehaald. Workstream B kreeg er daarnaast twee expliciete stappen bij die in de eerdere versie ontbraken: de iOS-app in Firebase registreren met bundle id `nl.themovementclub.app` (moet exact gelijk zijn aan `capacitor.config.ts:20`), en `GoogleService-Info.plist` expliciet aan het Xcode-target toevoegen in plaats van alleen in `ios/App/App/` te plaatsen. Bewust niet aangeraakt: de logica in `PushNotificationRegister.tsx`, alleen de comment; geen code, geen migraties.
+
 ---
 
 ## A. Mollie in-app browser
@@ -70,12 +72,12 @@ Niet blokkerend voor B of C; blokkeert wel echte betalingen via de gepubliceerde
 - `src/components/capacitor/PushNotificationRegister.tsx` is al native-aware: gebruikt `@capacitor/push-notifications`, gate op `Capacitor.isNativePlatform()`, luistert op het `"registration"`-event en geeft het token plus platform door aan `registerPushToken()` (`src/lib/member/push-actions.ts:14-36`), die upsert in `tmc.device_push_tokens` (kolommen `profile_id`, `token` uniek, `platform` check `ios`/`android`; tabel in `supabase/migrations/20260706000000_tmc_baseline.sql:1582-1590`, RLS-policies `profile_id = auth.uid()` origineel in `supabase/migrations_archive/20260702120000_device_push_tokens.sql:34-46`). De client-side iOS-registratie bestaat dus al.
 - `ios/App/App/AppDelegate.swift` is nog het ongewijzigde Capacitor-template: geen `FirebaseMessaging`-import, geen `didRegisterForRemoteNotificationsWithDeviceToken`-override om het ruwe APNs-devicetoken naar een FCM-token te bridgen.
 - Er is geen `.entitlements`-bestand onder `ios/App/App/`: de Push Notifications-capability is nooit in Xcode toegevoegd.
-- Geen Firebase-project, geen `GoogleService-Info.plist`. De placeholder `// COPY: confirm` in `PushNotificationRegister.tsx:18-36` noemt het voorgestelde project `tmc-member-app` in regio `europe-west4`, nog niet aangemaakt.
+- Geen Firebase-project, geen `GoogleService-Info.plist`. De placeholder `// COPY: confirm` in `PushNotificationRegister.tsx:18-36` noemt het voorgestelde project `themovementclub`, nog niet aangemaakt. De default Cloud-resource-locatie die je bij het aanmaken van een Firebase-project kiest, geldt alleen voor Firestore, Cloud Storage en App Engine, niet voor FCM: dat is een wereldwijde dienst zonder regiokeuze, dus er is hier geen regio-eis.
 - `firebase-admin ^14.1.0` staat wel in `package.json` (server-SDK, alleen voor verzenden, niet voor de native ontvangstkant).
 
-**Te doen, drie onafhankelijk blokkerende items:**
+**Te doen, vier onafhankelijk blokkerende items:**
 
-1. Firebase-project `tmc-member-app` aanmaken in `europe-west4`, `GoogleService-Info.plist` genereren en in het iOS-project opnemen.
+1. Firebase-project `themovementclub` aanmaken (geen regio-eis, zie hierboven: de default resource location geldt niet voor FCM). Binnen dat project een iOS-app registreren met bundle id `nl.themovementclub.app`, exact gelijk aan `capacitor.config.ts:20`. Daarna `GoogleService-Info.plist` genereren en expliciet toevoegen aan het Xcode-target, niet alleen in `ios/App/App/` plaatsen: zonder target membership wordt het bestand niet in de app-bundle meegenomen.
 2. `AppDelegate.swift` native wiring: Firebase iOS-SDK toevoegen, APNs-devicetoken naar FCM-token bridgen.
 3. Push Notifications-capability plus entitlement toevoegen in Xcode (`aps-environment`).
 4. `FIREBASE_SERVICE_ACCOUNT_KEY` in de productie-omgevingsvariabelen zetten.
