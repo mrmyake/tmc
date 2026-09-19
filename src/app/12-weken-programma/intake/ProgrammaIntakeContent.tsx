@@ -24,16 +24,15 @@ function SelectChevron() {
 
 /**
  * Aanvraagformulier achter beide CTA's op /12-weken-programma ("Plan je
- * intake" en "Liever gebeld worden"). Mirrort het mechanisme van
- * MobilityCheckContent/api/leads/mobility-check exact: MailerLite upsert +
- * interne ntfy-melding naar Marlon, geen Supabase, geen boekingssysteem.
- * Veldset is bewust kleiner dan de Mobility Check-form (geen tijdstip/
- * ervaring/doelen) — voornaam, achternaam, e-mail, telefoon, voorkeursdag,
- * optioneel bericht, zoals afgesproken.
+ * intake" en "Liever gebeld worden"). Simpel lead-intake patroon: MailerLite
+ * upsert + interne ntfy-melding naar Marlon, geen Supabase, geen
+ * boekingssysteem. Veldset bewust beperkt (geen tijdstip/ervaring/doelen):
+ * voornaam, achternaam, e-mail, telefoon, voorkeursdag, optioneel bericht,
+ * zoals afgesproken.
  *
- * In plaats van een aparte /bedankt-route (zoals mobility-check heeft)
- * toont dit formulier de bevestiging inline: dat voorkomt een extra,
- * niet-gevraagde pagina/sitemap-entry voor een simpele "bedankt"-state.
+ * In plaats van een aparte /bedankt-route toont dit formulier de bevestiging
+ * inline. Dat voorkomt een extra, niet-gevraagde pagina/sitemap-entry voor
+ * een simpele "bedankt"-state.
  */
 export function ProgrammaIntakeContent() {
   const [loading, setLoading] = useState(false);

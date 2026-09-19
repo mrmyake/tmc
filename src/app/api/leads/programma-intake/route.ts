@@ -3,10 +3,10 @@ import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
 import { utmToMailerliteFields, type UtmParams } from "@/lib/utm";
 
-// Mirrors /api/leads/mobility-check: MailerLite upsert + intern ntfy-berichtje
-// naar Marlon. Geen Supabase, geen boekingssysteem — zelfde lichte
-// mechanisme als de Mobility Check aanvraag, alleen voor het 12 Weken
-// Programma (studio of online, dat onderscheid maakt de intake zelf niet).
+// Simpel lead-intake mechanisme: MailerLite upsert + intern ntfy-berichtje
+// naar Marlon. Geen Supabase, geen boekingssysteem, alleen voor het 12
+// Weken Programma (studio of online, dat onderscheid maakt de intake zelf
+// niet).
 export async function POST(request: Request) {
   try {
     const data = (await request.json()) as {

@@ -24,6 +24,39 @@ const nextConfig: NextConfig = {
         destination: "/abonnement",
         permanent: true,
       },
+      // Tijdelijke verwijdering van de lead magnet funnel (2026-09-19,
+      // chore/remove-lead-magnets). Niet permanent: deze redirects vervallen
+      // zodra de funnel terugkomt.
+      {
+        source: "/beweeg-beter",
+        destination: "/proefles",
+        permanent: false,
+      },
+      {
+        source: "/beweeg-beter/bedankt",
+        destination: "/proefles",
+        permanent: false,
+      },
+      {
+        source: "/mobility-reset",
+        destination: "/proefles",
+        permanent: false,
+      },
+      {
+        source: "/mobility-reset/bedankt",
+        destination: "/proefles",
+        permanent: false,
+      },
+      {
+        source: "/mobility-check",
+        destination: "/proefles",
+        permanent: false,
+      },
+      {
+        source: "/mobility-check/bedankt",
+        destination: "/proefles",
+        permanent: false,
+      },
     ];
   },
   images: {

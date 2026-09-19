@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
-import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { UtmTracker } from "./UtmTracker";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
@@ -55,18 +54,18 @@ export function SiteShell({
   // navbar/footer/EM-banner eromheen uitsluiten is genoeg voor een kale,
   // gefocuste betaalpagina. Geen wijziging aan de betaal-logica zelf.
   const isBetaal = pathname.startsWith("/betaal/");
-  // /12-weken-programma heeft een eigen topbar (merk + één CTA, transparant
+  // /12-weken-programma heeft een eigen topbar (merk + een CTA, transparant
   // over de donkere hero) en eigen footer (merk, adres, disclaimer, geen
-  // 3-koloms nav-footer) — zie src/app/12-weken-programma/layout.tsx. Beide
-  // routes (incl. /intake) uitsluiten voorkomt de dubbele-header bug die
-  // /beweeg-beter vandaag heeft (LeadPageLayout's eigen header + de
-  // standaard Navbar allebei renderen omdat die route hier niet uitgesloten
-  // is — niet hier herhalen).
+  // 3-koloms nav-footer). Zie src/app/12-weken-programma/layout.tsx. Beide
+  // routes (incl. /intake) uitsluiten voorkomt een dubbele-header bug: een
+  // pagina met een eigen header/layout die hier niet uitgesloten is,
+  // rendert dan zowel de standaard Navbar als die eigen header. Niet hier
+  // herhalen.
   const isProgramma = pathname.startsWith("/12-weken-programma");
 
   if (isStudio || isApp || isLogin || isCheckin || isKiosk || isProgramma || isBetaal) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
-    // navbar, footer CTA of lead magnet banner.
+    // navbar, footer of opt-in banner.
     //
     // ── De meetgrens ──────────────────────────────────────────────────
     // Dat /app/**, /login, /checkin, /kiosk en /betaal/* hier geen CookieConsent
@@ -104,7 +103,6 @@ export function SiteShell({
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>
-      <FooterCTA />
       <Footer settings={settings} />
       <InfoOptInBanner />
       <CookieConsent />

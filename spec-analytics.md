@@ -178,9 +178,9 @@ Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uit
 
 | Event | Trigger | Parameters | Surface | Status |
 |---|---|---|---|---|
-| `generate_lead` | Submit van een lead-formulier | `event_category: lead_magnet`, `event_label` (type), `value` | 12 publieke formulieren | Levend |
+| `generate_lead` | Submit van een lead-formulier | `event_category: lead_magnet`, `event_label` (type), `value` | 9 publieke formulieren | Levend |
 | `cta_click` | Klik op een CTA-knop | `event_category: engagement`, `event_label` (knoptekst), `page_location` | `/proefles`, `/app/producten` | Levend |
-| `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 14 formulieren, publiek plus `/abonnement` (`abonnement_identify`) en `/kopen` (`kopen_identify`, zelfde `IdentifyStage`-component) | Levend |
+| `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 11 formulieren, publiek plus `/abonnement` (`abonnement_identify`) en `/kopen` (`kopen_identify`, zelfde `IdentifyStage`-component) | Levend |
 | `click_phone` · `click_whatsapp` · `click_email` | Klik op een contactlink | `event_category: contact`, `event_label` | Geen | **Helper aanwezig, nul call-sites.** Wacht op mount op de footer-`tel:`/`mailto:`-links, audit gap #4 |
 | `configurator_stage_view` | Stage-wissel in de configurator, inclusief mount | `event_category: configurator`, `stage` | `/abonnement`, `/kopen` (onderscheid via `page_location`) | Levend, arrival-event |
 | `configurator_select` | Kaartselectie, vrij-trainen-swap, verlengde toegang, 12/24 maanden | `event_category: configurator`, `item_id`, `family`, `frequency`, `commitment_months`, `addon_vrij_trainen`, `addon_extended_access` | `/abonnement` | Levend |

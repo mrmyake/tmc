@@ -89,25 +89,6 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
         </Container>
       </Section>
 
-      {/* Mobility Check CTA */}
-      <Section>
-        <Container className="max-w-3xl text-center">
-          <ScrollReveal>
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Gratis screening
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Ontdek hoe je beweegt
-            </h2>
-            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
-              Boek een gratis Mobility Check en krijg een persoonlijk
-              bewegingsprofiel van Marlon.
-            </p>
-            <Button href="/mobility-check">Plan mijn Mobility Check</Button>
-          </ScrollReveal>
-        </Container>
-      </Section>
-
       {/* Visie */}
       <Section bg="elevated">
         <Container className="max-w-3xl">

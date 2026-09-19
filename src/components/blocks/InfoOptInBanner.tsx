@@ -16,8 +16,6 @@ export function InfoOptInBanner() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const excludedPaths = ["/beweeg-beter", "/mobility-reset", "/mobility-check"];
-    if (excludedPaths.some((p) => pathname.startsWith(p))) return;
     if (sessionStorage.getItem("tmc_banner_shown")) return;
 
     const handleTrigger = () => {
