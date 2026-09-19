@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SequenceType } from "@mollie/api-client";
+import { SequenceType, SubscriptionStatus, type MollieClient } from "@mollie/api-client";
 import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
@@ -65,6 +65,109 @@ async function notifyMemberPaymentFailed(args: {
 }
 
 /**
+ * Persistente registratie van een mislukte webhook-verwerking (PR 1 van de
+ * webhook-betrouwbaarheid, discovery op fix/mollie-webhook-reliability).
+ * Deze route antwoordt op elk van deze paden 200 en had tot nu toe alleen
+ * console.error; Vercel-logs zijn vluchtig, tmc.events niet. Bewust geen
+ * dedupe_key in de payload: dit is geen money-fact en mag nooit meedoen in
+ * een eventuele unieke index op payment.*-events. Throwt nooit (emitEvent
+ * vangt alles); valt Supabase zelf weg, dan blijft alleen de console-log.
+ */
+type WebhookFailurePath =
+  | "payments_get"
+  | "activate_order"
+  | "subscription_link_write"
+  | "unhandled";
+
+function describeError(err: unknown): { code: string | null; message: string } {
+  if (err && typeof err === "object") {
+    const e = err as {
+      code?: unknown; // PostgrestError
+      statusCode?: unknown; // Mollie ApiError
+      title?: unknown; // Mollie ApiError
+      name?: unknown;
+      message?: unknown;
+    };
+    const code =
+      typeof e.code === "string"
+        ? e.code
+        : typeof e.statusCode === "number"
+          ? String(e.statusCode)
+          : typeof e.title === "string"
+            ? e.title
+            : typeof e.name === "string"
+              ? e.name
+              : null;
+    const message = typeof e.message === "string" ? e.message : String(err);
+    return { code, message: message.slice(0, 500) };
+  }
+  return { code: null, message: String(err).slice(0, 500) };
+}
+
+async function recordWebhookFailure(args: {
+  path: WebhookFailurePath;
+  molliePaymentId: string | null;
+  orderId?: string | null;
+  mode: MollieMode | null;
+  error: unknown;
+  extra?: Record<string, unknown>;
+}): Promise<void> {
+  const { code, message } = describeError(args.error);
+  await emitEvent({
+    type: "webhook.failed",
+    actorType: "system",
+    subjectType: "payment",
+    subjectId: null,
+    payload: {
+      source: "mollie_webhook",
+      path: args.path,
+      mollie_payment_id: args.molliePaymentId,
+      order_id: args.orderId ?? null,
+      mode: args.mode,
+      error_code: code,
+      error_message: message,
+      ...(args.extra ?? {}),
+    },
+  });
+}
+
+/** Zelfde whitelist als in POST; los herhaald zodat de buitenste catch hem kan gebruiken. */
+function modeFromRequest(request: Request): MollieMode {
+  return new URL(request.url).searchParams.get("mode") === "test" ? "test" : "live";
+}
+
+/**
+ * Bestaande Mollie-subscription voor dit membership, of null. De
+ * idempotencyKey `order-<id>-sub` beschermt maar een uur (Mollie-docs,
+ * api-idempotency), terwijl Mollie's webhook-retries tot 26 uur doorlopen.
+ * Een retry buiten dat uur, na een geslaagde create waarvan de write van het
+ * id verloren ging, zou anders een tweede subscription op hetzelfde mandaat
+ * opleveren: twee incasso's per 28 dagen. metadata.membershipId is de
+ * sleutel (gezet bij create, hieronder). Geannuleerde of voltooide
+ * subscriptions tellen niet mee: die incasseren niet meer, en zo'n id
+ * koppelen zou het membership ten onrechte als gedekt tonen.
+ * Throwt bij een API-fout; de caller behandelt dat als "aanmaken mislukt".
+ */
+async function findExistingSubscriptionId(
+  mollie: MollieClient,
+  customerId: string,
+  membershipId: string,
+): Promise<string | null> {
+  for await (const sub of mollie.customerSubscriptions.iterate({ customerId })) {
+    const meta = (sub.metadata ?? {}) as Record<string, unknown>;
+    if (meta.membershipId !== membershipId) continue;
+    if (
+      sub.status === SubscriptionStatus.canceled ||
+      sub.status === SubscriptionStatus.completed
+    ) {
+      continue;
+    }
+    return sub.id;
+  }
+  return null;
+}
+
+/**
  * Mollie webhook voor het member-system. Ontvangt payment-id's via form
  * encoded body. Apart van /api/trial-bookings/webhook omdat die al een
  * eigen flow heeft.
@@ -83,12 +186,17 @@ async function notifyMemberPaymentFailed(args: {
  *  - metadata.type='pt_booking' → ongewijzigd (nog niet op de order-pipeline)
  *
  * Altijd 2xx terug richting Mollie, ook bij onbekende payloads — anders
- * blijft Mollie retrying en spammen we onszelf.
+ * blijft Mollie retrying en spammen we onszelf. Een mislukte verwerking
+ * wordt sinds PR 1 (webhook-betrouwbaarheid) wel persistent vastgelegd als
+ * tmc.events-type webhook.failed; de respons blijft 200, non-2xx is PR 2.
  */
 export async function POST(request: Request) {
+  // Buiten de try, zodat de buitenste catch ze in webhook.failed kan zetten.
+  let paymentId: string | null = null;
+  let orderIdForFailure: string | null = null;
   try {
     const formData = await request.formData();
-    const paymentId = String(formData.get("id") ?? "");
+    paymentId = String(formData.get("id") ?? "");
     if (!paymentId) {
       return NextResponse.json({ ok: true });
     }
@@ -125,6 +233,14 @@ export async function POST(request: Request) {
         `[mollie/webhook] payments.get failed (id=${paymentId}, mode=${mode})`,
         e,
       );
+      // Persistent spoor; het pad blijft bewust 200 (PR 2 beslist over
+      // non-2xx en over het onderscheid 404 versus transiënt).
+      await recordWebhookFailure({
+        path: "payments_get",
+        molliePaymentId: paymentId,
+        mode,
+        error: e,
+      });
       return NextResponse.json({ ok: true });
     }
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
@@ -134,6 +250,7 @@ export async function POST(request: Request) {
       typeof meta.ptBookingId === "string" ? meta.ptBookingId : undefined;
     const orderId =
       typeof meta.orderId === "string" ? meta.orderId : undefined;
+    orderIdForFailure = orderId ?? null;
     const profileId =
       typeof meta.profileId === "string" ? meta.profileId : undefined;
     const type = typeof meta.type === "string" ? meta.type : undefined;
@@ -237,32 +354,44 @@ export async function POST(request: Request) {
       }
 
       if (payment.status === "paid") {
-        await supabase
+        // Alleen de daadwerkelijke flip pending -> booked vuurt ntfy en
+        // event; een webhook-retry op een al geboekte rij herhaalt ze niet.
+        // Zelfde poort als !already_activated in de orderpijplijn hieronder.
+        const { data: flipped, error: flipErr } = await supabase
           .from("pt_bookings")
           .update({ status: "booked" })
           .eq("id", ptBookingId)
-          .in("status", ["pending", "booked"]);
+          .eq("status", "pending")
+          .select("id");
+        if (flipErr) {
+          console.error("[mollie/webhook] pt_bookings flip failed", ptBookingId, flipErr);
+        }
+        const justConfirmed = (flipped?.length ?? 0) > 0;
+        // De hold wissen is de toestand die bij 'booked' hoort, geen
+        // signaal; idempotent, dus ook op een retry gewoon uitvoeren.
         await supabase
           .from("pt_sessions")
           .update({ hold_expires_at: null })
           .eq("id", booking.pt_session_id);
-        await sendNotification(
-          "Nieuwe PT-boeking",
-          `PT sessie betaald. Booking ${ptBookingId}, €${(amountCents / 100).toFixed(2)}.`,
-          "tada",
-        );
-        await emitEvent({
-          type: "pt_booking.confirmed",
-          actorType: "system",
-          subjectType: "pt_booking",
-          subjectId: ptBookingId,
-          payload: {
-            profile_id: booking.profile_id,
-            pt_booking_id: ptBookingId,
-            payment_id: payment.id,
-            amount_cents: amountCents,
-          },
-        });
+        if (justConfirmed) {
+          await sendNotification(
+            "Nieuwe PT-boeking",
+            `PT sessie betaald. Booking ${ptBookingId}, €${(amountCents / 100).toFixed(2)}.`,
+            "tada",
+          );
+          await emitEvent({
+            type: "pt_booking.confirmed",
+            actorType: "system",
+            subjectType: "pt_booking",
+            subjectId: ptBookingId,
+            payload: {
+              profile_id: booking.profile_id,
+              pt_booking_id: ptBookingId,
+              payment_id: payment.id,
+              amount_cents: amountCents,
+            },
+          });
+        }
       } else if (
         ["failed", "expired", "canceled"].includes(payment.status) &&
         booking.status === "pending"
@@ -327,6 +456,13 @@ export async function POST(request: Request) {
 
       if (activateErr || !activation) {
         console.error("[mollie/webhook] activate_order failed", activateErr);
+        await recordWebhookFailure({
+          path: "activate_order",
+          molliePaymentId: payment.id,
+          orderId,
+          mode,
+          error: activateErr ?? new Error("activate_order returned null"),
+        });
         await sendNotification(
           "Order-activatie gefaald",
           `Order ${orderId}: activate_order gaf een fout terug. Betaling is binnen — handmatig naklopen.`,
@@ -336,6 +472,17 @@ export async function POST(request: Request) {
       }
 
       if (!activation.ok) {
+        // Retry op een eerder geblokkeerde order: activate_order zette die
+        // toen al op 'paid' met blocked_reason en de webhook meldde dat via
+        // ntfy. Een herhaalde webhook krijgt nu invalid_status/paid terug.
+        // Dat is al verwerkt, geen nieuwe weigering, dus geen tweede melding.
+        if (activation.reason === "invalid_status" && activation.status === "paid") {
+          console.warn("[mollie/webhook] retry op geblokkeerde order", {
+            orderId,
+            paymentId: payment.id,
+          });
+          return NextResponse.json({ ok: true });
+        }
         // blocked_duplicate_membership = conditie 2: geld binnen, geen
         // membership aangemaakt omdat het profiel er via een andere order
         // al één heeft. orders.blocked_reason markeert de rij persistent
@@ -457,41 +604,53 @@ export async function POST(request: Request) {
       }
 
       // Subscription-order: maak de Mollie-subscription één cyclus na de
-      // eerste betaling. idempotencyKey + de unique constraint op
-      // memberships.mollie_subscription_id voorkomen een dubbele
-      // subscription bij een webhook-retry; needs_subscription is ook
-      // true op een already_activated-retry waarvan het eerdere
-      // subscription-aanmaken mislukte, dus dit is meteen het herstelpad.
+      // eerste betaling. needs_subscription is ook true op een
+      // already_activated-retry waarvan het eerdere aanmaken of de write van
+      // het id mislukte, dus dit is meteen het herstelpad. Drie guards (PR 1
+      // webhook-betrouwbaarheid): eerst kijken of Mollie al een subscription
+      // voor dit membership heeft (de idempotencyKey dekt een uur, Mollie's
+      // retries lopen 26 uur), dan pas aanmaken, en de write van het id wordt
+      // gecontroleerd in plaats van blind vertrouwd. De unique constraint op
+      // memberships.mollie_subscription_id blijft de laatste vangrail.
       if (activation.needs_subscription && activation.mollie_customer_id) {
+        const membershipId = activation.membership_id as string;
+        const customerId = activation.mollie_customer_id as string;
+        let subscriptionId: string | null = null;
+        let reusedExisting = false;
         try {
-          const subStart = new Date();
-          subStart.setDate(
-            subStart.getDate() + activation.billing_cycle_weeks * 7
-          );
-          const startDateISO = subStart.toISOString().split("T")[0];
+          subscriptionId = await findExistingSubscriptionId(mollie, customerId, membershipId);
+          if (subscriptionId) {
+            reusedExisting = true;
+            console.warn("[mollie/webhook] bestaande subscription hergebruikt", {
+              orderId,
+              membershipId,
+              subscriptionId,
+            });
+          } else {
+            const subStart = new Date();
+            subStart.setDate(
+              subStart.getDate() + activation.billing_cycle_weeks * 7
+            );
+            const startDateISO = subStart.toISOString().split("T")[0];
 
-          const subscription = await mollie.customerSubscriptions.create({
-            customerId: activation.mollie_customer_id,
-            amount: {
-              currency: "EUR",
-              value: (activation.recurring_cents / 100).toFixed(2),
-            },
-            interval: "28 days",
-            description: `TMC order ${orderId}`,
-            startDate: startDateISO,
-            webhookUrl: mollieWebhookUrl(mode),
-            metadata: {
-              membershipId: activation.membership_id,
-              type: "recurring",
-            },
-            idempotencyKey: `order-${orderId}-sub`,
-          });
-
-          await supabase
-            .from("memberships")
-            .update({ mollie_subscription_id: subscription.id })
-            .eq("id", activation.membership_id)
-            .is("mollie_subscription_id", null);
+            const subscription = await mollie.customerSubscriptions.create({
+              customerId,
+              amount: {
+                currency: "EUR",
+                value: (activation.recurring_cents / 100).toFixed(2),
+              },
+              interval: "28 days",
+              description: `TMC order ${orderId}`,
+              startDate: startDateISO,
+              webhookUrl: mollieWebhookUrl(mode),
+              metadata: {
+                membershipId,
+                type: "recurring",
+              },
+              idempotencyKey: `order-${orderId}-sub`,
+            });
+            subscriptionId = subscription.id;
+          }
         } catch (e) {
           // Geen retry beloven: deze route antwoordt 200 en Mollie herhaalt
           // niet na een 2xx. Het herstelpad via needs_subscription bestaat
@@ -500,9 +659,86 @@ export async function POST(request: Request) {
           console.error("[mollie/webhook] subscription create failed", e);
           await sendNotification(
             "Subscription aanmaken mislukt",
-            `Order ${orderId}, membership ${activation.membership_id}: het lid is actief en heeft betaald, maar de Mollie-subscription voor de recurring incasso is niet aangemaakt. Handmatig ingrijpen nodig: subscription in Mollie aanmaken op customer ${activation.mollie_customer_id} en mollie_subscription_id op de membership zetten.`,
+            `Order ${orderId}, membership ${membershipId}: het lid is actief en heeft betaald, maar de Mollie-subscription voor de recurring incasso is niet aangemaakt of niet te controleren. Handmatig ingrijpen nodig: eerst in Mollie kijken of customer ${customerId} al een subscription voor dit membership heeft, anders aanmaken, en mollie_subscription_id op de membership zetten.`,
             "warning"
           );
+        }
+
+        if (subscriptionId) {
+          const { data: linked, error: linkErr } = await supabase
+            .from("memberships")
+            .update({ mollie_subscription_id: subscriptionId })
+            .eq("id", membershipId)
+            .is("mollie_subscription_id", null)
+            .select("id");
+
+          if (linkErr) {
+            // De ernstigste toestand in dit pad: het abonnement bestaat bij
+            // Mollie en nergens bij ons, en elke recurring-webhook valt
+            // straks in "unknown subscription". Niets automatisch
+            // annuleren; het id staat in het event, een mens koppelt het.
+            console.error(
+              "[mollie/webhook] subscription link write failed",
+              { orderId, membershipId, subscriptionId },
+              linkErr,
+            );
+            await recordWebhookFailure({
+              path: "subscription_link_write",
+              molliePaymentId: payment.id,
+              orderId,
+              mode,
+              error: linkErr,
+              extra: {
+                subscription_id: subscriptionId,
+                membership_id: membershipId,
+                mollie_customer_id: customerId,
+                reused_existing: reusedExisting,
+              },
+            });
+            await sendNotification(
+              "Subscription niet gekoppeld",
+              `Order ${orderId}, membership ${membershipId}: Mollie-subscription ${subscriptionId} bestaat op customer ${customerId}, maar mollie_subscription_id kon niet worden weggeschreven. Handmatig op de membership zetten; NIET opnieuw aanmaken.`,
+              "warning"
+            );
+          } else if ((linked?.length ?? 0) === 0) {
+            // Geen rij bijgewerkt: er stond al een id. Hetzelfde id is een
+            // onschuldige race met een parallelle levering; een ander id
+            // betekent twee subscriptions op één mandaat.
+            const { data: current } = await supabase
+              .from("memberships")
+              .select("mollie_subscription_id")
+              .eq("id", membershipId)
+              .maybeSingle();
+            const existingId =
+              (current as { mollie_subscription_id: string | null } | null)
+                ?.mollie_subscription_id ?? null;
+            if (existingId && existingId !== subscriptionId) {
+              await recordWebhookFailure({
+                path: "subscription_link_write",
+                molliePaymentId: payment.id,
+                orderId,
+                mode,
+                error: new Error("membership already linked to another subscription"),
+                extra: {
+                  subscription_id: subscriptionId,
+                  existing_subscription_id: existingId,
+                  membership_id: membershipId,
+                  mollie_customer_id: customerId,
+                },
+              });
+              await sendNotification(
+                "Twee subscriptions op één membership",
+                `Order ${orderId}, membership ${membershipId} is gekoppeld aan ${existingId}, maar Mollie heeft op customer ${customerId} ook ${subscriptionId}. Een van de twee handmatig annuleren in Mollie.`,
+                "warning"
+              );
+            }
+          } else if (reusedExisting) {
+            await sendNotification(
+              "Bestaande subscription alsnog gekoppeld",
+              `Order ${orderId}, membership ${membershipId}: Mollie had al subscription ${subscriptionId}; die is nu gekoppeld in plaats van een tweede aan te maken.`,
+              "envelope"
+            );
+          }
         }
       }
 
@@ -591,6 +827,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[API /api/mollie/webhook]", e);
+    await recordWebhookFailure({
+      path: "unhandled",
+      molliePaymentId: paymentId,
+      orderId: orderIdForFailure,
+      mode: modeFromRequest(request),
+      error: e,
+    });
     return NextResponse.json({ ok: true });
   }
 }
