@@ -107,7 +107,7 @@ placeholder in, geen apart initiatief.
 - **Webdir-laadscherm doet niets in server-mode**: PR #31 corrigeerde de PR1-aanname dat het handgeschreven laadscherm bij koude start getoond zou worden — in server-mode laadt de webview `server.url` direct, het laadscherm wordt nooit getoond. Het oorspronkelijke doel (merk-consistent scherm tonen, en het "blanco scherm bij geen netwerk"-probleem opvangen) is daarmee vermoedelijk onopgelost. Navragen bij CC of hier een andere oplossing voor is (bv. een `SplashScreen`-config die wél werkt in server-mode) voordat dit als afgerond geldt.
 - **Mollie-betaalflows via `window.location.href`**: navigeert naar een ander origin; de huidige stopgap (`allowNavigation`) werkt, maar de robuuste fix (`@capacitor/browser`) is genoemd, niet gebouwd. Moet opgelost zijn vóór er met echte betalingen via de app gewerkt wordt.
 - Firebase-project (`tmc-member-app`, `europe-west4`) bestaat nog niet, staat als `// COPY: confirm` in de code
-- server.url-risicoprofiel (Apple-richtlijn 4.7.2) expliciet vastgelegd om te heroverwegen bij de start van Fase 3, want het risico wordt groter zodra Akiles' native BLE/NFC erbij komt
+- server.url-risicoprofiel (Apple-richtlijn 4.2, sub-guideline 4.2.2; niet 4.7, dat gaat over mini-apps en plug-ins en is hier niet van toepassing) expliciet vastgelegd om te heroverwegen bij de start van Fase 3, want het risico wordt groter zodra Akiles' native BLE/NFC erbij komt
 
 ## 8. Buiten-openingstijden-toegang als abonnementskenmerk: taakverdeling Fable/Sonnet
 
