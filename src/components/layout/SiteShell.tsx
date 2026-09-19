@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
-import { FooterCTA } from "@/components/blocks/FooterCTA";
 import { UtmTracker } from "./UtmTracker";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 
@@ -104,7 +103,6 @@ export function SiteShell({
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>
-      <FooterCTA />
       <Footer settings={settings} />
       <InfoOptInBanner />
       <CookieConsent />

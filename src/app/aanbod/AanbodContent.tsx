@@ -278,25 +278,6 @@ export function AanbodContent({ images, faqs }: AanbodContentProps) {
         </Container>
       </Section>
 
-      {/* Mobility Reset CTA */}
-      <Section bg="elevated">
-        <Container className="max-w-3xl text-center">
-          <ScrollReveal>
-            <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-              Gratis programma
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl lg:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
-              Benieuwd hoe mobiel je bent?
-            </h2>
-            <p className="text-text-muted text-lg mb-8 max-w-xl mx-auto">
-              Probeer de gratis zeven-dagen mobility reset. Elke dag een korte
-              video van Marlon.
-            </p>
-            <Button href="/mobility-reset">Start de reset</Button>
-          </ScrollReveal>
-        </Container>
-      </Section>
-
       {/* FAQ, live uit Sanity (page == "aanbod"). Geen sectie als de fetch
           leeg terugkomt, in plaats van een lege kop zonder inhoud. */}
       {faqs.length > 0 && (
@@ -352,12 +333,6 @@ export function AanbodContent({ images, faqs }: AanbodContentProps) {
               past.
             </p>
             <Button href="/proefles">Plan je proefles</Button>
-            <p className="text-text-muted text-sm mt-8">
-              Nog niet klaar om te starten?{" "}
-              <QuietLink href="/beweeg-beter" className="inline">
-                Download de Beweeg Beter guide
-              </QuietLink>
-            </p>
           </ScrollReveal>
         </Container>
       </Section>

@@ -117,9 +117,6 @@ export function Hero({ settings, heroImage }: HeroProps) {
           className="tmc-fade-up flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Button href="/proefles">Plan je proefles</Button>
-          <Button href="/beweeg-beter" variant="secondary">
-            Download de guide
-          </Button>
         </div>
       </Container>
 

@@ -232,27 +232,17 @@ Alle leads van de website komen automatisch in MailerLite terecht met een **tag*
 
 | Tag | Bron |
 |---|---|
-| `PDF Lead` | Beweeg Beter guide gedownload |
-| `Mobility Reset` | 7‑dagen e‑mail sequence gestart |
-| `Mobility Check Lead` | Gratis Mobility Check aangevraagd |
 | `Proefles Lead` | Proefles aangevraagd |
 | `Contact Lead` | Contactformulier |
 | `Crowdfunding Backer` | Crowdfunding betaling gedaan |
-| `Member` | Bestaand lid (wordt uitgesloten van lead magnets) |
+| `Member` | Bestaand lid |
+
+De PDF-guide, de 7-dagen Mobility Reset sequence en de Mobility Check funnel zijn per 2026-09-19 tijdelijk van de site gehaald. De bijbehorende tags en automations staan nog in MailerLite maar krijgen geen nieuwe leads meer binnen; die voedende pagina's bestaan niet meer. Niks aan doen tot de funnel terugkomt.
 
 ### Wat je daar doet
 - **Subscribers** → zoek een lead op naam/e‑mail.
-- **Automations** → de e‑mail sequences (Beweeg Beter PDF, Mobility Reset 7 dagen, follow‑ups). Aanpassen kan, maar test eerst met je eigen e‑mailadres.
+- **Automations** → lopende e‑mail sequences. Aanpassen kan, maar test eerst met je eigen e‑mailadres.
 - **Campaigns** → ad‑hoc nieuwsbrieven (bv. een maandelijkse update aan leden).
-
-### Belangrijke automations om te kennen
-1. **PDF download** → tag `PDF Lead` → 1 dag later automatisch in Mobility Reset sequence.
-2. **Mobility Reset dag 7** → CTA naar `/mobility-check`.
-3. **Geen klik op dag 7?** → dag 9 follow‑up "Heb je vragen?"
-4. **Mobility Check aanvraag** → notificatie naar jou + auto‑reply naar klant.
-5. **No‑show check‑in na 7 dagen** → follow‑up mail.
-
-**Aanpassen?** Open de automation, klik **Edit**, pas tekst aan, **Save**. Lopende leads gaan op het oude pad door — alleen nieuwe leads krijgen de nieuwe versie.
 
 ---
 
@@ -265,11 +255,7 @@ Eens per maand, ca. 30 minuten:
 - [ ] **Openstaande facturen** — open Admin → klik op de Quick Tile. Stuur eventueel een herinnering of bel.
 - [ ] **Pauze‑verzoeken nakijken** — staat er nog iets open?
 - [ ] **Aankondigingen opschonen** — staan er aankondigingen die niet meer relevant zijn?
-- [ ] **GA4 rapportage** (https://analytics.google.com) — kijk naar het Leads dashboard. Doel:
-  - 10+ Mobility Check aanvragen/maand
-  - 50+ PDF downloads/maand
-  - 30+ Mobility Reset opt‑ins/maand
-- [ ] **MailerLite open & click rates** — open rate Reset sequence >50%, klik op dag 7 CTA >10%. Zo niet: pas de tekst aan.
+- [ ] **GA4 rapportage** (https://analytics.google.com) — kijk naar het Leads dashboard.
 - [ ] **Google Business Profile** — post 1× per week iets nieuws (foto, update, aankondiging).
 - [ ] **Recensies** — vraag tevreden leden om een Google review.
 

@@ -102,24 +102,6 @@ export default defineType({
       validation: (Rule) => Rule.max(6),
     }),
 
-    // Lead magnet
-    defineField({
-      name: "beweegBeterCover",
-      title: "Beweeg Beter guide cover",
-      type: "image",
-      options: { hotspot: true },
-      description:
-        "Cover/mockup van de Beweeg Beter PDF guide. 600×800px (3:4 verhouding). Portrait formaat.",
-    }),
-    defineField({
-      name: "mobilityResetThumb",
-      title: "Mobility Reset video thumbnail",
-      type: "image",
-      options: { hotspot: true },
-      description:
-        "Thumbnail voor de Mobility Reset video preview. 1280×720px (16:9 verhouding). Landscape formaat.",
-    }),
-
     // Social sharing
     defineField({
       name: "ogImage",

@@ -50,22 +50,15 @@ export function Footer({ settings }: FooterProps) {
             </div>
 
             <div>
+              {/* COPY: confirm met Marlon, kolom met een kop voor drie links
+                  heeft nu nog maar een link over sinds de lead magnets
+                  tijdelijk verwijderd zijn, andere kop kan hier beter passen */}
               <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
                 Gratis starten
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <QuietLink href="/beweeg-beter">Beweeg Beter guide</QuietLink>
-                </li>
-                <li>
-                  <QuietLink href="/mobility-reset">
-                    7-Dagen Mobility Reset
-                  </QuietLink>
-                </li>
-                <li>
-                  <QuietLink href="/mobility-check">
-                    Gratis Mobility Check
-                  </QuietLink>
+                  <QuietLink href="/proefles">Plan je proefles</QuietLink>
                 </li>
               </ul>
             </div>

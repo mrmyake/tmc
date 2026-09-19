@@ -153,24 +153,6 @@ async function main(): Promise<void> {
     'form:has(input[name="email"])',
     "contact",
   );
-  await checkFormRender(
-    page,
-    "/beweeg-beter",
-    'form:has(input[name="email"])',
-    "beweeg-beter",
-  );
-  await checkFormRender(
-    page,
-    "/mobility-reset",
-    'form:has(input[name="email"])',
-    "mobility-reset",
-  );
-  await checkFormRender(
-    page,
-    "/mobility-check",
-    'form:has(input[name="email"])',
-    "mobility-check",
-  );
   await checkCrowdfundingFlow(page);
   await checkStudio(page);
   await checkCookieBanner(page);
