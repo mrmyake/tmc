@@ -38,6 +38,15 @@ import {
  * Meting (PR 3a): de keten logt per stap de duur in milliseconden als één
  * console.info-regel, zodat de eerste test-mode-betaling op een preview de
  * echte cijfers oplevert tegenover Mollie's timeout van 15 seconden.
+ *
+ * Kritiek pad versus naloop (3a-bis): activate_order en het subscription-
+ * pad bepalen de uitkomst en blijven altijd vóór het teruggeven daarvan;
+ * het subscription-pad leunt op de `retry` die Mollie laat herhalen. De
+ * vijf zijeffecten en de mail-retry (de "naloop") bepalen de uitkomst
+ * niet. Geeft de aanroeper `options.defer` mee (de webhook: after() uit
+ * next/server), dan wordt de naloop daaraan overhandigd en draait hij na
+ * de respons; zonder `defer` (een cron) draait hij inline op dezelfde plek
+ * als voorheen. De splitsing zit dus bij de aanroeper, niet in de keten.
  */
 
 export interface ActivationCaller {
@@ -53,6 +62,14 @@ export interface ActivationInput {
   payment: { id: string; amountCents: number };
   /** Uit de Mollie-metadata (webhook) of uit de order-rij (cron); null als onbekend. */
   profileId: string | null;
+}
+
+export interface ActivationOptions {
+  /**
+   * Overhandigt de naloop aan de aanroeper in plaats van hem te awaiten.
+   * De webhook geeft after() mee; een cron laat dit weg.
+   */
+  defer?: (work: () => Promise<void>) => void;
 }
 
 export type ActivationResult =
@@ -135,6 +152,7 @@ function stepTimer() {
 export async function runActivationChain(
   caller: ActivationCaller,
   input: ActivationInput,
+  options: ActivationOptions = {},
 ): Promise<ActivationResult> {
   const { supabase, mollie, mode, orderId, payment, profileId } = input;
   const { source } = caller;
@@ -219,106 +237,132 @@ export async function runActivationChain(
     timer.mark("ntfy_late_payment");
   }
 
-  if (!activation.already_activated) {
-    // Vijf zijeffecten, allemaal throw-vrij per contract. De poort voor
-    // ntfy en order.activated is uitsluitend deze tak (at-most-once bij een
-    // crash na de commit van activate_order, bewust geaccepteerd); de
-    // bevestigingsmail heeft zijn eigen poort (order.confirmation_sent),
-    // GA4 is by design at-most-once, en Akiles heeft de nachtelijke sync
-    // als vangnet. Zie de PR-body van #193, stap 0.
-    //
-    // pt_order (PT-agenda C1): losse-sessie- of programma-betaling;
-    // er hoort geen membership bij, de sessies staan al geboekt.
-    await sendNotification(
-      activation.needs_subscription
-        ? "Nieuw abonnement!"
-        : activation.pt_order
-          ? "PT betaald!"
-          : "Product verkocht!",
-      activation.pt_order
-        ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
-        : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
-      "tada,moneybag"
-    );
-    timer.mark("ntfy_activated");
-    await emitEvent({
-      type: "order.activated",
-      actorType: caller.actorType,
-      subjectType: "order",
-      subjectId: orderId,
-      payload: {
-        profile_id: profileId ?? null,
-        order_id: orderId,
-        membership_id: activation.membership_id,
-        payment_id: payment.id,
-      },
-    });
-    timer.mark("event_order_activated");
+  // Naloop (3a-bis): de vijf zijeffecten of de mail-retry. Met `defer`
+  // draait dit na de respons, zonder inline, in beide gevallen in dezelfde
+  // volgorde als voorheen. Throw-vrij per contract en zonder invloed op de
+  // uitkomst van de keten; de eigen try/catch is de laatste vangrail.
+  const deferred = Boolean(options.defer);
+  const followUp = async (): Promise<void> => {
+    const followTimer = stepTimer();
+    try {
+      if (!activation.already_activated) {
+        // Vijf zijeffecten, allemaal throw-vrij per contract. De poort voor
+        // ntfy en order.activated is uitsluitend deze tak (at-most-once bij een
+        // crash na de commit van activate_order, bewust geaccepteerd); de
+        // bevestigingsmail heeft zijn eigen poort (order.confirmation_sent),
+        // GA4 is by design at-most-once, en Akiles heeft de nachtelijke sync
+        // als vangnet. Zie de PR-body van #193, stap 0.
+        //
+        // pt_order (PT-agenda C1): losse-sessie- of programma-betaling;
+        // er hoort geen membership bij, de sessies staan al geboekt.
+        await sendNotification(
+          activation.needs_subscription
+            ? "Nieuw abonnement!"
+            : activation.pt_order
+              ? "PT betaald!"
+              : "Product verkocht!",
+          activation.pt_order
+            ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
+            : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
+          "tada,moneybag"
+        );
+        followTimer.mark("ntfy_activated");
+        await emitEvent({
+          type: "order.activated",
+          actorType: caller.actorType,
+          subjectType: "order",
+          subjectId: orderId,
+          payload: {
+            profile_id: profileId ?? null,
+            order_id: orderId,
+            membership_id: activation.membership_id,
+            payment_id: payment.id,
+          },
+        });
+        followTimer.mark("event_order_activated");
 
-    // Bevestigingsmail naar het lid (spec-facturatie.md, sectie
-    // "Bevestigingsmail na betaling"): exact één keer per order, met
-    // tmc.events (order.confirmation_sent) als poort. Awaited zodat het
-    // event geschreven is voor de aanroeper eindigt, maar de helper
-    // throwt nooit en een mislukte mail verandert niets aan de
-    // activatie of aan de uitkomst; alleen een ntfy zodat iemand het ziet.
-    const confirmation = await sendOrderConfirmation(orderId);
-    if (confirmation.outcome === "failed") {
-      await sendNotification(
-        "Bevestigingsmail niet verstuurd",
-        `Order ${orderId} is geactiveerd, maar de bevestigingsmail naar het lid is niet verstuurd. Handmatig nasturen of MailerSend checken.`,
-        "warning"
-      );
-    } else if (confirmation.outcome === "skipped") {
-      console.warn("[activation-chain] confirmation skipped", {
+        // Bevestigingsmail naar het lid (spec-facturatie.md, sectie
+        // "Bevestigingsmail na betaling"): exact één keer per order, met
+        // tmc.events (order.confirmation_sent) als poort. Awaited zodat het
+        // event geschreven is voor de aanroeper eindigt, maar de helper
+        // throwt nooit en een mislukte mail verandert niets aan de
+        // activatie of aan de uitkomst; alleen een ntfy zodat iemand het ziet.
+        const confirmation = await sendOrderConfirmation(orderId);
+        if (confirmation.outcome === "failed") {
+          await sendNotification(
+            "Bevestigingsmail niet verstuurd",
+            `Order ${orderId} is geactiveerd, maar de bevestigingsmail naar het lid is niet verstuurd. Handmatig nasturen of MailerSend checken.`,
+            "warning"
+          );
+        } else if (confirmation.outcome === "skipped") {
+          console.warn("[activation-chain] confirmation skipped", {
+            orderId,
+            reason: confirmation.reason,
+          });
+        }
+        followTimer.mark("confirmation_mail");
+        // Conversiebrug (spec-analytics.md): server-side GA4 purchase,
+        // fire-and-forget en buiten het idempotentiepad. Deze
+        // !already_activated-tak is het exactly-once-signaal (rijlock +
+        // statusovergang in tmc.activate_order); de helper voegt daar geen
+        // eigen dedupe aan toe. Geen await — een GA4-storing mag de
+        // betaalverwerking nooit blokkeren. De helper throwt zelf nooit;
+        // de .catch is de laatste vangrail.
+        void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
+          console.error("[activation-chain] sendPurchaseToGa4", e),
+        );
+
+        // Deurtoegang (spec-akiles-access.md): zelfde functie als de
+        // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet
+        // tot de volgende nacht wacht. Awaited, maar syncMembershipAccess
+        // throwt nooit en zonder Akiles-configuratie doet hij niets; de
+        // betaalflow kan hier niet op stuklopen.
+        if (activation.membership_id) {
+          const accessProfileId =
+            profileId ?? (await profileIdForMembership(supabase, activation.membership_id));
+          if (accessProfileId) await syncMembershipAccess(accessProfileId);
+        }
+        followTimer.mark("akiles_sync");
+      } else {
+        // Retry-pad (aanroep voor een al geactiveerde order): de
+        // bevestigingsmail mag alsnog, want de poort is niet deze tak maar het
+        // order.confirmation_sent-event in tmc.events. Is de mail eerder wel
+        // verstuurd, dan doet de helper niets (already_sent); is hij eerder
+        // mislukt (bijvoorbeeld een geweigerde MailerSend-key, gezien op
+        // 2026-09-08), dan vertrekt hij nu alsnog exact één keer.
+        const retry = await sendOrderConfirmation(orderId);
+        if (retry.outcome === "sent") {
+          await sendNotification(
+            "Bevestigingsmail alsnog verstuurd",
+            `Order ${orderId}: bevestigingsmail is bij een herhaalde verwerking alsnog verstuurd.`,
+            "envelope"
+          );
+        } else if (retry.outcome === "failed") {
+          await sendNotification(
+            "Bevestigingsmail niet verstuurd",
+            `Order ${orderId} (retry): de bevestigingsmail naar het lid is opnieuw niet verstuurd. MailerSend checken.`,
+            "warning"
+          );
+        }
+        followTimer.mark("confirmation_mail_retry");
+      }
+    } catch (err) {
+      console.error("[activation-chain] naloop threw", { source, orderId }, err);
+    } finally {
+      followTimer.report({
+        source,
         orderId,
-        reason: confirmation.reason,
+        phase: deferred ? "deferred" : "inline",
+        already_activated: Boolean(activation.already_activated),
       });
     }
-    timer.mark("confirmation_mail");
-    // Conversiebrug (spec-analytics.md): server-side GA4 purchase,
-    // fire-and-forget en buiten het idempotentiepad. Deze
-    // !already_activated-tak is het exactly-once-signaal (rijlock +
-    // statusovergang in tmc.activate_order); de helper voegt daar geen
-    // eigen dedupe aan toe. Geen await — een GA4-storing mag de
-    // betaalverwerking nooit blokkeren. De helper throwt zelf nooit;
-    // de .catch is de laatste vangrail.
-    void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
-      console.error("[activation-chain] sendPurchaseToGa4", e),
-    );
-
-    // Deurtoegang (spec-akiles-access.md): zelfde functie als de
-    // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet
-    // tot de volgende nacht wacht. Awaited, maar syncMembershipAccess
-    // throwt nooit en zonder Akiles-configuratie doet hij niets; de
-    // betaalflow kan hier niet op stuklopen.
-    if (activation.membership_id) {
-      const accessProfileId =
-        profileId ?? (await profileIdForMembership(supabase, activation.membership_id));
-      if (accessProfileId) await syncMembershipAccess(accessProfileId);
-    }
-    timer.mark("akiles_sync");
+  };
+  if (options.defer) {
+    options.defer(followUp);
+    timer.mark("follow_up_scheduled");
   } else {
-    // Retry-pad (aanroep voor een al geactiveerde order): de
-    // bevestigingsmail mag alsnog, want de poort is niet deze tak maar het
-    // order.confirmation_sent-event in tmc.events. Is de mail eerder wel
-    // verstuurd, dan doet de helper niets (already_sent); is hij eerder
-    // mislukt (bijvoorbeeld een geweigerde MailerSend-key, gezien op
-    // 2026-09-08), dan vertrekt hij nu alsnog exact één keer.
-    const retry = await sendOrderConfirmation(orderId);
-    if (retry.outcome === "sent") {
-      await sendNotification(
-        "Bevestigingsmail alsnog verstuurd",
-        `Order ${orderId}: bevestigingsmail is bij een herhaalde verwerking alsnog verstuurd.`,
-        "envelope"
-      );
-    } else if (retry.outcome === "failed") {
-      await sendNotification(
-        "Bevestigingsmail niet verstuurd",
-        `Order ${orderId} (retry): de bevestigingsmail naar het lid is opnieuw niet verstuurd. MailerSend checken.`,
-        "warning"
-      );
-    }
-    timer.mark("confirmation_mail_retry");
+    await followUp();
+    timer.mark("follow_up_inline");
   }
 
   // Subscription-order: maak de Mollie-subscription één cyclus na de
@@ -494,6 +538,7 @@ export async function runActivationChain(
   timer.report({
     source,
     orderId,
+    phase: deferred ? "critical" : "full",
     already_activated: Boolean(activation.already_activated),
     needs_subscription: Boolean(activation.needs_subscription),
   });
