@@ -131,16 +131,12 @@ export function PrivacybeleidContent() {
                   locatiegegevens, geen toegang tot de rest van je toestel.
                 </li>
               </ul>
-              {/* Lead magnet funnels zijn verwijderd in PR #189, maar de
-                  MailerLite-abonnees bestaan nog.
-                  Deze passage blijft staan zolang die data bewaard wordt.
-                  Aanpassen pas bij opschoning van de lijsten. */}
+              {/* COPY: confirm met Marlon */}
               <p>
                 Op de website (buiten de member-app om) verzamelen we daarnaast
                 voor- en achternaam, e-mailadres, telefoonnummer en je
                 bericht als je een formulier invult — bijvoorbeeld voor een
-                proefles, de gratis Mobility Check, de Beweeg Beter guide of
-                het contactformulier.
+                proefles of het contactformulier.
               </p>
             </PolicySection>
 
@@ -216,16 +212,12 @@ export function PrivacybeleidContent() {
                   nodig zijn om een betaling te verwerken; wij ontvangen
                   alleen het resultaat (gelukt/mislukt) en een transactie-ID.
                 </li>
-                {/* Lead magnet funnels zijn verwijderd in PR #189, maar de
-                    MailerLite-abonnees bestaan nog.
-                    Deze passage blijft staan zolang die data bewaard wordt.
-                    Aanpassen pas bij opschoning van de lijsten. */}
+                {/* COPY: confirm met Marlon */}
                 <li>
                   <strong className="text-text">MailerLite</strong>{" "}
                   —
                   verstuurt e-mails waarvoor je je actief hebt aangemeld,
-                  zoals de Beweeg Beter guide, de Mobility Reset e-mailreeks
-                  en overige marketingcommunicatie.
+                  zoals marketingcommunicatie.
                 </li>
                 <li>
                   <strong className="text-text">MailerSend</strong>{" "}
