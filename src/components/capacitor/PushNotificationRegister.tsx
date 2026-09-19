@@ -16,12 +16,12 @@ import { registerPushToken } from "@/lib/member/push-actions";
  * src/app/app/layout.tsx, net als ServiceWorkerRegister.
  *
  * // COPY: confirm with Marlon — Firebase-project bestaat nog niet.
- * Voorstel: project-id `tmc-member-app`, weergavenaam "The Movement
- * Club", default Cloud-resource-locatie `europe-west4` (Nederland/
- * Eemshaven — FCM zelf is een wereldwijde dienst zonder regiokeuze,
- * dit bepaalt alleen waar eventuele latere Firebase-producten
- * (Firestore/Functions) hun data zouden opslaan). Eigenaarschap volgt
- * later, samen met de Apple/Google-developer-accounts.
+ * Voorstel: project-id `themovementclub`, weergavenaam "The Movement
+ * Club". De default Cloud-resource-locatie die je bij het aanmaken van
+ * een Firebase-project kiest, geldt alleen voor Firestore, Cloud
+ * Storage en App Engine, niet voor FCM: dat is een wereldwijde dienst
+ * zonder regiokeuze. Eigenaarschap volgt later, samen met de
+ * Apple/Google-developer-accounts.
  *
  * Nog te doen zodra dat project bestaat (niet hier gedaan — zou de
  * Android-build stilzwijgend breken voor iedereen zonder de echte

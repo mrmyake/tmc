@@ -11,6 +11,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - Maak een nieuwe branch met `git checkout -b <naam>` vanaf de juiste base. Gebruik nooit `git checkout <branch> -- .` om een working tree te "synchroniseren"; dat is geen branch-wissel maar een destructieve overschrijving.
 - Bij twijfel: stop en vraag. Verlies van niet-gecommit werk is nooit een acceptabele bijwerking van een voorbereidende stap.
 - Geef bij `gh pr create` altijd expliciet `--head <branch>` mee zolang er parallelle sessies draaien. Zonder die vlag leidt `gh` de branch af uit de checkout waarin het commando toevallig draait, en dat is bij een worktree-workflow niet jouw branch.
+- `.mcp.json` is gitignored en migreert dus niet mee naar een nieuwe git worktree. Een parallelle sessie start zonder MCP-servers tenzij het bestand handmatig wordt gekopieerd.
 
 ---
 
