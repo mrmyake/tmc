@@ -197,7 +197,7 @@ xl:  1280px  -- Wide desktop
 
 ## Lead Magnet Funnel
 
-De funnel (PDF "Beweeg Beter" guide, 7-Dagen Mobility Reset, Gratis Mobility Check) is op 2026-09-19 tijdelijk verwijderd in PR #TBD. Routes, API-endpoints en CTA's zijn weg; de MailerLite-groepen (`PDF_LEAD`, `MOBILITY_RESET`, `MOBILITY_CHECK`) en automations staan genoteerd in die PR-body voor als de funnel terugkomt.
+De funnel (PDF "Beweeg Beter" guide, 7-Dagen Mobility Reset, Gratis Mobility Check) is op 2026-09-19 tijdelijk verwijderd in PR #189. Routes, API-endpoints en CTA's zijn weg; de MailerLite-groepen (`PDF_LEAD`, `MOBILITY_RESET`, `MOBILITY_CHECK`) en automations staan genoteerd in die PR-body voor als de funnel terugkomt.
 
 ---
 
