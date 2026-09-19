@@ -96,3 +96,39 @@ test("gesloten poort (connection refused) geeft false, throwt niet", async () =>
     process.env.NTFY_URL = baseUrl;
   }
 });
+
+test("NTFY_URL wordt op Vercel-productie genegeerd (guard), elders gehonoreerd", async () => {
+  // Buiten productie (de tests hierboven) gaat het verkeer naar de lokale
+  // server. Met VERCEL_ENV=production moet dezelfde override genegeerd
+  // worden: het verzoek gaat dan naar het vaste topic, wat vanaf een
+  // testmachine niet mag gebeuren. Daarom zetten we de override op een
+  // gesloten poort en controleren we dat die NIET geraakt wordt: de
+  // lokale server blijft op nul nieuwe requests, en fetch krijgt via een
+  // afgeknepen omgeving geen kans het echte topic te bereiken doordat we
+  // de globale fetch tijdelijk vervangen.
+  const previousEnv = process.env.VERCEL_ENV;
+  const previousUrl = process.env.NTFY_URL;
+  const realFetch = globalThis.fetch;
+  const seen: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    seen.push(String(input));
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+  try {
+    process.env.NTFY_URL = "http://127.0.0.1:9/override";
+    process.env.VERCEL_ENV = "production";
+    const ok = await sendNotification("Titel", "Bericht");
+    assert.equal(ok, true);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0], "https://ntfy.sh/tmc-leads", "override hoort op productie genegeerd te worden");
+
+    process.env.VERCEL_ENV = "preview";
+    await sendNotification("Titel", "Bericht");
+    assert.equal(seen[1], "http://127.0.0.1:9/override", "override hoort op preview gehonoreerd te worden");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+    process.env.NTFY_URL = previousUrl;
+  }
+});
