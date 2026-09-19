@@ -179,7 +179,10 @@ function buildOAuthDeps(): OAuthDeps {
         client_secret: env.clientSecret ?? "",
         refresh_token: refreshToken,
       }),
-    notify: (title, message) => sendNotification(title, message, "rotating_light"),
+    // sendNotification geeft sinds PR #193 een boolean terug; hier bewust genegeerd.
+    notify: async (title, message) => {
+      await sendNotification(title, message, "rotating_light");
+    },
     now: () => new Date(),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     log: {

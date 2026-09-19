@@ -115,29 +115,34 @@ const MOLLIE_RETRY_WINDOW_MS = 26 * 60 * 60 * 1000;
  */
 const TRANSIENT_SQLSTATE_CLASSES = new Set(["08", "40", "53", "55", "57", "58", "XX"]);
 
+/** Throwt nooit: ook een object met een gooiende getter of toString levert een beschrijving op. */
 function describeError(err: unknown): { code: string | null; message: string } {
-  if (err && typeof err === "object") {
-    const e = err as {
-      code?: unknown; // PostgrestError (SQLSTATE of PGRSTxxx), Node-systeemcode
-      statusCode?: unknown; // Mollie ApiError
-      title?: unknown; // Mollie ApiError
-      name?: unknown;
-      message?: unknown;
-    };
-    const code =
-      typeof e.code === "string" && e.code !== ""
-        ? e.code
-        : typeof e.statusCode === "number"
-          ? String(e.statusCode)
-          : typeof e.title === "string"
-            ? e.title
-            : typeof e.name === "string"
-              ? e.name
-              : null;
-    const message = typeof e.message === "string" ? e.message : String(err);
-    return { code, message: message.slice(0, 500) };
+  try {
+    if (err && typeof err === "object") {
+      const e = err as {
+        code?: unknown; // PostgrestError (SQLSTATE of PGRSTxxx), Node-systeemcode
+        statusCode?: unknown; // Mollie ApiError
+        title?: unknown; // Mollie ApiError
+        name?: unknown;
+        message?: unknown;
+      };
+      const code =
+        typeof e.code === "string" && e.code !== ""
+          ? e.code
+          : typeof e.statusCode === "number"
+            ? String(e.statusCode)
+            : typeof e.title === "string"
+              ? e.title
+              : typeof e.name === "string"
+                ? e.name
+                : null;
+      const message = typeof e.message === "string" ? e.message : String(err);
+      return { code, message: message.slice(0, 500) };
+    }
+    return { code: null, message: String(err).slice(0, 500) };
+  } catch {
+    return { code: null, message: "(fout niet te beschrijven)" };
   }
-  return { code: null, message: String(err).slice(0, 500) };
 }
 
 /**
@@ -160,24 +165,29 @@ function describeError(err: unknown): { code: string | null; message: string } {
  *    dus 500. Asymmetrische kosten, zie docblock.
  */
 function classifyFailure(err: unknown): FailureClass {
-  if (!err || typeof err !== "object") return "transient";
-  const e = err as { code?: unknown; statusCode?: unknown; name?: unknown };
-  if (typeof e.statusCode === "number") {
-    const status = e.statusCode;
-    if (status >= 500 || status === 429 || status === 401 || status === 403) return "transient";
-    if (status >= 400) return "permanent";
-    return "transient";
-  }
-  if (typeof e.code === "string") {
-    const code = e.code;
-    if (code === "") return "transient";
-    if (code.startsWith("PGRST")) return code.startsWith("PGRST1") ? "permanent" : "transient";
-    if (code.length === 5) {
-      return TRANSIENT_SQLSTATE_CLASSES.has(code.slice(0, 2)) ? "transient" : "permanent";
+  try {
+    if (!err || typeof err !== "object") return "transient";
+    const e = err as { code?: unknown; statusCode?: unknown; name?: unknown };
+    if (typeof e.statusCode === "number") {
+      const status = e.statusCode;
+      if (status >= 500 || status === 429 || status === 401 || status === 403) return "transient";
+      if (status >= 400) return "permanent";
+      return "transient";
+    }
+    if (typeof e.code === "string") {
+      const code = e.code;
+      if (code === "") return "transient";
+      if (code.startsWith("PGRST")) return code.startsWith("PGRST1") ? "permanent" : "transient";
+      if (code.length === 5) {
+        return TRANSIENT_SQLSTATE_CLASSES.has(code.slice(0, 2)) ? "transient" : "permanent";
+      }
+      return "transient";
     }
     return "transient";
+  } catch {
+    // Een fout die zich niet laat inspecteren is per definitie onbekend: 500.
+    return "transient";
   }
-  return "transient";
 }
 
 /** 500 richting Mollie: geen 2xx, dus Mollie biedt de webhook opnieuw aan. */
@@ -186,15 +196,25 @@ function retryLater(reason: string) {
 }
 
 /**
+ * Uitkomst van de dedupe-lookup. "lookup_failed" is een eigen uitkomst en
+ * geen verkapte "not_found": de melding die daaruit volgt komt uit
+ * onzekerheid, niet uit een vastgestelde eerste keer, en dat moet achteraf
+ * in het event te zien zijn.
+ */
+type DedupeOutcome = "found" | "not_found" | "lookup_failed" | "not_applicable";
+
+/**
  * Is er binnen het retry-venster al een webhook.failed voor dit pad en deze
  * payment geschreven? De payload-containment (@>) loopt over
- * events_payload_gin (jsonb_path_ops). Bij een leesfout: false, liever een
- * dubbele melding dan een gemiste.
+ * events_payload_gin (jsonb_path_ops). Fail-open: bij een leesfout of een
+ * throw is de uitkomst "lookup_failed" en meldt de caller wel. Tijdens een
+ * databasestoring falen deze lookup en de webhook.failed-insert samen, en
+ * zwijgen is dan de slechtste uitkomst. Throwt nooit.
  */
-async function hasRecentFailure(
+async function lookupRecentFailure(
   path: WebhookFailurePath,
   molliePaymentId: string,
-): Promise<boolean> {
+): Promise<DedupeOutcome> {
   try {
     const admin = createAdminClient();
     const since = new Date(Date.now() - MOLLIE_RETRY_WINDOW_MS).toISOString();
@@ -206,20 +226,49 @@ async function hasRecentFailure(
       .gte("created_at", since)
       .limit(1);
     if (error) {
-      console.error("[mollie/webhook] webhook.failed lookup failed", error);
-      return false;
+      console.error("[mollie/webhook] webhook.failed lookup failed", { path, molliePaymentId }, error);
+      return "lookup_failed";
     }
-    return (data?.length ?? 0) > 0;
+    return (data?.length ?? 0) > 0 ? "found" : "not_found";
   } catch (err) {
-    console.error("[mollie/webhook] webhook.failed lookup threw", err);
-    return false;
+    console.error("[mollie/webhook] webhook.failed lookup threw", { path, molliePaymentId }, err);
+    return "lookup_failed";
   }
 }
 
 /**
- * Registreert een mislukte verwerking: altijd een webhook.failed-event, en
- * hooguit een ntfy per (pad, payment) binnen het retry-venster. Geeft de
- * classificatie terug zodat de caller de responscode kiest. Throwt nooit.
+ * Payload die gegarandeerd te serialiseren is. Extra velden van de caller
+ * gaan eerst door JSON; lukt dat niet (BigInt, cyclisch), dan vallen ze weg
+ * met een marker, en blijft de kern van het event staan.
+ */
+function safePayload(
+  base: Record<string, unknown>,
+  extra: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!extra) return base;
+  try {
+    return { ...base, ...(JSON.parse(JSON.stringify(extra)) as Record<string, unknown>) };
+  } catch {
+    return { ...base, extra_dropped: true };
+  }
+}
+
+/**
+ * Registreert een mislukte verwerking. Contract, zelfde als de vijf
+ * zijeffecten achter !already_activated: throwt onder geen enkele
+ * omstandigheid, ook niet vanuit de buitenste catch. De classificatie wordt
+ * vóór al het andere bepaald en altijd teruggegeven; de caller kiest daarop
+ * de responscode, en die hangt dus nooit af van het slagen van deze
+ * registratie.
+ *
+ * Volgorde en onafhankelijkheid: eerst de dedupe-lookup (fail-open), dan de
+ * ntfy, dan het webhook.failed-event. De ntfy gaat vóór de insert omdat
+ * tijdens een databasestoring ntfy het enige kanaal is dat nog werkt; de
+ * uitkomst van de een blokkeert de ander niet. Het event draagt de
+ * werkelijke uitkomsten: notified is alleen true als ntfy de melding heeft
+ * geaccepteerd, dedupe zegt waar het besluit op rustte. Kon het event niet
+ * geschreven worden terwijl er wel gemeld is, dan staat dat met payment-id
+ * en pad in de console, zodat de melding achteraf te plaatsen is.
  */
 async function registerFailure(args: {
   path: WebhookFailurePath;
@@ -232,38 +281,91 @@ async function registerFailure(args: {
   notify?: { title: string; message: string; tags?: string };
 }): Promise<FailureClass> {
   const classification = args.classification ?? classifyFailure(args.error);
-  const { code, message } = describeError(args.error);
-  const suppressed =
-    args.notify && args.molliePaymentId
-      ? await hasRecentFailure(args.path, args.molliePaymentId)
-      : false;
-  const notified = Boolean(args.notify) && !suppressed;
-  await emitEvent({
-    type: "webhook.failed",
-    actorType: "system",
-    subjectType: "payment",
-    subjectId: null,
-    payload: {
-      source: "mollie_webhook",
-      path: args.path,
-      mollie_payment_id: args.molliePaymentId,
-      order_id: args.orderId ?? null,
-      mode: args.mode,
-      error_code: code,
-      error_message: message,
-      classification,
-      response_status: classification === "transient" ? 500 : 200,
-      notified,
-      ...(args.extra ?? {}),
-    },
-  });
-  if (args.notify && notified) {
-    await sendNotification(args.notify.title, args.notify.message, args.notify.tags ?? "warning");
-  } else if (args.notify && suppressed) {
-    console.warn("[mollie/webhook] ntfy onderdrukt, al gemeld binnen het retry-venster", {
-      path: args.path,
-      molliePaymentId: args.molliePaymentId,
+  try {
+    const { code, message } = describeError(args.error);
+
+    // 1. Dedupe, fail-open.
+    let dedupe: DedupeOutcome = "not_applicable";
+    if (args.notify && args.molliePaymentId) {
+      dedupe = await lookupRecentFailure(args.path, args.molliePaymentId);
+    } else if (args.notify) {
+      // Geen payment-id (onparseerbare body): niets om op te dedupliceren.
+      dedupe = "not_found";
+    }
+    const shouldNotify = Boolean(args.notify) && dedupe !== "found";
+
+    // 2. ntfy, onafhankelijk van de insert hieronder. sendNotification
+    //    throwt nooit en geeft aan of ntfy de melding heeft geaccepteerd.
+    let notified = false;
+    if (args.notify && shouldNotify) {
+      const suffix =
+        dedupe === "lookup_failed"
+          ? " (dedupe-lookup mislukt; mogelijk al eerder gemeld)"
+          : "";
+      notified = await sendNotification(
+        args.notify.title,
+        `${args.notify.message}${suffix}`,
+        args.notify.tags ?? "warning",
+      );
+      if (!notified) {
+        console.error("[mollie/webhook] ntfy niet geaccepteerd", {
+          path: args.path,
+          molliePaymentId: args.molliePaymentId,
+        });
+      }
+    } else if (args.notify && dedupe === "found") {
+      console.warn("[mollie/webhook] ntfy onderdrukt, al gemeld binnen het retry-venster", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+      });
+    }
+
+    // 3. Persistent spoor, onafhankelijk van de ntfy hierboven.
+    const written = await emitEvent({
+      type: "webhook.failed",
+      actorType: "system",
+      subjectType: "payment",
+      subjectId: null,
+      payload: safePayload(
+        {
+          source: "mollie_webhook",
+          path: args.path,
+          mollie_payment_id: args.molliePaymentId,
+          order_id: args.orderId ?? null,
+          mode: args.mode,
+          error_code: code,
+          error_message: message,
+          classification,
+          response_status: classification === "transient" ? 500 : 200,
+          notified,
+          dedupe,
+        },
+        args.extra,
+      ),
     });
+    if (!written) {
+      // emitEvent logt de oorzaak zelf; hier de context om de melding (als
+      // die er was) achteraf aan een payment en pad te kunnen koppelen.
+      console.error("[mollie/webhook] webhook.failed niet geschreven", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+        orderId: args.orderId ?? null,
+        classification,
+        notified,
+        dedupe,
+      });
+    }
+  } catch (err) {
+    // Laatste vangrail; hier hoort nooit iets te komen, maar een fout in
+    // de registratie mag nooit een tweede fout in de route worden.
+    try {
+      console.error("[mollie/webhook] registerFailure threw", {
+        path: args.path,
+        molliePaymentId: args.molliePaymentId,
+      }, err);
+    } catch {
+      /* zelfs loggen mag hier niet gooien */
+    }
   }
   return classification;
 }
