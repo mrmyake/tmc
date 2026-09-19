@@ -55,6 +55,9 @@ export type EventType =
   // Payments
   | "payment.received"
   | "payment.failed"
+  // Mislukte verwerking van een inkomende webhook (Mollie); persistent spoor
+  // naast de vluchtige Vercel-log. Geen dedupe_key in de payload, bewust.
+  | "webhook.failed"
   // PT
   | "pt_booking.created"
   | "pt_booking.confirmed"
