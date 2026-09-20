@@ -10,6 +10,7 @@ import type {
   AccessCredentialsRow,
   AccessDb,
   AccessProfile,
+  DeviceTokenRow,
   ProfileSyncResult,
   SyncAllResult,
   SyncDeps,
@@ -158,10 +159,66 @@ function buildDb(admin: SupabaseClient): AccessDb {
         );
       if (error) throw new Error(`access_credentials schrijven: ${error.message}`);
     },
+
+    // Device-tokens (tmc.access_device_tokens, E1). Alleen ids; de
+    // tokenwaarde komt hier nooit langs.
+    async insertDeviceToken(row) {
+      const { data, error } = await admin
+        .from("access_device_tokens")
+        .insert(row)
+        .select(DEVICE_TOKEN_COLUMNS)
+        .single();
+      if (error) throw new Error(`access_device_tokens schrijven: ${error.message}`);
+      return data as unknown as DeviceTokenRow;
+    },
+    async getDeviceToken(profileId, id) {
+      const { data, error } = await admin
+        .from("access_device_tokens")
+        .select(DEVICE_TOKEN_COLUMNS)
+        .eq("id", id)
+        .eq("profile_id", profileId)
+        .maybeSingle();
+      if (error) throw new Error(`access_device_tokens lezen: ${error.message}`);
+      return (data as unknown as DeviceTokenRow | null) ?? null;
+    },
+    async listOpenDeviceTokens(profileId) {
+      const { data, error } = await admin
+        .from("access_device_tokens")
+        .select(DEVICE_TOKEN_COLUMNS)
+        .eq("profile_id", profileId)
+        .is("revoked_at", null)
+        .order("issued_at");
+      if (error) throw new Error(`access_device_tokens lezen: ${error.message}`);
+      return (data ?? []) as unknown as DeviceTokenRow[];
+    },
+    async listPendingDeviceTokenRevocations() {
+      return selectAllPaged<DeviceTokenRow>(
+        (from, to) =>
+          admin
+            .from("access_device_tokens")
+            .select(DEVICE_TOKEN_COLUMNS)
+            .is("revoked_at", null)
+            .not("revoke_requested_at", "is", null)
+            .order("revoke_requested_at")
+            .range(from, to),
+        "access_device_tokens (wachtrij)",
+      );
+    },
+    async updateDeviceToken(id, patch) {
+      const { error } = await admin
+        .from("access_device_tokens")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw new Error(`access_device_tokens bijwerken: ${error.message}`);
+    },
   };
 }
 
-async function buildDeps(): Promise<SyncDeps> {
+const DEVICE_TOKEN_COLUMNS =
+  "id, profile_id, akiles_member_id, akiles_token_id, platform, device_label, issued_at, last_seen_at, revoked_at, revoke_requested_at, last_error";
+
+/** Gedeeld met device-tokens.ts: dezelfde DB, dezelfde Akiles-client, dezelfde events. */
+export async function buildDeps(): Promise<SyncDeps> {
   return {
     db: buildDb(createAdminClient()),
     akiles: await getAkilesClient(),
@@ -213,6 +270,8 @@ export async function syncAllAccess(options: SyncOptions = {}): Promise<SyncAllR
       remaining: 0,
       failed: 0,
       failures: [],
+      tokenRevocationsRetried: 0,
+      tokenRevocationsFailed: 0,
       error: err instanceof Error ? err.message : String(err),
     };
   }

@@ -17,6 +17,10 @@ import {
   type DesiredAccess,
 } from "./desired-state";
 import {
+  retryPendingRevocationsCore,
+  revokeAllMemberTokensCore,
+} from "./device-tokens-core";
+import {
   isAkilesNotFound,
   type AccessConfigRow,
   type AccessCredentialsRow,
@@ -49,9 +53,28 @@ import {
  *    middenin; een profiel is dus altijd volledig of helemaal niet gedaan.
  */
 
+/**
+ * Toegangsmethoden op de permission rule van elk van de drie groepen.
+ *
+ * bluetooth staat aan sinds workstream E1 (per-device member tokens,
+ * discovery-akiles-app-toegang.md): zonder die vlag opent de Mobile SDK
+ * niets, ook niet met een geldig token. Bewust voor alle drie de groepen
+ * en niet alleen voor leden met een actief abonnement: een groep wordt
+ * uitsluitend toegekend aan een profiel met toegang (actief abonnement of
+ * stafrol, resolveDesiredAccess), en een member token wordt uitsluitend
+ * uitgegeven aan een profiel met een groep en een einddatum in de toekomst
+ * (issueDeviceTokenCore). Een aparte vlag per groep zou daar niets aan
+ * toevoegen, en staf moet de deur net zo goed via de app kunnen openen.
+ * Een rittenkaart of PT-pakket krijgt nooit een groep, dus ook nooit
+ * Bluetooth.
+ *
+ * online blijft uit: de SDK probeert internet en Bluetooth parallel en
+ * met online=false wint Bluetooth altijd. Aanzetten is een aparte
+ * afweging (geolocatiecheck, openen op afstand), geen onderdeel van E1.
+ */
 const PERMISSION_ACCESS_METHODS = {
   online: false,
-  bluetooth: false,
+  bluetooth: true,
   mobile_nfc: true,
   pin: true,
   card: false,
@@ -269,12 +292,19 @@ function isCurrentlyEnabled(
   return new Date(cred.access_ends_at) > now;
 }
 
-/** Zet de toegang uit in Akiles: ends_at in het verleden en de PIN weg. */
+/**
+ * Zet de toegang uit in Akiles: ends_at in het verleden, de PIN weg en alle
+ * member tokens van de member weg. Dat laatste is belt-and-braces bovenop
+ * ends_at: een token dat blijft staan herleeft zodra de sync ends_at weer
+ * vooruit zet (heraanmelding, einde pauze), en Akiles ruimt de member pas
+ * een dag na ends_at op.
+ */
 async function revokeInAkiles(
   deps: SyncDeps,
   akiles: AkilesApi,
   cred: AccessCredentialsRow,
   now: Date,
+  reason: string,
 ): Promise<string> {
   const memberId = cred.akiles_member_id as string;
   const pastEnd = new Date(now.getTime() - 60_000).toISOString();
@@ -291,6 +321,7 @@ async function revokeInAkiles(
       if (!isAkilesNotFound(err)) throw err;
     }
   }
+  await revokeAllMemberTokensCore(deps, akiles, cred.profile_id, memberId, reason);
   return pastEnd;
 }
 
@@ -394,7 +425,7 @@ export async function syncProfileCore(
         });
         return { profileId, ok: true, outcome: "noop" };
       }
-      const pastEnd = await revokeInAkiles(deps, akiles, cred, now);
+      const pastEnd = await revokeInAkiles(deps, akiles, cred, now, desired.reason);
       await deps.db.upsertCredentials({
         profile_id: profileId,
         akiles_pin_id: null,
@@ -583,6 +614,8 @@ function emptyResult(overrides: Partial<SyncAllResult>): SyncAllResult {
     remaining: 0,
     failed: 0,
     failures: [],
+    tokenRevocationsRetried: 0,
+    tokenRevocationsFailed: 0,
     ...overrides,
   };
 }
@@ -604,6 +637,25 @@ export async function syncAllCore(
     const message = errorMessage(err);
     deps.log.error("[access-sync] config-provisioning mislukt", { error: message });
     return emptyResult({ ok: false, error: message });
+  }
+
+  // Eerst de intrekkingen die eerder bij Akiles faalden (logout terwijl
+  // Akiles onbereikbaar was): weinig rijen, beveiligingsrelevant, en
+  // bewust voor de profielloop zodat het tijdsbudget ze nooit verdringt.
+  // De profielvolgorde zelf (nooit gesynct eerst, dan oplopend op
+  // last_synced_at) is ongewijzigd.
+  let tokenRevocationsRetried = 0;
+  let tokenRevocationsFailed = 0;
+  try {
+    const retry = await retryPendingRevocationsCore(deps, deps.akiles);
+    tokenRevocationsRetried = retry.retried;
+    tokenRevocationsFailed = retry.failed;
+  } catch (err) {
+    // Een DB-fout hier mag de profielloop niet tegenhouden; de rijen
+    // blijven staan en komen de volgende nacht terug.
+    deps.log.error("[access-sync] herkansing token-intrekkingen mislukt", {
+      error: errorMessage(err),
+    });
   }
 
   const profileIds = await deps.db.listSyncCandidateProfileIds();
@@ -642,5 +694,7 @@ export async function syncAllCore(
     remaining,
     failed: failures.length,
     failures,
+    tokenRevocationsRetried,
+    tokenRevocationsFailed,
   });
 }

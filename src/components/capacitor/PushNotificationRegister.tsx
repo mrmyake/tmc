@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { registerPushToken } from "@/lib/member/push-actions";
+import { PUSH_TOKEN_KEY, writeDeviceValue } from "@/lib/native/device-storage";
 
 /**
  * Registreert voor native push-notificaties — alleen binnen de
@@ -47,6 +48,9 @@ export function PushNotificationRegister() {
         (token) => {
           const platform = Capacitor.getPlatform();
           if (platform !== "ios" && platform !== "android") return;
+          // Lokaal onthouden zodat het uitlogformulier (DeviceSignOutFields)
+          // het token kan meegeven en signOut() de rij kan verwijderen (E1).
+          writeDeviceValue(PUSH_TOKEN_KEY, token.value);
           void registerPushToken(token.value, platform).catch((err) => {
             console.error("[push] registerPushToken failed", err);
           });

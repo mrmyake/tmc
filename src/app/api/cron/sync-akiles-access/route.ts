@@ -86,6 +86,14 @@ export async function GET(req: Request) {
     );
   }
 
+  if (result.tokenRevocationsFailed > 0) {
+    await sendNotification(
+      "Akiles-sync: token-intrekkingen blijven staan",
+      `${result.tokenRevocationsFailed} device-token(s) konden opnieuw niet bij Akiles worden ingetrokken (${result.tokenRevocationsRetried} wel). Ze blijven geldig zolang de member toegang heeft; zie last_error in access_device_tokens.`,
+      "warning",
+    );
+  }
+
   if (result.remaining > 0) {
     await sendNotification(
       "Akiles-sync: run niet compleet",
@@ -101,6 +109,8 @@ export async function GET(req: Request) {
     skipped: result.skipped,
     remaining: result.remaining,
     failed: result.failed,
+    tokenRevocationsRetried: result.tokenRevocationsRetried,
+    tokenRevocationsFailed: result.tokenRevocationsFailed,
     durationMs: Date.now() - startedAt,
   });
 }

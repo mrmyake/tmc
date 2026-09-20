@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
+import { DeviceSignOutFields } from "@/components/capacitor/DeviceSignOutFields";
 import type { Role, ActiveContext } from "./AvatarDropdown";
 
 /**
@@ -58,6 +59,7 @@ export function MobileAccountActions({ role, activeContext }: Props) {
         </div>
       )}
       <form action={signOut}>
+        <DeviceSignOutFields />
         <button
           type="submit"
           className="w-full flex items-center justify-between py-5 text-sm text-text-muted hover:text-accent transition-colors duration-300 cursor-pointer"

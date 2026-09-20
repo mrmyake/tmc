@@ -101,7 +101,12 @@ export type EventType =
   | "access.revoked"
   | "access.lockdown_enabled"
   | "access.lockdown_disabled"
-  | "access.oauth_authorized";
+  | "access.oauth_authorized"
+  // Per-device member tokens (workstream E1; src/lib/access/device-tokens-core.ts)
+  | "access.device_token_issued"
+  | "access.device_token_revoked"
+  // Uitlogpad: meegestuurd token-id of pushtoken hoort niet bij de sessie (device-cleanup-core.ts)
+  | "access.device_cleanup_rejected";
 
 export type ActorType =
   | "member"
