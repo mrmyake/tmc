@@ -71,3 +71,6 @@ supabase/.temp/
 # APNs-authenticatiesleutels (.p8). Worden geupload in de Firebase Console,
 # horen nooit in de repo.
 *.p8
+
+# Xcode-metadata van lokale Swift-packages (capacitor-plugins/*), aangemaakt zodra Xcode het package opent.
+capacitor-plugins/**/.swiftpm/
