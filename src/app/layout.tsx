@@ -7,6 +7,7 @@ import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
 import { getCampaignWindow, isStudioOpen, isEarlyMemberActive } from "@/lib/campaign";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
+import { DeepLinkHandler } from "@/components/capacitor/DeepLinkHandler";
 import {
   getLocalBusinessSchema,
   getWebsiteSchema,
@@ -190,6 +191,11 @@ export default async function RootLayout({
             `/app/layout.tsx`: moet ook op `/login` vuren (zie
             SplashScreenHide.tsx voor de volledige onderbouwing). */}
         <SplashScreenHide />
+        {/* Terugkeer uit de Mollie-checkout via het custom scheme
+            (workstream A, spec-ios-app.md): sluit de in-app browser en
+            navigeert naar de returnpagina. Ook in de root layout, want bij
+            een koude start kan de webview op /login staan. No-op op web. */}
+        <DeepLinkHandler />
         {/* gtag.js wordt uitgesteld tot eerste interactie of idle
             (DeferredAnalytics) zodat het niet op de kritieke render-path
             zit. Respecteert de consent-default state die inline in <head>

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
 import { trackPaymentStart, trackCTA } from "@/lib/analytics";
 import { paymentContextForProduct } from "@/lib/product-groups";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 interface Props {
   slug: string;
@@ -23,7 +24,10 @@ export function BuyButton({ slug, productLabel }: Props) {
       // Alleen de slug: geen extendedAccess/commit24m/earlyMember, die
       // gelden uitsluitend voor abonnementen en worden door
       // _compute_order_price sowieso geweigerd op een product-rij.
-      const res = await createOrderAndCheckout({ slug });
+      const res = await createOrderAndCheckout({
+        slug,
+        returnTarget: returnTargetForThisClient(),
+      });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -33,7 +37,7 @@ export function BuyButton({ slug, productLabel }: Props) {
         context: paymentContextForProduct(slug),
         planVariant: slug,
       });
-      window.location.href = res.checkoutUrl;
+      await openCheckout(res.checkoutUrl);
     });
   }
 

@@ -110,7 +110,8 @@ export function getMollieClient(mode: MollieMode): MollieClient | null {
  * try/catch rond een Mollie-call vangt hem op dezelfde manier.
  *
  * KOPPELING AAN SDK-INTERNALS. Dit leunt op de vorm van @mollie/api-client
- * 4.6.0 (package.json: ^4.5.0, lockfile 4.6.0): de client is een object met
+ * 4.5.x/4.6.x (package.json: ^4.5.0, lockfile 4.5.0; geverifieerd tegen
+ * 4.5.0 en 4.6.0): de client is een object met
  * binders (payments, customers, customerSubscriptions, ...) als
  * eigenschappen, elke binder-methode geeft zonder callback een promise
  * terug, en de client leest die binders via gewone property-access. Een

@@ -7,6 +7,8 @@ import { KopenPanel } from "./_components/KopenPanel";
 import { TegoedPanel, type ProductHistoryRow } from "./_components/TegoedPanel";
 import type { CreditMembershipRow } from "./lib";
 import { PRODUCT_SLUGS } from "@/lib/product-groups";
+import { StatusPoller } from "@/components/checkout/StatusPoller";
+import { getOwnOrderStatus } from "@/lib/orders/status-actions";
 
 export const metadata = {
   title: "Producten | The Movement Club",
@@ -25,11 +27,16 @@ function logIfError(tag: string, error: { message: string } | null) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function ProductenPage(props: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; order?: string }>;
 }) {
-  const { tab: tabParam } = await props.searchParams;
+  const { tab: tabParam, order: orderParam } = await props.searchParams;
   const tab = parseTab(tabParam);
+  // Terug uit Mollie (workstream A): create-order.ts stuurt sinds die PR
+  // het order-id mee, zodat deze pagina de status kan tonen en pollen.
+  const returnOrderId = orderParam && UUID_RE.test(orderParam) ? orderParam : null;
 
   const supabase = await createClient();
   const {
@@ -59,6 +66,17 @@ export default async function ProductenPage(props: {
   }
 
   // tab === "tegoed"
+  const returnOrder = returnOrderId
+    ? (
+        await supabase
+          .from("orders")
+          .select("id, status")
+          .eq("id", returnOrderId)
+          .eq("profile_id", user.id)
+          .maybeSingle()
+      ).data
+    : null;
+
   const [creditsResult, ordersResult] = await Promise.all([
     supabase
       .from("memberships")
@@ -132,8 +150,56 @@ export default async function ProductenPage(props: {
       <div className="mb-12">
         <ProductenTabs active={tab} />
       </div>
+      {returnOrder && <ReturnNotice order={returnOrder} />}
       <TegoedPanel credits={credits} history={history} />
     </Container>
+  );
+}
+
+/**
+ * Melding na terugkeer uit Mollie voor een productaankoop. De status komt
+ * uit tmc.orders (gevuld door de webhook); zolang hij pending is pollt
+ * StatusPoller en ververst de pagina zodra hij terminaal is.
+ */
+function ReturnNotice({ order }: { order: { id: string; status: string } }) {
+  // COPY: confirm met Marlon
+  const copy: Record<string, { title: string; body: string }> = {
+    pending: {
+      title: "We verwerken je betaling.",
+      body: "Zodra Mollie de betaling bevestigt, verschijnt je nieuwe tegoed hieronder. Dat duurt meestal maar even.",
+    },
+    activated: {
+      title: "Je aankoop is verwerkt.",
+      body: "Je nieuwe tegoed staat hieronder klaar.",
+    },
+    paid: {
+      title: "Je betaling is binnen.",
+      body: "We ronden je aankoop af en nemen contact op als er iets nodig is.",
+    },
+    expired: {
+      title: "Betaling niet geslaagd.",
+      body: "Je betaling is geannuleerd, afgewezen of verlopen. Er is niets afgeschreven; je kunt het opnieuw proberen via Kopen.",
+    },
+    cancelled: {
+      title: "Betaling niet geslaagd.",
+      body: "Je betaling is geannuleerd, afgewezen of verlopen. Er is niets afgeschreven; je kunt het opnieuw proberen via Kopen.",
+    },
+  };
+  const c = copy[order.status] ?? copy.pending;
+  return (
+    <div className="mb-10 border border-bg-subtle bg-bg-elevated px-8 py-6">
+      <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-2">
+        {c.title}
+      </h2>
+      <p className="text-text-muted leading-relaxed mb-4">{c.body}</p>
+      {order.status === "pending" && (
+        <StatusPoller
+          check={getOwnOrderStatus.bind(null, order.id)}
+          // COPY: confirm met Marlon
+          pendingLabel="We controleren je betaling bij Mollie..."
+        />
+      )}
+    </div>
   );
 }
 

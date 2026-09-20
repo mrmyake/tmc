@@ -10,6 +10,7 @@ import type { CatalogueRow } from "@/lib/catalogue";
 import { computeBreakdown, type Selection } from "@/app/abonnement/lib";
 import { formatNoticePeriod } from "@/lib/cancellation-notice";
 import { paymentContextForProduct } from "@/lib/product-groups";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 /**
  * Bevestig-en-betaal-stap, gedeeld door /abonnement (kind "subscription",
@@ -90,6 +91,7 @@ function SubscriptionPayStage({
         earlyMember: breakdown.emOpen,
         gaClientId: gaIds.clientId,
         gaSessionId: gaIds.sessionId,
+        returnTarget: returnTargetForThisClient(),
       });
       if (!res.ok) {
         setError(res.error);
@@ -103,7 +105,7 @@ function SubscriptionPayStage({
         context: "first_membership",
         planVariant: plan.slug,
       });
-      window.location.href = res.checkoutUrl;
+      await openCheckout(res.checkoutUrl);
     });
   }
 
@@ -236,6 +238,7 @@ function ProductPayStage({
         slug: product.slug,
         gaClientId: gaIds.clientId,
         gaSessionId: gaIds.sessionId,
+        returnTarget: returnTargetForThisClient(),
       });
       if (!res.ok) {
         setError(res.error);
@@ -247,7 +250,7 @@ function ProductPayStage({
         context: paymentContextForProduct(product.slug),
         planVariant: product.slug,
       });
-      window.location.href = res.checkoutUrl;
+      await openCheckout(res.checkoutUrl);
     });
   }
 

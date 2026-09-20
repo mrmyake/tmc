@@ -1,3 +1,4 @@
+import { buildReturnUrl, type ReturnTarget } from "@/lib/native/return-url";
 /**
  * WS-5 PR A, kernlogica van de betaallink (/betaal/[token]).
  *
@@ -113,6 +114,7 @@ export function isValidOrderToken(token: string): boolean {
 export async function startCheckoutCore(
   deps: PaymentLinkDeps,
   token: string,
+  returnTarget: ReturnTarget = "web",
 ): Promise<PaymentLinkCheckoutResult> {
   if (!isValidOrderToken(token)) return { ok: false, reason: "not_found" };
 
@@ -187,7 +189,8 @@ export async function startCheckoutCore(
   const payment = await deps.mollie.createPayment({
     amountValue: (order.first_charge_cents / 100).toFixed(2),
     description: `The Movement Club | ${order.catalogue_slug}`,
-    redirectUrl: `${deps.urls.site}/betaal/${token}`,
+    // Terug naar dezelfde pagina; op "app" via het custom scheme (workstream A).
+    redirectUrl: buildReturnUrl(deps.urls.site, `/betaal/${token}`, returnTarget),
     webhookUrl: deps.urls.webhook,
     customerId,
     isSubscription: order.kind === "subscription",

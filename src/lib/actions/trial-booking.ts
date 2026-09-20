@@ -7,6 +7,7 @@ import { trialBookingMode } from "@/lib/mollie-mode";
 import { trialWebhookUrl } from "@/lib/site-url";
 import { emitEvent } from "@/lib/events/emit";
 import { getCatalogue } from "@/lib/catalogue";
+import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 
 export type StartTrialBookingResult =
   | { ok: true; checkoutUrl: string }
@@ -43,6 +44,8 @@ interface StartTrialBookingInput {
   name: string;
   email: string;
   phone: string;
+  /** Terugkeerdoel na Mollie (workstream A): "app" of "web"; alleen een enum. */
+  returnTarget?: ReturnTarget;
 }
 
 /**
@@ -152,7 +155,11 @@ export async function startTrialBooking(
     payment = await mollie.payments.create({
       amount: { currency: "EUR", value: amountValue },
       description: "The Movement Club | Proefles",
-      redirectUrl: `${url}/proefles/boeken/bedankt?trial=${trial.id}`,
+      redirectUrl: buildReturnUrl(
+        url,
+        `/proefles/boeken/bedankt?trial=${trial.id}`,
+        isReturnTarget(input.returnTarget) ? input.returnTarget : "web",
+      ),
       webhookUrl: trialWebhookUrl(mode),
       // Een pending-rij houdt een plek bezet tot Mollie de betaling laat
       // verlopen, en die vervaltijd is per methode: iDEAL 15 min, kaart

@@ -5,6 +5,8 @@ import { Section } from "@/components/layout/Section";
 import { Button } from "@/components/ui/Button";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
+import { StatusPoller } from "@/components/checkout/StatusPoller";
+import { getTrialBookingStatus } from "@/lib/orders/status-actions";
 
 export const metadata: Metadata = {
   title: "Bedankt voor je boeking | The Movement Club",
@@ -94,6 +96,14 @@ export default async function TrialBookingThanksPage(props: {
               new Date(session.end_at),
             )}
           </p>
+        )}
+
+        {trial && trial.status === "pending" && isLikelyUuid(trialId) && (
+          <StatusPoller
+            check={getTrialBookingStatus.bind(null, trialId)}
+            // COPY: confirm met Marlon
+            pendingLabel="We wachten op de bevestiging van Mollie..."
+          />
         )}
 
         <p className="text-text-muted mb-3">

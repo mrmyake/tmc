@@ -18,6 +18,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Terugkeer uit de Mollie-checkout (workstream A, spec-ios-app.md):
+                 zelfde custom scheme als CFBundleURLSchemes in ios/App/App/Info.plist
+                 en APP_URL_SCHEME in src/lib/native/return-url.ts. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nl.themovementclub.app" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -5,6 +5,8 @@ import { getMollieClient } from "@/lib/mollie";
 import { formatEuro } from "@/lib/format";
 import { isValidOrderToken } from "@/lib/orders/payment-link-core";
 import { PayButton } from "./PayButton";
+import { StatusPoller } from "@/components/checkout/StatusPoller";
+import { getPaymentLinkStatus } from "@/lib/orders/status-actions";
 
 export const metadata = {
   title: "Betaalverzoek | The Movement Club",
@@ -150,6 +152,14 @@ export default async function BetaalPage({
         <p className="text-text-muted text-lg leading-relaxed mb-10">
           {copy.body}
         </p>
+
+        {state === "processing" && (
+          <StatusPoller
+            check={getPaymentLinkStatus.bind(null, token)}
+            // COPY: confirm met Marlon
+            pendingLabel="We wachten op de bevestiging van Mollie..."
+          />
+        )}
 
         {showDetails && (
           <>

@@ -10,6 +10,7 @@ import { formatEuro } from "@/lib/format";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 export interface TrialSessionOption {
   id: string;
@@ -49,6 +50,7 @@ export function TrialBookingList({ options }: Props) {
       name,
       email,
       phone,
+      returnTarget: returnTargetForThisClient(),
     });
 
     if (!result.ok) {
@@ -58,7 +60,7 @@ export function TrialBookingList({ options }: Props) {
     }
 
     trackLead("trial_booking", selected.priceCents / 100);
-    window.location.assign(result.checkoutUrl);
+    await openCheckout(result.checkoutUrl);
   }
 
   return (
