@@ -67,3 +67,7 @@ supabase/.temp/
 # onbegeleide-toegang} en de aanvulling in PrivacybeleidContent.tsx zijn de
 # bron van waarheid, niet deze markdown.
 /legal-source/
+
+# APNs-authenticatiesleutels (.p8). Worden geupload in de Firebase Console,
+# horen nooit in de repo.
+*.p8
