@@ -37,6 +37,16 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Bluetooth: deur openen via de Akiles-SDK (capacitor-plugins/akiles, workstream E2).
+	     De Always-variant is de sleutel die iOS 13+ toont; de Peripheral-variant is de
+	     oudere sleutel die de SDK (minimum iOS 11) nog verwacht. Geen locatiesleutel:
+	     de plugin vraagt geen locatie (requestLocationPermission false, online uit). -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<!-- COPY: confirm met Marlon -->
+	<string>The Movement Club gebruikt Bluetooth om de studiodeur voor je te openen als je in de buurt bent.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<!-- COPY: confirm met Marlon -->
+	<string>The Movement Club gebruikt Bluetooth om de studiodeur voor je te openen als je in de buurt bent.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
