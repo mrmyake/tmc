@@ -1,0 +1,28 @@
+{
+  "name": "akiles-capacitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lokale Capacitor-plugin rond de Akiles Mobile SDK (deur openen via Bluetooth). Geen npm-publicatie; gekoppeld via file: in de root package.json. Zie spec-akiles-access.md (workstream E2).",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  },
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "src/",
+    "ios/Sources",
+    "ios/AkilesSDK.xcframework",
+    "Package.swift"
+  ],
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  }
+}

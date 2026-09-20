@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Permissies (BLUETOOTH_SCAN, BLUETOOTH_CONNECT, ACCESS_FINE_LOCATION, NFC,
+     INTERNET) declareert het AAR van app.akiles:sdk zelf; hier bewust niets
+     dubbel, om conflicten in de manifest-merge te vermijden. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
