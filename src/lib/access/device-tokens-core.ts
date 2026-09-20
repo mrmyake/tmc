@@ -228,6 +228,35 @@ export async function revokeDeviceTokenCore(
 }
 
 /**
+ * Trekt alle open device-tokens van een profiel in, rij voor rij via
+ * revokeDeviceTokenCore, dus met dezelfde wachtrij bij een falende
+ * Akiles-call. Voor het uitlogpad als het toestel niet te identificeren
+ * is (device-cleanup-core.ts): een deurcredential die blijft staan is
+ * erger dan een lid dat op een ander toestel opnieuw moet koppelen.
+ * Niet voor de sync: die gebruikt revokeAllMemberTokensCore met de lijst
+ * bij Akiles als bron en faalt luid.
+ */
+export async function revokeAllDeviceTokensCore(
+  deps: SyncDeps,
+  input: { profileId: string; reason: string },
+): Promise<{ revoked: number; deferred: number; notConfigured: boolean }> {
+  if (!deps.akiles) return { revoked: 0, deferred: 0, notConfigured: true };
+  const open = await deps.db.listOpenDeviceTokens(input.profileId);
+  let revoked = 0;
+  let deferred = 0;
+  for (const row of open) {
+    const result = await revokeDeviceTokenCore(deps, {
+      profileId: input.profileId,
+      id: row.id,
+      reason: input.reason,
+    });
+    if (result.ok && result.outcome === "revoked") revoked++;
+    else if (result.ok && result.outcome === "deferred") deferred++;
+  }
+  return { revoked, deferred, notConfigured: false };
+}
+
+/**
  * Trekt alle open tokens van een member in. Aangeroepen door de sync bij
  * intrekking van de toegang (revokeInAkiles). Bron van waarheid is de
  * lijst bij Akiles, zodat ook een token dat buiten ons om is aangemaakt

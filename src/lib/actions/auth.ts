@@ -13,13 +13,15 @@ import {
 import { cleanupDeviceOnSignOut } from "@/lib/member/device-cleanup";
 
 /**
- * Uitloggen, met het opruimpad voor de native app (E1,
+ * Uitloggen, met het opruimpad voor device-credentials (E1,
  * spec-akiles-access.md): het pushtoken en het Akiles device-token van
  * dit toestel komen als verborgen velden uit het formulier
  * (DeviceSignOutFields) en worden VOOR de sessiebeëindiging opgeruimd,
- * want daarna is er geen auth.uid() meer. Op web ontbreken de velden en is
- * dit een gewone signOut. Het opruimpad throwt nooit; uitloggen blokkeert
- * niet op Akiles.
+ * want daarna is er geen auth.uid() meer. De velden zijn hints, geen
+ * autorisatie: device-cleanup-core.ts controleert server-side of ze bij
+ * de sessie horen en trekt bij een ontbrekend, leeg of afgewezen veld
+ * alle device-tokens en pushtokens van het profiel in (geen stille
+ * no-op). Het opruimpad throwt nooit; uitloggen blokkeert niet op Akiles.
  */
 export async function signOut(formData?: FormData) {
   const supabase = await createClient();
@@ -27,9 +29,9 @@ export async function signOut(formData?: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user && formData) {
+  if (user) {
     const field = (name: string) => {
-      const value = formData.get(name);
+      const value = formData?.get(name);
       return typeof value === "string" ? value : null;
     };
     await cleanupDeviceOnSignOut(user.id, {

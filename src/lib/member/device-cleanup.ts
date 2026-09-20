@@ -1,61 +1,91 @@
 import "server-only";
-import { revokeDeviceToken } from "@/lib/access/device-tokens";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { emitEvent } from "@/lib/events/emit";
+import { revokeAllDeviceTokens, revokeDeviceToken } from "@/lib/access/device-tokens";
 import { unregisterPushToken } from "@/lib/member/push-actions";
+import {
+  cleanupDeviceOnSignOutCore,
+  type DeviceCleanupDeps,
+  type DeviceCleanupInput,
+  type DeviceCleanupResult,
+} from "./device-cleanup-core";
+
+export type { DeviceCleanupInput, DeviceCleanupResult } from "./device-cleanup-core";
 
 /**
- * Het ene opruimpad bij uitloggen (E1, spec-akiles-access.md): verwijdert
- * het pushtoken van dit toestel uit tmc.device_push_tokens en trekt het
- * Akiles member token van dit toestel in, bij Akiles zelf en niet alleen
- * lokaal. Aangeroepen vanuit signOut() VOOR supabase.auth.signOut(): daarna
- * is er geen sessie meer om mee te autoriseren.
+ * Wiring van het opruimpad bij uitloggen op de service-role-client. De
+ * regels (eigenaarschap voor elke Akiles-call, geen stille no-op) staan in
+ * device-cleanup-core.ts. Aangeroepen vanuit signOut() VOOR
+ * supabase.auth.signOut(): daarna is er geen sessie meer.
  *
- * Waarom bij Akiles: een member token heeft geen eigen vervaldatum en
- * herleeft zodra de member weer toegang krijgt. Lokaal vergeten is dus
- * nooit genoeg (discovery-akiles-app-toegang.md sectie 5.4).
- *
- * De twee ids komen als verborgen velden uit het uitlogformulier
- * (DeviceSignOutFields, gevuld uit localStorage door de native app). Op
- * web ontbreken ze en gebeurt er niets. Een id dat niet bij dit profiel
- * hoort (toestel gedeeld, oude sleutel) is een no-op: revokeDeviceToken
- * zoekt op profiel plus id, unregisterPushToken op profiel plus token.
- *
- * Throwt nooit: uitloggen mag niet blokkeren op Akiles of op de DB.
+ * De lookups op eigenaarschap lopen bewust via de service-role: een
+ * user-scoped query zou een vreemd token door RLS simpelweg niet zien en
+ * we willen juist vastleggen dat het van een ander profiel was.
  */
 
-export interface DeviceCleanupInput {
-  pushToken?: string | null;
-  accessDeviceTokenId?: string | null;
+function buildDeps(): DeviceCleanupDeps {
+  const admin = createAdminClient();
+  return {
+    async findDeviceToken(id) {
+      const { data, error } = await admin
+        .from("access_device_tokens")
+        .select("profile_id, revoked_at")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(`access_device_tokens lezen: ${error.message}`);
+      return (data as { profile_id: string; revoked_at: string | null } | null) ?? null;
+    },
+    async findPushToken(token) {
+      const { data, error } = await admin
+        .from("device_push_tokens")
+        .select("profile_id")
+        .eq("token", token)
+        .maybeSingle();
+      if (error) throw new Error(`device_push_tokens lezen: ${error.message}`);
+      return (data as { profile_id: string } | null) ?? null;
+    },
+    revokeDeviceToken: (profileId, id, reason) => revokeDeviceToken(profileId, id, reason),
+    revokeAllDeviceTokens: (profileId, reason) => revokeAllDeviceTokens(profileId, reason),
+    // Eigen token: via de bestaande server action, die op profiel plus
+    // token filtert onder RLS (tweede slot na de eigenaarschapscheck).
+    removePushToken: (_profileId, token) => unregisterPushToken(token),
+    async removeAllPushTokens(profileId) {
+      const { data, error } = await admin
+        .from("device_push_tokens")
+        .delete()
+        .eq("profile_id", profileId)
+        .select("id");
+      if (error) throw new Error(`device_push_tokens verwijderen: ${error.message}`);
+      return (data ?? []).length;
+    },
+    async emitRejected(profileId, payload) {
+      await emitEvent({
+        type: "access.device_cleanup_rejected",
+        actorType: "member",
+        actorId: profileId,
+        subjectType: "profile",
+        subjectId: profileId,
+        payload,
+      });
+    },
+    log: {
+      error: (message, meta) => console.error(message, meta ?? ""),
+    },
+  };
 }
-
-export interface DeviceCleanupResult {
-  pushToken: "removed" | "skipped";
-  accessDeviceToken: "revoked" | "deferred" | "skipped";
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function cleanupDeviceOnSignOut(
   profileId: string,
   input: DeviceCleanupInput,
 ): Promise<DeviceCleanupResult> {
-  const result: DeviceCleanupResult = { pushToken: "skipped", accessDeviceToken: "skipped" };
-
-  const pushToken = (input.pushToken ?? "").trim();
-  if (pushToken) {
-    try {
-      await unregisterPushToken(pushToken);
-      result.pushToken = "removed";
-    } catch (err) {
-      console.error("[device-cleanup] pushtoken verwijderen mislukt", profileId, err);
-    }
+  try {
+    return await cleanupDeviceOnSignOutCore(buildDeps(), profileId, input);
+  } catch (err) {
+    console.error(
+      "[device-cleanup] cleanupDeviceOnSignOut threw",
+      profileId,
+      err instanceof Error ? err.message : String(err),
+    );
+    return { accessDeviceToken: "nothing_open", pushToken: "nothing_open", rejected: [] };
   }
-
-  const tokenId = (input.accessDeviceTokenId ?? "").trim();
-  if (tokenId && UUID_RE.test(tokenId)) {
-    const revoke = await revokeDeviceToken(profileId, tokenId, "logout");
-    if (revoke.ok && revoke.outcome === "deferred") result.accessDeviceToken = "deferred";
-    else if (revoke.ok) result.accessDeviceToken = "revoked";
-  }
-
-  return result;
 }

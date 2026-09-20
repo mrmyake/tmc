@@ -31,6 +31,7 @@ import type {
 } from "../../src/lib/access/types";
 import {
   issueDeviceTokenCore,
+  revokeAllDeviceTokensCore,
   revokeDeviceTokenCore,
 } from "../../src/lib/access/device-tokens-core";
 import type { ScheduleWeekday } from "../../src/lib/access/schedule";
@@ -1119,4 +1120,44 @@ test("intrekking door de sync: member al weg bij Akiles is geen fout, rij wordt 
   const run = await syncAllCore(deps);
   assert.equal(run.failed, 0);
   assert.ok((db.deviceTokens.get(a.row.id) as DeviceTokenRow).revoked_at);
+});
+
+test("alles-intrekken per profiel (uitlog zonder identificeerbaar toestel): rij voor rij, met wachtrij, ander profiel ongemoeid", async () => {
+  const { deps, db, akiles, events } = await grantedMember();
+  db.profiles.set("x", profile("x", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  const a = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  const b = await issueDeviceTokenCore(deps, { profileId: "m", platform: "android" });
+  const other = await issueDeviceTokenCore(deps, { profileId: "x", platform: "ios" });
+  assert.ok(a.ok && b.ok && other.ok);
+  if (!a.ok || !b.ok || !other.ok) return;
+  events.length = 0;
+
+  const all = await revokeAllDeviceTokensCore(deps, { profileId: "m", reason: "logout_unidentified_device" });
+  assert.deepEqual(all, { revoked: 2, deferred: 0, notConfigured: false });
+  assert.equal((await db.listOpenDeviceTokens("m")).length, 0);
+  assert.equal((await db.listOpenDeviceTokens("x")).length, 1, "ander profiel ongemoeid");
+  const otherMember = akiles.members.get((db.credentials.get("x") as AccessCredentialsRow).akiles_member_id as string) as FakeMember;
+  assert.equal(otherMember.tokens.size, 1);
+  assert.deepEqual(events.map((e) => [e.type, e.payload.reason]), [
+    ["access.device_token_revoked", "logout_unidentified_device"],
+    ["access.device_token_revoked", "logout_unidentified_device"],
+  ]);
+
+  // Akiles stuk: alles in de wachtrij, niets verloren.
+  const c = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  assert.ok(c.ok);
+  akiles.failTokenDelete = true;
+  const queued = await revokeAllDeviceTokensCore(deps, { profileId: "m", reason: "logout_unidentified_device" });
+  assert.deepEqual(queued, { revoked: 0, deferred: 1, notConfigured: false });
+  assert.equal((await db.listPendingDeviceTokenRevocations()).length, 1);
+
+  // Niet geconfigureerd: niets, geen DB-toegang.
+  const off = makeDeps({ akiles: null });
+  assert.deepEqual(await revokeAllDeviceTokensCore(off.deps, { profileId: "m", reason: "x" }), {
+    revoked: 0,
+    deferred: 0,
+    notConfigured: true,
+  });
+  assert.equal(off.db.reads + off.db.writes, 0);
 });

@@ -2,6 +2,7 @@ import "server-only";
 import { buildDeps } from "./sync";
 import {
   issueDeviceTokenCore,
+  revokeAllDeviceTokensCore,
   revokeDeviceTokenCore,
   type IssueDeviceTokenResult,
   type RevokeDeviceTokenResult,
@@ -41,6 +42,24 @@ export async function issueDeviceToken(
       err instanceof Error ? err.message : String(err),
     );
     return { ok: false, reason: "db_error" };
+  }
+}
+
+/** Alle open tokens van het profiel, rij voor rij met wachtrij. Zie revokeAllDeviceTokensCore. */
+export async function revokeAllDeviceTokens(
+  profileId: string,
+  reason: string,
+): Promise<{ revoked: number; deferred: number }> {
+  try {
+    const result = await revokeAllDeviceTokensCore(await buildDeps(), { profileId, reason });
+    return { revoked: result.revoked, deferred: result.deferred };
+  } catch (err) {
+    console.error(
+      "[access-device-tokens] revokeAllDeviceTokens threw",
+      profileId,
+      err instanceof Error ? err.message : String(err),
+    );
+    return { revoked: 0, deferred: 0 };
   }
 }
 
