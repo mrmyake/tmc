@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { SequenceType } from "@mollie/api-client";
 import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -63,6 +63,18 @@ async function notifyMemberPaymentFailed(args: {
  */
 const SOURCE: ActivationSource = "mollie_webhook";
 const WEBHOOK_CALLER: ActivationCaller = { source: SOURCE, actorType: "system" };
+
+/**
+ * Naloop na de respons (3a-bis). after() verlengt op Vercel de invocatie
+ * via waitUntil tot de naloop klaar is, tot deze maxDuration; wordt die
+ * bereikt, dan wordt de naloop afgebroken. 60 s is ruim voor het happy
+ * path (enkele seconden) en dekt een dode ntfy (5 s), een dode MailerSend
+ * (10 s) en een dode Akiles (4 s per call, twaalf calls) op één na
+ * volledig; Akiles is de laatste stap, dus alles ervoor is dan gebeurd.
+ * De respons hangt uitsluitend af van wat vóór after() gebeurt:
+ * activate_order en het subscription-pad.
+ */
+export const maxDuration = 60;
 
 /** 500 richting Mollie: geen 2xx, dus Mollie biedt de webhook opnieuw aan. */
 function retryLater(reason: string) {
@@ -376,15 +388,21 @@ export async function POST(request: Request) {
 
       // Activatie plus de keten erna: src/lib/orders/activation-chain.ts.
       // Een transiënte fout komt terug als `retry` en wordt hier een 500,
-      // zodat Mollie herhaalt; alles anders is 200.
-      const result = await runActivationChain(WEBHOOK_CALLER, {
-        supabase,
-        mollie,
-        mode,
-        orderId,
-        payment: { id: payment.id, amountCents },
-        profileId: profileId ?? null,
-      });
+      // zodat Mollie herhaalt; alles anders is 200. De naloop (ntfy,
+      // order.activated, bevestigingsmail, GA4, Akiles) draait via after()
+      // na de respons; activate_order en het subscription-pad ervoor.
+      const result = await runActivationChain(
+        WEBHOOK_CALLER,
+        {
+          supabase,
+          mollie,
+          mode,
+          orderId,
+          payment: { id: payment.id, amountCents },
+          profileId: profileId ?? null,
+        },
+        { defer: (work) => after(work) },
+      );
       if (result.outcome === "retry") return retryLater(result.reason);
       return NextResponse.json({ ok: true });
     }

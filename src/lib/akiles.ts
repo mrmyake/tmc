@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendNotification } from "@/lib/ntfy";
+import { AKILES_TIMEOUT_MS } from "@/lib/outbound-timeouts";
 import type {
   AkilesApi,
   AkilesGroupAssociation,
@@ -133,7 +134,7 @@ function buildTokenDb(): OAuthTokenDb {
  * error/error_description mee, nooit een tokenwaarde.
  */
 async function postTokenEndpoint(params: Record<string, string>): Promise<TokenResponse> {
-  const res = await fetch(AKILES_OAUTH_TOKEN_URL, {
+  const res = await fetchAkiles(AKILES_OAUTH_TOKEN_URL, "POST /oauth2/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -284,13 +285,33 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
   }
 }
 
+/**
+ * fetch met timeout (3a-bis, outbound-timeouts.ts). Een timeout of
+ * netwerkfout wordt een AkilesApiError met status 504, dus hij loopt door
+ * dezelfde afhandeling als elke andere Akiles-fout: sync-core zet hem in
+ * last_error en gaat door met het volgende profiel, de tokenlaag schrijft
+ * hem naar last_refresh_error, de admin-acties tonen hem als fout.
+ */
+async function fetchAkiles(url: string, label: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(AKILES_TIMEOUT_MS) });
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "";
+    const detail =
+      name === "TimeoutError" || name === "AbortError"
+        ? `geen antwoord binnen ${AKILES_TIMEOUT_MS} ms`
+        : `netwerkfout: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200);
+    throw new AkilesApiError(504, label, detail);
+  }
+}
+
 async function fetchOnce(
   accessToken: string,
   method: Method,
   path: string,
   body?: unknown,
 ): Promise<Response> {
-  return fetch(`${BASE_URL}${path}`, {
+  return fetchAkiles(`${BASE_URL}${path}`, `${method} ${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${accessToken}`,

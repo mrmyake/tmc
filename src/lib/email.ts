@@ -1,6 +1,7 @@
 import "server-only";
 import { render } from "@react-email/render";
 import { MailerSend, EmailParams, Recipient, Sender } from "mailersend";
+import { MAILERSEND_TIMEOUT_MS, withTimeout } from "@/lib/outbound-timeouts";
 
 interface SendArgs {
   to: string;
@@ -57,7 +58,10 @@ export async function sendEmail({
       .setHtml(html)
       .setText(text);
 
-    await mailerSend.email.send(params);
+    // Timeout (3a-bis, outbound-timeouts.ts): de SDK loopt via gaxios
+    // zonder timeout-optie, dus een race; een timeout valt in de catch
+    // hieronder en levert false op, net als elke andere verzendfout.
+    await withTimeout(mailerSend.email.send(params), MAILERSEND_TIMEOUT_MS, "mailersend.email.send");
     return true;
   } catch (err) {
     console.error("[email] send failed", { to, subject, err });

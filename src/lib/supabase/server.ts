@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_TIMEOUT_MS, fetchWithTimeout } from "@/lib/outbound-timeouts";
 
 /**
  * Cookie-aware Supabase client voor Server Components, Route Handlers
@@ -16,6 +17,8 @@ export async function createClient() {
       // Data lives in the `tmc` schema of the consolidated project; auth still
       // uses Supabase Auth (RLS enforced as the logged-in user via the anon key).
       db: { schema: process.env.DB_SCHEMA ?? "tmc" },
+      // Timeout per verzoek (3a-bis, outbound-timeouts.ts).
+      global: { fetch: fetchWithTimeout(SUPABASE_TIMEOUT_MS) },
       cookies: {
         getAll() {
           return cookieStore.getAll();
