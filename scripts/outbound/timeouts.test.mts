@@ -145,15 +145,16 @@ test("Mollie-client: de SDK-aanname houdt voor de geinstalleerde versie", async 
   });
   assert.ok(Date.now() - started < 5_000, "de call hoort binnen de race af te lopen");
 
-  // Versiebewaking: de wrapper is geschreven tegen 4.6.x. Een andere
-  // major/minor is niet per se fout, maar vraagt om herverificatie van de
-  // aanname hierboven; daarom faalt de test bewust bij een bump.
+  // Versiebewaking: de wrapper is geverifieerd tegen 4.5.0 (lockfile) en
+  // 4.6.0 (lokaal aangetroffen tijdens PR #195). Een andere major/minor is
+  // niet per se fout, maar vraagt om herverificatie van de aanname
+  // hierboven; daarom faalt de test bewust bij een bump.
   const installed = JSON.parse(
     readFileSync(new URL("../../node_modules/@mollie/api-client/package.json", import.meta.url), "utf8"),
   ) as { version: string };
   assert.match(
     installed.version,
-    /^4\.6\./,
+    /^4\.[56]\./,
     `@mollie/api-client ${installed.version}: herverifieer withMollieTimeout (src/lib/mollie.ts) en werk deze regel bij`,
   );
 });

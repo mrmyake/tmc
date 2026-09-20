@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
 import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
+import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 
 export type CreateOrderAndCheckoutResult =
   | { ok: true; checkoutUrl: string; amountCents: number }
@@ -48,6 +49,12 @@ export interface CreateOrderSelection {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /**
+   * Terugkeerdoel na Mollie (workstream A, spec-ios-app.md): "app" laat
+   * de redirectUrl op het custom scheme uitkomen zodat de native app
+   * heropent; alles anders is https. Alleen een enum, nooit een URL.
+   */
+  returnTarget?: ReturnTarget;
 }
 
 // Vertaalt create_order()'s {ok:false, reason} naar klanttaal. Onbekende
@@ -219,13 +226,19 @@ export async function createOrderAndCheckout(
     // met de eerste betaling. Product: gewone oneoff-betaling, geen mandaat.
     const amountValue = (firstChargeCents / 100).toFixed(2);
     // Redirect na Mollie-checkout: subscriptions blijven op de bestaande
-    // bedankt-pagina (ongewijzigd gedrag); een product-order landt op Mijn
-    // tegoed, waar het nieuwe saldo verschijnt zodra de webhook
-    // activate_order heeft laten lopen. isSubscription is al hierboven
-    // berekend uit orderResult.recurring_cents (WS-2), geen nieuw veld.
-    const redirectUrl = isSubscription
-      ? `${siteUrl()}/app/abonnement/bedankt?order=${orderId}`
-      : `${siteUrl()}/app/producten?tab=tegoed`;
+    // bedankt-pagina; een product-order landt op Mijn tegoed, waar het
+    // nieuwe saldo verschijnt zodra de webhook activate_order heeft laten
+    // lopen. Beide dragen sinds workstream A het order-id, zodat de
+    // returnpagina de status kan pollen, ook na een koude start van de app
+    // zonder bewaarde state. Op "app" komt de URL op het custom scheme uit.
+    const returnTarget = isReturnTarget(selection.returnTarget) ? selection.returnTarget : "web";
+    const redirectUrl = buildReturnUrl(
+      siteUrl(),
+      isSubscription
+        ? `/app/abonnement/bedankt?order=${orderId}`
+        : `/app/producten?tab=tegoed&order=${orderId}`,
+      returnTarget,
+    );
     const payment = await mollie.payments.create({
       amount: { currency: "EUR", value: amountValue },
       description: `The Movement Club | ${selection.slug}`,

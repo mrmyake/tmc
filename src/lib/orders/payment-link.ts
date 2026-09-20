@@ -4,6 +4,7 @@ import { SequenceType } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
+import { isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 import {
   startCheckoutCore,
   type PaymentLinkCheckoutResult,
@@ -20,6 +21,7 @@ import {
  */
 export async function startPaymentLinkCheckout(
   token: string,
+  returnTarget?: ReturnTarget,
 ): Promise<PaymentLinkCheckoutResult> {
   const admin = createAdminClient();
 
@@ -139,7 +141,7 @@ export async function startPaymentLinkCheckout(
   };
 
   try {
-    return await startCheckoutCore(deps, token);
+    return await startCheckoutCore(deps, token, isReturnTarget(returnTarget) ? returnTarget : "web");
   } catch (e) {
     console.error("[startPaymentLinkCheckout]", e);
     return { ok: false, reason: "try_again" };

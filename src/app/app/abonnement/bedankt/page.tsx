@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PaymentTracker } from "./PaymentTracker";
+import { StatusPoller } from "@/components/checkout/StatusPoller";
+import { getOwnOrderStatus } from "@/lib/orders/status-actions";
 
 export const metadata = {
   title: "Bedankt | The Movement Club",
@@ -105,6 +107,14 @@ export default async function BedanktPage({
         <p className="text-text-muted text-lg leading-relaxed mb-10">
           {copy.body}
         </p>
+
+        {order && status === "pending" && (
+          <StatusPoller
+            check={getOwnOrderStatus.bind(null, order.id)}
+            // COPY: confirm met Marlon
+            pendingLabel="We controleren je betaling bij Mollie..."
+          />
+        )}
 
         {order && (
           <div className="inline-block bg-bg-elevated border border-bg-subtle px-8 py-6 mb-10 text-left">

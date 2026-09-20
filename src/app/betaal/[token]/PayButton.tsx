@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { startPaymentLinkCheckout } from "@/lib/orders/payment-link";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 // COPY: confirm met Marlon
 const ERROR_COPY: Record<string, string> = {
@@ -28,9 +29,9 @@ export function PayButton({ token }: { token: string }) {
   function handleClick() {
     setError(null);
     startTransition(async () => {
-      const res = await startPaymentLinkCheckout(token);
+      const res = await startPaymentLinkCheckout(token, returnTargetForThisClient());
       if (res.ok) {
-        window.location.href = res.checkoutUrl;
+        await openCheckout(res.checkoutUrl);
         return;
       }
       setError(ERROR_COPY[res.reason] ?? ERROR_COPY.try_again);

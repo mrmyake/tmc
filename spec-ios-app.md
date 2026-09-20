@@ -36,6 +36,8 @@ Zelfde vuistregel als `spec-member-app.md` sectie 8: het duurdere, meest capabel
 
 **PR #191 (branch `docs/ios-dsa-trader-status`), 2026-09-19.** Workstream D uitgebreid met D.3 (DSA trader status, in te vullen onder de organisatie, geblokkeerd op de organisatie-inschrijving in C) en D.4 (Mollie als verplichte betaalmethode onder guideline 3.1.3(e) en 3.1.3(d), geen in-app purchase, abonnementsflow blijft in de app); de C-regel in de sectie Afhankelijkheden noemt nu ook de identifier-migratie, het App Store Connect-record en DSA trader status, en het beslissingenlog kreeg twee regels. Dezelfde PR bevat een read-only discovery van de Mollie-terugkeerflow voor workstream A; de bevindingen staan in de PR-body, niet in dit document. Bewust niet aangeraakt: workstream A t/m C, E en F, geen code, geen migraties.
 
+**PR #TBD (branch `feat/mollie-return-flow`), 2026-09-20.** Workstream A gebouwd, alleen de terugkeerflow. `@capacitor/app` en `@capacitor/browser` toegevoegd (`cap sync` heeft `Package.swift`, `capacitor.build.gradle` en `capacitor.settings.gradle` bijgewerkt); custom scheme `nl.themovementclub.app` in `CFBundleURLTypes` (`ios/App/App/Info.plist`) en als VIEW-intent-filter in `AndroidManifest.xml`; geen universal links. De vijf call sites openen de checkout via `openCheckout()` (`src/lib/native/checkout.ts`): `Browser.open()` op native, `window.location.href` op web. De drie plekken die een redirectUrl bouwen krijgen een `returnTarget` ("web" of "app", een enum, nooit een URL) van de client en bouwen via `buildReturnUrl()` (`src/lib/native/return-url.ts`) op het custom scheme of https; de productflow draagt nu `&order=<id>`. `DeepLinkHandler` (root layout) vangt `appUrlOpen` en `getLaunchUrl()`, sluit de in-app browser en navigeert naar het pad uit de URL, dus ook na een koude start zonder state. `StatusPoller` pollt op de vier returnpagina's de databasestatus via server actions in `status-actions.ts` (3 s interval, 90 s timeout met melding en knop), en ververst de pagina zodra de status terminaal is. Bewust niet aangeraakt: `server.url` in `capacitor.config.ts`, de webhook en de activatieketen, schema en migraties, universal links (workstream C).
+
 ---
 
 ## A. Mollie in-app browser
@@ -51,7 +53,9 @@ Zelfde vuistregel als `spec-member-app.md` sectie 8: het duurdere, meest capabel
   - `src/components/checkout/PayStage.tsx:106`
   - `src/components/checkout/PayStage.tsx:250`
 
-**Te doen:**
+**Gebouwd in PR #TBD (2026-09-20), zie ledger.** De drie punten hieronder zijn daarmee gedaan: `@capacitor/browser` (plus `@capacitor/app` voor de terugkeer) is toegevoegd, de vijf call sites gaan via `openCheckout()`, en het return-to-app pad loopt via het custom scheme `nl.themovementclub.app` met `DeepLinkHandler` en `StatusPoller`. De regels "Wat bestaat vandaag" hierboven beschrijven de toestand van de discovery (PR #191), niet de huidige code. Open na deze PR: device-verificatie op een fysiek toestel (workstream C), en universal links als opvolger van het custom scheme zodra het associated-domains-entitlement er is.
+
+**Te doen (oorspronkelijke lijst, ter historie):**
 
 1. `@capacitor/browser` toevoegen als dependency.
 2. De vijf call sites migreren van `window.location.href`/`.assign()` naar `Browser.open()` (in-app browser in plaats van volledige webview-navigatie).
