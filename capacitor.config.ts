@@ -18,7 +18,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // betaalflow (of voelt hij kapot) binnen de gewrapte app.
 const config: CapacitorConfig = {
   appId: 'nl.themovementclub.app',
-  appName: 'The Movement Club',
+  appName: 'TMC',
   webDir: 'capacitor-shell/www',
   server: {
     // BUGFIX (native verificatie): www.themovementclub.nl staat hier expliciet
