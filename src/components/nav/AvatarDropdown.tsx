@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
+import { DeviceSignOutFields } from "@/components/capacitor/DeviceSignOutFields";
 
 /**
  * Role-aware avatar dropdown. Gebruikt in MemberNav, TrainerNav en
@@ -133,6 +134,7 @@ export function AvatarDropdown({
 
           <div className="border-t border-[color:var(--ink-500)]/60" />
           <form action={signOut}>
+            <DeviceSignOutFields />
             <button
               type="submit"
               role="menuitem"

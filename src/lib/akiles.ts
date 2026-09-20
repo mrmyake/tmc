@@ -6,6 +6,7 @@ import type {
   AkilesApi,
   AkilesGroupAssociation,
   AkilesIdOnly,
+  AkilesMemberToken,
 } from "@/lib/access/types";
 import {
   AKILES_OAUTH_REDIRECT_URI,
@@ -436,6 +437,30 @@ const client: AkilesApi = {
       "DELETE",
       `/members/${enc(memberId)}/group_associations/${enc(associationId)}`,
     );
+  },
+
+  // Member tokens (workstream E1). POST antwoordt met member_token_revealed;
+  // anders dan bij de PIN gaat de waarde hier WEL door, want die is precies
+  // wat het toestel een keer nodig heeft. De aanroeper (device-tokens-core)
+  // slaat alleen het id op en logt de waarde nergens.
+  createMemberToken: async (memberId, body) => {
+    const res = await request<{ id: string; token: string }>(
+      "POST",
+      `/members/${enc(memberId)}/tokens`,
+      body,
+    );
+    if (!res.id || !res.token) {
+      throw new AkilesApiError(502, `POST /members/${enc(memberId)}/tokens`, "antwoord zonder id of token");
+    }
+    return { id: res.id, token: res.token };
+  },
+  listMemberTokens: async (memberId) =>
+    (await listAll<AkilesMemberToken>(`/members/${enc(memberId)}/tokens`)).map((t) => ({
+      id: t.id,
+      is_deleted: t.is_deleted,
+    })),
+  deleteMemberToken: async (memberId, tokenId) => {
+    await request<unknown>("DELETE", `/members/${enc(memberId)}/tokens/${enc(tokenId)}`);
   },
 };
 

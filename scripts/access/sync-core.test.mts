@@ -24,9 +24,15 @@ import type {
   AkilesApi,
   AkilesGroupAssociation,
   AkilesPermissionRule,
+  DeviceTokenPatch,
+  DeviceTokenRow,
   ResolvedAccessConfig,
   SyncDeps,
 } from "../../src/lib/access/types";
+import {
+  issueDeviceTokenCore,
+  revokeDeviceTokenCore,
+} from "../../src/lib/access/device-tokens-core";
 import type { ScheduleWeekday } from "../../src/lib/access/schedule";
 
 const NOW = new Date("2026-09-08T10:00:00.000Z");
@@ -107,6 +113,51 @@ class FakeDb implements AccessDb {
     };
     this.credentials.set(row.profile_id, { ...existing, ...row });
   }
+
+  // Device-tokens (tmc.access_device_tokens)
+  deviceTokens = new Map<string, DeviceTokenRow>();
+  private tokenSeq = 0;
+
+  async insertDeviceToken(
+    row: Pick<DeviceTokenRow, "profile_id" | "akiles_member_id" | "akiles_token_id" | "platform" | "device_label">,
+  ) {
+    this.writes++;
+    this.tokenSeq++;
+    const full: DeviceTokenRow = {
+      id: `00000000-0000-4000-8000-${String(this.tokenSeq).padStart(12, "0")}`,
+      ...row,
+      issued_at: NOW.toISOString(),
+      last_seen_at: NOW.toISOString(),
+      revoked_at: null,
+      revoke_requested_at: null,
+      last_error: null,
+    };
+    this.deviceTokens.set(full.id, full);
+    return { ...full };
+  }
+  async getDeviceToken(profileId: string, id: string) {
+    this.reads++;
+    const row = this.deviceTokens.get(id);
+    return row && row.profile_id === profileId ? { ...row } : null;
+  }
+  async listOpenDeviceTokens(profileId: string) {
+    this.reads++;
+    return [...this.deviceTokens.values()]
+      .filter((r) => r.profile_id === profileId && r.revoked_at === null)
+      .map((r) => ({ ...r }));
+  }
+  async listPendingDeviceTokenRevocations() {
+    this.reads++;
+    return [...this.deviceTokens.values()]
+      .filter((r) => r.revoked_at === null && r.revoke_requested_at !== null)
+      .map((r) => ({ ...r }));
+  }
+  async updateDeviceToken(id: string, patch: DeviceTokenPatch) {
+    this.writes++;
+    const row = this.deviceTokens.get(id);
+    if (!row) throw new Error(`device token ${id} ontbreekt`);
+    this.deviceTokens.set(id, { ...row, ...patch });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +172,8 @@ interface FakeMember {
   pins: Map<string, string>;
   magicLinks: Set<string>;
   associations: Map<string, AkilesGroupAssociation>;
+  /** tokenId -> tokenwaarde (alleen in de fake; de kern slaat hem nooit op). */
+  tokens: Map<string, string>;
 }
 
 class NotFound extends Error {
@@ -181,6 +234,7 @@ class FakeAkiles implements AkilesApi {
       pins: new Map(),
       magicLinks: new Set(),
       associations: new Map(),
+      tokens: new Map(),
     });
     return { id };
   }
@@ -235,6 +289,32 @@ class FakeAkiles implements AkilesApi {
   async deleteGroupAssociation(memberId: string, associationId: string) {
     this.calls.push("deleteGroupAssociation");
     this.member(memberId).associations.delete(associationId);
+  }
+
+  /** Als true gooit deleteMemberToken een 503 (Akiles onbereikbaar). */
+  failTokenDelete = false;
+
+  async createMemberToken(memberId: string, body: { metadata: Record<string, string> }) {
+    this.calls.push("createMemberToken");
+    const m = this.member(memberId);
+    assert.equal(body.metadata.source, "tmc");
+    const id = this.nextId("mt");
+    m.tokens.set(id, `mt_secret_${this.seq}`);
+    return { id, token: m.tokens.get(id) as string };
+  }
+  async listMemberTokens(memberId: string) {
+    this.calls.push("listMemberTokens");
+    return [...this.member(memberId).tokens.keys()].map((id) => ({ id }));
+  }
+  async deleteMemberToken(memberId: string, tokenId: string) {
+    this.calls.push("deleteMemberToken");
+    if (this.failTokenDelete) {
+      const err = new Error("akiles 503") as Error & { status: number };
+      err.status = 503;
+      throw err;
+    }
+    const m = this.member(memberId);
+    if (!m.tokens.delete(tokenId)) throw new NotFound(`token ${tokenId}`);
   }
 }
 
@@ -311,6 +391,9 @@ const MEMBER_LEVEL_CALLS = new Set([
   "listGroupAssociations",
   "createGroupAssociation",
   "deleteGroupAssociation",
+  "createMemberToken",
+  "listMemberTokens",
+  "deleteMemberToken",
 ]);
 
 /** Akiles-calls die een lid raken; config-calls (schedules, groepen) tellen niet mee. */
@@ -335,6 +418,8 @@ test("zonder Akiles-configuratie: schone no-op, geen enkele DB-read of -write, e
     remaining: 0,
     failed: 0,
     failures: [],
+    tokenRevocationsRetried: 0,
+    tokenRevocationsFailed: 0,
   });
 
   const one = await syncOneCore(deps, "p1");
@@ -384,7 +469,7 @@ test("eerste run provisiont config en member; tweede run is identiek en maakt ni
   assert.deepEqual(extendedGroup?.permissions, [
     {
       schedule_id: cfg.schedule_extended_id,
-      access_methods: { online: false, bluetooth: false, mobile_nfc: true, pin: true, card: false },
+      access_methods: { online: false, bluetooth: true, mobile_nfc: true, pin: true, card: false },
     },
   ]);
 
@@ -851,4 +936,187 @@ test("ontbrekende access_config-rij: run faalt luid, geen profielen aangeraakt",
   assert.equal(run.ok, false);
   assert.match(run.error ?? "", /access_config ontbreekt/);
   assert.equal(akiles.members.size, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Device-tokens (E1)
+// ---------------------------------------------------------------------------
+
+async function grantedMember(id = "m") {
+  const akiles = new FakeAkiles();
+  const h = makeDeps({ akiles });
+  h.db.profiles.set(id, profile(id, "member", [ACTIVE]));
+  await syncAllCore(h.deps);
+  h.events.length = 0;
+  akiles.calls = [];
+  return { ...h, akiles };
+}
+
+test("permission rules: bluetooth en pin en mobile_nfc aan, online en card uit, op alle drie de groepen", async () => {
+  const { akiles } = await grantedMember();
+  const rules = [...akiles.groups.values()].map((g) => g.permissions[0].access_methods);
+  assert.equal(rules.length, 3);
+  for (const methods of rules) {
+    assert.deepEqual(methods, {
+      online: false,
+      bluetooth: true,
+      mobile_nfc: true,
+      pin: true,
+      card: false,
+    });
+  }
+});
+
+test("device-token uitgifte: alleen met open toegang; rij draagt alleen ids, waarde komt eenmalig terug", async () => {
+  const { deps, db, akiles, events } = await grantedMember();
+
+  const issued = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios", deviceLabel: "  iPhone 15  iOS 18 " });
+  assert.ok(issued.ok);
+  if (!issued.ok) return;
+  assert.match(issued.token, /^mt_secret_/);
+  assert.equal(issued.row.akiles_token_id.startsWith("mt_"), true);
+  assert.equal(issued.row.device_label, "iPhone 15 iOS 18");
+  assert.equal(issued.row.revoked_at, null);
+  const stored = db.deviceTokens.get(issued.row.id) as DeviceTokenRow;
+  assert.equal(JSON.stringify(stored).includes("mt_secret_"), false, "tokenwaarde staat nergens in de rij");
+  assert.deepEqual(events.map((e) => e.type), ["access.device_token_issued"]);
+  assert.equal(JSON.stringify(events).includes("mt_secret_"), false, "tokenwaarde staat niet in het event");
+
+  // Zonder credentials of zonder open toegang: geen Akiles-call, geen rij.
+  akiles.calls = [];
+  const none = await issueDeviceTokenCore(deps, { profileId: "onbekend", platform: "ios" });
+  assert.deepEqual(none, { ok: false, reason: "no_credentials" });
+  const cred = db.credentials.get("m") as AccessCredentialsRow;
+  db.credentials.set("m", { ...cred, access_ends_at: new Date(NOW.getTime() - 1000).toISOString() });
+  const closed = await issueDeviceTokenCore(deps, { profileId: "m", platform: "android" });
+  assert.deepEqual(closed, { ok: false, reason: "no_access" });
+  assert.equal(akiles.calls.length, 0);
+  assert.equal(db.deviceTokens.size, 1);
+
+  // Niet geconfigureerd: niets.
+  const off = makeDeps({ akiles: null });
+  assert.deepEqual(await issueDeviceTokenCore(off.deps, { profileId: "m", platform: "ios" }), {
+    ok: false,
+    reason: "not_configured",
+  });
+  assert.equal(off.db.reads + off.db.writes, 0);
+});
+
+test("logout: intrekken verwijdert het token bij Akiles, andere toestellen en de PIN blijven", async () => {
+  const { deps, db, akiles, events } = await grantedMember();
+  const a = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  const b = await issueDeviceTokenCore(deps, { profileId: "m", platform: "android" });
+  assert.ok(a.ok && b.ok);
+  if (!a.ok || !b.ok) return;
+  events.length = 0;
+
+  const result = await revokeDeviceTokenCore(deps, { profileId: "m", id: a.row.id, reason: "logout" });
+  assert.deepEqual(result, { ok: true, outcome: "revoked" });
+  const memberId = (db.credentials.get("m") as AccessCredentialsRow).akiles_member_id as string;
+  const member = akiles.members.get(memberId) as FakeMember;
+  assert.equal(member.tokens.has(a.row.akiles_token_id), false, "token weg bij Akiles");
+  assert.equal(member.tokens.has(b.row.akiles_token_id), true, "ander toestel ongemoeid");
+  assert.equal(member.pins.size, 1, "PIN blijft");
+  assert.ok((db.deviceTokens.get(a.row.id) as DeviceTokenRow).revoked_at);
+  assert.equal((db.deviceTokens.get(b.row.id) as DeviceTokenRow).revoked_at, null);
+  assert.deepEqual(events.map((e) => [e.type, e.payload.deferred]), [["access.device_token_revoked", false]]);
+
+  // Nogmaals: al ingetrokken, geen nieuwe call.
+  akiles.calls = [];
+  assert.deepEqual(await revokeDeviceTokenCore(deps, { profileId: "m", id: a.row.id, reason: "logout" }), {
+    ok: true,
+    outcome: "already_revoked",
+  });
+  assert.equal(akiles.calls.length, 0);
+
+  // Andermans id: not_found, geen call.
+  assert.deepEqual(await revokeDeviceTokenCore(deps, { profileId: "x", id: b.row.id, reason: "logout" }), {
+    ok: false,
+    reason: "not_found",
+  });
+  assert.equal(akiles.calls.length, 0);
+});
+
+test("logout terwijl Akiles onbereikbaar is: in de wachtrij, de nachtelijke run herkanst voor de profielloop", async () => {
+  const { deps, db, akiles, events } = await grantedMember();
+  const a = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  assert.ok(a.ok);
+  if (!a.ok) return;
+  events.length = 0;
+
+  akiles.failTokenDelete = true;
+  const result = await revokeDeviceTokenCore(deps, { profileId: "m", id: a.row.id, reason: "logout" });
+  assert.deepEqual(result, { ok: true, outcome: "deferred" }, "logout blokkeert niet");
+  const pending = db.deviceTokens.get(a.row.id) as DeviceTokenRow;
+  assert.ok(pending.revoke_requested_at);
+  assert.equal(pending.revoked_at, null);
+  assert.match(pending.last_error as string, /503/);
+  assert.deepEqual(events.map((e) => [e.type, e.payload.deferred]), [["access.device_token_revoked", true]]);
+
+  // Nacht 1: Akiles nog steeds stuk. Blijft staan, telt als failed.
+  const night1 = await syncAllCore(deps);
+  assert.equal(night1.tokenRevocationsRetried, 0);
+  assert.equal(night1.tokenRevocationsFailed, 1);
+  assert.equal((db.deviceTokens.get(a.row.id) as DeviceTokenRow).revoked_at, null);
+
+  // Nacht 2: Akiles terug. Weg bij Akiles, revoked_at gevuld, fout gewist.
+  akiles.failTokenDelete = false;
+  akiles.calls = [];
+  const night2 = await syncAllCore(deps);
+  assert.equal(night2.tokenRevocationsRetried, 1);
+  assert.equal(night2.tokenRevocationsFailed, 0);
+  const done = db.deviceTokens.get(a.row.id) as DeviceTokenRow;
+  assert.ok(done.revoked_at);
+  assert.equal(done.last_error, null);
+  assert.equal(memberCalls(akiles)[0], "deleteMemberToken", "herkansing loopt voor de profielloop (na de config-provisioning)");
+  const memberId = (db.credentials.get("m") as AccessCredentialsRow).akiles_member_id as string;
+  assert.equal((akiles.members.get(memberId) as FakeMember).tokens.size, 0);
+
+  // Nacht 3: niets meer te doen.
+  const night3 = await syncAllCore(deps);
+  assert.equal(night3.tokenRevocationsRetried + night3.tokenRevocationsFailed, 0);
+});
+
+test("intrekking door de sync (opzegging) neemt alle tokens mee, ook een token buiten ons om; heraanmelding laat niets herleven", async () => {
+  const { deps, db, akiles, events } = await grantedMember();
+  const a = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  assert.ok(a.ok);
+  if (!a.ok) return;
+  const memberId = (db.credentials.get("m") as AccessCredentialsRow).akiles_member_id as string;
+  const member = akiles.members.get(memberId) as FakeMember;
+  // Token dat niet in onze tabel staat (bijvoorbeeld via het Akiles-paneel).
+  member.tokens.set("mt_vreemd", "mt_secret_vreemd");
+  events.length = 0;
+
+  db.profiles.set("m", profile("m", "member", [{ ...ACTIVE, status: "cancelled" }]));
+  await syncAllCore(deps);
+  assert.equal(member.tokens.size, 0, "alle tokens weg bij Akiles, ook de vreemde");
+  assert.ok((db.deviceTokens.get(a.row.id) as DeviceTokenRow).revoked_at);
+  assert.deepEqual(
+    events.map((e) => e.type).sort(),
+    ["access.device_token_revoked", "access.revoked"],
+  );
+
+  // Heraanmelding: member krijgt weer toegang, maar er is geen token dat herleeft.
+  db.profiles.set("m", profile("m", "member", [ACTIVE]));
+  await syncAllCore(deps);
+  assert.equal(member.tokens.size, 0);
+  assert.equal((await db.listOpenDeviceTokens("m")).length, 0);
+  // Nieuwe uitgifte werkt weer.
+  const again = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  assert.ok(again.ok);
+});
+
+test("intrekking door de sync: member al weg bij Akiles is geen fout, rij wordt toch afgesloten", async () => {
+  const { deps, db, akiles } = await grantedMember();
+  const a = await issueDeviceTokenCore(deps, { profileId: "m", platform: "ios" });
+  assert.ok(a.ok);
+  if (!a.ok) return;
+  const memberId = (db.credentials.get("m") as AccessCredentialsRow).akiles_member_id as string;
+  akiles.members.delete(memberId);
+
+  db.profiles.set("m", profile("m", "member", [{ ...ACTIVE, status: "cancelled" }]));
+  const run = await syncAllCore(deps);
+  assert.equal(run.failed, 0);
+  assert.ok((db.deviceTokens.get(a.row.id) as DeviceTokenRow).revoked_at);
 });

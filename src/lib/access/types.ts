@@ -38,11 +38,22 @@ export interface AkilesGroupAssociation {
   is_deleted?: boolean;
 }
 
+/** Schema `member_token` (zonder de waarde). Geen expires_at: geldigheid volgt uit de member. */
+export interface AkilesMemberToken {
+  id: string;
+  is_deleted?: boolean;
+}
+
 /**
- * Alleen de calls die de sync en de reveal nodig hebben. De create-PIN-call
- * geeft bewust alleen het id terug: de gegenereerde waarde komt in de
- * response mee maar wordt door de wrapper weggegooid, zodat het syncpad hem
- * nooit in handen krijgt. Onthullen kan uitsluitend via revealPin.
+ * Alleen de calls die de sync, de reveal en de device-tokens nodig hebben.
+ * De create-PIN-call geeft bewust alleen het id terug: de gegenereerde
+ * waarde komt in de response mee maar wordt door de wrapper weggegooid,
+ * zodat het syncpad hem nooit in handen krijgt. Onthullen kan uitsluitend
+ * via revealPin.
+ *
+ * createMemberToken is de uitzondering op "alleen ids": de tokenwaarde is
+ * precies wat het toestel een keer nodig heeft (device-tokens-core.ts). De
+ * sync roept die call nooit aan; hij kent alleen list en delete.
  */
 export interface AkilesApi {
   createSchedule(body: { name: string; weekdays: ScheduleWeekday[] }): Promise<AkilesIdOnly>;
@@ -84,6 +95,14 @@ export interface AkilesApi {
     body: { member_group_id: string },
   ): Promise<AkilesIdOnly>;
   deleteGroupAssociation(memberId: string, associationId: string): Promise<void>;
+
+  /** POST /members/{id}/tokens; antwoord member_token_revealed. De waarde gaat door naar het toestel, nergens anders heen. */
+  createMemberToken(
+    memberId: string,
+    body: { metadata: Record<string, string> },
+  ): Promise<{ id: string; token: string }>;
+  listMemberTokens(memberId: string): Promise<AkilesMemberToken[]>;
+  deleteMemberToken(memberId: string, tokenId: string): Promise<void>;
 }
 
 /** Foutvorm die sync-core herkent (404 = object in Akiles verdwenen, opnieuw aanmaken). */
@@ -147,6 +166,27 @@ export interface AccessProfile {
   memberships: AccessMembershipRow[];
 }
 
+/** Rij in tmc.access_device_tokens (migratie 20260920000000). Nooit de tokenwaarde. */
+export interface DeviceTokenRow {
+  id: string;
+  profile_id: string;
+  akiles_member_id: string;
+  akiles_token_id: string;
+  platform: DevicePlatform;
+  device_label: string | null;
+  issued_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  revoke_requested_at: string | null;
+  last_error: string | null;
+}
+
+export type DevicePlatform = "ios" | "android";
+
+export type DeviceTokenPatch = Partial<
+  Pick<DeviceTokenRow, "last_seen_at" | "revoked_at" | "revoke_requested_at" | "last_error">
+>;
+
 export interface AccessDb {
   getConfig(): Promise<AccessConfigRow | null>;
   saveConfig(patch: Partial<AccessConfigRow>): Promise<void>;
@@ -171,6 +211,22 @@ export interface AccessDb {
   upsertCredentials(
     row: Pick<AccessCredentialsRow, "profile_id"> & Partial<AccessCredentialsRow>,
   ): Promise<void>;
+
+  // Device-tokens (tmc.access_device_tokens). Schrijven uitsluitend via
+  // service-role; de rijen dragen alleen ids.
+  insertDeviceToken(
+    row: Pick<
+      DeviceTokenRow,
+      "profile_id" | "akiles_member_id" | "akiles_token_id" | "platform" | "device_label"
+    >,
+  ): Promise<DeviceTokenRow>;
+  /** Rij op eigen id, alleen als hij bij het profiel hoort. */
+  getDeviceToken(profileId: string, id: string): Promise<DeviceTokenRow | null>;
+  /** Alle rijen van het profiel zonder revoked_at. */
+  listOpenDeviceTokens(profileId: string): Promise<DeviceTokenRow[]>;
+  /** Rijen met revoke_requested_at gevuld en revoked_at leeg, over alle profielen. */
+  listPendingDeviceTokenRevocations(): Promise<DeviceTokenRow[]>;
+  updateDeviceToken(id: string, patch: DeviceTokenPatch): Promise<void>;
 }
 
 export interface AccessEvent {
@@ -178,7 +234,9 @@ export interface AccessEvent {
     | "access.granted"
     | "access.revoked"
     | "access.lockdown_enabled"
-    | "access.lockdown_disabled";
+    | "access.lockdown_disabled"
+    | "access.device_token_issued"
+    | "access.device_token_revoked";
   subjectId: string | null;
   payload: Record<string, unknown>;
 }
@@ -224,5 +282,9 @@ export interface SyncAllResult {
   remaining: number;
   failed: number;
   failures: Array<{ profileId: string; error: string }>;
+  /** Device-tokens waarvan een eerder mislukte intrekking deze run alsnog bij Akiles is doorgevoerd. */
+  tokenRevocationsRetried: number;
+  /** Device-tokens waarvan de intrekking opnieuw mislukte; blijven staan voor de volgende run. */
+  tokenRevocationsFailed: number;
   error?: string;
 }
