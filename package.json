@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "rm -rf .next/types .next/dev/types && next typegen && tsc --noEmit",
     "types:supabase": "supabase gen types typescript --project-id xoivleieyfcxcfawgveh --schema tmc > types/supabase.ts",
     "seed:dummies": "node --env-file=.env.local scripts/seed-dummy-members.mjs",
     "seed:review": "node --env-file=.env.local scripts/seed-review-accounts.ts",

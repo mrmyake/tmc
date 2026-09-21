@@ -12,6 +12,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - Bij twijfel: stop en vraag. Verlies van niet-gecommit werk is nooit een acceptabele bijwerking van een voorbereidende stap.
 - Geef bij `gh pr create` altijd expliciet `--head <branch>` mee zolang er parallelle sessies draaien. Zonder die vlag leidt `gh` de branch af uit de checkout waarin het commando toevallig draait, en dat is bij een worktree-workflow niet jouw branch.
 - `.mcp.json` is gitignored en migreert dus niet mee naar een nieuwe git worktree. Een parallelle sessie start zonder MCP-servers tenzij het bestand handmatig wordt gekopieerd.
+- Subagents krijgen nooit schrijfrechten tenzij de opdracht dat expliciet zegt. Een subagent draait nooit `git commit`, `git push`, `gh pr create` of `gh pr merge`, ook niet als hij denkt dat de wijziging klopt. Een read-only opdracht betekent lezen en rapporteren, niets anders. De hoofdsessie doet het committen en het openen van PR's, en alleen Ilja merget.
 
 ---
 
@@ -23,6 +24,14 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - **Bold-lead formaat**, zoals de WS-ledger in `spec-membership-flow.md`.
 - **Schrijf de regel in de PR zelf, niet na de merge.** Een ledger die achteraf wordt bijgewerkt, wordt niet bijgewerkt.
 - **Identificeer op PR-nummer, niet op squash-hash.** Die hash bestaat nog niet op het moment van schrijven. De hash mag er later bij, het PR-nummer is de sleutel.
+
+---
+
+## Mockups
+
+- **Losse HTML-mockups (visuele states, geen werkende code) staan in `mockups/`**, niet los in de repo-root. Bestandsnaam zonder `mockup-`-prefix (die zit al in de mapnaam), bijv. `mockups/akiles-toegang.html`.
+- Een mockup op een eigen branch (bijv. `mockup/rooster-coverage-kleuren`) hoeft niet te verhuizen; deze regel geldt voor mockups die op `main` belanden.
+- Verwijst een code-comment of spec-regel naar een mockupbestand, gebruik het huidige pad (`mockups/...`). Een ledger-regel die het oude root-pad beschrijft (het pad zoals het destijds was bij die PR) blijft ongewijzigd: dat is geschiedenis, geen actuele documentatie.
 
 ---
 

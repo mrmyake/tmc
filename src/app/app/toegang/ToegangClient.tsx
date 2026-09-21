@@ -22,7 +22,7 @@ import {
 } from "@/lib/native/device-storage";
 
 /**
- * Toestandsmachine van het deurscherm (mockup-akiles-toegang.html, PR #202).
+ * Toestandsmachine van het deurscherm (mockups/akiles-toegang.html, PR #202).
  * Alleen gerenderd voor een profiel met actieve toegang; de server-render
  * heeft dat al beslist (page.tsx).
  *
