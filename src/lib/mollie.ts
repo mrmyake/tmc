@@ -183,6 +183,31 @@ export async function cancelMollieSubscription(
   }
 }
 
+/**
+ * Verwijder een Mollie-customer (accountverwijdering, retentiestap). Mollie
+ * annuleert daarbij zelf alle mandaten en subscriptions van de customer
+ * (docs.mollie.com/reference/delete-customer), dus PAS aanroepen nadat de
+ * memberships lokaal op cancelled staan: anders blijft process-cancellations
+ * hangen op een 404 met een nachtelijke melding. Idempotent: een al
+ * verdwenen customer (404) telt als succes. Throwt nooit.
+ */
+export async function deleteMollieCustomer(
+  mode: MollieMode,
+  customerId: string | null,
+): Promise<boolean> {
+  const mollie = getMollieClient(mode);
+  if (!mollie || !customerId) return false;
+  try {
+    await mollie.customers.delete(customerId);
+    return true;
+  } catch (err) {
+    const status = (err as { statusCode?: number } | null)?.statusCode;
+    if (status === 404) return true;
+    console.error("[deleteMollieCustomer] failed", err);
+    return false;
+  }
+}
+
 export interface MollieSubscriptionInfo {
   status: string;
   nextPaymentDate: string | null;

@@ -3,7 +3,8 @@ const API_URL = "https://connect.mailerlite.com/api";
 async function mailerliteRequest(
   path: string,
   body: Record<string, unknown> | null,
-  method: "POST" | "PUT" | "DELETE" = "POST",
+  method: "GET" | "POST" | "PUT" | "DELETE" = "POST",
+  options: { quiet404?: boolean } = {},
 ) {
   // Strip alle whitespace: Vercel UI kan een gewrapte JWT met linebreaks
   // opslaan, en die breken de Bearer header (HTTP 401 zonder zichtbare fout
@@ -25,6 +26,9 @@ async function mailerliteRequest(
   });
 
   if (!res.ok) {
+    // Een lookup die niets vindt is geen fout (accountverwijdering: adres
+    // stond nooit in MailerLite).
+    if (res.status === 404 && options.quiet404) return null;
     const error = await res.text();
     console.error("[Mailerlite] API error:", res.status, error);
     return null;
@@ -55,6 +59,39 @@ export async function addSubscriber(data: SubscriberData) {
     groups: data.groups || [],
     status: "active",
   });
+}
+
+/**
+ * Numeriek subscriber-id op e-mailadres, of null als het adres onbekend is
+ * (of MailerLite niet geconfigureerd). GET /api/subscribers/{email} is de
+ * enige call die een adres accepteert; forget en delete willen het id.
+ */
+export async function findSubscriberIdByEmail(email: string): Promise<string | null> {
+  const res = (await mailerliteRequest(
+    `/subscribers/${encodeURIComponent(email.trim().toLowerCase())}`,
+    null,
+    "GET",
+    { quiet404: true },
+  )) as { data?: { id?: string | number } } | null;
+  const id = res?.data?.id;
+  return id === undefined || id === null ? null : String(id);
+}
+
+/**
+ * AVG-wissing bij MailerLite: POST /api/subscribers/{id}/forget. MailerLite
+ * verwijdert de subscriber en zijn activiteit binnen 30 dagen, ook de
+ * lead-historie van hetzelfde adres van voor het lidmaatschap (proefles,
+ * contact). Alternatief is setSubscriberUnsubscribed, dat de gegevens laat
+ * staan. Keuze: ACCOUNT_DELETION_MAILERLITE_MODE in
+ * src/lib/account-deletion/config.ts. Best effort: geeft false bij fout.
+ */
+export async function forgetSubscriber(subscriberId: string): Promise<boolean> {
+  const res = await mailerliteRequest(
+    `/subscribers/${encodeURIComponent(subscriberId)}/forget`,
+    {},
+    "POST",
+  );
+  return res !== null;
 }
 
 /**

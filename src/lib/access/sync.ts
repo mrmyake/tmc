@@ -89,6 +89,14 @@ function buildDb(admin: SupabaseClient): AccessDb {
       const row = data as unknown as AccessProfile & {
         memberships: AccessProfile["memberships"] | null;
       };
+      // Open verwijderverzoek: deur dicht ongeacht de membership (desired-state).
+      const { data: open, error: openErr } = await admin
+        .from("account_deletions")
+        .select("id")
+        .eq("profile_id", profileId)
+        .in("status", ["requested", "in_progress", "blocked"])
+        .limit(1);
+      if (openErr) throw new Error(`account_deletions lezen: ${openErr.message}`);
       return {
         id: row.id,
         first_name: row.first_name,
@@ -96,6 +104,7 @@ function buildDb(admin: SupabaseClient): AccessDb {
         role: row.role,
         is_test: Boolean(row.is_test),
         memberships: row.memberships ?? [],
+        deletion_requested: (open ?? []).length > 0,
       };
     },
     async listSyncCandidateProfileIds() {

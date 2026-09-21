@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
-import { cancelMollieSubscription } from "@/lib/mollie";
-import { mollieModeForProfile } from "@/lib/mollie-mode";
-import { sendNotification } from "@/lib/ntfy";
-import { syncMembershipAccess } from "@/lib/access/sync";
+import { requestAccountDeletionByAdmin } from "@/lib/account-deletion/service";
 import {
   cancelMembershipCore,
   cancelMembershipChangeCore,
@@ -767,7 +764,7 @@ export async function createNote(
 }
 
 // ----------------------------------------------------------------------------
-// Delete member — hard delete via auth admin API
+// Delete member: admin-hardstop op de accountverwijderingsketen
 // ----------------------------------------------------------------------------
 
 interface DeleteMemberInput {
@@ -785,7 +782,7 @@ export async function deleteMember(
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, first_name, last_name, email")
+    .select("id, first_name, role")
     .eq("id", input.profileId)
     .maybeSingle();
 
@@ -801,93 +798,71 @@ export async function deleteMember(
     };
   }
 
-  // Audit log VOOR de delete, anders is er geen profile meer om naar te
-  // verwijzen voor `target_id`. We bewaren naam/email in `details`.
+  if (profile.role !== "member") {
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message:
+        "Dit is een teamaccount. Zet de rol eerst op lid; daarna kan het account verwijderd worden.",
+    };
+  }
+
+  // Auditregel zonder persoonsgegevens: actor_label vult de trigger, het
+  // lid is herleidbaar via target_id en straks via member_code in
+  // account_deletions.
   await admin.from("admin_audit_log").insert({
     admin_id: auth.userId,
     action: "member_deleted",
     target_type: "profile",
     target_id: profile.id,
-    details: {
-      captured_first_name: profile.first_name,
-      captured_last_name: profile.last_name,
-      captured_email: profile.email,
-    },
+    details: { via: "account_deletion_core", hard_stop: true },
   });
 
-  // Cancel alle nog-actieve memberships en stop de bijbehorende Mollie-
-  // subscriptions, zodat er na de hard-delete geen incasso doorloopt. De
-  // FK-cascades op bookings, waitlist, notes, strikes ruimen op zodra
-  // auth.users wordt verwijderd.
-  const { data: cancelled } = await admin
-    .from("memberships")
-    .update({ status: "cancelled", end_date: new Date().toISOString().slice(0, 10) })
-    .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "cancellation_requested", "payment_failed"])
-    .select("id, mollie_customer_id, mollie_subscription_id");
-
-  const mollieFailures: string[] = [];
-  for (const m of cancelled ?? []) {
-    if (m.mollie_subscription_id) {
-      const stopped = await cancelMollieSubscription(
-        await mollieModeForProfile(profile.id),
-        m.mollie_customer_id,
-        m.mollie_subscription_id,
-      );
-      if (!stopped) mollieFailures.push(m.id);
-    }
-    await emitEvent({
-      type: "membership.cancelled",
-      actorType: "admin",
-      actorId: auth.userId,
-      subjectType: "membership",
-      subjectId: m.id,
-      payload: {
-        profile_id: profile.id,
-        membership_id: m.id,
-        reason: "member_deleted",
-        subscription_cancelled: Boolean(m.mollie_subscription_id),
-      },
-    });
-  }
-
-  // Hard-delete gaat door, maar een mislukte Mollie-cancel betekent
-  // doorlopende incasso voor een verwijderd lid: loud melden.
-  if (mollieFailures.length > 0) {
-    await sendNotification(
-      "Mollie-incasso niet gestopt",
-      `Lid ${profile.id} wordt verwijderd, maar ${mollieFailures.length} Mollie-subscription(s) konden niet worden geannuleerd. Stop ze handmatig in het Mollie-dashboard.`,
-      "warning",
-    );
-  }
-
-  // Deurtoegang (spec-akiles-access.md): de memberships staan nu op
-  // cancelled, dus deze sync zet member.ends_at in Akiles in het verleden
-  // en verwijdert de PIN. Moet VOOR de hard-delete: de FK-cascade op
-  // access_credentials wist daarna de Akiles-ids. Throwt nooit.
-  await syncMembershipAccess(profile.id);
-
-  const { error: delErr } = await admin.auth.admin.deleteUser(profile.id);
-  if (delErr) {
-    console.error("[deleteMember] auth delete failed", delErr);
-    return {
-      ok: false,
-      message:
-        "Auth-user verwijderen lukte niet. Check Supabase-logs. Memberships zijn wel al gecancelled.",
-    };
-  }
-
-  await emitEvent({
-    type: "member.deleted",
-    actorType: "admin",
-    actorId: auth.userId,
-    subjectType: "profile",
-    subjectId: profile.id,
-    payload: { profile_id: profile.id, source: "admin_delete" },
-  });
+  // Dezelfde keten als het self-service pad (src/lib/account-deletion/):
+  // memberships per direct via cancelMembershipCore (Mollie eerst, dan de
+  // admin-RPC), freeze, en meteen een purge-run. Geen losse .update() op
+  // memberships meer buiten de RPC's om.
+  const result = await requestAccountDeletionByAdmin(
+    profile.id,
+    "member_deleted",
+    auth.userId,
+  );
 
   revalidatePath("/app/admin/leden");
   revalidatePath("/app/admin");
 
-  return { ok: true, message: "Lid verwijderd." };
+  if (!result.ok) {
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message:
+        result.reason === "staff_role"
+          ? "Dit is een teamaccount; zet de rol eerst op lid."
+          : result.reason === "membership_active"
+            ? "Het lidmaatschap loopt nog en kon niet gestopt worden."
+            : "Lid niet gevonden.",
+    };
+  }
+
+  const { purge } = result;
+  if (purge.completed) {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Lid verwijderd." };
+  }
+  if (purge.blocked) {
+    const detail = Object.entries(purge.row.last_error)
+      .map(([step, err]) => `${step}: ${err}`)
+      .join("; ");
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: `Verwijdering gestart maar geblokkeerd (${detail}). Los dit op; de cron probeert het vannacht opnieuw.`,
+    };
+  }
+  const open = purge.failed.join(", ");
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message: `Verwijdering gestart. Toegang en boekingen zijn dicht; nog open: ${open || "niets"}. De cron rondt het vannacht af.`,
+  };
 }

@@ -415,6 +415,19 @@ const client: AkilesApi = {
     );
     return { link: res.link };
   },
+  deleteMagicLink: async (memberId, magicLinkId) => {
+    await request<unknown>(
+      "DELETE",
+      `/members/${enc(memberId)}/magic_links/${enc(magicLinkId)}`,
+    );
+  },
+
+  // Accountverwijdering (src/lib/account-deletion/): de member zelf weg.
+  // Akiles markeert hem als is_deleted; de naam die wij meegaven blijft in
+  // hun events staan, dus de aanroeper zet die eerst op een pseudoniem.
+  deleteMember: async (memberId) => {
+    await request<unknown>("DELETE", `/members/${enc(memberId)}`);
+  },
 
   listGroupAssociations: async (memberId) =>
     (

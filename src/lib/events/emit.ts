@@ -86,6 +86,10 @@ export type EventType =
   // Member lifecycle
   | "member.created"
   | "member.deleted"
+  // Accountverwijdering (src/lib/account-deletion/); member.anonymised schrijft de RPC zelf
+  | "member.deletion_requested"
+  | "member.deletion_cancelled"
+  | "member.anonymised"
   // Trainer
   | "trainer_hours.submitted"
   // Auth (OTP-login, zie src/lib/actions/auth.ts)
