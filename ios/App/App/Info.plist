@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
@@ -20,8 +20,6 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -33,19 +31,15 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- Bluetooth: deur openen via de Akiles-SDK (capacitor-plugins/akiles, workstream E2).
-	     De Always-variant is de sleutel die iOS 13+ toont; de Peripheral-variant is de
-	     oudere sleutel die de SDK (minimum iOS 11) nog verwacht. Geen locatiesleutel:
-	     de plugin vraagt geen locatie (requestLocationPermission false, online uit). -->
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<!-- COPY: confirm met Marlon -->
 	<string>The Movement Club gebruikt Bluetooth om de studiodeur voor je te openen als je in de buurt bent.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<!-- COPY: confirm met Marlon -->
 	<string>The Movement Club gebruikt Bluetooth om de studiodeur voor je te openen als je in de buurt bent.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
