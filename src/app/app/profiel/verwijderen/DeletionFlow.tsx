@@ -13,18 +13,23 @@ import type {
   DeletionPreflight,
   PreflightMembership,
 } from "@/lib/member/account-deletion-preflight";
-import { formatDateLong, parseIsoDateToAmsterdamMidnight } from "@/lib/format-date";
+import { addDaysIsoAmsterdam, formatDateLong, parseIsoDateToAmsterdamMidnight } from "@/lib/format-date";
+import { CancelDeletionButton } from "../_components/CancelDeletionButton";
 
 /**
  * Vier schermen, een component:
  *  - voorwaarde: het lidmaatschap loopt nog. Geen doodlopend scherm: de
  *    einddatum, een knop naar opzeggen, en de datum vanaf wanneer de
  *    gegevens verdwijnen als het lid vandaag opzegt.
- *  - overzicht: wat er gebeurt, wat er bewaard blijft en waarom, en de
- *    verwachte datum van verwijdering. Daarna een bevestigingscode.
+ *  - overzicht: wat er gebeurt en wanneer (direct, of op de dag na de
+ *    laatste betaalde dag van een opgezegd abonnement), wat er bewaard
+ *    blijft en waarom, tegoed dat vervalt zonder restitutie (bevestigen),
+ *    en de verwachte datum van verwijdering. Daarna een bevestigingscode.
  *  - code: 6 cijfers naar het bekende adres, zelfde drempel als inloggen.
- *  - klaar: het verzoek loopt, wat er al is ingetrokken, en de datum. Het
- *    lid is daarna overal uitgelogd (de kern bant de auth-user).
+ *  - klaar: het verzoek loopt, wat er al is ingetrokken of wanneer dat
+ *    gebeurt, en de datum. Bij een directe sluiting is het lid overal
+ *    uitgelogd; anders blijft alles werken tot de sluiting en kan het
+ *    verzoek nog ingetrokken worden.
  */
 
 // Gelijk aan OTP_LENGTH en RESEND_COOLDOWN_S in src/app/login/LoginForm.tsx.
@@ -101,8 +106,7 @@ function ConditionScreen({
   expectedPurgeAfter: string;
   serverMessage: string | null;
 }) {
-  const subscriptions = running.filter((m) => m.isSubscription);
-  const creditRows = running.filter((m) => !m.isSubscription);
+  const subscriptions = running;
   return (
     <div className="space-y-8">
       <Card accent>
@@ -155,32 +159,6 @@ function ConditionScreen({
         </section>
       )}
 
-      {creditRows.length > 0 && (
-        <section>
-          {/* COPY: confirm met Marlon */}
-          <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-4">
-            Je tegoed
-          </h2>
-          <ul>
-            {creditRows.map((m) => (
-              <Row
-                key={m.id}
-                label={m.planVariant ?? "Tegoed"}
-                value={`${count(m.creditsRemaining, "credit", "credits")}${
-                  m.creditsExpiresAt ? `, geldig tot ${longDate(m.creditsExpiresAt.slice(0, 10))}` : ""
-                }`}
-              />
-            ))}
-          </ul>
-          {/* COPY: confirm met Marlon */}
-          <p className="text-text-muted text-sm leading-relaxed mt-4">
-            Een rittenkaart of PT-pakket met tegoed telt als lopend. Verwijderen
-            kan zodra het tegoed op is of verlopen. Wil je eerder verwijderen,
-            laat het Marlon weten; het tegoed vervalt dan.
-          </p>
-        </section>
-      )}
-
       <Card>
         {/* COPY: confirm met Marlon */}
         <Eyebrow>Wat er dan gebeurt</Eyebrow>
@@ -204,6 +182,8 @@ function OverviewScreen({
   preflight,
   reason,
   onReason,
+  creditsAcknowledged,
+  onAcknowledge,
   onContinue,
   busy,
   error,
@@ -211,22 +191,38 @@ function OverviewScreen({
   preflight: DeletionPreflight;
   reason: string;
   onReason: (v: string) => void;
+  creditsAcknowledged: boolean;
+  onAcknowledge: (v: boolean) => void;
   onContinue: () => void;
   busy: boolean;
   error: string | null;
 }) {
-  const { cancelled, credits, bookings, waitlist, ptSessions, guestBookings, invoices } = preflight;
+  const { cancelled, credits, bookings, waitlist, ptSessions, guestBookings, invoices, closesOn } =
+    preflight;
+  const closingDay = closesOn ? addDaysIsoAmsterdam(closesOn, 1) : null;
+  const totalCredits = credits.reduce((sum, m) => sum + m.creditsRemaining, 0);
+  const needsAcknowledgement = credits.length > 0;
   return (
     <div className="space-y-10">
       <section>
         {/* COPY: confirm met Marlon */}
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-2">
-          Wat er direct gebeurt
+          {closingDay ? "Wat er gebeurt bij de sluiting" : "Wat er direct gebeurt"}
         </h2>
-        <p className="text-text-muted text-sm leading-relaxed mb-4">
-          Zodra je bevestigt, sluiten we je account af. Je wordt overal
-          uitgelogd en kunt niet meer inloggen.
-        </p>
+        {closingDay ? (
+          <p className="text-text-muted text-sm leading-relaxed mb-4">
+            Je abonnement is opgezegd per {longDate(closesOn)}. Tot en met die
+            dag heb je betaald en blijft alles werken: inloggen, boeken, de
+            deur openen. Op {longDate(closingDay)} sluiten we je account in
+            een keer:
+          </p>
+        ) : (
+          <p className="text-text-muted text-sm leading-relaxed mb-4">
+            Je hebt geen lopend abonnement. Zodra je bevestigt, sluiten we je
+            account direct: je wordt overal uitgelogd en kunt niet meer
+            inloggen.
+          </p>
+        )}
         <ul>
           <Row label="Toegang tot de studio en gekoppelde toestellen" value="ingetrokken" />
           <Row label="Meldingen op je telefoon" value="uit" />
@@ -239,15 +235,48 @@ function OverviewScreen({
             <Row label="Gasten die je hebt uitgenodigd" value={count(guestBookings, "boeking vervalt", "boekingen vervallen")} />
           )}
           <Row label="Nieuwsbrief" value="uitgeschreven" />
-          {credits.map((m) => (
-            <Row
-              key={m.id}
-              label={m.planVariant ?? "Tegoed"}
-              value={`${count(m.creditsRemaining, "credit vervalt", "credits vervallen")}`}
-            />
-          ))}
         </ul>
       </section>
+
+      {credits.length > 0 && (
+        <section>
+          {/* COPY: confirm met Marlon */}
+          <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-2">
+            Je tegoed vervalt
+          </h2>
+          <ul>
+            {credits.map((m) => (
+              <Row
+                key={m.id}
+                label={m.planVariant ?? "Tegoed"}
+                value={`${count(m.creditsRemaining, "credit", "credits")}${
+                  m.creditsExpiresAt ? `, geldig tot ${longDate(m.creditsExpiresAt.slice(0, 10))}` : ""
+                }`}
+              />
+            ))}
+          </ul>
+          {/* COPY: confirm met Marlon */}
+          <p className="text-text-muted text-sm leading-relaxed mt-4">
+            Een rittenkaart of PT-pakket is niet op te zeggen en we betalen het
+            niet terug. Bij de sluiting vervalt dit tegoed. Wil je het eerst
+            opmaken, dien je verzoek dan later in.
+          </p>
+          <label className="flex items-start gap-3 mt-5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={creditsAcknowledged}
+              onChange={(e) => onAcknowledge(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
+            />
+            {/* COPY: confirm met Marlon */}
+            <span className="text-text text-sm leading-relaxed">
+              Ik begrijp dat mijn tegoed van{" "}
+              {count(totalCredits, "credit", "credits")} vervalt zonder
+              restitutie.
+            </span>
+          </label>
+        </section>
+      )}
 
       <section>
         {/* COPY: confirm met Marlon */}
@@ -285,9 +314,10 @@ function OverviewScreen({
           Je gegevens worden verwijderd na {longDate(preflight.expectedPurgeAfter)}.
         </p>
         <p className="text-text-muted text-sm leading-relaxed mt-2">
-          Dat is na het einde van je lidmaatschap en je laatste factuur, met
-          minimaal {preflight.coolingOffDays} dagen bedenktijd. Je krijgt een
-          mail zodra het gebeurd is.
+          {closingDay
+            ? `Dat is ${preflight.coolingOffDays} dagen bedenktijd na de sluiting op ${longDate(closingDay)}, en na je laatste factuur. Tot de sluiting kun je het verzoek op je profielpagina intrekken.`
+            : `Dat is ${preflight.coolingOffDays} dagen bedenktijd na de sluiting, en na je laatste factuur. Bedenk je je in die tijd, laat het Marlon dan weten.`}{" "}
+          Je krijgt een mail zodra het gebeurd is.
         </p>
       </Card>
 
@@ -312,7 +342,11 @@ function OverviewScreen({
         <Button
           type="button"
           onClick={onContinue}
-          className={busy ? "opacity-50 pointer-events-none" : ""}
+          className={
+            busy || (needsAcknowledgement && !creditsAcknowledged)
+              ? "opacity-50 pointer-events-none"
+              : ""
+          }
         >
           {/* COPY: confirm met Marlon */}
           {busy ? "Bezig..." : "Stuur bevestigingscode"}
@@ -335,6 +369,7 @@ function OverviewScreen({
 
 function CodeScreen({
   email,
+  closesOn,
   code,
   onCode,
   onSubmit,
@@ -344,6 +379,7 @@ function CodeScreen({
   error,
 }: {
   email: string;
+  closesOn: string | null;
   code: string;
   onCode: (v: string) => void;
   onSubmit: () => void;
@@ -404,8 +440,9 @@ function CodeScreen({
 
       {/* COPY: confirm met Marlon */}
       <p className="text-text-muted text-xs leading-relaxed">
-        Na bevestiging is dit definitief: je wordt overal uitgelogd en kunt
-        niet meer inloggen.
+        {closesOn
+          ? `Na bevestiging staat je verzoek. Tot en met ${longDate(closesOn)} blijft alles werken; tot die dag kun je het verzoek nog intrekken.`
+          : "Na bevestiging is dit definitief: je wordt overal uitgelogd en kunt niet meer inloggen."}
       </p>
 
       <button
@@ -449,6 +486,31 @@ function CodeScreen({
 
 function DoneScreen({ result }: { result: Extract<ConfirmDeletionResult, { ok: true }> }) {
   const r = result.revoked;
+  if (result.closesOn) {
+    const closingDay = addDaysIsoAmsterdam(result.closesOn, 1);
+    return (
+      <div className="space-y-8">
+        <Card accent>
+          {/* COPY: confirm met Marlon */}
+          <Eyebrow>Je verzoek loopt</Eyebrow>
+          <p className="text-text text-base mb-2">
+            Tot en met {longDate(result.closesOn)} kun je gewoon inloggen,
+            boeken en trainen.
+          </p>
+          <p className="text-text-muted text-sm leading-relaxed">
+            Op {longDate(closingDay)} sluiten we je account: toegang, toestellen,
+            geplande lessen en tegoed. Je gegevens worden verwijderd na{" "}
+            {longDate(result.purgeAfter)}; je krijgt dan een mail. Bedenk je
+            je, dan trek je het verzoek tot de sluiting in op je profielpagina.
+          </p>
+        </Card>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <Button href="/app/profiel">Naar je profiel</Button>
+          <CancelDeletionButton />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-8">
       <Card accent>
@@ -477,6 +539,9 @@ function DoneScreen({ result }: { result: Extract<ConfirmDeletionResult, { ok: t
           {r.waitlist > 0 && <Row label="Wachtlijstplekken" value={count(r.waitlist, "vervallen", "vervallen")} />}
           {r.ptSessions > 0 && <Row label="PT-sessies" value={count(r.ptSessions, "geannuleerd", "geannuleerd")} />}
           {r.guestBookings > 0 && <Row label="Gastboekingen" value={count(r.guestBookings, "vervallen", "vervallen")} />}
+          {r.creditsForfeited > 0 && (
+            <Row label="Tegoed" value={count(r.creditsForfeited, "credit vervallen", "credits vervallen")} />
+          )}
           <Row label="Nieuwsbrief" value="uitgeschreven" />
           <Row label="Aangevraagd op" value={longDate(result.requestedAt)} />
         </ul>
@@ -506,6 +571,7 @@ export function DeletionFlow({ preflight, email }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [blockedByServer, setBlockedByServer] = useState<string | null>(null);
+  const [creditsAcknowledged, setCreditsAcknowledged] = useState(false);
   const [done, setDone] = useState<Extract<ConfirmDeletionResult, { ok: true }> | null>(null);
 
   useEffect(() => {
@@ -517,19 +583,32 @@ export function DeletionFlow({ preflight, email }: Props) {
   if (done) return <DoneScreen result={done} />;
 
   if (preflight.open) {
+    const open = preflight.open;
+    const closingDay = open.closesOn ? addDaysIsoAmsterdam(open.closesOn, 1) : null;
     return (
-      <Card accent>
-        {/* COPY: confirm met Marlon */}
-        <Eyebrow>Je verzoek loopt</Eyebrow>
-        <p className="text-text text-base mb-2">
-          Aangevraagd op {longDate(preflight.open.requestedAt)}. Je gegevens
-          worden verwijderd na {longDate(preflight.open.purgeAfter)}.
-        </p>
-        <p className="text-text-muted text-sm leading-relaxed">
-          Bedenk je je, laat het Marlon weten; binnen de bedenktijd kan zij het
-          verzoek terugdraaien.
-        </p>
-      </Card>
+      <div className="space-y-8">
+        <Card accent>
+          {/* COPY: confirm met Marlon */}
+          <Eyebrow>Je verzoek loopt</Eyebrow>
+          <p className="text-text text-base mb-2">
+            Aangevraagd op {longDate(open.requestedAt)}.
+          </p>
+          {open.closingPending ? (
+            <p className="text-text-muted text-sm leading-relaxed">
+              Tot en met {open.closesOn ? longDate(open.closesOn) : "de laatste dag van je abonnement"}{" "}
+              blijft alles werken. {closingDay ? `Op ${longDate(closingDay)}` : "Daarna"} sluiten we je
+              account; je gegevens worden verwijderd na {longDate(open.purgeAfter)}.
+            </p>
+          ) : (
+            <p className="text-text-muted text-sm leading-relaxed">
+              Je account is gesloten. Je gegevens worden verwijderd na{" "}
+              {longDate(open.purgeAfter)}. Bedenk je je, laat het Marlon weten;
+              binnen de bedenktijd kan zij het verzoek terugdraaien.
+            </p>
+          )}
+        </Card>
+        {open.closingPending && <CancelDeletionButton />}
+      </div>
     );
   }
 
@@ -555,6 +634,7 @@ export function DeletionFlow({ preflight, email }: Props) {
 
   async function handleContinue() {
     if (busy) return;
+    if (preflight.credits.length > 0 && !creditsAcknowledged) return;
     setBusy(true);
     setError(null);
     const sent = await sendCode();
@@ -576,6 +656,7 @@ export function DeletionFlow({ preflight, email }: Props) {
 
   async function handleConfirm() {
     if (busy || code.length !== OTP_LENGTH) return;
+    if (preflight.credits.length > 0 && !creditsAcknowledged) return;
     setBusy(true);
     setError(null);
     const res = await confirmAccountDeletion({ code, reason });
@@ -597,6 +678,7 @@ export function DeletionFlow({ preflight, email }: Props) {
     return (
       <CodeScreen
         email={email}
+        closesOn={preflight.closesOn}
         code={code}
         onCode={setCode}
         onSubmit={handleConfirm}
@@ -613,6 +695,8 @@ export function DeletionFlow({ preflight, email }: Props) {
       preflight={preflight}
       reason={reason}
       onReason={setReason}
+      creditsAcknowledged={creditsAcknowledged}
+      onAcknowledge={setCreditsAcknowledged}
       onContinue={handleContinue}
       busy={busy}
       error={error}

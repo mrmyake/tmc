@@ -161,6 +161,17 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
       if (error) throw new Error(`account_deletions lezen: ${error.message}`);
       return (data ?? []) as unknown as DeletionRow[];
     },
+    async listFreezePending() {
+      const { data, error } = await admin
+        .from("account_deletions")
+        .select(DELETION_COLUMNS)
+        .eq("status", "requested")
+        .eq("step_status->>freeze", "pending")
+        .order("requested_at")
+        .limit(50);
+      if (error) throw new Error(`account_deletions lezen: ${error.message}`);
+      return (data ?? []) as unknown as DeletionRow[];
+    },
     async listCustomerRetentionDue(beforeIso) {
       const { data, error } = await admin
         .from("account_deletions")
@@ -266,6 +277,33 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
         .update({ marketing_opt_in: false })
         .eq("id", profileId);
       if (error) throw new Error(`profiles marketing_opt_in: ${error.message}`);
+    },
+    async expireCreditRows(profileId, todayIso) {
+      // Alleen tegoed-rijen (billing_cycle_weeks = 0); abonnementen lopen
+      // via de RPC's. Status expired, end_date vandaag; credits_remaining
+      // blijft staan als spoor van wat er verviel.
+      const { data, error } = await admin
+        .from("memberships")
+        .update({ status: "expired", end_date: todayIso })
+        .eq("profile_id", profileId)
+        .eq("billing_cycle_weeks", 0)
+        .in("status", ["pending", "active", "paused", "payment_failed", "cancellation_requested"])
+        .select("id, credits_remaining");
+      if (error) throw new Error(`memberships (tegoed) vervallen: ${error.message}`);
+      const rows = (data ?? []) as Array<{ id: string; credits_remaining: number | null }>;
+      for (const r of rows) {
+        await emitEvent({
+          type: "credits.adjusted",
+          actorType: "system",
+          subjectType: "membership",
+          subjectId: r.id,
+          payload: { profile_id: profileId, reason: "account_deletion", forfeited: r.credits_remaining ?? 0 },
+        });
+      }
+      return {
+        rows: rows.length,
+        credits: rows.reduce((sum, r) => sum + (r.credits_remaining ?? 0), 0),
+      };
     },
     async hasOpenDeviceTokens(profileId) {
       const { data, error } = await admin

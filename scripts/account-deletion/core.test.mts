@@ -1,10 +1,11 @@
 /**
  * Draait de ECHTE kern van de accountverwijdering
  * (src/lib/account-deletion/core.ts) met fakes. Bewijst: het verzoek
- * start geen opzegging en wijst een lopend lidmaatschap af met een
- * verwijzing naar opzeggen, snapshot eerst en bevriest direct, is
- * idempotent, en plant de purge na de opzegging, de laatste factuur en de
- * bedenktijd; de purge volgt de vaste volgorde, blokkeert het profiel alleen op geld en deur, laat
+ * start geen opzegging en wijst een lopend abonnement af met een
+ * verwijzing naar opzeggen (tegoed telt niet mee), snapshot eerst; de
+ * sluiting is direct zonder lopend abonnement en wacht anders op de dag na
+ * de laatste betaalde dag (cron), waarna de bedenktijd start; intrekken kan
+ * zolang de sluiting wacht; de purge volgt de vaste volgorde, blokkeert het profiel alleen op geld en deur, laat
  * MailerLite nooit blokkeren, kiest anonimiseren bij financiele historie
  * en hard delete zonder, herkanst wat faalt, en meldt alleen ids.
  * Run: npm run test:account-deletion
@@ -18,6 +19,7 @@ import {
   requestDeletionCore,
   runCustomerRetentionCore,
   runPurgeCore,
+  runScheduledFreezeCore,
 } from "../../src/lib/account-deletion/core";
 import type { DeletionConfig } from "../../src/lib/account-deletion/config";
 import type {
@@ -28,6 +30,7 @@ import type {
 } from "../../src/lib/account-deletion/types";
 
 const NOW = new Date("2026-09-21T10:00:00.000Z");
+const CREDITS = "33333333-3333-4333-8333-333333333333";
 const PROFILE = "11111111-1111-4111-8111-111111111111";
 const MEMBERSHIP = "22222222-2222-4222-8222-222222222222";
 const EMAIL = "lid@example.com";
@@ -76,6 +79,7 @@ class Fake implements DeletionDeps {
   openDeviceTokens = false;
   financialHistory = true;
   latestInvoice: string | null = null;
+  creditsForfeited = 0;
   mollieOk = true;
   mailerliteOk = true;
   mailOk = true;
@@ -117,6 +121,10 @@ class Fake implements DeletionDeps {
       [...this.rows.values()].filter(
         (r) => ["requested", "in_progress", "blocked"].includes(r.status) && r.purge_after <= nowIso,
       ),
+    listFreezePending: async () =>
+      [...this.rows.values()].filter(
+        (r) => r.status === "requested" && r.step_status.freeze === "pending",
+      ),
     listCustomerRetentionDue: async (beforeIso) =>
       [...this.rows.values()].filter(
         (r) => r.status === "completed" && r.mollie_customer_id && (r.completed_at ?? "") <= beforeIso,
@@ -144,6 +152,11 @@ class Fake implements DeletionDeps {
     },
     setMarketingOptOut: async () => {
       this.calls.push("setMarketingOptOut");
+    },
+    expireCreditRows: async () => {
+      this.calls.push("expireCreditRows");
+      const credit = this.live.filter((m) => (m.billing_cycle_weeks ?? 0) === 0);
+      return { rows: credit.length, credits: this.creditsForfeited };
     },
     hasOpenDeviceTokens: async () => this.openDeviceTokens,
     hasFinancialHistory: async () => this.financialHistory,
@@ -237,47 +250,38 @@ async function requested(fake: Fake, hardStop = false) {
   return r;
 }
 
-test("computePurgeAfter: bedenktijd, of later als een opzegging later ingaat; hardstop is nu", () => {
-  const cooling = computePurgeAfter(NOW, CONFIG, [], false);
+test("computePurgeAfter: bedenktijd vanaf nu, of vanaf de sluiting na de laatste betaalde dag, of na de laatste factuur; hardstop is nu", () => {
+  const cooling = computePurgeAfter(NOW, CONFIG, {}, false);
   assert.equal(cooling.toISOString(), "2026-10-21T10:00:00.000Z");
-  const later = computePurgeAfter(NOW, CONFIG, ["2027-03-01"], false);
-  assert.equal(later.toISOString(), "2027-03-09T00:00:00.000Z");
-  const earlier = computePurgeAfter(NOW, CONFIG, ["2026-09-25"], false);
-  assert.equal(earlier.toISOString(), "2026-10-21T10:00:00.000Z");
-  assert.equal(computePurgeAfter(NOW, CONFIG, ["2027-03-01"], true), NOW);
+  // Laatste dag 2027-03-01, sluiting 2027-03-02, plus 30 dagen bedenktijd.
+  const later = computePurgeAfter(NOW, CONFIG, { membershipEnds: ["2027-03-01"] }, false);
+  assert.equal(later.toISOString(), "2027-04-01T00:00:00.000Z");
+  const earlier = computePurgeAfter(NOW, CONFIG, { membershipEnds: ["2026-09-25"] }, false);
+  assert.equal(earlier.toISOString(), "2026-10-26T00:00:00.000Z");
+  const invoice = computePurgeAfter(NOW, CONFIG, { invoiceDates: ["2026-11-20"] }, false);
+  assert.equal(invoice.toISOString(), "2026-11-28T00:00:00.000Z");
+  assert.equal(computePurgeAfter(NOW, CONFIG, { membershipEnds: ["2027-03-01"] }, true), NOW);
 });
 
-test("verzoek: snapshot eerst, dan freeze, geen opzegging; purge wacht op de ingangsdatum; melding alleen ids", async () => {
+test("verzoek met opgezegd abonnement dat nog loopt: snapshot, geen sluiting, geen opzegging; sluiting en bedenktijd na de laatste dag; melding alleen ids", async () => {
   const fake = new Fake();
   const r = await requested(fake);
   assert.equal(r.alreadyOpen, false);
+  assert.equal(r.closesOn, "2027-03-01");
+  assert.equal(r.freeze, null);
   assert.equal(fake.calls[0], "getProfileSnapshot");
   assert.equal(fake.calls[1], "insertDeletion", "snapshot voor de eerste externe aanroep");
-  assert.ok(
-    !fake.calls.some((c) => c.startsWith("cancelMembership:")),
-    "een verwijderverzoek start geen opzegging",
-  );
-  for (const c of [
-    "banAuthUser",
-    "akiles.syncAccess",
-    "akiles.revokeAllDeviceTokens",
-    "removePushTokens",
-    "cancelFutureBookings",
-    "removeWaitlistEntries",
-    "setMarketingOptOut",
-    "mailerlite.unsubscribe",
-  ]) {
-    assert.ok(fake.calls.includes(c), `freeze mist ${c}`);
+  for (const c of ["banAuthUser", "akiles.syncAccess", "cancelFutureBookings", "removePushTokens", "expireCreditRows"]) {
+    assert.ok(!fake.calls.includes(c), `tot de laatste betaalde dag niets intrekken: ${c}`);
   }
+  assert.ok(!fake.calls.some((c) => c.startsWith("cancelMembership:")), "een verwijderverzoek start geen opzegging");
   assert.equal(r.row.status, "requested");
+  assert.equal(r.row.step_status.freeze, "pending");
   assert.equal(r.row.email_at_request, EMAIL);
   assert.equal(r.row.akiles_member_id, "mem_abc");
-  assert.equal(r.row.mollie_customer_id, "cst_abc");
   assert.deepEqual(r.row.mollie_subscription_ids, ["sub_abc"]);
-  assert.equal(r.row.step_status.freeze, "done");
-  // De opzegging (al gedaan door het lid) gaat in op 2027-03-01: purge pas
-  // daarna plus de factuurmarge.
-  assert.equal(r.row.purge_after, "2027-03-09T00:00:00.000Z");
+  // Laatste dag 2027-03-01, sluiting 2027-03-02, daarna 30 dagen bedenktijd.
+  assert.equal(r.row.purge_after, "2027-04-01T00:00:00.000Z");
   assert.deepEqual(fake.events, ["member.deletion_requested"]);
   assert.equal(fake.notifications.length, 1);
   assert.ok(!fake.notifications[0].includes("@"), "geen e-mailadres in de melding");
@@ -285,15 +289,45 @@ test("verzoek: snapshot eerst, dan freeze, geen opzegging; purge wacht op de ing
   assert.ok(fake.notifications[0].includes(PROFILE));
 });
 
-test("verzoek is idempotent: tweede aanvraag geeft dezelfde rij, geen tweede insert, wel opnieuw de freeze", async () => {
+test("verzoek zonder lopend abonnement: sluiting direct (ban, toegang, boekingen, tegoed), bedenktijd vanaf nu", async () => {
+  const fake = new Fake();
+  fake.profile = snapshot({ memberships: [{ ...snapshot().memberships[0], status: "cancelled" }] });
+  const r = await requested(fake);
+  assert.equal(r.closesOn, null);
+  assert.ok(r.freeze);
+  assert.equal(r.row.step_status.freeze, "done");
+  for (const c of [
+    "banAuthUser",
+    "akiles.syncAccess",
+    "akiles.revokeAllDeviceTokens",
+    "removePushTokens",
+    "cancelFutureBookings",
+    "removeWaitlistEntries",
+    "expireCreditRows",
+    "setMarketingOptOut",
+    "mailerlite.unsubscribe",
+  ]) {
+    assert.ok(fake.calls.includes(c), `sluiting mist ${c}`);
+  }
+  assert.equal(r.row.purge_after, "2026-10-21T10:00:00.000Z");
+});
+
+test("verzoek is idempotent: tweede aanvraag geeft dezelfde rij, geen tweede insert; wachtende sluiting blijft wachten, gedane sluiting loopt opnieuw", async () => {
   const fake = new Fake();
   const first = await requested(fake);
   const inserts = fake.calls.filter((c) => c === "insertDeletion").length;
   const second = await requested(fake);
   assert.equal(second.alreadyOpen, true);
   assert.equal(second.row.id, first.row.id);
+  assert.equal(second.closesOn, "2027-03-01");
   assert.equal(fake.calls.filter((c) => c === "insertDeletion").length, inserts);
-  assert.equal(fake.calls.filter((c) => c === "banAuthUser").length, 2);
+  assert.equal(fake.calls.filter((c) => c === "banAuthUser").length, 0);
+
+  const direct = new Fake();
+  direct.profile = snapshot({ memberships: [] });
+  await requested(direct);
+  await requested(direct);
+  assert.equal(direct.calls.filter((c) => c === "banAuthUser").length, 2);
 });
 
 test("verzoek op een lopend lidmaatschap wordt afgewezen met membership_active, zonder rij, freeze of opzegging", async () => {
@@ -317,11 +351,109 @@ test("verzoek op een lopend lidmaatschap wordt afgewezen met membership_active, 
   }
 });
 
-test("verzoek zonder lidmaatschap (afgelopen of nooit gehad): purge na de bedenktijd", async () => {
+test("tegoed is geen voorwaarde: alleen een rittenkaart of PT-pakket, geen abonnement, dan direct een verzoek en het tegoed vervalt bij de sluiting", async () => {
   const fake = new Fake();
-  fake.profile = snapshot({ memberships: [{ ...snapshot().memberships[0], status: "cancelled" }] });
+  const creditRow = {
+    id: CREDITS,
+    status: "active",
+    mollie_customer_id: null,
+    mollie_subscription_id: null,
+    commit_end_date: "2026-09-01",
+    cancellation_effective_date: null,
+    billing_cycle_weeks: 0,
+  };
+  fake.profile = snapshot({ memberships: [creditRow] });
+  fake.live = [creditRow];
+  fake.creditsForfeited = 7;
   const r = await requested(fake);
+  assert.equal(r.closesOn, null, "geen lopend abonnement: sluiting direct");
+  assert.ok(fake.calls.includes("expireCreditRows"));
+  assert.equal(r.freeze?.creditsForfeited, 7);
+  assert.equal(r.freeze?.creditRowsExpired, 1);
   assert.equal(r.row.purge_after, "2026-10-21T10:00:00.000Z");
+});
+
+test("tegoed plus lopend abonnement: het abonnement is de voorwaarde, membership_active noemt alleen het abonnement", async () => {
+  const fake = new Fake();
+  const creditRow = {
+    id: CREDITS,
+    status: "active",
+    mollie_customer_id: null,
+    mollie_subscription_id: null,
+    commit_end_date: "2026-09-01",
+    cancellation_effective_date: null,
+    billing_cycle_weeks: 0,
+  };
+  fake.profile = snapshot({
+    memberships: [creditRow, { ...snapshot().memberships[0], status: "active", cancellation_effective_date: null }],
+  });
+  const r = await requestDeletionCore(fake, CONFIG, {
+    profileId: PROFILE, requestedVia: "member_app", reason: null, actorType: "member", actorId: PROFILE,
+  });
+  assert.deepEqual(r, { ok: false, reason: "membership_active", memberships: [{ id: MEMBERSHIP, status: "active" }] });
+  assert.ok(!fake.calls.includes("expireCreditRows"));
+});
+
+test("tegoed plus opgezegd abonnement: verzoek kan, tegoed vervalt pas bij de sluiting na de laatste dag", async () => {
+  const fake = new Fake();
+  const creditRow = {
+    id: CREDITS,
+    status: "active",
+    mollie_customer_id: null,
+    mollie_subscription_id: null,
+    commit_end_date: "2026-09-01",
+    cancellation_effective_date: null,
+    billing_cycle_weeks: 0,
+  };
+  fake.profile = snapshot({ memberships: [creditRow, snapshot().memberships[0]] });
+  const r = await requested(fake);
+  assert.equal(r.closesOn, "2027-03-01");
+  assert.ok(!fake.calls.includes("expireCreditRows"), "tegoed blijft bruikbaar tot de sluiting");
+});
+
+test("geplande sluiting: wacht tot de dag na de laatste betaalde dag, sluit dan alles in een keer en start de bedenktijd", async () => {
+  const fake = new Fake();
+  const { row } = await requested(fake);
+  fake.live = [snapshot().memberships[0]];
+
+  fake.clock = new Date("2027-03-01T10:00:00.000Z");
+  const waiting = await runScheduledFreezeCore(fake, CONFIG, row);
+  assert.equal(waiting.outcome, "waiting");
+  assert.ok(!fake.calls.includes("banAuthUser"));
+
+  // De cron van de volgende dag; process-cancellations heeft de rij inmiddels op cancelled gezet.
+  fake.clock = new Date("2027-03-02T05:05:00.000Z");
+  fake.live = [];
+  const frozen = await runScheduledFreezeCore(fake, CONFIG, row);
+  assert.equal(frozen.outcome, "frozen");
+  assert.equal(frozen.row.step_status.freeze, "done");
+  assert.equal(frozen.row.status, "in_progress");
+  for (const c of ["banAuthUser", "akiles.syncAccess", "cancelFutureBookings", "expireCreditRows"]) {
+    assert.ok(fake.calls.includes(c), `sluiting mist ${c}`);
+  }
+  // Bedenktijd vanaf de sluiting: 2027-03-02 05:05 plus 30 dagen, later dan de geplande 2027-04-01 00:00.
+  assert.equal(frozen.row.purge_after, "2027-04-01T05:05:00.000Z");
+});
+
+test("geplande sluiting via de cron: process pakt wachtende sluitingen op, ook als de purge nog ver weg is", async () => {
+  const fake = new Fake();
+  const { row } = await requested(fake);
+  fake.clock = new Date("2027-03-02T05:05:00.000Z");
+  fake.live = [];
+  const r = await processDueDeletionsCore(fake, CONFIG, { deadlineMs: Date.now() + 60_000 });
+  assert.equal(r.frozen, 1);
+  assert.equal(r.processed, 0, "purge_after nog niet bereikt");
+  assert.equal(fake.rows.get(row.id)?.step_status.freeze, "done");
+});
+
+test("geplande sluiting: abonnement loopt weer (nieuw afgesloten na het verzoek) zet de rij op blocked", async () => {
+  const fake = new Fake();
+  const { row } = await requested(fake);
+  fake.live = [{ ...snapshot().memberships[0], id: "44444444-4444-4444-8444-444444444444", status: "active", cancellation_effective_date: null }];
+  const r = await runScheduledFreezeCore(fake, CONFIG, row);
+  assert.equal(r.outcome, "blocked");
+  assert.equal(r.row.status, "blocked");
+  assert.ok(fake.notifications.at(-1)?.includes(row.id));
 });
 
 test("verzoek: de laatste factuur schuift de purge op tot na de factuurmarge", async () => {
@@ -359,7 +491,8 @@ test("purge: abonnement in opzegtermijn stelt uit (purge_after naar ingangsdatum
   assert.equal(out.completed, false);
   assert.equal(out.blocked, false);
   assert.equal(out.row.status, "in_progress");
-  assert.equal(out.row.purge_after, "2026-10-23T00:00:00.000Z");
+  // Laatste dag 2026-10-15, sluiting 2026-10-16, plus 30 dagen bedenktijd.
+  assert.equal(out.row.purge_after, "2026-11-15T00:00:00.000Z");
   assert.ok(!fake.calls.includes("anonymiseProfile"));
   assert.ok(!fake.calls.some((c) => c.startsWith("mollie.cancelSubscription")));
 });
@@ -547,12 +680,13 @@ test("cron: rijen na purge_after, oudste eerst, en het tijdsbudget stopt tussen 
   assert.equal(fake.rows.get(row.id)?.status, "completed");
 });
 
-test("annuleren van een open verzoek: ban eraf, status cancelled; na de profielstap niet meer", async () => {
+test("intrekken zolang de sluiting wacht: niets was ingetrokken, status cancelled; na de profielstap niet meer", async () => {
   const fake = new Fake();
   const { row } = await requested(fake);
-  const cancelled = await cancelDeletionRequestCore(fake, row.id, { actorType: "admin", actorId: null });
+  assert.equal(row.step_status.freeze, "pending");
+  const cancelled = await cancelDeletionRequestCore(fake, row.id, { actorType: "member", actorId: PROFILE });
   assert.equal(cancelled.ok, true);
-  assert.ok(fake.calls.includes("unbanAuthUser"));
+  assert.ok(!fake.calls.includes("banAuthUser"), "er was niets gesloten");
   assert.equal(fake.rows.get(row.id)?.status, "cancelled");
   assert.ok(fake.events.includes("member.deletion_cancelled"));
 

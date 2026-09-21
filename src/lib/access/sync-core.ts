@@ -404,7 +404,7 @@ export async function syncProfileCore(
           {
             role: profile.role,
             memberships: profile.memberships,
-            deletion_requested: profile.deletion_requested,
+            deletion_frozen: profile.deletion_frozen,
           },
           now,
         )

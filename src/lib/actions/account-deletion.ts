@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/events/emit";
-import { requestAccountDeletionForMember } from "@/lib/account-deletion/service";
+import {
+  cancelAccountDeletionRequest,
+  requestAccountDeletionForMember,
+} from "@/lib/account-deletion/service";
 
 /**
  * Server actions van de ledenkant van de accountverwijdering (PR 3):
@@ -53,12 +56,15 @@ export type ConfirmDeletionResult =
       deletionId: string;
       purgeAfter: string;
       requestedAt: string;
+      /** Laatste dag van het opgezegde abonnement; null als het account direct is gesloten. */
+      closesOn: string | null;
       revoked: {
         bookings: number;
         waitlist: number;
         ptSessions: number;
         guestBookings: number;
         devices: number;
+        creditsForfeited: number;
       };
     }
   | { ok: false; reason: "code" | "membership_active" | "staff_role" | "other"; error: string };
@@ -147,10 +153,12 @@ export async function confirmAccountDeletion(input: {
     return { ok: false, reason: "other", error: "Je profiel is niet gevonden." };
   }
 
-  // Alle sessies dicht, overal. De kern heeft de auth-user al geband; dit
-  // sluit ook de sessie van dit toestel, zodat de volgende navigatie op
-  // /login uitkomt.
-  await supabase.auth.signOut({ scope: "global" });
+  // Direct gesloten (geen lopend abonnement): de kern heeft de auth-user
+  // geband; dan ook deze sessie dicht, overal. Wacht de sluiting op de
+  // einddatum, dan blijft het lid gewoon ingelogd tot die dag.
+  if (!result.closesOn) {
+    await supabase.auth.signOut({ scope: "global" });
+  }
   revalidatePath("/app/profiel");
 
   const freeze = result.freeze;
@@ -159,12 +167,61 @@ export async function confirmAccountDeletion(input: {
     deletionId: result.row.id,
     purgeAfter: result.row.purge_after,
     requestedAt: result.row.requested_at,
+    closesOn: result.closesOn,
     revoked: {
       bookings: freeze?.bookingsCancelled ?? 0,
       waitlist: freeze?.waitlistRemoved ?? 0,
       ptSessions: freeze?.ptBookingsCancelled ?? 0,
       guestBookings: freeze?.guestBookingsCancelled ?? 0,
       devices: (freeze?.deviceTokensRevoked ?? 0) + (freeze?.pushTokensRemoved ?? 0),
+      creditsForfeited: freeze?.creditsForfeited ?? 0,
     },
   };
+}
+
+export type CancelDeletionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Intrekken van een open verzoek door het lid zelf. Kan alleen zolang de
+ * sluiting nog op de einddatum wacht (step_status.freeze = 'pending'): tot
+ * dan is er niets ingetrokken, dus intrekken is volledig. Na de sluiting
+ * is het lid geband en komt hij hier niet meer; wat dan nog kan is een
+ * admin-handeling. Eigenaarschap via RLS self-read: de rij wordt met de
+ * cookie-client van het lid gelezen, nooit met een id uit clientinvoer.
+ */
+export async function cancelAccountDeletion(): Promise<CancelDeletionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // COPY: confirm met Marlon
+  if (!user) return { ok: false, error: "Je bent uitgelogd." };
+
+  const { data: open } = await supabase
+    .from("account_deletions")
+    .select("id, step_status")
+    .eq("profile_id", user.id)
+    .in("status", ["requested", "in_progress", "blocked"])
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  // COPY: confirm met Marlon
+  if (!open) return { ok: false, error: "Er staat geen verzoek open." };
+  const freeze = (open.step_status as { freeze?: string } | null)?.freeze;
+  if (freeze !== "pending") {
+    // COPY: confirm met Marlon
+    return {
+      ok: false,
+      error: "Je account is al afgesloten; intrekken kan nu alleen via Marlon.",
+    };
+  }
+
+  const r = await cancelAccountDeletionRequest(open.id, { actorType: "member", actorId: user.id });
+  if (!r.ok) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Intrekken lukte niet. Probeer het opnieuw." };
+  }
+  revalidatePath("/app/profiel");
+  revalidatePath("/app/profiel/verwijderen");
+  return { ok: true };
 }

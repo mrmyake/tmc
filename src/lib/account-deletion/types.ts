@@ -17,7 +17,8 @@ export const STEP_NAMES = [
 ] as const;
 export type StepName = (typeof STEP_NAMES)[number];
 
-export type StepState = "pending" | "done" | "failed" | "skipped" | "blocked";
+/** running: alleen voor freeze, tussen het moment dat hij start en klaar is (de toegangssync leest dit). */
+export type StepState = "pending" | "running" | "done" | "failed" | "skipped" | "blocked";
 
 export type DeletionStatus =
   | "requested"
@@ -83,6 +84,8 @@ export type MembershipCancelOutcome =
   | { ok: false; reason: string };
 
 export interface FreezeResult {
+  creditRowsExpired: number;
+  creditsForfeited: number;
   bookingsCancelled: number;
   waitlistRemoved: number;
   ptBookingsCancelled: number;
@@ -108,6 +111,8 @@ export interface DeletionDeps {
     updateDeletion(id: string, patch: DeletionRowPatch): Promise<DeletionRow>;
     /** Open rijen (requested, in_progress, blocked) met purge_after <= now, oudste eerst. */
     listDueDeletions(nowIso: string): Promise<DeletionRow[]>;
+    /** Rijen met status requested en step_status.freeze = 'pending': de sluiting wacht op de einddatum van het abonnement. */
+    listFreezePending(): Promise<DeletionRow[]>;
     /** Afgeronde rijen met een Mollie-customer die nog verwijderd moet worden en completed_at <= before. */
     listCustomerRetentionDue(beforeIso: string): Promise<DeletionRow[]>;
 
@@ -119,6 +124,13 @@ export interface DeletionDeps {
     cancelFutureGuestBookings(profileId: string, nowIso: string): Promise<number>;
     removePushTokens(profileId: string): Promise<number>;
     setMarketingOptOut(profileId: string): Promise<void>;
+    /**
+     * Tegoed (rittenkaart, PT-pakket: billing_cycle_weeks = 0) vervalt zonder
+     * restitutie: rijen op expired met end_date vandaag. Geeft het aantal
+     * rijen en de vervallen credits terug. Geen RPC beschikbaar voor
+     * credit-rijen (admin_cancel_membership weigert ze), geen Mollie-kant.
+     */
+    expireCreditRows(profileId: string, todayIso: string): Promise<{ rows: number; credits: number }>;
     /** Er is nog een access_device_tokens-rij zonder revoked_at. */
     hasOpenDeviceTokens(profileId: string): Promise<boolean>;
     /** Geen orders en geen facturen: dan mag de auth-user hard weg (FK NOT NULL NO ACTION). */
@@ -197,7 +209,15 @@ export interface RequestDeletionInput {
 }
 
 export type RequestDeletionResult =
-  | { ok: true; row: DeletionRow; alreadyOpen: boolean; freeze: FreezeResult | null }
+  | {
+      ok: true;
+      row: DeletionRow;
+      alreadyOpen: boolean;
+      /** Gevuld als de sluiting direct is uitgevoerd; null als die op closesOn wacht. */
+      freeze: FreezeResult | null;
+      /** Datum (yyyy-mm-dd) van de laatste dag van het opgezegde abonnement; null bij directe sluiting. */
+      closesOn: string | null;
+    }
   | { ok: false; reason: "profile_not_found" | "staff_role" }
   /**
    * Lidmaatschap loopt nog (active, paused, payment_failed of pending):
@@ -218,6 +238,8 @@ export interface PurgeResult {
 }
 
 export interface ProcessResult {
+  /** Uitgestelde sluitingen die deze run zijn uitgevoerd (einddatum bereikt). */
+  frozen: number;
   processed: number;
   completed: number;
   failed: number;

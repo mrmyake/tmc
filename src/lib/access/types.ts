@@ -168,8 +168,8 @@ export interface AccessProfile {
   role: string;
   is_test: boolean;
   memberships: AccessMembershipRow[];
-  /** Open rij in tmc.account_deletions (requested, in_progress, blocked): deur dicht, ongeacht de membership. */
-  deletion_requested?: boolean;
+  /** Open rij in tmc.account_deletions waarvan de sluiting gestart of gedaan is (step_status.freeze niet pending): deur dicht, ongeacht de membership. */
+  deletion_frozen?: boolean;
 }
 
 /** Rij in tmc.access_device_tokens (migratie 20260920000000). Nooit de tokenwaarde. */

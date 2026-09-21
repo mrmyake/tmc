@@ -89,12 +89,15 @@ function buildDb(admin: SupabaseClient): AccessDb {
       const row = data as unknown as AccessProfile & {
         memberships: AccessProfile["memberships"] | null;
       };
-      // Open verwijderverzoek: deur dicht ongeacht de membership (desired-state).
+      // Verwijderverzoek waarvan de sluiting gestart of gedaan is: deur dicht
+      // ongeacht de membership (desired-state). Een verzoek dat nog op de
+      // einddatum wacht (freeze pending) laat de deur open.
       const { data: open, error: openErr } = await admin
         .from("account_deletions")
         .select("id")
         .eq("profile_id", profileId)
         .in("status", ["requested", "in_progress", "blocked"])
+        .neq("step_status->>freeze", "pending")
         .limit(1);
       if (openErr) throw new Error(`account_deletions lezen: ${openErr.message}`);
       return {
@@ -104,7 +107,7 @@ function buildDb(admin: SupabaseClient): AccessDb {
         role: row.role,
         is_test: Boolean(row.is_test),
         memberships: row.memberships ?? [],
-        deletion_requested: (open ?? []).length > 0,
+        deletion_frozen: (open ?? []).length > 0,
       };
     },
     async listSyncCandidateProfileIds() {
