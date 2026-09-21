@@ -838,7 +838,9 @@ export async function deleteMember(
       message:
         result.reason === "staff_role"
           ? "Dit is een teamaccount; zet de rol eerst op lid."
-          : "Lid niet gevonden.",
+          : result.reason === "membership_active"
+            ? "Het lidmaatschap loopt nog en kon niet gestopt worden."
+            : "Lid niet gevonden.",
     };
   }
 

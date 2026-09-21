@@ -123,6 +123,8 @@ export interface DeletionDeps {
     hasOpenDeviceTokens(profileId: string): Promise<boolean>;
     /** Geen orders en geen facturen: dan mag de auth-user hard weg (FK NOT NULL NO ACTION). */
     hasFinancialHistory(profileId: string): Promise<boolean>;
+    /** Datum (yyyy-mm-dd) van de laatste factuur van het profiel, concept of definitief; null zonder facturen. */
+    latestInvoiceDate(profileId: string): Promise<string | null>;
     removeAvatar(profileId: string): Promise<void>;
     /** tmc.anonymise_profile uit PR #206. */
     anonymiseProfile(profileId: string): Promise<AnonymiseResult>;
@@ -185,16 +187,24 @@ export interface RequestDeletionInput {
   actorType: "member" | "admin";
   actorId: string | null;
   /**
-   * Admin-hardstop: memberships zijn (of worden) per direct gestopt en de
-   * purge mag meteen; purge_after = nu. Zonder hardStop geldt de bedenktijd
-   * en wacht de purge op de laatste ingangsdatum van een opzegging.
+   * Admin-hardstop (Marlon): de enige route die opzeggen en verwijderen
+   * in een handeling doet. Memberships worden per direct gestopt via
+   * cancelMembership en de purge mag meteen; purge_after = nu. Zonder
+   * hardStop start het verzoek geen opzegging: een lopend lidmaatschap
+   * wijst het verzoek af (membership_active).
    */
   hardStop?: boolean;
 }
 
 export type RequestDeletionResult =
   | { ok: true; row: DeletionRow; alreadyOpen: boolean; freeze: FreezeResult | null }
-  | { ok: false; reason: "profile_not_found" | "within_commitment" | "payment_failed" | "staff_role" };
+  | { ok: false; reason: "profile_not_found" | "staff_role" }
+  /**
+   * Lidmaatschap loopt nog (active, paused, payment_failed of pending):
+   * eerst opzeggen. Geen weigering van de verwijdering; de aanroeper
+   * verwijst naar het opzegscherm met deze memberships.
+   */
+  | { ok: false; reason: "membership_active"; memberships: Array<{ id: string; status: string }> };
 
 export type RequestDeletionFailure = Extract<RequestDeletionResult, { ok: false }>;
 

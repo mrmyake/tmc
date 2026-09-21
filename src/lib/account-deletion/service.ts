@@ -286,6 +286,19 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
       if (invoices.error) throw new Error(`invoices tellen: ${invoices.error.message}`);
       return (orders.count ?? 0) > 0 || (invoices.count ?? 0) > 0;
     },
+    async latestInvoiceDate(profileId) {
+      const { data, error } = await admin
+        .from("invoices")
+        .select("issued_at, created_at")
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(`invoices lezen: ${error.message}`);
+      if (!data) return null;
+      const row = data as { issued_at: string | null; created_at: string };
+      return (row.issued_at ?? row.created_at).slice(0, 10);
+    },
     async removeAvatar(profileId) {
       const bucket = admin.storage.from("tmc-avatars");
       const { data: files, error } = await bucket.list(profileId);

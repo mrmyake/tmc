@@ -1,9 +1,10 @@
 /**
  * Draait de ECHTE kern van de accountverwijdering
  * (src/lib/account-deletion/core.ts) met fakes. Bewijst: het verzoek
- * snapshot eerst en bevriest direct, is idempotent, stelt de purge uit op
- * een lopend abonnement maar weigert het verzoek nooit; de purge volgt de
- * vaste volgorde, blokkeert het profiel alleen op geld en deur, laat
+ * start geen opzegging en wijst een lopend lidmaatschap af met een
+ * verwijzing naar opzeggen, snapshot eerst en bevriest direct, is
+ * idempotent, en plant de purge na de opzegging, de laatste factuur en de
+ * bedenktijd; de purge volgt de vaste volgorde, blokkeert het profiel alleen op geld en deur, laat
  * MailerLite nooit blokkeren, kiest anonimiseren bij financiele historie
  * en hard delete zonder, herkanst wat faalt, en meldt alleen ids.
  * Run: npm run test:account-deletion
@@ -33,8 +34,6 @@ const EMAIL = "lid@example.com";
 
 const CONFIG: DeletionConfig = {
   coolingOffDays: 30,
-  allowWithinCommitment: true,
-  paymentFailedPolicy: "defer",
   invoiceSettleDays: 7,
   mollieCustomerRetentionMonths: 13,
   mailerliteMode: "forget",
@@ -55,11 +54,11 @@ function snapshot(overrides: Partial<DeletionProfileSnapshot> = {}): DeletionPro
     memberships: [
       {
         id: MEMBERSHIP,
-        status: "active",
+        status: "cancellation_requested",
         mollie_customer_id: "cst_abc",
         mollie_subscription_id: "sub_abc",
         commit_end_date: "2027-03-01",
-        cancellation_effective_date: null,
+        cancellation_effective_date: "2027-03-01",
         billing_cycle_weeks: 4,
       },
     ],
@@ -76,6 +75,7 @@ class Fake implements DeletionDeps {
   events: string[] = [];
   openDeviceTokens = false;
   financialHistory = true;
+  latestInvoice: string | null = null;
   mollieOk = true;
   mailerliteOk = true;
   mailOk = true;
@@ -147,6 +147,7 @@ class Fake implements DeletionDeps {
     },
     hasOpenDeviceTokens: async () => this.openDeviceTokens,
     hasFinancialHistory: async () => this.financialHistory,
+    latestInvoiceDate: async () => this.latestInvoice,
     removeAvatar: async () => {
       this.calls.push("removeAvatar");
     },
@@ -246,13 +247,16 @@ test("computePurgeAfter: bedenktijd, of later als een opzegging later ingaat; ha
   assert.equal(computePurgeAfter(NOW, CONFIG, ["2027-03-01"], true), NOW);
 });
 
-test("verzoek: snapshot eerst, dan freeze, dan opzegging; purge wacht op het abonnement; melding alleen ids", async () => {
+test("verzoek: snapshot eerst, dan freeze, geen opzegging; purge wacht op de ingangsdatum; melding alleen ids", async () => {
   const fake = new Fake();
   const r = await requested(fake);
   assert.equal(r.alreadyOpen, false);
   assert.equal(fake.calls[0], "getProfileSnapshot");
   assert.equal(fake.calls[1], "insertDeletion", "snapshot voor de eerste externe aanroep");
-  assert.ok(fake.calls.indexOf("banAuthUser") < fake.calls.indexOf(`cancelMembership:${MEMBERSHIP}`));
+  assert.ok(
+    !fake.calls.some((c) => c.startsWith("cancelMembership:")),
+    "een verwijderverzoek start geen opzegging",
+  );
   for (const c of [
     "banAuthUser",
     "akiles.syncAccess",
@@ -271,7 +275,8 @@ test("verzoek: snapshot eerst, dan freeze, dan opzegging; purge wacht op het abo
   assert.equal(r.row.mollie_customer_id, "cst_abc");
   assert.deepEqual(r.row.mollie_subscription_ids, ["sub_abc"]);
   assert.equal(r.row.step_status.freeze, "done");
-  // Opzegging landt op commit_end_date 2027-03-01: purge pas daarna plus marge.
+  // De opzegging (al gedaan door het lid) gaat in op 2027-03-01: purge pas
+  // daarna plus de factuurmarge.
   assert.equal(r.row.purge_after, "2027-03-09T00:00:00.000Z");
   assert.deepEqual(fake.events, ["member.deletion_requested"]);
   assert.equal(fake.notifications.length, 1);
@@ -291,28 +296,50 @@ test("verzoek is idempotent: tweede aanvraag geeft dezelfde rij, geen tweede ins
   assert.equal(fake.calls.filter((c) => c === "banAuthUser").length, 2);
 });
 
-test("verzoek wordt nooit geweigerd op een lopend abonnement met de default config, ook niet binnen commitment of bij payment_failed", async () => {
-  const fake = new Fake();
-  fake.profile = snapshot({
-    memberships: [
-      { ...snapshot().memberships[0], status: "payment_failed", commit_end_date: "2028-01-01" },
-    ],
-  });
-  const r = await requested(fake);
-  assert.equal(r.ok, true);
-  assert.ok(fake.calls.includes(`cancelMembership:${MEMBERSHIP}`));
+test("verzoek op een lopend lidmaatschap wordt afgewezen met membership_active, zonder rij, freeze of opzegging", async () => {
+  for (const status of ["active", "paused", "payment_failed", "pending"]) {
+    const fake = new Fake();
+    fake.profile = snapshot({
+      memberships: [{ ...snapshot().memberships[0], status, cancellation_effective_date: null }],
+    });
+    const r = await requestDeletionCore(fake, CONFIG, {
+      profileId: PROFILE, requestedVia: "member_app", reason: null, actorType: "member", actorId: PROFILE,
+    });
+    assert.deepEqual(
+      r,
+      { ok: false, reason: "membership_active", memberships: [{ id: MEMBERSHIP, status }] },
+      status,
+    );
+    assert.ok(!fake.calls.includes("insertDeletion"), `${status}: geen rij`);
+    assert.ok(!fake.calls.includes("banAuthUser"), `${status}: geen freeze`);
+    assert.ok(!fake.calls.some((c) => c.startsWith("cancelMembership:")), `${status}: geen opzegging`);
+    assert.equal(fake.notifications.length, 0);
+  }
 });
 
-test("verzoek: config.block-varianten weigeren netjes zonder rij of freeze", async () => {
+test("verzoek zonder lidmaatschap (afgelopen of nooit gehad): purge na de bedenktijd", async () => {
   const fake = new Fake();
-  const r = await requestDeletionCore(
-    fake,
-    { ...CONFIG, allowWithinCommitment: false },
-    { profileId: PROFILE, requestedVia: "member_app", reason: null, actorType: "member", actorId: PROFILE },
-  );
-  assert.deepEqual(r, { ok: false, reason: "within_commitment" });
-  assert.ok(!fake.calls.includes("insertDeletion"));
-  assert.ok(!fake.calls.includes("banAuthUser"));
+  fake.profile = snapshot({ memberships: [{ ...snapshot().memberships[0], status: "cancelled" }] });
+  const r = await requested(fake);
+  assert.equal(r.row.purge_after, "2026-10-21T10:00:00.000Z");
+});
+
+test("verzoek: de laatste factuur schuift de purge op tot na de factuurmarge", async () => {
+  const fake = new Fake();
+  fake.profile = snapshot({ memberships: [] });
+  fake.latestInvoice = "2026-11-20";
+  const r = await requested(fake);
+  assert.equal(r.row.purge_after, "2026-11-28T00:00:00.000Z");
+});
+
+test("admin-hardstop is de enige route die opzegt en verwijdert in een handeling", async () => {
+  const fake = new Fake();
+  fake.profile = snapshot({
+    memberships: [{ ...snapshot().memberships[0], status: "active", cancellation_effective_date: null }],
+  });
+  const r = await requested(fake, true);
+  assert.ok(fake.calls.includes(`cancelMembership:${MEMBERSHIP}`));
+  assert.equal(r.row.purge_after, NOW.toISOString());
 });
 
 test("verzoek: staf wordt geweigerd", async () => {
@@ -335,6 +362,18 @@ test("purge: abonnement in opzegtermijn stelt uit (purge_after naar ingangsdatum
   assert.equal(out.row.purge_after, "2026-10-23T00:00:00.000Z");
   assert.ok(!fake.calls.includes("anonymiseProfile"));
   assert.ok(!fake.calls.some((c) => c.startsWith("mollie.cancelSubscription")));
+});
+
+test("purge: laatste factuur nog binnen de marge stelt uit, geen profielstap", async () => {
+  const fake = new Fake();
+  const { row } = await requested(fake, true);
+  fake.live = [];
+  fake.latestInvoice = "2026-09-18";
+  const out = await runPurgeCore(fake, CONFIG, row);
+  assert.equal(out.completed, false);
+  assert.equal(out.row.purge_after, "2026-10-21T10:00:00.000Z", "bedenktijd wint van factuur plus marge");
+  assert.match(out.row.last_error.mollie_subscription ?? "", /laatste factuur/);
+  assert.ok(!fake.calls.includes("anonymiseProfile"));
 });
 
 test("purge: membership die nooit op cancellation_requested kwam blokkeert met melding; geen directe update", async () => {

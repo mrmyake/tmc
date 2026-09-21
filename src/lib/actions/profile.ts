@@ -14,7 +14,7 @@ import { toE164 } from "@/lib/phone";
 
 export type ActionResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; error: string; reason?: string };
 
 async function getUserIdOrThrow(): Promise<{
   userId: string;
@@ -420,16 +420,17 @@ export async function requestAccountDeletion(
     // Marlon bevat alleen ids (PR #205).
     const result = await requestAccountDeletionForMember(userId, reason, supabase);
     if (!result.ok) {
+      // Een lopend lidmaatschap is geen weigering van de verwijdering: eerst
+      // opzeggen (aparte beslissing, eigen scherm), daarna verwijderen. De
+      // reason laat de UI naar /app/abonnement verwijzen.
       // COPY: confirm met Marlon
       const messages: Record<typeof result.reason, string> = {
         profile_not_found: "Je profiel is niet gevonden.",
         staff_role: "Dit is een teamaccount. Neem contact op met Marlon.",
-        within_commitment:
-          "Je zit nog in je eerste looptijd. Neem contact op met Marlon om je account te laten verwijderen.",
-        payment_failed:
-          "Je laatste incasso is niet gelukt. Zodra die betaling rond is, kun je je account verwijderen.",
+        membership_active:
+          "Je lidmaatschap loopt nog. Zeg het eerst op via Abonnement; daarna kun je je account verwijderen.",
       };
-      return { ok: false, error: messages[result.reason] };
+      return { ok: false, error: messages[result.reason], reason: result.reason };
     }
 
     // De kern heeft de auth-user geband; deze sessie zelf ook dicht, overal.
