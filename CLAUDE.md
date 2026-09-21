@@ -573,7 +573,7 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 
 **MemberNav (nav-cleanup, exact 5 vaste tabs, desktop + mobiele bottom-tab-bar):**
 - Home (`/app`) · Rooster (`/app/rooster`) · Boekingen (`/app/boekingen`, paginatitel blijft "Mijn boekingen") · Producten (`/app/producten`) · **Meer**
-- **Meer** (`MemberMoreMenu.tsx`, dropdown-paneel zelfde stijl als AvatarDropdown): Profiel (`/app/profiel`), Account en instellingen (`/app/abonnement`, `/app/facturen` blijft bereikbaar via een link op die pagina), Schema (`/app/schema`, conditioneel — zie hieronder), PT (`/app/pt`, conditioneel), Support (`/app/support`), en een externe link terug naar de marketingsite (opent `/` in een nieuw tabblad).
+- **Meer** (`MemberMoreMenu.tsx`, dropdown-paneel zelfde stijl als AvatarDropdown): Profiel (`/app/profiel`), Toegang (`/app/toegang`, alleen in de native app via `Capacitor.isNativePlatform()`; deurtoegang via Bluetooth, zie `spec-akiles-access.md`), Account en instellingen (`/app/abonnement`, `/app/facturen` blijft bereikbaar via een link op die pagina), Schema (`/app/schema`, conditioneel — zie hieronder), PT (`/app/pt`, conditioneel), Support (`/app/support`), en een externe link terug naar de marketingsite (opent `/` in een nieuw tabblad).
 - "Vrij trainen" heeft bewust geen eigen tab meer — die ingang loopt via de bestaande link op `/app/rooster`.
 
 **Schema-conditie (hersteld, was sinds een regressie onvoorwaardelijk zichtbaar):** "ooit protocol gehad EN nog lid". Berekend in `src/app/app/layout.tsx`: `everHadProgram` (een actieve `training_programs`-rij, óf minstens één `workout_sessions`-rij — nodig omdat RLS alleen de eigen `active`-rij leesbaar maakt, geen `archived`) `&& isActiveMember` (membership-rij met status `active`/`paused`).
@@ -581,7 +581,7 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 **PT-conditie:** bewust minimaal gehouden op `isActiveMember` — puur een nav-ingang, geen nieuwe business-rule. Een fijnmaziger `hasPtCredits`-check bestaat al voor de dashboard-entitlements (`creditType()` in `src/app/app/producten/lib.ts`) en kan later toegepast worden op de nav zelf als dat gewenst is.
 
 **Route → chrome mapping:**
-- `/app/rooster`, `/app/boekingen`, `/app/abonnement`, `/app/facturen`, `/app/profiel`, `/app/schema`, `/app/pt`, `/app/support`, `/app/producten` → `MemberNav`
+- `/app/rooster`, `/app/boekingen`, `/app/abonnement`, `/app/facturen`, `/app/profiel`, `/app/toegang`, `/app/schema`, `/app/pt`, `/app/support`, `/app/producten` → `MemberNav`
 - `/app/trainer/**` → `TrainerNav`
 - `/app/admin/**` → `AdminSidebar` + `AdminHeader`; `AdminMobileBlock` op <lg
 
