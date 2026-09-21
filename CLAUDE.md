@@ -30,7 +30,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 - **Losse HTML-mockups (visuele states, geen werkende code) staan in `mockups/`**, niet los in de repo-root. Bestandsnaam zonder `mockup-`-prefix (die zit al in de mapnaam), bijv. `mockups/akiles-toegang.html`.
 - Een mockup op een eigen branch (bijv. `mockup/rooster-coverage-kleuren`) hoeft niet te verhuizen; deze regel geldt voor mockups die op `main` belanden.
-- Verwijst een code-comment of spec-regel naar een mockupbestand, gebruik het huidige pad (`mockups/...`). Een ledger-regel die het oude root-pad beschrijft (het pad zoals het destijds was bij die PR) blijft ongewijzigd — dat is geschiedenis, geen actuele documentatie.
+- Verwijst een code-comment of spec-regel naar een mockupbestand, gebruik het huidige pad (`mockups/...`). Een ledger-regel die het oude root-pad beschrijft (het pad zoals het destijds was bij die PR) blijft ongewijzigd: dat is geschiedenis, geen actuele documentatie.
 
 ---
 
