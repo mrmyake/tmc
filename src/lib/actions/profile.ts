@@ -9,7 +9,6 @@ import {
   setSubscriberUnsubscribed,
   GROUPS,
 } from "@/lib/mailerlite";
-import { requestAccountDeletionForMember } from "@/lib/account-deletion/service";
 import { toE164 } from "@/lib/phone";
 
 export type ActionResult =
@@ -402,44 +401,6 @@ export async function updateMarketingOptIn(
     return { ok: true };
   } catch (e) {
     console.error("[updateMarketingOptIn]", e);
-    return { ok: false, error: "Er ging iets mis." };
-  }
-}
-
-// ---- Account deletion request ------------------------------------------
-
-export async function requestAccountDeletion(
-  reason: string,
-): Promise<ActionResult> {
-  try {
-    const { userId, supabase } = await getUserIdOrThrow();
-
-    // Snapshot, freeze (toegang, tokens, boekingen, marketing) en de
-    // opzegging via tmc.request_membership_cancellation op deze
-    // cookie-client; zie src/lib/account-deletion/core.ts. De melding aan
-    // Marlon bevat alleen ids (PR #205).
-    const result = await requestAccountDeletionForMember(userId, reason, supabase);
-    if (!result.ok) {
-      // Een lopend lidmaatschap is geen weigering van de verwijdering: eerst
-      // opzeggen (aparte beslissing, eigen scherm), daarna verwijderen. De
-      // reason laat de UI naar /app/abonnement verwijzen.
-      // COPY: confirm met Marlon
-      const messages: Record<typeof result.reason, string> = {
-        profile_not_found: "Je profiel is niet gevonden.",
-        staff_role: "Dit is een teamaccount. Neem contact op met Marlon.",
-        membership_active:
-          "Je lidmaatschap loopt nog. Zeg het eerst op via Abonnement; daarna kun je je account verwijderen.",
-      };
-      return { ok: false, error: messages[result.reason], reason: result.reason };
-    }
-
-    // De kern heeft de auth-user geband; deze sessie zelf ook dicht, overal.
-    await supabase.auth.signOut({ scope: "global" });
-
-    revalidatePath("/app/profiel");
-    return { ok: true };
-  } catch (e) {
-    console.error("[requestAccountDeletion]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }
