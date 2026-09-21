@@ -61,6 +61,7 @@ const FIXED_ITEMS: NavItem[] = [
 // Meer-tab zelf als actief te markeren wanneer je op zo'n pagina bent.
 const MEER_ROUTE_PREFIXES = [
   "/app/profiel",
+  "/app/toegang",
   "/app/abonnement",
   "/app/facturen",
   "/app/schema",

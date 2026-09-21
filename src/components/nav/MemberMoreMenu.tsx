@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { Capacitor } from "@capacitor/core";
 import {
   UserCircle,
+  KeyRound,
   CreditCard,
   Dumbbell,
   Target,
   LifeBuoy,
   ExternalLink,
 } from "lucide-react";
+
+const noopSubscribe = () => () => {};
+
+/** Hydration-veilig: server en eerste client-render zeggen allebei "geen app". */
+function useIsNativeApp(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => Capacitor.isNativePlatform(),
+    () => false,
+  );
+}
 
 interface MemberMoreMenuProps {
   /** "down" voor de desktop top-nav (paneel opent onder de trigger), "up"
@@ -41,6 +54,9 @@ export function MemberMoreMenu({
 }: MemberMoreMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+  // Deuren openen via Bluetooth bestaat alleen in de native app; op web
+  // blijft /app/toegang bereikbaar maar hoort niet in het menu.
+  const isNativeApp = useIsNativeApp();
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +103,18 @@ export function MemberMoreMenu({
             <UserCircle size={14} strokeWidth={1.5} aria-hidden />
             Profiel
           </Link>
+          {isNativeApp && (
+            <Link
+              href="/app/toegang"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={ITEM_CLASS}
+            >
+              <KeyRound size={14} strokeWidth={1.5} aria-hidden />
+              {/* COPY: confirm met Marlon */}
+              Toegang
+            </Link>
+          )}
           <Link
             href="/app/abonnement"
             role="menuitem"
