@@ -88,6 +88,10 @@ export interface AkilesApi {
 
   createMagicLink(memberId: string): Promise<AkilesIdOnly>;
   revealMagicLink(memberId: string, magicLinkId: string): Promise<{ link: string }>;
+  deleteMagicLink(memberId: string, magicLinkId: string): Promise<void>;
+
+  /** DELETE /members/{id}: soft delete bij Akiles (is_deleted). Alleen na editMember(name = pseudoniem), want wij sturen de echte naam mee. */
+  deleteMember(memberId: string): Promise<void>;
 
   listGroupAssociations(memberId: string): Promise<AkilesGroupAssociation[]>;
   createGroupAssociation(
@@ -164,6 +168,8 @@ export interface AccessProfile {
   role: string;
   is_test: boolean;
   memberships: AccessMembershipRow[];
+  /** Open rij in tmc.account_deletions (requested, in_progress, blocked): deur dicht, ongeacht de membership. */
+  deletion_requested?: boolean;
 }
 
 /** Rij in tmc.access_device_tokens (migratie 20260920000000). Nooit de tokenwaarde. */

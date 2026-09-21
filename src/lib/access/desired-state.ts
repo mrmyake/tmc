@@ -61,6 +61,8 @@ export interface AccessMembershipRow {
 export interface ProfileAccessInput {
   role: string;
   memberships: readonly AccessMembershipRow[];
+  /** Open accountverwijdering: toegang uit, voor elke rol (src/lib/account-deletion/). */
+  deletion_requested?: boolean;
 }
 
 export interface DesiredAccess {
@@ -159,6 +161,19 @@ export function resolveDesiredAccess(
   input: ProfileAccessInput,
   now: Date,
 ): DesiredAccess {
+  // Een open verwijderverzoek gaat voor alles, ook voor staf: de freeze bij
+  // aanvraag trekt in via de sync, en zonder deze regel zou de nachtelijke
+  // sync de deur weer openzetten zolang de membership formeel doorloopt.
+  if (input.deletion_requested) {
+    return {
+      enabled: false,
+      group: null,
+      endsAt: null,
+      endsAtKind: null,
+      reason: "account_deletion",
+    };
+  }
+
   if (STAFF_ROLES.has(input.role)) {
     return {
       enabled: true,

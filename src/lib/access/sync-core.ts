@@ -401,7 +401,11 @@ export async function syncProfileCore(
     // Bestond er wel een Akiles-member, dan dicht.
     const desired: DesiredAccess = profile
       ? resolveDesiredAccess(
-          { role: profile.role, memberships: profile.memberships },
+          {
+            role: profile.role,
+            memberships: profile.memberships,
+            deletion_requested: profile.deletion_requested,
+          },
           now,
         )
       : {

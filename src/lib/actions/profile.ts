@@ -9,7 +9,7 @@ import {
   setSubscriberUnsubscribed,
   GROUPS,
 } from "@/lib/mailerlite";
-import { sendNotification } from "@/lib/ntfy";
+import { requestAccountDeletionForMember } from "@/lib/account-deletion/service";
 import { toE164 } from "@/lib/phone";
 
 export type ActionResult =
@@ -414,37 +414,26 @@ export async function requestAccountDeletion(
   try {
     const { userId, supabase } = await getUserIdOrThrow();
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("email, first_name, last_name")
-      .eq("id", userId)
-      .maybeSingle();
-
-    const admin = createAdminClient();
-    const { error: auditErr } = await admin.from("admin_audit_log").insert({
-      admin_id: userId, // self-initiated, target + actor are the same
-      action: "account_deletion_requested",
-      target_type: "profile",
-      target_id: userId,
-      details: {
-        reason: reason?.trim() || null,
-        email: profile?.email ?? null,
-        requested_via: "member_app",
-      },
-    });
-    if (auditErr) {
-      console.error("[requestAccountDeletion] audit log:", auditErr);
-      return { ok: false, error: "Registreren verzoek mislukt." };
+    // Snapshot, freeze (toegang, tokens, boekingen, marketing) en de
+    // opzegging via tmc.request_membership_cancellation op deze
+    // cookie-client; zie src/lib/account-deletion/core.ts. De melding aan
+    // Marlon bevat alleen ids (PR #205).
+    const result = await requestAccountDeletionForMember(userId, reason, supabase);
+    if (!result.ok) {
+      // COPY: confirm met Marlon
+      const messages: Record<typeof result.reason, string> = {
+        profile_not_found: "Je profiel is niet gevonden.",
+        staff_role: "Dit is een teamaccount. Neem contact op met Marlon.",
+        within_commitment:
+          "Je zit nog in je eerste looptijd. Neem contact op met Marlon om je account te laten verwijderen.",
+        payment_failed:
+          "Je laatste incasso is niet gelukt. Zodra die betaling rond is, kun je je account verwijderen.",
+      };
+      return { ok: false, error: messages[result.reason] };
     }
 
-    // Heads-up naar admin via bestaande ntfy-kanaal. Geen dedicated mail
-    // infra (Resend/MailerSend) geïnstalleerd nog; ntfy matcht het
-    // bestaande lead-notification patroon.
-    await sendNotification(
-      "Account-verwijder verzoek",
-      `${profile?.first_name ?? ""} ${profile?.last_name ?? ""} (${profile?.email ?? "?"}) heeft verwijdering aangevraagd.${reason?.trim() ? ` Reden: ${reason.trim()}` : ""}`,
-      "wastebasket",
-    );
+    // De kern heeft de auth-user geband; deze sessie zelf ook dicht, overal.
+    await supabase.auth.signOut({ scope: "global" });
 
     revalidatePath("/app/profiel");
     return { ok: true };
