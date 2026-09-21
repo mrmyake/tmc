@@ -334,7 +334,7 @@ export async function redeemTrialCodeBooking(
 
   void sendNotification(
     "Proefles geboekt via code!",
-    `${name} (${email})\nTel: ${phone}\n${className} · ${whenLabel}\nCode: ${code}`,
+    `Proefles-boeking ${result.trial_booking_id ?? "?"} via code ${code}: ${className} · ${whenLabel}. Zie de sessie in het admin-rooster.`,
     "ticket,muscle",
   );
 

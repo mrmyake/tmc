@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
       await sendNotification(
         "Nieuwe proefles-boeking!",
-        `${trial.name} (${trial.email}, ${trial.phone}) heeft betaald voor een proefles.`,
+        `Proefles-boeking ${trial.id} is betaald. Zie de sessie in het admin-rooster.`,
         "muscle,fire",
       );
 

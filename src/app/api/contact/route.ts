@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       }),
       sendNotification(
         "Nieuw contactbericht",
-        `${data.name} (${data.email})\n${data.subject || "Geen onderwerp"}\n${data.message || ""}`,
+        "Nieuw bericht via het contactformulier. Inhoud staat in MailerLite, groep Contact.",
         "speech_balloon"
       ),
     ]);

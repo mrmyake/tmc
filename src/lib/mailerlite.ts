@@ -120,13 +120,16 @@ export const GROUPS = {
   // door /api/leads/early-member (de opt-in onderaan /early-member): beide
   // formulieren delen dezelfde MailerLite-groep "Early Member Interested",
   // dus één env-gebonden constante i.p.v. twee. Zet in .env.local en Vercel
-  // als MAILERLITE_INFO_GROUP_ID. Leeg = formulieren blijven werken en
-  // vangen de lead, alleen (nog) zonder MailerLite group sync.
+  // als MAILERLITE_INFO_GROUP_ID. Leeg = de subscriber wordt wel aangemaakt,
+  // alleen zonder groep; de ntfy-melding bevat geen gegevens, dus de lead
+  // is dan alleen via de subscriberlijst terug te vinden.
   INFO_INTERESTED: process.env.MAILERLITE_INFO_GROUP_ID ?? "",
   // Overstap-aanvraag vanuit de /early-member overstapkaart. Admin-mediated
   // (de inschrijfkosten-waiver leeft alleen in admin_create_order), dus dit
   // is een lead, geen self-service /abonnement-checkout. Zet in .env.local
-  // en Vercel als MAILERLITE_OVERSTAP_GROUP_ID. Leeg = lead wordt nog
-  // steeds gevangen (ntfy-alert), alleen zonder MailerLite group sync.
+  // en Vercel als MAILERLITE_OVERSTAP_GROUP_ID. Leeg = de subscriber wordt
+  // wel aangemaakt, alleen zonder groep; de ntfy-melding bevat geen
+  // gegevens, dus de lead is dan alleen via de subscriberlijst terug te
+  // vinden. Op 2026-09-21 stond deze variabele niet in Vercel Production.
   OVERSTAP: process.env.MAILERLITE_OVERSTAP_GROUP_ID ?? "",
 } as const;

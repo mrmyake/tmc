@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       }),
       sendNotification(
         "12 Weken Programma: intake aanvraag!",
-        `${name} (${data.email})\nTel: ${data.phone || "-"}\nDag: ${data.day || "-"}\nBericht: ${data.message || "-"}`,
+        "Nieuwe intake-aanvraag. Gegevens staan in MailerLite, groep Programma intake.",
         "eyes,star"
       ),
     ]);

@@ -25,6 +25,8 @@ Discovery (2026-07-03) confirmed the waitlist is complete end-to-end: `waitlist_
 
 ### Built and live (was: proposed shape)
 
+**PR #205 (branch `fix/ntfy-pii-leak`), 2026-09-21.** De ntfy-meldingen van alle leadformulieren (`/api/proefles`, `/api/contact`, `/api/leads/*`) en van de proefles-boekingspaden bevatten geen naam, e-mail, telefoon of vrije tekst meer; MailerLite is voor leads nu de enige opslag, de melding verwijst daarnaar. Bewust niet aangeraakt: de formulieren zelf, de MailerLite-velden, het ntfy-topic.
+
 **Community-growth §1 (proefles zonder account)**: gemerged. Kernflow (directe boeking + betaling): PR #36, merge `4946f55` (2026-07-03). Capaciteitsfix (proefles-boekingen meetellen in `book_class_session`): PR #117, merge `c71462e`. Derde tak, invited trial codes (zie hieronder): PR #116 merge `8355b67`, PR #118 merge `37e6085`, PR #119 merge `2b98dcf`; die reeks staat ook los bijgehouden in de WS-ledger van `spec-membership-flow.md`.
 
 - `tmc.trial_bookings` exists and is in production: `session_id`, `name`, `email`, `phone`, `price_paid_cents`, `mollie_payment_id`, `status: pending|paid|attended|no_show|cancelled`, `cancel_token`, `booked_at`, `cancelled_at` — no `profile_id`, the visitor has no account. Since `20260808000000_trial_codes.sql` also a nullable `trial_code_id` (see the third branch below).

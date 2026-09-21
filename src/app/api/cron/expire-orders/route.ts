@@ -161,7 +161,7 @@ export async function GET(req: Request) {
         });
         await sendNotification(
           "Nieuwe proefles-boeking!",
-          `${trial.name} (${trial.email}, ${trial.phone}) heeft betaald voor een proefles (via reconciliatie).`,
+          `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,
           "muscle,fire",
         );
         // Zelfde bevestigingsmail als het normale webhook-pad: dit is
