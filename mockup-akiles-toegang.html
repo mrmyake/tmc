@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TMC Toegang, ledenscherm states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --warm-black: #0E0C0B;
+    --surface: #171412;
+    --surface-lift: #1F1B18;
+    --stone: #F4EFE6;
+    --stone-muted: rgba(244, 239, 230, 0.56);
+    --stone-faint: rgba(244, 239, 230, 0.16);
+    --champagne: #B9986A;
+    --green: #7FA87A;
+    --red: #C77B6E;
+    --card-radius: 8px;
+    --button-radius: 4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: #050403;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--stone);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Alleen voor de mockup: legt alle states als kaarten in een grid zodat ze in
+     een keer te beoordelen zijn. Op het toestel zelf is elke state een los scherm. */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(390px, 1fr));
+    gap: 28px;
+    padding: 40px;
+    max-width: 1700px;
+    margin: 0 auto;
+  }
+
+  .gallery-title {
+    grid-column: 1 / -1;
+    font-family: Fraunces, Georgia, serif;
+    font-weight: 400;
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+  .gallery-title span { color: var(--champagne); }
+
+  .gallery-sub {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    color: var(--stone-muted);
+    margin-bottom: 12px;
+  }
+
+  .card-label {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--champagne);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* Telefoonframe, staand. Ontworpen op 375 x 720 logische pixels, wat groter
+     dan een echt toestel zodat er ruimte is voor grote knoppen zonder scrollen. */
+  .frame {
+    width: 375px;
+    min-height: 720px;
+    background: var(--warm-black);
+    border-radius: 36px;
+    border: 1px solid var(--stone-faint);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header.screen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--stone-faint);
+  }
+
+  .wordmark {
+    font-family: Fraunces, Georgia, serif;
+    font-weight: 400;
+    font-size: 18px;
+    letter-spacing: 0.01em;
+  }
+  .wordmark span { color: var(--champagne); }
+
+  .screen-title {
+    font-size: 13px;
+    color: var(--stone-muted);
+  }
+
+  .screen-body {
+    flex: 1;
+    padding: 28px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* ---------- Gedeelde onderdelen ---------- */
+
+  .icon-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-lift);
+    margin-bottom: 22px;
+    font-size: 28px;
+  }
+  .icon-badge.champagne { background: rgba(185, 152, 106, 0.16); color: var(--champagne); }
+  .icon-badge.green { background: rgba(127, 168, 122, 0.16); color: var(--green); }
+  .icon-badge.red { background: rgba(199, 123, 110, 0.16); color: var(--red); }
+
+  h1.screen-heading {
+    font-family: Fraunces, Georgia, serif;
+    font-weight: 400;
+    font-size: 26px;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+
+  p.screen-copy {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--stone-muted);
+    margin-bottom: 8px;
+  }
+
+  .spacer { flex: 1; }
+
+  /* Grote knop, primair. Minimaal 56px hoog voor bediening met handschoenen. */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 60px;
+    border-radius: var(--button-radius);
+    font-family: Inter, sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn:focus-visible { outline: 3px solid var(--stone); outline-offset: 3px; }
+
+  .btn-primary { background: var(--champagne); color: var(--warm-black); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--stone);
+    border: 1px solid var(--stone-faint);
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid rgba(199, 123, 110, 0.4);
+  }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+
+  .btn-stack { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ---------- State: deurenlijst (gekoppeld) ---------- */
+
+  .door-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .door-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: var(--card-radius);
+  }
+
+  .door-name {
+    font-size: 17px;
+    font-weight: 500;
+  }
+  .door-hint {
+    font-size: 13px;
+    color: var(--stone-muted);
+    margin-top: 2px;
+  }
+
+  .door-open-btn {
+    flex: none;
+    height: 56px;
+    min-width: 100px;
+    padding: 0 20px;
+    border-radius: var(--button-radius);
+    background: var(--champagne);
+    color: var(--warm-black);
+    font-family: Inter, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+  .door-open-btn:focus-visible { outline: 3px solid var(--stone); outline-offset: 3px; }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--green);
+    margin-bottom: 18px;
+  }
+  .status-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* ---------- State: bezig (spinner) ---------- */
+
+  .spinner-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 40px;
+  }
+
+  .spinner {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 4px solid var(--stone-faint);
+    border-top-color: var(--champagne);
+    animation: spin 0.9s linear infinite;
+    margin-bottom: 26px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* ---------- Foutlijst (state 6) ---------- */
+
+  .error-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .error-item {
+    padding: 18px;
+    background: var(--surface);
+    border-radius: var(--card-radius);
+    border-left: 3px solid var(--red);
+  }
+  .error-item .error-cause {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--stone);
+    margin-bottom: 4px;
+  }
+  .error-item .error-body {
+    font-size: 13px;
+    color: var(--stone-muted);
+    line-height: 1.45;
+  }
+  .error-item .error-action {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--champagne);
+  }
+
+  /* ---------- Bevestigings-overlay (state 8) ---------- */
+
+  .confirm-box {
+    background: var(--surface);
+    border-radius: var(--card-radius);
+    padding: 20px;
+    margin-top: auto;
+    border: 1px solid rgba(199, 123, 110, 0.35);
+  }
+  .confirm-box p { font-size: 14px; color: var(--stone-muted); margin-bottom: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="gallery">
+  <div class="gallery-title">Toegang <span>ledenscherm</span></div>
+  <div class="gallery-sub">Alle states van het deurtoegang-scherm in de app, naast elkaar voor beoordeling. Vervangt de tijdelijke testpagina uit PR #201. Mockup, geen werkende React.</div>
+
+  <!-- 1. Niet gekoppeld -->
+  <div>
+    <div class="card-label">1. Niet gekoppeld</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="icon-badge champagne">&#128274;</div>
+        <!-- COPY: confirm met Marlon -->
+        <h1 class="screen-heading">Koppel dit toestel aan de deur</h1>
+        <!-- COPY: confirm met Marlon -->
+        <p class="screen-copy">Na het koppelen open je de deuren van de studio met je telefoon. Dat werkt via Bluetooth, ook zonder internet, en alleen op dit toestel.</p>
+        <!-- COPY: confirm met Marlon -->
+        <p class="screen-copy">Koppelen kost eenmalig een paar seconden.</p>
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-primary">Koppel dit toestel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Bezig met koppelen -->
+  <div>
+    <div class="card-label">2. Bezig met koppelen</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="spinner-wrap">
+          <div class="spinner"></div>
+          <!-- COPY: confirm met Marlon -->
+          <h1 class="screen-heading">Toestel koppelen</h1>
+          <!-- COPY: confirm met Marlon -->
+          <p class="screen-copy">Momentje, dit duurt een paar seconden.</p>
+        </div>
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-secondary" disabled>Annuleren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Gekoppeld, deurenlijst -->
+  <div>
+    <div class="card-label">3. Gekoppeld, deuren</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="status-pill"><span class="dot"></span>
+          <!-- COPY: confirm met Marlon -->
+          <span>Dit toestel is gekoppeld</span>
+        </div>
+        <!-- COPY: confirm met Marlon -->
+        <p class="screen-copy" style="margin-bottom: 20px;">Tik op een deur om die te openen. Blijf dichtbij tot hij open is.</p>
+
+        <div class="door-list">
+          <div class="door-row">
+            <div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-name">Voordeur</div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-hint">Industrieweg 14P</div>
+            </div>
+            <button class="door-open-btn">Open</button>
+          </div>
+          <div class="door-row">
+            <div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-name">Studio</div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-hint">Binnendeur</div>
+            </div>
+            <button class="door-open-btn">Open</button>
+          </div>
+        </div>
+
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-danger">Dit toestel verwijderen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Bezig met openen -->
+  <div>
+    <div class="card-label">4. Bezig met openen</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="spinner-wrap">
+          <div class="spinner"></div>
+          <!-- COPY: confirm met Marlon -->
+          <h1 class="screen-heading">Voordeur wordt geopend</h1>
+          <!-- COPY: confirm met Marlon -->
+          <p class="screen-copy">Blijf dichtbij de deur.</p>
+        </div>
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-secondary" disabled>Annuleren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Gelukt -->
+  <div>
+    <div class="card-label">5. Gelukt</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="spinner-wrap">
+          <div class="icon-badge green" style="width:72px;height:72px;font-size:32px;">&#10003;</div>
+          <!-- COPY: confirm met Marlon -->
+          <h1 class="screen-heading">Voordeur is open</h1>
+          <!-- COPY: confirm met Marlon -->
+          <p class="screen-copy">Fijne training.</p>
+        </div>
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-secondary">Terug naar deuren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Mislukt, per oorzaak -->
+  <div>
+    <div class="card-label">6. Mislukt, per oorzaak</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body" style="padding-bottom: 20px;">
+        <div class="icon-badge red">&#33;</div>
+        <!-- COPY: confirm met Marlon -->
+        <h1 class="screen-heading" style="font-size: 20px; margin-bottom: 18px;">Deur ging niet open</h1>
+
+        <div class="error-list">
+          <div class="error-item">
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-cause">Bluetooth staat uit</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-body">Zet Bluetooth aan in de instellingen van je telefoon en probeer opnieuw.</div>
+            <!-- COPY: confirm met Marlon -->
+            <span class="error-action">Naar instellingen</span>
+          </div>
+          <div class="error-item">
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-cause">Geen toestemming voor Bluetooth</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-body">The Movement Club heeft toestemming nodig voor Bluetooth om de deur te openen.</div>
+            <!-- COPY: confirm met Marlon -->
+            <span class="error-action">Toestemming geven</span>
+          </div>
+          <div class="error-item">
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-cause">Buiten bereik</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-body">Kom dichter bij de deur en probeer het nog eens.</div>
+            <!-- COPY: confirm met Marlon -->
+            <span class="error-action">Opnieuw proberen</span>
+          </div>
+          <div class="error-item">
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-cause">Toegang geweigerd</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-body">Deze deur kan nu niet open. Neem contact op met de studio.</div>
+            <!-- COPY: confirm met Marlon -->
+            <span class="error-action">Contact opnemen</span>
+          </div>
+          <div class="error-item">
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-cause">Sessie verlopen</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="error-body">Je koppeling is verlopen. Koppel dit toestel opnieuw aan de deur.</div>
+            <!-- COPY: confirm met Marlon -->
+            <span class="error-action">Opnieuw koppelen</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Geen toegang -->
+  <div>
+    <div class="card-label">7. Geen toegang (geen abonnement)</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="icon-badge">&#128274;</div>
+        <!-- COPY: confirm met Marlon -->
+        <h1 class="screen-heading">Geen deurtoegang</h1>
+        <!-- COPY: confirm met Marlon -->
+        <p class="screen-copy">Deurtoegang via de app is onderdeel van een abonnement. Rittenkaarten en PT-pakketten geven geen zelfstandige toegang: voor die sessies sta je samen met je trainer binnen.</p>
+        <!-- COPY: confirm met Marlon -->
+        <p class="screen-copy">Heb je vragen over je abonnement? Neem contact op met de studio.</p>
+        <div class="spacer"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="btn btn-secondary">Bekijk abonnementen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Toestel verwijderen, bevestiging -->
+  <div>
+    <div class="card-label">8. Toestel verwijderen, bevestiging</div>
+    <div class="frame">
+      <header class="screen-header">
+        <div class="wordmark">The Movement <span>Club</span></div>
+        <div class="screen-title">Toegang</div>
+      </header>
+      <div class="screen-body">
+        <div class="status-pill"><span class="dot"></span>
+          <!-- COPY: confirm met Marlon -->
+          <span>Dit toestel is gekoppeld</span>
+        </div>
+        <div class="door-list">
+          <div class="door-row" style="opacity: 0.4;">
+            <div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-name">Voordeur</div>
+              <!-- COPY: confirm met Marlon -->
+              <div class="door-hint">Industrieweg 14P</div>
+            </div>
+            <button class="door-open-btn" disabled>Open</button>
+          </div>
+        </div>
+
+        <div class="confirm-box">
+          <!-- COPY: confirm met Marlon -->
+          <p>Dit toestel kan de deur dan niet meer openen. Je kunt het later opnieuw koppelen.</p>
+          <div class="btn-stack">
+            <!-- COPY: confirm met Marlon -->
+            <button class="btn btn-danger">Ja, toestel verwijderen</button>
+            <!-- COPY: confirm met Marlon -->
+            <button class="btn btn-secondary">Annuleren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
