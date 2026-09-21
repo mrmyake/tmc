@@ -121,7 +121,9 @@ ontwerpen), en ELDERS (leeft in andere spec, raakt het lid).
   mogelijk nog niet af. Bepaalt of iemand het snapt of afhaakt. Geen aparte pagina per se, maar een
   expliciete eerste-keer-staat (o.a. op de landing) die ontworpen moet worden.
 - **Profiel** (`/app/profiel`) — BESTAAT. Gegevens, health intake, marketing opt-in, account
-  verwijderen (soft delete + grace).
+  verwijderen. Let op: dat laatste is alleen een verzoek (auditrij plus ntfy-melding aan Marlon),
+  er is geen soft delete, geen grace-periode en geen pad dat het verzoek uitvoert; de echte flow
+  is workstream D.2 in `spec-ios-app.md`.
 - **Health intake** — BESTAAT. Let op: kan boeken blokkeren tot compleet (DISCOVERY: geldt die gate
   nog?).
 - **Support** — BESTAAT (vermeld in fase 1 member-app).

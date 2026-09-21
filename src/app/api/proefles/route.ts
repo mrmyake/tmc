@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       }),
       sendNotification(
         "Nieuwe proefles aanvraag!",
-        `${data.name} (${data.email})\nTel: ${data.phone || "-"}\nVoorkeur: ${data.preference || "-"}\nErvaring: ${data.experience || "-"}`,
+        "Nieuwe proefles-aanvraag. Gegevens staan in MailerLite, groep Proefles.",
         "muscle,fire"
       ),
     ]);

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       }),
       sendNotification(
         "Early Member interesse",
-        email,
+        "Nieuwe aanmelding via de Early Member-pagina. Adres staat in MailerLite, groep Early Member Interested.",
         "eyes"
       ),
     ]);

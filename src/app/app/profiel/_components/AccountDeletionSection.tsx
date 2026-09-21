@@ -15,9 +15,10 @@ export function AccountDeletionSection() {
       >
         Account verwijderen
       </button>
+      {/* COPY: confirm met Marlon */}
       <p className="text-text-muted/60 text-xs mt-3 max-w-prose mx-auto">
-        Verwijdering binnen dertig dagen. Eventuele lopende abonnementen lopen
-        via het opzegproces.
+        Verwijderen gaat via een verzoek aan Marlon. Eventuele lopende
+        abonnementen lopen via het opzegproces.
       </p>
       <DeleteAccountDialog
         ref={dialogRef}

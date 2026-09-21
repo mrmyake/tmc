@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       }),
       sendNotification(
         "Yoga wachtlijst aanmelding",
-        `${name} (${email})`,
+        "Nieuwe aanmelding voor de yoga-wachtlijst. Gegevens staan in MailerLite, groep Yoga wachtlijst.",
         "calendar"
       ),
     ]);

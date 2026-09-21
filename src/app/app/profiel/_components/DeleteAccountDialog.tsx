@@ -31,8 +31,9 @@ export const DeleteAccountDialog = forwardRef<
       if (!res.ok) {
         setError(res.error);
       } else {
+        // COPY: confirm met Marlon
         setSuccess(
-          "Je verzoek staat. Marlon bevestigt binnen 30 dagen en verwijdert dan je account.",
+          "Je verzoek is geregistreerd. Marlon neemt contact met je op om de verwijdering af te handelen.",
         );
         window.setTimeout(() => onDone?.(), 2400);
       }
@@ -69,10 +70,11 @@ export const DeleteAccountDialog = forwardRef<
         >
           Weet je het zeker?
         </h2>
+        {/* COPY: confirm met Marlon */}
         <p className="text-text-muted text-sm leading-relaxed mb-6">
-          Na je bevestiging hebben we maximaal 30 dagen om je account definitief
-          te verwijderen. Je abonnement wordt apart afgehandeld via het
-          opzeg-proces.
+          Na je bevestiging ontvangt Marlon je verzoek en neemt zij contact met
+          je op om je account te verwijderen. Je abonnement wordt apart
+          afgehandeld via het opzeg-proces.
         </p>
         <p className="text-text-muted text-sm leading-relaxed mb-8">
           Typ{" "}
