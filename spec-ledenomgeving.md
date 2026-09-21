@@ -15,6 +15,8 @@ met TS-orkestratie in `src/lib/admin/membership-lifecycle.ts`. De latere Sonnet-
 (admin-UI en de lid-facing Stap 2 hieronder) zijn dunne aanroepers van die laag en nemen zelf
 geen lifecycle-beslissingen.
 
+**PR #205 (branch `fix/ntfy-pii-leak`), 2026-09-21.** Staffmeldingen naar het publieke ntfy-topic bevatten geen persoonsgegevens meer (alleen profiel-, order- of boekings-id); de tekst bij "Account verwijderen" op `/app/profiel` belooft niet langer een verwijdering binnen 30 dagen, omdat geen enkel pad het verzoek uitvoert, en §1.4 hieronder is daarop gecorrigeerd. Bewust niet aangeraakt: het ntfy-topic zelf, `requestAccountDeletion` (schrijft nog steeds alleen een auditrij), geen migraties.
+
 UPDATE 2026-07-12 (PR #93, branch `feat/leden-landing`): de home-dashboard-landing uit §3.3 is
 GEBOUWD EN GEFLIPT. `/app` (voorheen een redirect-stub naar `/app/rooster`) rendert nu het
 dashboard: begroeting, plan-badge/statusregel, eerstvolgende les, tegoed, schema-teaser en
