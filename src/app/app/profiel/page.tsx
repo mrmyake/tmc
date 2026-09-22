@@ -48,6 +48,17 @@ export default async function ProfielPage({
   // AccessPinCard pas na een expliciete tik op via een server action.
   const accessSummary = await getAccessSummary(user.id);
 
+  // Open verwijderverzoek (RLS self-read op account_deletions), voor de
+  // status onderaan de pagina.
+  const { data: openDeletion } = await supabase
+    .from("account_deletions")
+    .select("requested_at, purge_after")
+    .eq("profile_id", user.id)
+    .in("status", ["requested", "in_progress", "blocked"])
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const role: Role = (profile?.role as Role) ?? "member";
   // Profiel is context-agnostisch — standaard member-context (trainer/
   // admin-switcher rendered als de user die rol heeft).
@@ -189,7 +200,13 @@ export default async function ProfielPage({
         <MarketingOptInToggle initialOptIn={profile.marketing_opt_in} />
       </div>
 
-      <AccountDeletionSection />
+      <AccountDeletionSection
+        open={
+          openDeletion
+            ? { requestedAt: openDeletion.requested_at, purgeAfter: openDeletion.purge_after }
+            : null
+        }
+      />
     </Container>
   );
 }
