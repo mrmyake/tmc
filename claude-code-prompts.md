@@ -359,6 +359,10 @@ Design:
 Data:
 - `profiles` tabel. `health_intake_data` is jsonb voor flexibiliteit; schema valideren server-side met zod.
 - Account-verwijder: soft delete via `profiles.deleted_at`, cron job na 30 dagen hard delete.
+  ACHTERHAALD (2026-09-22): dit plan is nooit zo gebouwd, en `profiles.deleted_at` bestaat niet.
+  De werkelijke flow (spec-ios-app.md workstream D.2, PR #206-#208) houdt de status bij in een
+  eigen tabel `tmc.account_deletions` (niet een vlag op `profiles`) en anonimiseert een profiel
+  met betaalhistorie in plaats van het na een vaste termijn hard te verwijderen.
 
 Acceptatie:
 - Avatar upload werkt en is RLS-beschermd.

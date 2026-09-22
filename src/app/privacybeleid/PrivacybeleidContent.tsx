@@ -254,6 +254,10 @@ export function PrivacybeleidContent() {
               </p>
             </PolicySection>
 
+            {/* COPY: confirm met Marlon. Bewaartermijnen per categorie uit
+                de discovery-accountverwijdering (2026-09-21), vertaald naar
+                lezerstaal. Nog niet juridisch getoetst, zie de opmerking
+                bovenaan dit bestand. */}
             <PolicySection
               eyebrow="06 · Bewaartermijn"
               heading="Hoe lang bewaren we je gegevens"
@@ -261,15 +265,64 @@ export function PrivacybeleidContent() {
               <p>
                 We bewaren je gegevens niet langer dan nodig is voor het doel
                 waarvoor we ze verzameld hebben, of zolang we daartoe
-                wettelijk verplicht zijn (bijvoorbeeld de fiscale
-                bewaarplicht voor betaalgegevens).{" "}
-                {/* COPY: confirm — concrete bewaartermijnen per
-                gegevenscategorie zijn nog niet formeel vastgesteld;
-                voorstel is dit samen met de jurist/AVG-toetsing in sectie
-                01 verder in te vullen. */}
-                Zeg je je lidmaatschap op, dan verwijderen of anonimiseren
-                we je gegevens zodra de wettelijke bewaartermijnen dat
-                toelaten.
+                wettelijk verplicht zijn. Hieronder staat per soort gegeven
+                wat er gebeurt zodra je je account verwijdert of je
+                lidmaatschap eindigt.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Facturen en betaalgegevens.
+                </strong>{" "}
+                Zeven jaar, vanaf het moment dat ze niet meer actueel zijn.
+                Dat is een wettelijke verplichting van de Belastingdienst
+                (fiscale bewaarplicht), niet onze keuze. Na die zeven jaar
+                verwijderen we ze.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Lidmaatschapsgegevens.
+                </strong>{" "}
+                Welk abonnement je had, wanneer het begon en eindigde, en
+                eventuele opzeggingen: zeven jaar na het einde van de
+                overeenkomst, om dezelfde wettelijke reden als hierboven.
+              </p>
+              <p>
+                <strong className="text-text">Profielgegevens.</strong>{" "}
+                Je naam, adres, telefoonnummer, geboortedatum, noodcontact en
+                gezondheidsintake verwijderen of anonimiseren we zodra je
+                account verwijderd wordt en er geen overeenkomst meer loopt
+                die deze gegevens nodig heeft. Heb je facturen bij ons
+                staan, dan blijft de administratieve kant daarvan (naam,
+                adres, e-mailadres op de factuur zelf) onderdeel van die
+                factuur, ook al is je profiel dan al geanonimiseerd.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Boekingen, check-ins en trainingsschema&apos;s.
+                </strong>{" "}
+                Bij accountverwijdering anonimiseren we deze gegevens: de
+                boeking of het schema blijft bestaan voor onze eigen
+                bedrijfsvoering (bijvoorbeeld om te zien hoe vol een les
+                was), maar is niet meer aan jou te koppelen.
+              </p>
+              <p>
+                <strong className="text-text">Marketingtoestemming.</strong>{" "}
+                Trek je je toestemming in, of verwijder je je account, dan
+                stoppen we direct met het versturen van marketing-e-mails en
+                verwijderen we je uit onze mailinglijst.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Een verwijderverzoek beëindigt geen overeenkomst.
+                </strong>{" "}
+                Verwijder je je account terwijl je nog een lopend
+                abonnement hebt, dan blijft dat abonnement gewoon
+                doorlopen totdat je het hebt opgezegd. Verwijderen is
+                geen opzegging, en er vervalt geen betaalverplichting.
+                Gegevens die nodig zijn om die lopende overeenkomst
+                netjes af te ronden (denk aan je laatste factuur)
+                bewaren we tot dat is gebeurd, naast de wettelijke
+                bewaartermijn die daarna nog geldt.
               </p>
             </PolicySection>
 

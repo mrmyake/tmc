@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AtSign,
   Ban,
@@ -856,10 +857,19 @@ function DeleteMemberDialog({
       <p className="text-text text-sm mb-3">
         Weet je het zeker? Dit kan niet teruggedraaid worden.
       </p>
+      {/* COPY: confirm met Marlon */}
       <p className="text-text-muted text-sm mb-5">
-        Alle bookings, betalingen en notes van dit lid worden verwijderd.
-        Actieve abonnementen worden eerst gecancelled. Vergeet niet handmatig
-        de Mollie-subscription te stoppen.
+        Dit start de verwijdering meteen: een lopend abonnement wordt per
+        direct stopgezet (inclusief de Mollie-incasso, dat gaat automatisch),
+        toegang en geplande lessen gaan dicht en tegoed vervalt. Heeft dit
+        lid facturen of bestellingen, dan wordt het profiel geanonimiseerd
+        met behoud van die administratie; anders wordt het volledig
+        verwijderd. Onderdelen die niet meteen lukken (Akiles, MailerLite,
+        de afsluitmail) rondt de nachtelijke cron vanzelf af, zie{" "}
+        <Link href="/app/admin/verwijderverzoeken" className="underline hover:text-accent">
+          Verwijderverzoeken
+        </Link>
+        .
       </p>
       <AdminField
         label={`Typ de voornaam (${firstName}) om te bevestigen`}

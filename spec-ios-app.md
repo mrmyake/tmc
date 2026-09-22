@@ -135,13 +135,13 @@ Mitigatie, nog te ontwerpen: voldoende native functionaliteit (push, straks Akil
 
 ### D.2 Verplichte in-app accountverwijdering
 
-Apple vereist dat een gebruiker zijn account zelf, in de app, kan verwijderen, niet alleen via een supportverzoek. Dit raakt drie systemen tegelijk:
+Apple vereist dat een gebruiker zijn account zelf, in de app, kan verwijderen, niet alleen via een supportverzoek. Dit raakte bij de discovery (2026-09-21) drie systemen tegelijk, elk met zijn eigen gat:
 
-- **Akiles member en PIN**: intrekking loopt via de bestaande sync (`revokeInAkiles` in `src/lib/access/sync-core.ts`, regels 302-326; niet geëxporteerd, enige ingang is `syncMembershipAccess`), maar die wordt vandaag alleen getriggerd door de nachtcron, na `order.activated` en in `deleteMember`, niet door een self-service accountverwijdering.
-- **Mollie-abonnement**: moet gestopt worden, niet alleen de lokale membership-rij.
-- **Profielrij**: er bestaat vandaag een admin-side hard-delete (`deleteMember` in `src/lib/admin/member-actions.ts`, rond regel 822, roept rechtstreeks `.update()` op `memberships` aan buiten de RPC-laag om, zie ook de bevinding hierover in `spec-akiles-access.md`'s PR #168-regel). Die faalt sinds de order-pipeline voor elk lid dat ooit betaald heeft (FK's zonder cascade op `orders`, `invoices` en `admin_audit_log`). Er is wel een self-service ingang op `/app/profiel` (`AccountDeletionSection.tsx`, `requestAccountDeletion` in `src/lib/actions/profile.ts`), maar die registreert alleen een verzoek (auditrij plus ntfy); niets voert het uit.
+- **Akiles member en PIN**: intrekking liep via de bestaande sync (`revokeInAkiles` in `src/lib/access/sync-core.ts`, regels 302-326; niet geëxporteerd, enige ingang is `syncMembershipAccess`), maar die werd alleen getriggerd door de nachtcron, na `order.activated` en in `deleteMember`, niet door een self-service accountverwijdering.
+- **Mollie-abonnement**: moest gestopt worden, niet alleen de lokale membership-rij.
+- **Profielrij**: er bestond een admin-side hard-delete (`deleteMember` in `src/lib/admin/member-actions.ts`, rond regel 822, deed rechtstreeks `.update()` op `memberships` buiten de RPC-laag om, zie ook de bevinding hierover in `spec-akiles-access.md`'s PR #168-regel), die faalde sinds de order-pipeline voor elk lid dat ooit betaald had (FK's zonder cascade op `orders`, `invoices` en `admin_audit_log`). Er was wel een self-service ingang op `/app/profiel` (`AccountDeletionSection.tsx`, `requestAccountDeletion` in `src/lib/actions/profile.ts`), maar die registreerde alleen een verzoek (auditrij plus ntfy); niets voerde het uit.
 
-Te ontwerpen: een self-service accountverwijderingsflow die achtereenvolgens het Mollie-abonnement stopt, de Akiles-toegang intrekt en de profielrij (of een soft-delete variant daarvan) verwerkt, met een duidelijke bevestigingsstap in de app.
+**Alle drie zijn inmiddels gebouwd (PR #206, #207, #208), zie de ledger en de paragrafen hieronder; de bullets hierboven beschrijven de toestand van de discovery, niet de huidige code.** `deleteMember` roept nu `requestAccountDeletionByAdmin` aan (kern uit #207) in plaats van de losse `.update()`, en `requestAccountDeletion` voert het verzoek daadwerkelijk uit in plaats van alleen te registreren.
 
 **Discovery afgerond op 2026-09-21 (branch `docs/account-deletion-discovery`, rapport in die sessie; kern in de PR #206-ledgerregel).** Besluit uit de discovery: betalende leden worden geanonimiseerd, nooit hard verwijderd (facturen en orders vallen onder de bewaarplicht van zeven jaar, AWR art. 52, en `invoices.profile_id` is NOT NULL). Vier PR's: (1) schema en RPC, gebouwd in PR #206; (2) orchestratie met `account_deletions` als werklijst, in de volgorde lokaal bevriezen, Mollie, Akiles, mail en push, dan het profiel, gebouwd in PR #207 (`src/lib/account-deletion/`, cron `process-account-deletions`); (3) ledenkant, gebouwd in PR #208 (`/app/profiel/verwijderen`) met preflight, OTP-bevestiging en status; (4) admin en teksten. Open beslissingen voor Marlon staan in het discovery-rapport (commitment, betalingsachterstand, credits, opzegtermijn, bedenktijd, MailerLite forget, Mollie-retentie).
 
@@ -149,11 +149,7 @@ Te ontwerpen: een self-service accountverwijderingsflow die achtereenvolgens het
 
 **Openstaande beslissing voor Marlon:** opzeggen eerst en daarna apart verwijderen (gebouwd in PR #207), of een gekoppelde knop die opzegt en verwijdert in een handeling met expliciete bevestiging.
 
-```
-// COPY: confirm met Marlon, bevestigingstekst voor accountverwijdering
-// (bijv. "Account verwijderen" knop + waarschuwingstekst over stopzetten
-// abonnement en intrekken toegang)
-```
+De bevestigingstekst zelf staat niet meer hier als placeholder: die is geschreven in de gebouwde schermen (`src/app/app/profiel/verwijderen/DeletionFlow.tsx` en `src/app/app/admin/leden/[id]/_components/ActionMenu.tsx`), elke regel gemarkeerd met `// COPY: confirm met Marlon` op de plek zelf.
 
 ### D.3 DSA trader status
 

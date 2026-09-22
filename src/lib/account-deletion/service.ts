@@ -524,6 +524,45 @@ export async function requestAccountDeletionByAdmin(
   return { ok: true, row: purge.row, purge };
 }
 
+/**
+ * Admin-hardstop op een AL LOPEND verzoek (`/app/admin/verwijderverzoeken`):
+ * forceer de sluiting nu in plaats van te wachten op de einddatum van het
+ * abonnement, en zet de purge in een moeite door zo ver mogelijk. Dit is
+ * wiring, geen kern-wijziging: cancelt elke nog levende
+ * abonnement-membership per direct (dezelfde adminCancel als deleteMember
+ * gebruikt, dus idempotent bij een al gecancelde subscription), en roept
+ * dan runPurgeCore aan. Die functie herkent zelf een freeze op 'pending'
+ * (runScheduledFreezeCore) en gaat door naar Mollie, Akiles, MailerLite,
+ * push, profiel en de afsluitmail als de sluiting lukt. Werkt ook op een
+ * rij die al eerder vastliep (blocked): een membership die intussen
+ * ergens anders weer actief werd, wordt hier alsnog gecanceld.
+ */
+export async function hardstopAccountDeletion(
+  deletionId: string,
+): Promise<{ ok: true; row: DeletionRow; purge: PurgeResult } | { ok: false; error: string }> {
+  const deps = buildDeps(createAdminClient(), adminCancel);
+  const config = getDeletionConfig();
+
+  const row = await deps.db.getDeletion(deletionId);
+  if (!row) return { ok: false, error: "Verzoek niet gevonden." };
+  if (!["requested", "in_progress", "blocked"].includes(row.status)) {
+    return { ok: false, error: "Dit verzoek is al afgerond of ingetrokken." };
+  }
+
+  if (row.profile_id) {
+    const live = await deps.db.listLiveMemberships(row.profile_id);
+    for (const m of live.filter((x) => (x.billing_cycle_weeks ?? 0) > 0)) {
+      const outcome = await deps.cancelMembership(m.id);
+      if (!outcome.ok) {
+        return { ok: false, error: `Abonnement ${m.id} stopzetten lukte niet: ${outcome.reason}` };
+      }
+    }
+  }
+
+  const purge = await runPurgeCore(deps, config, row);
+  return { ok: true, row: purge.row, purge };
+}
+
 export async function processDueAccountDeletions(options: {
   deadlineMs: number;
 }): Promise<ProcessResult> {
