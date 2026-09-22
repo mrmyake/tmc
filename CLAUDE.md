@@ -13,6 +13,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - Geef bij `gh pr create` altijd expliciet `--head <branch>` mee zolang er parallelle sessies draaien. Zonder die vlag leidt `gh` de branch af uit de checkout waarin het commando toevallig draait, en dat is bij een worktree-workflow niet jouw branch.
 - `.mcp.json` is gitignored en migreert dus niet mee naar een nieuwe git worktree. Een parallelle sessie start zonder MCP-servers tenzij het bestand handmatig wordt gekopieerd.
 - Subagents krijgen nooit schrijfrechten tenzij de opdracht dat expliciet zegt. Een subagent draait nooit `git commit`, `git push`, `gh pr create` of `gh pr merge`, ook niet als hij denkt dat de wijziging klopt. Een read-only opdracht betekent lezen en rapporteren, niets anders. De hoofdsessie doet het committen en het openen van PR's, en alleen Ilja merget.
+- Na elke push verifiëren dat de remote daadwerkelijk staat waar je denkt, met `git ls-remote` of `git log origin/<branch>`. Een gefaalde of gedeeltelijke push is aan de PR niet te zien: die toont groen en de preview bouwt gewoon, terwijl main de halve feature bevat. Bij het amenden of herschrijven van commits geldt dit dubbel: controleer de remote vóór je meldt dat de branch klaar is.
 
 ---
 
