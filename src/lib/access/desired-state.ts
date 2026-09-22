@@ -61,8 +61,8 @@ export interface AccessMembershipRow {
 export interface ProfileAccessInput {
   role: string;
   memberships: readonly AccessMembershipRow[];
-  /** Open accountverwijdering: toegang uit, voor elke rol (src/lib/account-deletion/). */
-  deletion_requested?: boolean;
+  /** Accountverwijdering waarvan de sluiting gestart of gedaan is: toegang uit, voor elke rol (src/lib/account-deletion/). */
+  deletion_frozen?: boolean;
 }
 
 export interface DesiredAccess {
@@ -161,10 +161,11 @@ export function resolveDesiredAccess(
   input: ProfileAccessInput,
   now: Date,
 ): DesiredAccess {
-  // Een open verwijderverzoek gaat voor alles, ook voor staf: de freeze bij
-  // aanvraag trekt in via de sync, en zonder deze regel zou de nachtelijke
-  // sync de deur weer openzetten zolang de membership formeel doorloopt.
-  if (input.deletion_requested) {
+  // Een gesloten (of sluitend) verwijderverzoek gaat voor alles, ook voor
+  // staf: de sluiting trekt in via de sync, en zonder deze regel zou de
+  // nachtelijke sync de deur weer openzetten. Zolang de sluiting nog op de
+  // einddatum van het abonnement wacht, geldt gewoon de membership.
+  if (input.deletion_frozen) {
     return {
       enabled: false,
       group: null,

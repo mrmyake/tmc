@@ -52,7 +52,7 @@ export default async function ProfielPage({
   // status onderaan de pagina.
   const { data: openDeletion } = await supabase
     .from("account_deletions")
-    .select("requested_at, purge_after")
+    .select("requested_at, purge_after, step_status")
     .eq("profile_id", user.id)
     .in("status", ["requested", "in_progress", "blocked"])
     .order("requested_at", { ascending: false })
@@ -203,7 +203,12 @@ export default async function ProfielPage({
       <AccountDeletionSection
         open={
           openDeletion
-            ? { requestedAt: openDeletion.requested_at, purgeAfter: openDeletion.purge_after }
+            ? {
+                requestedAt: openDeletion.requested_at,
+                purgeAfter: openDeletion.purge_after,
+                closingPending:
+                  (openDeletion.step_status as { freeze?: string } | null)?.freeze === "pending",
+              }
             : null
         }
       />

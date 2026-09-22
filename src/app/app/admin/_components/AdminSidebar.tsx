@@ -18,6 +18,7 @@ import {
   CreditCard,
   FileText,
   TrendingUp,
+  UserX,
 } from "lucide-react";
 
 type IconType = typeof LayoutDashboard;
@@ -68,6 +69,11 @@ const SECONDARY: NavItem[] = [
   { href: "/app/admin/facturen", label: "Facturen", icon: FileText },
   { href: "/app/admin/omzet", label: "Omzet", icon: TrendingUp },
   { href: "/app/admin/pauzes", label: "Pauzes", icon: Pause },
+  {
+    href: "/app/admin/verwijderverzoeken",
+    label: "Verwijderverzoeken",
+    icon: UserX,
+  },
   { href: "/app/admin/proefcodes", label: "Proefcodes", icon: Ticket },
   {
     href: "/app/admin/aankondigingen",

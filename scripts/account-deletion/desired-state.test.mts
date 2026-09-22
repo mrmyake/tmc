@@ -1,5 +1,6 @@
 /**
- * Een open verwijderverzoek sluit de deur, ongeacht membership of rol
+ * Een verwijderverzoek waarvan de sluiting gestart of gedaan is sluit de
+ * deur, ongeacht membership of rol; een verzoek dat op de einddatum wacht niet
  * (src/lib/access/desired-state.ts, PR 2 accountverwijdering).
  * Run: npm run test:account-deletion
  */
@@ -16,19 +17,24 @@ const active = {
   pause_effective_date: null,
 };
 
-test("actieve membership geeft toegang; met open verwijderverzoek niet", () => {
+test("actieve membership geeft toegang, ook met een verzoek dat op de einddatum wacht; na de sluiting niet", () => {
   const open = resolveDesiredAccess({ role: "member", memberships: [active] }, NOW);
   assert.equal(open.enabled, true);
+  const waiting = resolveDesiredAccess(
+    { role: "member", memberships: [active], deletion_frozen: false },
+    NOW,
+  );
+  assert.equal(waiting.enabled, true);
   const closed = resolveDesiredAccess(
-    { role: "member", memberships: [active], deletion_requested: true },
+    { role: "member", memberships: [active], deletion_frozen: true },
     NOW,
   );
   assert.equal(closed.enabled, false);
   assert.equal(closed.reason, "account_deletion");
 });
 
-test("ook staf gaat dicht op een open verwijderverzoek", () => {
-  const r = resolveDesiredAccess({ role: "admin", memberships: [], deletion_requested: true }, NOW);
+test("ook staf gaat dicht na de sluiting", () => {
+  const r = resolveDesiredAccess({ role: "admin", memberships: [], deletion_frozen: true }, NOW);
   assert.equal(r.enabled, false);
   assert.equal(r.reason, "account_deletion");
 });

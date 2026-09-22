@@ -161,6 +161,17 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
       if (error) throw new Error(`account_deletions lezen: ${error.message}`);
       return (data ?? []) as unknown as DeletionRow[];
     },
+    async listFreezePending() {
+      const { data, error } = await admin
+        .from("account_deletions")
+        .select(DELETION_COLUMNS)
+        .eq("status", "requested")
+        .eq("step_status->>freeze", "pending")
+        .order("requested_at")
+        .limit(50);
+      if (error) throw new Error(`account_deletions lezen: ${error.message}`);
+      return (data ?? []) as unknown as DeletionRow[];
+    },
     async listCustomerRetentionDue(beforeIso) {
       const { data, error } = await admin
         .from("account_deletions")
@@ -266,6 +277,33 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
         .update({ marketing_opt_in: false })
         .eq("id", profileId);
       if (error) throw new Error(`profiles marketing_opt_in: ${error.message}`);
+    },
+    async expireCreditRows(profileId, todayIso) {
+      // Alleen tegoed-rijen (billing_cycle_weeks = 0); abonnementen lopen
+      // via de RPC's. Status expired, end_date vandaag; credits_remaining
+      // blijft staan als spoor van wat er verviel.
+      const { data, error } = await admin
+        .from("memberships")
+        .update({ status: "expired", end_date: todayIso })
+        .eq("profile_id", profileId)
+        .eq("billing_cycle_weeks", 0)
+        .in("status", ["pending", "active", "paused", "payment_failed", "cancellation_requested"])
+        .select("id, credits_remaining");
+      if (error) throw new Error(`memberships (tegoed) vervallen: ${error.message}`);
+      const rows = (data ?? []) as Array<{ id: string; credits_remaining: number | null }>;
+      for (const r of rows) {
+        await emitEvent({
+          type: "credits.adjusted",
+          actorType: "system",
+          subjectType: "membership",
+          subjectId: r.id,
+          payload: { profile_id: profileId, reason: "account_deletion", forfeited: r.credits_remaining ?? 0 },
+        });
+      }
+      return {
+        rows: rows.length,
+        credits: rows.reduce((sum, r) => sum + (r.credits_remaining ?? 0), 0),
+      };
     },
     async hasOpenDeviceTokens(profileId) {
       const { data, error } = await admin
@@ -483,6 +521,45 @@ export async function requestAccountDeletionByAdmin(
   // Hardstop: niet op de cron wachten. Wat hier nog open blijft (Akiles
   // onbereikbaar, mail mislukt) herkanst de cron vannacht.
   const purge = await runPurgeCore(deps, config, requested.row);
+  return { ok: true, row: purge.row, purge };
+}
+
+/**
+ * Admin-hardstop op een AL LOPEND verzoek (`/app/admin/verwijderverzoeken`):
+ * forceer de sluiting nu in plaats van te wachten op de einddatum van het
+ * abonnement, en zet de purge in een moeite door zo ver mogelijk. Dit is
+ * wiring, geen kern-wijziging: cancelt elke nog levende
+ * abonnement-membership per direct (dezelfde adminCancel als deleteMember
+ * gebruikt, dus idempotent bij een al gecancelde subscription), en roept
+ * dan runPurgeCore aan. Die functie herkent zelf een freeze op 'pending'
+ * (runScheduledFreezeCore) en gaat door naar Mollie, Akiles, MailerLite,
+ * push, profiel en de afsluitmail als de sluiting lukt. Werkt ook op een
+ * rij die al eerder vastliep (blocked): een membership die intussen
+ * ergens anders weer actief werd, wordt hier alsnog gecanceld.
+ */
+export async function hardstopAccountDeletion(
+  deletionId: string,
+): Promise<{ ok: true; row: DeletionRow; purge: PurgeResult } | { ok: false; error: string }> {
+  const deps = buildDeps(createAdminClient(), adminCancel);
+  const config = getDeletionConfig();
+
+  const row = await deps.db.getDeletion(deletionId);
+  if (!row) return { ok: false, error: "Verzoek niet gevonden." };
+  if (!["requested", "in_progress", "blocked"].includes(row.status)) {
+    return { ok: false, error: "Dit verzoek is al afgerond of ingetrokken." };
+  }
+
+  if (row.profile_id) {
+    const live = await deps.db.listLiveMemberships(row.profile_id);
+    for (const m of live.filter((x) => (x.billing_cycle_weeks ?? 0) > 0)) {
+      const outcome = await deps.cancelMembership(m.id);
+      if (!outcome.ok) {
+        return { ok: false, error: `Abonnement ${m.id} stopzetten lukte niet: ${outcome.reason}` };
+      }
+    }
+  }
+
+  const purge = await runPurgeCore(deps, config, row);
   return { ok: true, row: purge.row, purge };
 }
 

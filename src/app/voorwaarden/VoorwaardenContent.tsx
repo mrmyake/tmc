@@ -274,8 +274,8 @@ export function VoorwaardenContent() {
             </PolicySection>
 
             <PolicySection
-              eyebrow="07 · Rittenkaarten en proeflessen"
-              heading="Rittenkaarten, losse lessen en proeflessen"
+              eyebrow="07 · Rittenkaarten, PT-pakketten en proeflessen"
+              heading="Rittenkaarten, PT-pakketten, losse lessen en proeflessen"
             >
               <p>
                 Een rittenkaart is{" "}
@@ -284,6 +284,18 @@ export function VoorwaardenContent() {
                 vervallen daarna en worden niet terugbetaald. Losse lessen
                 en proeflessen betaal je vooraf. Kom je niet opdagen bij een
                 losse les of proefles, dan wordt het bedrag niet
+                terugbetaald.
+              </p>
+              <p>
+                {/* COPY: confirm met Marlon */}
+                <strong className="text-text">
+                  Tegoed uit een PT-pakket of andere losse aankoop.
+                </strong>{" "}
+                Hetzelfde geldt voor tegoed uit een PT-pakket, duo-pakket of
+                andere losse aankoop: dat is geen abonnement en dus niet
+                op te zeggen. Ongebruikt tegoed vervalt aan het einde van
+                de geldigheidsduur, of zodra je je account verwijdert (zie
+                artikel 15), en wordt in geen van beide gevallen
                 terugbetaald.
               </p>
             </PolicySection>
@@ -430,7 +442,44 @@ export function VoorwaardenContent() {
               </p>
             </PolicySection>
 
-            <PolicySection eyebrow="15 · Klachten" heading="Klachten">
+            {/* COPY: confirm met Marlon */}
+            <PolicySection
+              eyebrow="15 · Account verwijderen"
+              heading="Je account verwijderen"
+            >
+              <p>
+                <strong className="text-text">Hoe.</strong>{" "}
+                Je kunt je account op elk moment verwijderen via de app,
+                onder Profiel. We vragen dan om een bevestiging.
+              </p>
+              <p>
+                <strong className="text-text">
+                  Verwijderen is geen opzegging.
+                </strong>{" "}
+                Heb je nog een lopend abonnement, dan zeg je dat eerst apart
+                op (zie artikel 3). Je account verwijderen beëindigt de
+                overeenkomst niet en laat geen betaalverplichting vervallen:
+                loopt je abonnement nog, dan betaal je dat gewoon door tot
+                de opzegging ingaat.
+              </p>
+              <p>
+                <strong className="text-text">Wat er gebeurt.</strong>{" "}
+                Zodra je account sluit, trekken we je toegang tot de studio
+                in en vervalt ongebruikt tegoed uit een rittenkaart,
+                PT-pakket of andere losse aankoop, zonder terugbetaling
+                (zie artikel 7).
+              </p>
+              <p>
+                <strong className="text-text">Wat we bewaren.</strong>{" "}
+                Facturen en betaalgegevens bewaren we daarna nog zeven
+                jaar, omdat de wet dat van ons vraagt. Hoe we daarmee
+                omgaan staat in onze{" "}
+                <QuietLink href="/privacybeleid">privacyverklaring</QuietLink>
+                .
+              </p>
+            </PolicySection>
+
+            <PolicySection eyebrow="16 · Klachten" heading="Klachten">
               <p>
                 Loop je ergens tegenaan, zeg het tegen Marlon of mail naar{" "}
                 {/* PLACEHOLDER: e-mailadres — staat ook in Sanity siteSettings, bewust niet overgenomen. */}
@@ -442,7 +491,7 @@ export function VoorwaardenContent() {
             </PolicySection>
 
             <PolicySection
-              eyebrow="16 · Wijziging van deze voorwaarden"
+              eyebrow="17 · Wijziging van deze voorwaarden"
               heading="Wijziging van deze voorwaarden"
             >
               <p>
@@ -456,7 +505,7 @@ export function VoorwaardenContent() {
             </PolicySection>
 
             <PolicySection
-              eyebrow="17 · Toepasselijk recht"
+              eyebrow="18 · Toepasselijk recht"
               heading="Toepasselijk recht"
             >
               <p>Op deze voorwaarden is Nederlands recht van toepassing.</p>

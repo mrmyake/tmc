@@ -12,12 +12,18 @@
  *     het opzegscherm. Een verwijderverzoek beeindigt geen overeenkomst en
  *     vervalt geen betaalverplichting; de kern start dus geen opzegging.
  *     Daarna: snapshot van de externe ids in een rij in
- *     tmc.account_deletions, meteen het veiligheidsdeel (sessies dicht via
- *     ban, Akiles-toegang en device-tokens ingetrokken, push-tokens weg,
- *     toekomstige boekingen en wachtlijstplekken geannuleerd,
- *     marketingtoestemming ingetrokken), en het plannen van de purge. Dit
- *     deel wacht nooit op een termijn. Alleen de admin-hardstop (Marlon)
- *     zegt op en verwijdert in een handeling.
+ *     tmc.account_deletions en het plannen van de sluiting en de purge.
+ *     De sluiting (runFreezeCore: ban, Akiles-toegang en device-tokens
+ *     ingetrokken, push-tokens weg, toekomstige boekingen en
+ *     wachtlijstplekken geannuleerd, tegoed vervallen, marketing uit)
+ *     gebeurt DIRECT als er geen lopend abonnement is, en anders pas op
+ *     de dag na de einddatum van het opgezegde abonnement: tot die dag
+ *     heeft het lid betaald en mag hij inloggen, boeken en de deur openen.
+ *     Op die dag gaat alles in een handeling dicht (runScheduledFreezeCore,
+ *     via de cron) en start de bedenktijd tot de purge. Tegoed (rittenkaart,
+ *     PT-pakket) is geen voorwaarde: het is niet opzegbaar en vervalt
+ *     zonder restitutie; het lid bevestigt dat in de app. Alleen de
+ *     admin-hardstop (Marlon) zegt op en verwijdert in een handeling.
  *
  *  2. Purge (runPurgeCore), door de cron zodra purge_after verstreken is,
  *     in deze volgorde: freeze (opnieuw), Mollie-subscriptions, Akiles
@@ -29,9 +35,9 @@
  * Waarom die volgorde: de FK-cascade van een hard delete wist de rijen
  * met de externe ids, en mollieModeForProfile valt bij een verdwenen
  * profiel terug op live. Dus eerst snapshotten, dan Mollie en Akiles, en
- * het profiel als laatste. De purge wacht op de laatste van: de
- * ingangsdatum van de opzegging, de datum van de laatste factuur, en de
- * bedenktijd. Zolang er nog gefactureerd moet worden blijft het profiel
+ * het profiel als laatste. De purge wacht op de laatste van: de sluiting
+ * plus de bedenktijd, de datum van de laatste factuur plus de
+ * factuurmarge, en (bij een directe sluiting) nu plus de bedenktijd. Zolang er nog gefactureerd moet worden blijft het profiel
  * intact, want finalize_invoice leest de NAW uit profiles. Gegevens die
  * nodig zijn om een lopende overeenkomst uit te voeren blijven bewaard,
  * naast de wettelijke bewaartermijn.
@@ -56,6 +62,8 @@ import type {
   StepName,
   StepState,
 } from "./types";
+
+export type { StepState };
 
 const LIVE_MEMBERSHIP_STATUSES = new Set([
   "pending",
@@ -100,19 +108,28 @@ export function pseudonymFor(memberCode: string): string {
 }
 
 /**
- * Vroegste purge-moment: de laatste van de bedenktijd vanaf nu, de
- * ingangsdatum van elke opzegging plus de factuurmarge, en de datum van de
- * laatste factuur plus dezelfde marge. Hardstop (admin): nu.
+ * Vroegste purge-moment. Drie bronnen, de laatste wint:
+ *  - nu plus de bedenktijd (alleen als de sluiting direct is; anders start
+ *    de bedenktijd pas bij de sluiting, zie membershipEnds);
+ *  - de laatste dag van elk opgezegd abonnement, plus een dag (de
+ *    sluiting) plus de bedenktijd;
+ *  - de datum van de laatste factuur plus de factuurmarge.
+ * Hardstop (admin): nu.
  */
 export function computePurgeAfter(
   now: Date,
   config: DeletionConfig,
-  effectiveDates: Array<string | null>,
+  dates: { membershipEnds?: Array<string | null>; invoiceDates?: Array<string | null> },
   hardStop: boolean,
 ): Date {
   if (hardStop) return now;
   let purgeAfter = addDays(now, config.coolingOffDays);
-  for (const date of effectiveDates) {
+  for (const date of dates.membershipEnds ?? []) {
+    if (!date) continue;
+    const candidate = addDays(new Date(`${date}T00:00:00Z`), 1 + config.coolingOffDays);
+    if (candidate > purgeAfter) purgeAfter = candidate;
+  }
+  for (const date of dates.invoiceDates ?? []) {
     if (!date) continue;
     const settled = addDays(new Date(`${date}T00:00:00Z`), config.invoiceSettleDays + 1);
     if (settled > purgeAfter) purgeAfter = settled;
@@ -160,6 +177,8 @@ export async function runFreezeCore(
   const now = deps.now();
   const errors: string[] = [];
   const result: FreezeResult = {
+    creditRowsExpired: 0,
+    creditsForfeited: 0,
     bookingsCancelled: 0,
     waitlistRemoved: 0,
     ptBookingsCancelled: 0,
@@ -223,6 +242,14 @@ export async function runFreezeCore(
       now.toISOString(),
     );
   });
+  // Tegoed vervalt zonder restitutie (bevestigd door het lid in de app).
+  // Geen RPC voor credit-rijen; dit is de enige directe statuswijziging op
+  // memberships in de kern, en hij raakt geen incasso.
+  await attempt("credits", async () => {
+    const r = await deps.db.expireCreditRows(profileId, isoDate(now));
+    result.creditRowsExpired = r.rows;
+    result.creditsForfeited = r.credits;
+  });
   await attempt("marketing", async () => {
     await deps.db.setMarketingOptOut(profileId);
     // Uitschrijven is het snelle deel; forget (AVG-wissing) komt bij de purge.
@@ -236,8 +263,24 @@ export async function runFreezeCore(
 // Verzoek
 // ---------------------------------------------------------------------------
 
-function liveMemberships(snapshot: DeletionProfileSnapshot) {
-  return snapshot.memberships.filter((m) => LIVE_MEMBERSHIP_STATUSES.has(m.status));
+type MembershipLike = DeletionProfileSnapshot["memberships"][number];
+
+/** Abonnement met incasso; tegoed-rijen (billing_cycle_weeks = 0) tellen nergens als lopend lidmaatschap. */
+function isSubscription(m: MembershipLike): boolean {
+  return (m.billing_cycle_weeks ?? 0) > 0;
+}
+
+function liveSubscriptions(rows: readonly MembershipLike[]) {
+  return rows.filter((m) => isSubscription(m) && LIVE_MEMBERSHIP_STATUSES.has(m.status));
+}
+
+/** Opgezegd abonnement waarvan de laatste dag nog niet voorbij is. */
+function stillCovered(m: MembershipLike, today: string): boolean {
+  return (
+    m.status === "cancellation_requested" &&
+    Boolean(m.cancellation_effective_date) &&
+    (m.cancellation_effective_date as string) >= today
+  );
 }
 
 export async function requestDeletionCore(
@@ -250,19 +293,26 @@ export async function requestDeletionCore(
   if (!snapshot) return { ok: false, reason: "profile_not_found" };
   if (snapshot.role !== "member") return { ok: false, reason: "staff_role" };
 
-  // Idempotent: een open verzoek is het antwoord. Wel de freeze opnieuw,
-  // die is goedkoop en sluit wat sinds de vorige keer weer open kwam.
+  // Idempotent: een open verzoek is het antwoord. Is de sluiting al
+  // gedaan, dan opnieuw (goedkoop, sluit wat sindsdien weer open kwam);
+  // wacht hij nog op de einddatum, dan niets aanraken.
   const existing = await deps.db.findOpenDeletion(input.profileId);
   if (existing) {
+    if (existing.step_status.freeze === "pending") {
+      return { ok: true, row: existing, alreadyOpen: true, freeze: null, closesOn: closesOnOf(existing, snapshot) };
+    }
     const { result } = await runFreezeCore(deps, input.profileId, snapshot.email);
-    return { ok: true, row: existing, alreadyOpen: true, freeze: result };
+    return { ok: true, row: existing, alreadyOpen: true, freeze: result, closesOn: null };
   }
 
-  // Voorwaarde vooraf: het lidmaatschap is opgezegd of al afgelopen. Loopt
+  // Voorwaarde vooraf: het abonnement is opgezegd of al afgelopen. Loopt
   // het nog, dan eerst opzeggen; dat is een aparte beslissing met een
   // eigen scherm, en een verwijderverzoek raakt de betaalverplichting
-  // niet. Alleen de admin-hardstop mag beide in een handeling.
-  const live = liveMemberships(snapshot);
+  // niet. Tegoed (rittenkaart, PT-pakket) is geen voorwaarde: niet
+  // opzegbaar, vervalt zonder restitutie bij de sluiting. Alleen de
+  // admin-hardstop mag opzeggen en verwijderen in een handeling.
+  const today = isoDate(now);
+  const live = liveSubscriptions(snapshot.memberships);
   const running = live.filter((m) => m.status !== "cancellation_requested");
   if (!input.hardStop && running.length > 0) {
     return {
@@ -271,12 +321,16 @@ export async function requestDeletionCore(
       memberships: running.map((m) => ({ id: m.id, status: m.status })),
     };
   }
+  // Opgezegd maar nog betaald tot en met de laatste dag: de sluiting wacht.
+  const covered = input.hardStop ? [] : live.filter((m) => stillCovered(m, today));
+  const closesOn =
+    covered.map((m) => m.cancellation_effective_date as string).sort().at(-1) ?? null;
 
   // 1. Snapshot, voor de eerste externe aanroep.
   const subscriptionIds = snapshot.memberships
     .map((m) => m.mollie_subscription_id)
     .filter((id): id is string => Boolean(id));
-  const provisionalPurge = computePurgeAfter(now, config, [], Boolean(input.hardStop));
+  const provisionalPurge = computePurgeAfter(now, config, {}, Boolean(input.hardStop));
   const row = await deps.db.insertDeletion({
     profile_id: snapshot.id,
     member_code: snapshot.member_code,
@@ -296,21 +350,25 @@ export async function requestDeletionCore(
       null,
     mollie_subscription_ids: subscriptionIds,
     mailerlite_subscriber_id: null,
-    step_status: {},
+    // running: de toegangssync sluit de deur zodra dit niet meer pending is.
+    step_status: { freeze: closesOn ? "pending" : "running" },
     last_error: {},
     attempts: 0,
     last_attempt_at: null,
   });
 
-  // 2. Veiligheidsdeel, direct.
-  const freeze = await runFreezeCore(deps, snapshot.id, snapshot.email);
+  // 2. Sluiting: direct zonder lopend abonnement, anders op de dag na de
+  //    einddatum (runScheduledFreezeCore via de cron).
+  const freeze = closesOn ? null : await runFreezeCore(deps, snapshot.id, snapshot.email);
 
-  // 3. Plannen van de purge. De ingangsdatum van een al lopende opzegging
-  //    en de datum van de laatste factuur schuiven hem op: zolang er nog
-  //    gefactureerd wordt blijft het profiel intact.
+  // 3. Plannen van de purge. De laatste dag van elk opgezegd abonnement
+  //    (plus sluiting en bedenktijd) en de datum van de laatste factuur
+  //    schuiven hem op: zolang er nog gefactureerd wordt blijft het
+  //    profiel intact.
   const effectiveDates: Array<string | null> = live
     .filter((m) => m.status === "cancellation_requested")
     .map((m) => m.cancellation_effective_date);
+  const invoiceDates: Array<string | null> = [];
   const cancelErrors: string[] = [];
   if (input.hardStop) {
     // Admin-hardstop: Marlon zegt op en verwijdert in een handeling, via
@@ -327,21 +385,26 @@ export async function requestDeletionCore(
     }
   }
   try {
-    effectiveDates.push(await deps.db.latestInvoiceDate(snapshot.id));
+    invoiceDates.push(await deps.db.latestInvoiceDate(snapshot.id));
   } catch (err) {
     cancelErrors.push(`laatste factuurdatum: ${errorText(err)}`);
   }
 
-  const purgeAfter = computePurgeAfter(now, config, effectiveDates, Boolean(input.hardStop));
-  const freezeErrors = [...freeze.errors, ...cancelErrors];
+  const purgeAfter = computePurgeAfter(
+    now,
+    config,
+    { membershipEnds: effectiveDates, invoiceDates },
+    Boolean(input.hardStop),
+  );
+  const freezeErrors = [...(freeze?.errors ?? []), ...cancelErrors];
+  const freezeState: StepState = closesOn
+    ? "pending"
+    : freezeErrors.length === 0
+      ? "done"
+      : "failed";
   const updated = await deps.db.updateDeletion(row.id, {
     purge_after: purgeAfter.toISOString(),
-    ...withStep(
-      row,
-      "freeze",
-      freezeErrors.length === 0 ? "done" : "failed",
-      freezeErrors.length === 0 ? null : freezeErrors.join(" | "),
-    ),
+    ...withStep(row, "freeze", freezeState, freezeErrors.length === 0 ? null : freezeErrors.join(" | ")),
   });
 
   await deps.emit({
@@ -355,18 +418,103 @@ export async function requestDeletionCore(
       requested_via: input.requestedVia,
       hard_stop: Boolean(input.hardStop),
       purge_after: purgeAfter.toISOString(),
+      closes_on: closesOn,
       memberships_cancelled: input.hardStop ? running.length - cancelErrors.length : 0,
       freeze_errors: freezeErrors.length,
     },
   });
   await deps.notify(
     "Account-verwijder verzoek",
-    `Profiel ${snapshot.id} (verzoek ${row.id}) heeft accountverwijdering aangevraagd via ${input.requestedVia}. Purge na ${isoDate(purgeAfter)}.${
+    `Profiel ${snapshot.id} (verzoek ${row.id}) heeft accountverwijdering aangevraagd via ${input.requestedVia}. ${closesOn ? `Sluiting na ${closesOn}, purge` : "Direct gesloten, purge"} na ${isoDate(purgeAfter)}.${
       freezeErrors.length > 0 ? ` ${freezeErrors.length} deel(en) van de freeze mislukt; zie last_error.` : ""
     }`,
   );
 
-  return { ok: true, row: updated, alreadyOpen: false, freeze: freeze.result };
+  return { ok: true, row: updated, alreadyOpen: false, freeze: freeze?.result ?? null, closesOn };
+}
+
+/** Laatste dag van het opgezegde abonnement voor een al open verzoek, uit de snapshot. */
+function closesOnOf(row: DeletionRow, snapshot: DeletionProfileSnapshot): string | null {
+  if (row.step_status.freeze !== "pending") return null;
+  return (
+    snapshot.memberships
+      .filter((m) => isSubscription(m) && m.status === "cancellation_requested" && m.cancellation_effective_date)
+      .map((m) => m.cancellation_effective_date as string)
+      .sort()
+      .at(-1) ?? null
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Uitgestelde sluiting: op de dag na de einddatum van het abonnement
+// ---------------------------------------------------------------------------
+
+export type ScheduledFreezeOutcome = "waiting" | "frozen" | "blocked" | "skipped";
+
+/**
+ * Voor rijen met step_status.freeze = 'pending'. Zolang een opgezegd
+ * abonnement nog dekking heeft (laatste dag vandaag of later) gebeurt er
+ * niets. Is er een abonnement dat weer loopt (het lid sloot na het
+ * verzoek een nieuw abonnement af), dan is het verzoek geblokkeerd en
+ * kijkt een mens ernaar. Anders: alles in een handeling dicht, en de
+ * bedenktijd start nu.
+ */
+export async function runScheduledFreezeCore(
+  deps: DeletionDeps,
+  config: DeletionConfig,
+  row: DeletionRow,
+): Promise<{ outcome: ScheduledFreezeOutcome; row: DeletionRow }> {
+  if (row.step_status.freeze !== "pending") return { outcome: "skipped", row };
+  if (!row.profile_id) return { outcome: "skipped", row };
+  const now = deps.now();
+  const today = isoDate(now);
+  const live = liveSubscriptions(await deps.db.listLiveMemberships(row.profile_id));
+
+  const running = live.filter((m) => m.status !== "cancellation_requested");
+  if (running.length > 0) {
+    const text = `abonnement loopt weer (${running.map((m) => `${m.id}:${m.status}`).join(", ")}); verzoek intrekken of opzeggen`;
+    const blocked = await deps.db.updateDeletion(row.id, {
+      status: "blocked",
+      ...withStep(row, "freeze", "blocked", text),
+    });
+    await deps.notify("Accountverwijdering geblokkeerd", `Verzoek ${row.id}: ${text}.`);
+    return { outcome: "blocked", row: blocked };
+  }
+  if (live.some((m) => stillCovered(m, today))) {
+    return { outcome: "waiting", row };
+  }
+
+  // Eerst 'running' schrijven: de toegangssync in de freeze leest de rij
+  // en sluit de deur alleen als de sluiting niet meer pending is.
+  let current = await deps.db.updateDeletion(row.id, {
+    status: "in_progress",
+    ...withStep(row, "freeze", "running"),
+  });
+  const freeze = await runFreezeCore(deps, row.profile_id, current.email_at_request);
+
+  // Bedenktijd start bij de sluiting; de factuurmarge blijft gelden.
+  let invoiceDate: string | null = null;
+  try {
+    invoiceDate = await deps.db.latestInvoiceDate(row.profile_id);
+  } catch (err) {
+    freeze.errors.push(`laatste factuurdatum: ${errorText(err)}`);
+  }
+  const fromNow = computePurgeAfter(now, config, { invoiceDates: [invoiceDate] }, false);
+  const purgeAfter = fromNow > new Date(current.purge_after) ? fromNow : new Date(current.purge_after);
+  current = await deps.db.updateDeletion(current.id, {
+    purge_after: purgeAfter.toISOString(),
+    ...withStep(
+      current,
+      "freeze",
+      freeze.errors.length === 0 ? "done" : "failed",
+      freeze.errors.length === 0 ? null : freeze.errors.join(" | "),
+    ),
+  });
+  deps.log.info("[account-deletion] sluiting uitgevoerd op einddatum", {
+    deletionId: current.id,
+    purgeAfter: purgeAfter.toISOString(),
+  });
+  return { outcome: "frozen", row: current };
 }
 
 // ---------------------------------------------------------------------------
@@ -374,9 +522,11 @@ export async function requestDeletionCore(
 // ---------------------------------------------------------------------------
 
 /**
- * Zet alleen de ban terug en sluit de rij. Geannuleerde boekingen en een
- * gestarte opzegging worden NIET hersteld; dat is een admin-handeling
- * (undo van de opzegging via admin_undo_cancellation).
+ * Sluit de rij en zet een eventuele ban terug. Zolang de sluiting nog
+ * pending is, is er niets ingetrokken en is intrekken volledig: dat is de
+ * situatie waarin een lid het zelf doet (hij kan dan nog inloggen). Na de
+ * sluiting worden geannuleerde boekingen en vervallen tegoed NIET hersteld;
+ * dat is een admin-handeling met eigen afweging.
  */
 export async function cancelDeletionRequestCore(
   deps: DeletionDeps,
@@ -432,7 +582,16 @@ export async function runPurgeCore(
   };
 
   // --- freeze -------------------------------------------------------------
-  if (profileId) {
+  if (profileId && row.step_status.freeze === "pending") {
+    // Hoort niet voor te komen (purge_after ligt na de sluiting), maar een
+    // handmatig vervroegde purge_after mag de sluiting niet overslaan.
+    const scheduled = await runScheduledFreezeCore(deps, config, row);
+    row = scheduled.row;
+    if (scheduled.outcome !== "frozen") {
+      return { row, done, failed: ["freeze"], blocked: scheduled.outcome === "blocked", completed: false };
+    }
+    done.push("freeze");
+  } else if (profileId) {
     const freeze = await runFreezeCore(deps, profileId, row.email_at_request);
     await record(
       "freeze",
@@ -449,7 +608,7 @@ export async function runPurgeCore(
   // nooit op cancellation_requested kwam (opzeg-RPC faalde bij aanvraag)
   // vraagt een mens: de kern doet geen directe update buiten de RPC's om.
   if (profileId) {
-    const live = await deps.db.listLiveMemberships(profileId);
+    const live = liveSubscriptions(await deps.db.listLiveMemberships(profileId));
     const stillRunning = live.filter((m) => m.status === "cancellation_requested");
     const notCancelled = live.filter((m) => m.status !== "cancellation_requested");
     if (notCancelled.length > 0) {
@@ -479,8 +638,14 @@ export async function runPurgeCore(
       !latestInvoice ||
       addDays(new Date(`${latestInvoice}T00:00:00Z`), config.invoiceSettleDays + 1) <= now;
     if (stillRunning.length > 0 || !invoiceSettled) {
-      const dates = [...stillRunning.map((m) => m.cancellation_effective_date), latestInvoice];
-      const purgeAfter = computePurgeAfter(now, config, dates, false);
+      const ends = stillRunning.map((m) => m.cancellation_effective_date);
+      const purgeAfter = computePurgeAfter(
+        now,
+        config,
+        { membershipEnds: ends, invoiceDates: [latestInvoice] },
+        false,
+      );
+      const dates = [...ends, latestInvoice];
       const latest = dates.filter(Boolean).sort().at(-1) ?? "?";
       row = await deps.db.updateDeletion(row.id, {
         purge_after: purgeAfter.toISOString(),
@@ -729,6 +894,7 @@ export async function processDueDeletionsCore(
   options: { deadlineMs: number },
 ): Promise<ProcessResult> {
   const result: ProcessResult = {
+    frozen: 0,
     processed: 0,
     completed: 0,
     failed: 0,
@@ -738,6 +904,25 @@ export async function processDueDeletionsCore(
     customersFailed: 0,
   };
   const now = deps.now();
+
+  // 1. Geplande sluitingen: rijen die op de einddatum van het abonnement
+  //    wachten. Goedkoop als er niets te doen is.
+  for (const row of await deps.db.listFreezePending()) {
+    if (Date.now() >= options.deadlineMs) {
+      result.remaining += 1;
+      continue;
+    }
+    try {
+      const r = await runScheduledFreezeCore(deps, config, row);
+      if (r.outcome === "frozen") result.frozen += 1;
+      else if (r.outcome === "blocked") result.blocked += 1;
+    } catch (err) {
+      result.failed += 1;
+      deps.log.error("[account-deletion] geplande sluiting threw", { deletionId: row.id, error: errorText(err) });
+    }
+  }
+
+  // 2. Purges.
   const due = await deps.db.listDueDeletions(now.toISOString());
   let index = 0;
   for (; index < due.length; index++) {
@@ -755,7 +940,7 @@ export async function processDueDeletionsCore(
       deps.log.error("[account-deletion] purge threw", { deletionId: row.id, error: errorText(err) });
     }
   }
-  result.remaining = due.length - index;
+  result.remaining += due.length - index;
 
   const before = addMonths(now, -config.mollieCustomerRetentionMonths).toISOString();
   const retention = await deps.db.listCustomerRetentionDue(before);
