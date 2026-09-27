@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { KioskAutoRefresh } from "./KioskAutoRefresh";
+import { KioskHeader } from "./KioskHeader";
+import { roomForPillar } from "../bediening/_lib/controller";
 import styles from "../kiosk.module.css";
 
 export interface KioskSession {
@@ -10,6 +12,8 @@ export interface KioskSession {
   trainerName: string;
   bookedCount: number;
   checkedInCount: number;
+  /** class_sessions.pillar; bepaalt de startzaal van "Licht en geluid". */
+  pillar: string | null;
 }
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -46,18 +50,16 @@ export function KioskFrame({
     : sessions.find((s) => s.startAt.getTime() > nowMs);
   const hero = active ?? next;
 
+  // Bediening opent op de zaal van de les die nu bezig is of eraan komt.
+  const controlHref = `/kiosk/bediening?zaal=${roomForPillar(hero?.pillar)}`;
+
   return (
     <div className={styles.frame}>
-      <header className={styles.header}>
-        <div className={styles.wordmark}>
-          The Movement <span className={styles.wordmarkAccent}>Club</span>
-        </div>
-        <div className={styles.headerRight}>
-          {/* COPY: confirm met Marlon */}
-          <div className={styles.todayDate}>{dateFmt.format(now)}</div>
-          <div className={styles.clock}>{timeFmt.format(now)}</div>
-        </div>
-      </header>
+      <KioskHeader current="vandaag" controlHref={controlHref}>
+        {/* COPY: confirm met Marlon */}
+        <div className={styles.todayDate}>{dateFmt.format(now)}</div>
+        <div className={styles.clock}>{timeFmt.format(now)}</div>
+      </KioskHeader>
 
       <div className={styles.main}>
         <section className={styles.now}>

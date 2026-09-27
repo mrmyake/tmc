@@ -65,8 +65,50 @@
 
 .headerRight {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 28px;
+}
+
+/* Knop "Licht en geluid" in de kop (mockups/kiosk-prototype.html, .hbtn) */
+.hbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 20px;
+  border: 1px solid var(--stone-faint);
+  border-radius: var(--button-radius);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--stone);
+  text-decoration: none;
+}
+.hbtn svg {
+  width: 20px;
+  height: 20px;
+}
+.hbtn[aria-current="page"] {
+  border-color: var(--champagne);
+  color: var(--champagne);
+}
+.hbtn:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .frame {
+    grid-template-rows: 80px 1fr;
+  }
+  .header {
+    padding: 0 16px;
+  }
+  .headerRight {
+    gap: 12px;
+  }
+  .todayDate,
+  .clock {
+    display: none;
+  }
 }
 
 .todayDate {

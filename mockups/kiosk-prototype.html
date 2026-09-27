@@ -1,0 +1,1472 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TMC Kiosk prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /*
+    Klikbaar prototype van de kiosk-app, vier schermen:
+    1. Slot (trainer-PIN)          2. Vandaag (ook met twee lessen tegelijk)
+    3. Deelnemers + walk-in        4. Licht en geluid per zaal
+    Ontworpen op 1340 x 800 logische pixels (Samsung Tab A11, liggend).
+    Alle tablets zijn identiek, er is geen zaalbinding.
+    De balk onderaan het venster is alleen voor de mockup.
+  */
+  :root {
+    --warm-black: #0E0C0B;
+    --surface: #171412;
+    --surface-lift: #1F1B18;
+    --stone: #F4EFE6;
+    --stone-muted: rgba(244, 239, 230, 0.56);
+    --stone-faint: rgba(244, 239, 230, 0.16);
+    --champagne: #B9986A;
+    --card-radius: 8px;
+    --button-radius: 4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--stone);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--champagne); outline-offset: 3px; }
+  button:disabled { cursor: default; }
+  svg { display: block; }
+
+  /* Alleen voor de mockup: centreert en schaalt het vaste frame. */
+  .stage {
+    position: fixed;
+    inset: 0 0 64px 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .frame {
+    position: relative;
+    width: 1340px;
+    height: 800px;
+    background: var(--warm-black);
+    display: grid;
+    grid-template-rows: 104px auto 1fr;
+    overflow: hidden;
+    transform-origin: center center;
+    flex: none;
+  }
+
+  /* ---------- Kop ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    border-bottom: 1px solid var(--stone-faint);
+  }
+
+  .wordmark {
+    font-family: Fraunces, Georgia, serif;
+    font-weight: 400;
+    font-size: 26px;
+    letter-spacing: 0.02em;
+  }
+  .wordmark span { color: var(--champagne); }
+
+  .header-right { display: flex; align-items: center; gap: 24px; }
+
+  .hbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 20px;
+    border: 1px solid var(--stone-faint);
+    border-radius: var(--button-radius);
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .hbtn svg { width: 20px; height: 20px; }
+  .hbtn[aria-current="page"] { border-color: var(--champagne); color: var(--champagne); }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    height: 56px;
+    padding: 0 6px 0 18px;
+    background: var(--surface);
+    border-radius: var(--button-radius);
+    font-size: 18px;
+    color: var(--stone-muted);
+  }
+  .chip strong { color: var(--stone); font-weight: 500; }
+  .chip button {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--button-radius);
+    background: var(--surface-lift);
+  }
+  .chip svg { width: 20px; height: 20px; }
+
+  .today-date { font-size: 20px; color: var(--stone-muted); }
+
+  .clock {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 44px;
+    font-weight: 300;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .frame.is-locked .unlocked-only { display: none; }
+
+  /* ---------- Balk bij geen verbinding ---------- */
+  .offline {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 40px;
+    background: var(--surface-lift);
+    border-bottom: 1px solid var(--champagne);
+    font-size: 18px;
+  }
+  .offline svg { width: 22px; height: 22px; color: var(--champagne); flex: none; }
+  .frame.no-network .offline { display: flex; }
+
+  .frame.no-network .needs-network,
+  .frame.ha-offline .needs-ha {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  /* ---------- Schermen ---------- */
+  header { grid-row: 1; }
+  .offline { grid-row: 2; }
+  .screens { grid-row: 3; position: relative; min-height: 0; }
+  .screen { position: absolute; inset: 0; display: none; }
+  .screen.active { display: grid; }
+
+  .flag {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--champagne);
+  }
+  .flag svg { width: 20px; height: 20px; }
+
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--champagne);
+    animation: breathe 2.6s ease-in-out infinite;
+    flex: none;
+  }
+  @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+
+  .section-label {
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--stone-muted);
+  }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 16px 0 10px;
+    margin-left: -10px;
+    border-radius: var(--button-radius);
+    font-size: 18px;
+    color: var(--stone-muted);
+    align-self: flex-start;
+  }
+  .back svg { width: 22px; height: 22px; }
+
+  .bar {
+    height: 10px;
+    background: var(--surface-lift);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--champagne);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+  }
+
+  /* ========== 1. Slot ========== */
+  #s-slot { grid-template-columns: 1fr 520px; }
+
+  .lock-info {
+    padding: 52px 48px 40px;
+    border-right: 1px solid var(--stone-faint);
+    display: flex;
+    flex-direction: column;
+  }
+  .lock-info .flag { margin-bottom: 22px; }
+
+  .lock-title {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 60px;
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+  .lock-sub { font-size: 22px; color: var(--stone-muted); }
+
+  .lock-list { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .lock-list .section-label { margin-bottom: 6px; }
+
+  .lock-row {
+    display: grid;
+    grid-template-columns: 92px 1fr auto;
+    align-items: center;
+    gap: 18px;
+    padding: 18px 22px;
+    background: var(--surface);
+    border: 1px solid transparent;
+    border-radius: var(--card-radius);
+  }
+  .lock-row.is-now { border-color: var(--champagne); }
+  .lock-row .t {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lock-row .n { font-size: 22px; font-weight: 500; }
+  .lock-row .z { font-size: 18px; color: var(--stone-muted); }
+
+  .pin {
+    padding: 44px 56px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pin .section-label { margin-bottom: 18px; }
+
+  .pin-dots { display: flex; gap: 22px; margin-bottom: 16px; }
+  .pin-dots span {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--stone-muted);
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .pin-dots span.filled { background: var(--champagne); border-color: var(--champagne); }
+  .pin-dots.shake { animation: shake 0.35s ease; }
+  @keyframes shake {
+    20%, 60% { transform: translateX(-10px); }
+    40%, 80% { transform: translateX(10px); }
+  }
+
+  .pin-msg {
+    min-height: 28px;
+    margin-bottom: 18px;
+    font-size: 19px;
+    color: var(--stone-muted);
+    text-align: center;
+  }
+  .pin-msg.err { color: var(--champagne); }
+
+  .keypad { display: grid; grid-template-columns: repeat(3, 120px); gap: 16px; }
+  .key {
+    height: 88px;
+    border-radius: var(--card-radius);
+    background: var(--surface);
+    font-family: Fraunces, Georgia, serif;
+    font-size: 36px;
+    font-weight: 400;
+    display: grid;
+    place-items: center;
+  }
+  .key:active { background: var(--surface-lift); }
+  .key.aux { background: transparent; font-family: Inter, sans-serif; font-size: 18px; color: var(--stone-muted); }
+  .key svg { width: 30px; height: 30px; }
+
+  /* ========== 2. Vandaag ========== */
+  #s-vandaag { grid-template-columns: 1fr 480px; }
+
+  .now-split {
+    padding: 36px 32px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    border-right: 1px solid var(--stone-faint);
+    min-height: 0;
+  }
+  .now-split.single { grid-template-columns: 1fr; }
+
+  .now-card {
+    background: var(--surface);
+    border-radius: var(--card-radius);
+    padding: 30px 28px 28px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .now-card .flag { margin-bottom: 18px; font-size: 17px; }
+  .now-room { margin-left: auto; color: var(--stone-muted); font-weight: 400; }
+
+  .now-time {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 30px;
+    font-weight: 300;
+    color: var(--stone-muted);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+  }
+  .now-title {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 48px;
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .now-split.single .now-title { font-size: 68px; }
+  .now-trainer { font-size: 21px; color: var(--stone-muted); margin-bottom: auto; }
+
+  .progress-block { margin: 24px 0 22px; }
+  .progress-figure { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .progress-count {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 46px;
+    font-weight: 400;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-count em { font-style: normal; color: var(--stone-muted); }
+  .progress-label { font-size: 20px; color: var(--stone-muted); }
+
+  .cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 88px;
+    width: 100%;
+    border-radius: var(--button-radius);
+    background: var(--champagne);
+    color: var(--warm-black);
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .cta:focus-visible { outline-color: var(--stone); outline-offset: 4px; }
+
+  .day {
+    padding: 36px 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .day .section-label { margin-bottom: 8px; padding-left: 4px; }
+
+  .class-row {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 92px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid transparent;
+    border-radius: var(--card-radius);
+    text-align: left;
+    width: 100%;
+  }
+  .row-time {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 27px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-title { font-size: 21px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-trainer { font-size: 16px; color: var(--stone-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-count {
+    font-size: 21px;
+    font-variant-numeric: tabular-nums;
+    color: var(--stone-muted);
+    white-space: nowrap;
+  }
+  .class-row.is-now { background: var(--surface-lift); border-color: var(--champagne); }
+  .class-row.is-now .row-count { color: var(--champagne); }
+  .class-row.is-past { opacity: 0.42; }
+  .class-row.is-past .row-title { font-weight: 400; }
+  .row-count.complete::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--champagne);
+    margin-right: 9px;
+    vertical-align: 2px;
+  }
+
+  .day-footer {
+    margin-top: auto;
+    padding: 18px 4px 0;
+    border-top: 1px solid var(--stone-faint);
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    color: var(--stone-muted);
+  }
+
+  /* ========== 3. Deelnemers ========== */
+  #s-deelnemers { grid-template-columns: 400px 1fr; }
+
+  .roster-info {
+    padding: 28px 36px 32px;
+    border-right: 1px solid var(--stone-faint);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .roster-info .back { margin-bottom: 24px; }
+
+  .r-time {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--stone-muted);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+  }
+  .r-title {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 48px;
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .r-meta { font-size: 20px; color: var(--stone-muted); }
+
+  .r-progress { margin-top: 30px; }
+
+  .r-status {
+    margin-top: auto;
+    padding: 16px 18px;
+    background: var(--surface);
+    border-radius: var(--card-radius);
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--stone-muted);
+  }
+  .r-status strong { color: var(--stone); font-weight: 500; }
+
+  .walkin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 80px;
+    width: 100%;
+    margin-top: 14px;
+    border: 1px solid var(--champagne);
+    border-radius: var(--button-radius);
+    color: var(--champagne);
+    font-size: 21px;
+    font-weight: 600;
+  }
+  .walkin-btn svg { width: 24px; height: 24px; }
+
+  .roster {
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .roster-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+  .roster-hint { font-size: 17px; color: var(--stone-muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+  .p {
+    display: grid;
+    grid-template-columns: 1fr 44px;
+    align-items: center;
+    gap: 12px;
+    min-height: 108px;
+    padding: 18px 20px;
+    background: var(--surface);
+    border: 1px solid transparent;
+    border-radius: var(--card-radius);
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .p .nm { font-size: 24px; font-weight: 500; }
+  .p .tag { min-height: 20px; margin-top: 6px; font-size: 16px; color: var(--stone-muted); }
+  .p .ck {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--stone-faint);
+    display: grid;
+    place-items: center;
+    color: var(--warm-black);
+  }
+  .p .ck svg { width: 22px; height: 22px; opacity: 0; }
+  .p.on { background: var(--surface-lift); border-color: var(--champagne); }
+  .p.on .ck { background: var(--champagne); border-color: var(--champagne); }
+  .p.on .ck svg { opacity: 1; }
+  .p.noshow .nm { color: var(--stone-muted); font-weight: 400; }
+  .p:disabled { opacity: 0.5; }
+
+  /* Walk-in venster, bovenaan zodat het Android-toetsenbord eronder past */
+  .sheet-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: none;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 28px;
+    background: rgba(0, 0, 0, 0.62);
+  }
+  .sheet-wrap.open { display: flex; }
+
+  .sheet {
+    width: 760px;
+    padding: 26px 32px 24px;
+    background: var(--surface);
+    border: 1px solid var(--stone-faint);
+    border-radius: var(--card-radius);
+  }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .sheet-head h2 { font-family: Fraunces, Georgia, serif; font-size: 34px; font-weight: 400; }
+  .icon-btn {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--button-radius);
+    background: var(--surface-lift);
+  }
+  .icon-btn svg { width: 22px; height: 22px; }
+
+  .cap-warn {
+    margin-bottom: 16px;
+    padding: 14px 18px;
+    border-left: 3px solid var(--champagne);
+    border-radius: var(--button-radius);
+    background: var(--surface-lift);
+    font-size: 18px;
+  }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 68px;
+    padding: 0 20px;
+    margin-bottom: 14px;
+    background: var(--warm-black);
+    border: 1px solid var(--stone-faint);
+    border-radius: var(--button-radius);
+  }
+  .search svg { width: 24px; height: 24px; color: var(--stone-muted); }
+  .search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--stone);
+    font: inherit;
+    font-size: 22px;
+  }
+  .search input::placeholder { color: var(--stone-muted); }
+
+  .results { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+  .res {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 12px 12px 20px;
+    background: var(--surface-lift);
+    border-radius: var(--card-radius);
+  }
+  .res .nm { font-size: 22px; font-weight: 500; }
+  .res .st { margin-top: 4px; font-size: 17px; color: var(--stone-muted); }
+  .res .add {
+    height: 60px;
+    padding: 0 24px;
+    border-radius: var(--button-radius);
+    background: var(--champagne);
+    color: var(--warm-black);
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .res .add:disabled { background: transparent; border: 1px solid var(--stone-faint); color: var(--stone-muted); }
+  .results-empty { padding: 20px; font-size: 18px; color: var(--stone-muted); }
+
+  /* ========== 4. Licht en geluid ========== */
+  #s-bediening {
+    grid-template-rows: auto auto 1fr;
+    padding: 24px 40px 32px;
+    gap: 22px;
+  }
+
+  .ctl-top { display: flex; align-items: center; gap: 24px; }
+  .ctl-top .back { align-self: center; margin-left: -10px; }
+
+  .tabs { display: flex; gap: 6px; padding: 6px; background: var(--surface); border-radius: var(--card-radius); }
+  .tab {
+    height: 60px;
+    padding: 0 30px;
+    border-radius: var(--button-radius);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--stone-muted);
+  }
+  .tab.on { background: var(--surface-lift); color: var(--stone); box-shadow: inset 0 0 0 1px var(--champagne); }
+
+  .ha-status { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 17px; color: var(--stone-muted); }
+  .ha-status .dot { animation: none; width: 9px; height: 9px; }
+  .frame.ha-offline .ha-status .dot { background: var(--stone-faint); }
+
+  .ha-down {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-left: 3px solid var(--champagne);
+    border-radius: var(--button-radius);
+    background: var(--surface-lift);
+    font-size: 18px;
+  }
+  .frame.ha-offline .ha-down { display: flex; }
+
+  .ctl { display: grid; grid-template-columns: 1fr 440px; gap: 32px; min-height: 0; }
+  .ctl .section-label { margin-bottom: 14px; }
+
+  .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .scene {
+    min-height: 150px;
+    padding: 22px;
+    background: var(--surface);
+    border: 1px solid transparent;
+    border-radius: var(--card-radius);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .scene .sn { font-family: Fraunces, Georgia, serif; font-size: 30px; font-weight: 400; }
+  .scene .sd { margin-top: 8px; font-size: 17px; color: var(--stone-muted); }
+  .scene .sa { margin-top: auto; font-size: 15px; font-weight: 500; color: var(--champagne); visibility: hidden; }
+  .scene.on { background: var(--surface-lift); border-color: var(--champagne); }
+  .scene.on .sa, .scene.busy .sa { visibility: visible; }
+
+  .music {
+    padding: 24px 28px;
+    background: var(--surface);
+    border-radius: var(--card-radius);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .m-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .m-name { font-size: 22px; font-weight: 500; }
+  .m-state { font-size: 18px; color: var(--champagne); }
+  .m-state.paused { color: var(--stone-muted); }
+
+  .m-play { display: flex; align-items: center; gap: 20px; }
+  .playbtn {
+    flex: none;
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--champagne);
+    color: var(--warm-black);
+    display: grid;
+    place-items: center;
+  }
+  .playbtn svg { width: 32px; height: 32px; }
+  .m-hint { font-size: 17px; line-height: 1.4; color: var(--stone-muted); }
+
+  .vol-label { display: flex; justify-content: space-between; align-items: baseline; }
+  .vol-label span { font-size: 19px; font-weight: 500; color: var(--stone-muted); }
+  .vol-label strong {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 44px;
+    font-weight: 400;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .vol { display: grid; grid-template-columns: 72px 1fr 72px; align-items: center; gap: 16px; }
+  .vbtn {
+    height: 72px;
+    border-radius: var(--button-radius);
+    background: var(--surface-lift);
+    display: grid;
+    place-items: center;
+  }
+  .vbtn svg { width: 26px; height: 26px; }
+
+  .alloff {
+    height: 72px;
+    width: 100%;
+    margin-top: 14px;
+    border: 1px solid var(--stone-faint);
+    border-radius: var(--button-radius);
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+  /* ---------- Melding ---------- */
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    z-index: 6;
+    padding: 16px 26px;
+    border-radius: var(--button-radius);
+    background: var(--stone);
+    color: var(--warm-black);
+    font-size: 19px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translate(-50%, 16px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- Alleen voor de mockup ---------- */
+  .mock-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 16px;
+    font: 13px/1 system-ui, sans-serif;
+    color: #8a8a8a;
+    background: #0a0a0a;
+    border-top: 1px solid #222;
+    flex-wrap: wrap;
+  }
+  .mock-bar button {
+    padding: 8px 12px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #bbb;
+    font: 13px/1 system-ui, sans-serif;
+  }
+  .mock-bar button.on { border-color: #777; color: #fff; }
+  .mock-bar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .mock-bar .sep { width: 1px; height: 22px; background: #2a2a2a; margin: 0 6px; }
+  .mock-bar .tag { text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+<div class="frame is-locked" id="frame">
+
+  <header>
+    <div class="wordmark">The Movement <span>Club</span></div>
+    <div class="header-right">
+      <!-- COPY: confirm met Marlon -->
+      <button class="hbtn unlocked-only" id="btnCtl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>
+        Licht en geluid
+      </button>
+      <!-- COPY: confirm met Marlon -->
+      <div class="chip unlocked-only">
+        <span>Ontgrendeld door <strong id="whoName">Marlon</strong></span>
+        <button id="btnLock" aria-label="Vergrendelen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        </button>
+      </div>
+      <!-- COPY: confirm met Marlon -->
+      <div class="today-date">woensdag 9 september</div>
+      <div class="clock">18:22</div>
+    </div>
+  </header>
+
+  <!-- COPY: confirm met Marlon -->
+  <div class="offline">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5 12a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg>
+    Geen verbinding. Inchecken en bediening werken weer zodra de verbinding terug is.
+  </div>
+
+  <div class="screens">
+
+    <!-- ========== 1. Slot ========== -->
+    <section class="screen active" id="s-slot">
+      <div class="lock-info">
+        <!-- COPY: confirm met Marlon -->
+        <div class="flag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          Vergrendeld
+        </div>
+        <!-- COPY: confirm met Marlon -->
+        <h1 class="lock-title">Ontgrendel met<br>je pincode</h1>
+        <!-- COPY: confirm met Marlon -->
+        <div class="lock-sub">Alleen voor trainers.</div>
+
+        <div class="lock-list" id="lockList"></div>
+      </div>
+
+      <div class="pin">
+        <!-- COPY: confirm met Marlon -->
+        <div class="section-label">Pincode</div>
+        <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
+        <div class="pin-msg" id="pinMsg"></div>
+        <div class="keypad needs-network" id="keypad">
+          <button class="key" data-k="1">1</button>
+          <button class="key" data-k="2">2</button>
+          <button class="key" data-k="3">3</button>
+          <button class="key" data-k="4">4</button>
+          <button class="key" data-k="5">5</button>
+          <button class="key" data-k="6">6</button>
+          <button class="key" data-k="7">7</button>
+          <button class="key" data-k="8">8</button>
+          <button class="key" data-k="9">9</button>
+          <!-- COPY: confirm met Marlon -->
+          <button class="key aux" data-k="clear">Wis</button>
+          <button class="key" data-k="0">0</button>
+          <button class="key aux" data-k="back" aria-label="Laatste cijfer wissen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 2. Vandaag ========== -->
+    <section class="screen" id="s-vandaag">
+      <div class="now-split" id="nowSplit"></div>
+      <aside class="day">
+        <!-- COPY: confirm met Marlon -->
+        <div class="section-label">Vandaag</div>
+        <div id="dayList" style="display:flex;flex-direction:column;gap:12px"></div>
+        <div class="day-footer">
+          <!-- COPY: confirm met Marlon -->
+          <span id="updated">Bijgewerkt om 18:22</span>
+          <span id="dayCount"></span>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ========== 3. Deelnemers ========== -->
+    <section class="screen" id="s-deelnemers">
+      <div class="roster-info">
+        <!-- COPY: confirm met Marlon -->
+        <button class="back" data-go="vandaag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          Vandaag
+        </button>
+        <div class="r-time" id="rTime"></div>
+        <h1 class="r-title" id="rTitle"></h1>
+        <div class="r-meta" id="rMeta"></div>
+
+        <div class="r-progress">
+          <div class="progress-figure">
+            <div class="progress-count" id="rCount"></div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="progress-label">ingecheckt</div>
+          </div>
+          <div class="bar"><div class="bar-fill" id="rBar"></div></div>
+        </div>
+
+        <div class="r-status" id="rStatus"></div>
+        <!-- COPY: confirm met Marlon -->
+        <button class="walkin-btn needs-network" id="btnWalkin">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Walk-in toevoegen
+        </button>
+      </div>
+
+      <div class="roster">
+        <div class="roster-head">
+          <div class="section-label" id="rosterLabel"></div>
+          <div class="roster-hint" id="rosterHint"></div>
+        </div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+
+    <!-- ========== 4. Licht en geluid ========== -->
+    <section class="screen" id="s-bediening">
+      <div class="ctl-top">
+        <!-- COPY: confirm met Marlon -->
+        <button class="back" data-go="vandaag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          Vandaag
+        </button>
+        <div class="tabs" id="tabs"></div>
+        <!-- COPY: confirm met Marlon -->
+        <div class="ha-status"><span class="dot"></span><span id="haText">Verbonden met de studio</span></div>
+      </div>
+
+      <!-- COPY: confirm met Marlon -->
+      <div class="ha-down">Bediening is nu niet bereikbaar. Gebruik de afstandsbediening in de zaal, of de Sonos-app op je telefoon.</div>
+
+      <div class="ctl">
+        <div>
+          <!-- COPY: confirm met Marlon -->
+          <div class="section-label">Licht</div>
+          <div class="scenes" id="scenes"></div>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <!-- COPY: confirm met Marlon -->
+          <div class="section-label">Muziek</div>
+          <div class="music">
+            <div class="m-head">
+              <div class="m-name" id="mName"></div>
+              <div class="m-state" id="mState"></div>
+            </div>
+            <div class="m-play">
+              <button class="playbtn needs-network needs-ha" id="btnPlay" aria-label="Afspelen of pauzeren"></button>
+              <!-- COPY: confirm met Marlon -->
+              <div class="m-hint">Muziek kies je zelf in de Sonos-app op je telefoon. Hier regel je alleen volume en pauze.</div>
+            </div>
+            <div>
+              <div class="vol-label">
+                <!-- COPY: confirm met Marlon -->
+                <span>Volume</span>
+                <strong id="mVol"></strong>
+              </div>
+            </div>
+            <div class="vol">
+              <button class="vbtn needs-network needs-ha" id="btnVolDown" aria-label="Zachter">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+              </button>
+              <div class="bar"><div class="bar-fill" id="mVolBar"></div></div>
+              <button class="vbtn needs-network needs-ha" id="btnVolUp" aria-label="Harder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            </div>
+          </div>
+          <button class="alloff needs-network needs-ha" id="btnAllOff"></button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Walk-in venster -->
+  <div class="sheet-wrap" id="sheet">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-head">
+        <!-- COPY: confirm met Marlon -->
+        <h2 id="sheetTitle">Walk-in toevoegen</h2>
+        <button class="icon-btn" id="btnSheetClose" aria-label="Sluiten">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="cap-warn" id="capWarn"></div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>
+        <!-- COPY: confirm met Marlon -->
+        <input id="searchInput" type="text" placeholder="Zoek een lid op naam" autocomplete="off">
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+</div>
+
+<!-- Alleen voor de mockup -->
+<div class="mock-bar">
+  <span class="tag">Mockup</span>
+  <button data-mock="slot">Slot</button>
+  <button data-mock="vandaag">Vandaag</button>
+  <button data-mock="deelnemers">Deelnemers</button>
+  <button data-mock="bediening">Licht en geluid</button>
+  <span class="sep"></span>
+  <label><input type="checkbox" id="tNet"> Geen verbinding</label>
+  <label><input type="checkbox" id="tHa"> Bediening offline</label>
+  <span class="sep"></span>
+  <span>Pincodes: 1234 Marlon, 2468 Lotte. Tik een afgelopen les aan voor de no-show-weergave.</span>
+</div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var frame = $('#frame');
+
+  /* ---------- Iconen ---------- */
+  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5l12 7-12 7z" fill="currentColor"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>';
+
+  /* ---------- Voorbeelddata (niet echt) ---------- */
+  // Mockup: echte pincodes worden server-side gecontroleerd, per trainer, met rate limiting.
+  var PINS = { '1234': 'Marlon', '2468': 'Lotte' };
+
+  var NAMES = ['Anna B.', 'Bas K.', 'Carmen D.', 'Dirk W.', 'Esther L.', 'Frank M.', 'Gijs T.',
+               'Hanna R.', 'Ilse V.', 'Jesse P.', 'Karin S.', 'Lars H.', 'Maud O.', 'Niels A.', 'Olga Z.'];
+
+  function gen(offset, n, checked) {
+    var a = [];
+    for (var i = 0; i < n; i++) a.push({ name: NAMES[(offset + i) % NAMES.length], tag: '', on: i < checked });
+    return a;
+  }
+
+  // phase: closed = afgesloten (no-shows zichtbaar), open = check-in venster open, upcoming = nog niet open.
+  // Check-in venster: 15 min voor start tot automatisch afsluiten 30 min na einde.
+  var classes = [
+    { id: 'c1', start: '07:00', end: '08:00', opens: '06:45', closes: '08:30', title: 'Kettlebell Kracht',
+      trainer: 'Marlon', zaal: 'Kracht Studio', room: 'kracht', cap: 8, phase: 'closed', people: gen(0, 8, 8) },
+    { id: 'c2', start: '12:00', end: '13:00', opens: '11:45', closes: '13:30', title: 'Kettlebell Basis',
+      trainer: 'Marlon', zaal: 'Kracht Studio', room: 'kracht', cap: 9, phase: 'closed', people: gen(3, 9, 7) },
+    { id: 'c3', start: '18:00', end: '19:00', opens: '17:45', closes: '19:30', title: 'Kettlebell Kracht',
+      trainer: 'Marlon', zaal: 'Kracht Studio', room: 'kracht', cap: 9, phase: 'open', people: [
+        { name: 'Sanne V.', tag: '', on: true },
+        // COPY: confirm met Marlon
+        { name: 'Eva K.', tag: 'Gast van Sanne V.', on: true },
+        { name: 'Joost B.', tag: '', on: true },
+        // COPY: confirm met Marlon
+        { name: 'Tom H.', tag: 'Proefles', on: false },
+        { name: 'Lisa M.', tag: '', on: true },
+        { name: 'Mark D.', tag: '', on: false },
+        { name: 'Nina S.', tag: '', on: false },
+        { name: 'Pieter G.', tag: '', on: false },
+        { name: 'Roos W.', tag: '', on: false }
+      ] },
+    { id: 'c4', start: '18:15', end: '19:15', opens: '18:00', closes: '19:45', title: 'Yin Yoga',
+      trainer: 'Lotte', zaal: 'Yoga Studio', room: 'yoga', cap: 10, phase: 'open', people: gen(6, 6, 2) },
+    { id: 'c5', start: '19:30', end: '20:30', opens: '19:15', closes: '21:00', title: 'Vinyasa Flow',
+      trainer: 'Lotte', zaal: 'Yoga Studio', room: 'yoga', cap: 10, phase: 'upcoming', people: gen(9, 7, 0) }
+  ];
+  classes.forEach(function (c) { c.people.sort(function (a, b) { return a.name.localeCompare(b.name); }); });
+
+  // Leden voor walk-in. Tegoed komt in het echt uit dezelfde regels als gewoon boeken.
+  // COPY: confirm met Marlon
+  var MEMBERS = [
+    { name: 'Anouk V.', st: 'Abonnement', ok: true },
+    { name: 'Bram S.', st: 'Rittenkaart, nog 3 ritten', ok: true },
+    { name: 'Daan K.', st: 'Rittenkaart, nog 1 rit', ok: true },
+    { name: 'Femke J.', st: 'Abonnement', ok: true },
+    { name: 'Hugo P.', st: 'Geen abonnement of rittenkaart', ok: false },
+    { name: 'Iris M.', st: 'Abonnement', ok: true },
+    { name: 'Mark D.', st: 'Abonnement', ok: true },
+    { name: 'Wouter L.', st: 'Rittenkaart, nog 6 ritten', ok: true }
+  ];
+
+  // COPY: confirm met Marlon
+  var ROOMS = {
+    yoga: {
+      label: 'Yoga Studio', scene: 'inloop', playing: true, vol: 30,
+      scenes: [
+        { id: 'les', n: 'Les', d: 'Helder en neutraal' },
+        { id: 'inloop', n: 'Inloop', d: 'Warm en gedimd' },
+        { id: 'savasana', n: 'Savasana', d: 'Heel zacht' },
+        { id: 'schoonmaak', n: 'Schoonmaak', d: 'Vol licht' },
+        { id: 'uit', n: 'Uit', d: 'Alle lampen uit' }
+      ]
+    },
+    kracht: {
+      label: 'Kracht Studio', scene: 'les', playing: true, vol: 45,
+      scenes: [
+        { id: 'les', n: 'Les', d: 'Helder en neutraal' },
+        { id: 'inloop', n: 'Inloop', d: 'Warm en gedimd' },
+        { id: 'schoonmaak', n: 'Schoonmaak', d: 'Vol licht' },
+        { id: 'uit', n: 'Uit', d: 'Alle lampen uit' }
+      ]
+    }
+  };
+
+  var state = { screen: 'slot', who: null, cls: 'c3', room: 'yoga', pin: '', fails: 0 };
+
+  function byId(id) { return classes.filter(function (c) { return c.id === id; })[0]; }
+  function checked(c) { return c.people.filter(function (p) { return p.on; }).length; }
+
+  /* ---------- Melding ---------- */
+  var toastT;
+  function toast(msg) {
+    var t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  /* ---------- Navigatie ---------- */
+  function go(name) {
+    state.screen = name;
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+    $('#s-' + name).classList.add('active');
+    frame.classList.toggle('is-locked', name === 'slot');
+    $('#btnCtl').setAttribute('aria-current', name === 'bediening' ? 'page' : 'false');
+    document.querySelectorAll('.mock-bar [data-mock]').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-mock') === name);
+    });
+    render();
+    poke();
+  }
+
+  function render() {
+    if (state.screen === 'slot') renderLock();
+    if (state.screen === 'vandaag') renderToday();
+    if (state.screen === 'deelnemers') renderRoster();
+    if (state.screen === 'bediening') renderControl();
+  }
+
+  /* ---------- 1. Slot ---------- */
+  function renderLock() {
+    // Op het slotscherm alleen lessen, geen namen van deelnemers.
+    // COPY: confirm met Marlon
+    var html = '<div class="section-label">Nu en straks</div>';
+    classes.filter(function (c) { return c.phase !== 'closed'; }).forEach(function (c) {
+      html += '<div class="lock-row' + (c.phase === 'open' ? ' is-now' : '') + '">' +
+        '<div class="t">' + c.start + '</div>' +
+        '<div class="n">' + c.title + '</div>' +
+        '<div class="z">' + c.zaal + '</div></div>';
+    });
+    $('#lockList').innerHTML = html;
+    renderDots();
+  }
+
+  function renderDots() {
+    document.querySelectorAll('#pinDots span').forEach(function (d, i) {
+      d.classList.toggle('filled', i < state.pin.length);
+    });
+  }
+
+  function pinMsg(text, err) {
+    var m = $('#pinMsg');
+    m.textContent = text;
+    m.classList.toggle('err', !!err);
+  }
+
+  function pressKey(k) {
+    if (k === 'clear') { state.pin = ''; renderDots(); pinMsg(''); return; }
+    if (k === 'back') { state.pin = state.pin.slice(0, -1); renderDots(); return; }
+    if (state.pin.length >= 4) return;
+    state.pin += k;
+    renderDots();
+    if (state.pin.length === 4) setTimeout(checkPin, 150);
+  }
+
+  function checkPin() {
+    var who = PINS[state.pin];
+    state.pin = '';
+    if (who) {
+      state.who = who;
+      state.fails = 0;
+      $('#whoName').textContent = who;
+      pinMsg('');
+      go('vandaag');
+      // COPY: confirm met Marlon
+      toast('Welkom, ' + who);
+      return;
+    }
+    state.fails++;
+    var dots = $('#pinDots');
+    dots.classList.remove('shake');
+    void dots.offsetWidth;
+    dots.classList.add('shake');
+    renderDots();
+    if (state.fails >= 5) {
+      // COPY: confirm met Marlon
+      pinMsg('Te veel pogingen. Probeer het over een minuut opnieuw.', true);
+      $('#keypad').style.pointerEvents = 'none';
+      $('#keypad').style.opacity = '0.35';
+      // Mockup: 8 seconden in plaats van een minuut.
+      setTimeout(function () {
+        state.fails = 0;
+        $('#keypad').style.pointerEvents = '';
+        $('#keypad').style.opacity = '';
+        pinMsg('');
+      }, 8000);
+    } else {
+      // COPY: confirm met Marlon
+      pinMsg('Onjuiste pincode', true);
+    }
+  }
+
+  function lock() {
+    closeSheet();
+    state.who = null;
+    state.pin = '';
+    pinMsg('');
+    go('slot');
+  }
+
+  /* ---------- 2. Vandaag ---------- */
+  function renderToday() {
+    var now = classes.filter(function (c) { return c.phase === 'open'; });
+    var split = $('#nowSplit');
+    split.classList.toggle('single', now.length === 1);
+    split.innerHTML = now.map(function (c) {
+      var n = checked(c), b = c.people.length, pct = b ? Math.round(n / b * 100) : 0;
+      // COPY: confirm met Marlon ("Nu bezig", "tot", "ingecheckt", "Deelnemers inchecken")
+      return '<article class="now-card">' +
+        '<div class="flag"><span class="dot"></span> Nu bezig <span class="now-room">' + c.zaal + '</span></div>' +
+        '<div class="now-time">' + c.start + ' tot ' + c.end + '</div>' +
+        '<h1 class="now-title">' + c.title + '</h1>' +
+        '<div class="now-trainer">' + c.trainer + '</div>' +
+        '<div class="progress-block"><div class="progress-figure">' +
+          '<div class="progress-count">' + n + '<em> / ' + b + '</em></div>' +
+          '<div class="progress-label">ingecheckt</div></div>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>' +
+        '<button class="cta needs-network" data-open="' + c.id + '">Deelnemers inchecken</button>' +
+        '</article>';
+    }).join('');
+
+    $('#dayList').innerHTML = classes.map(function (c) {
+      var n = checked(c), b = c.people.length;
+      var cls = c.phase === 'closed' ? 'is-past' : (c.phase === 'open' ? 'is-now' : '');
+      var complete = c.phase === 'closed' && n === b;
+      return '<button class="class-row ' + cls + '" data-open="' + c.id + '">' +
+        '<div class="row-time">' + c.start + '</div>' +
+        '<div><div class="row-title">' + c.title + '</div>' +
+        '<div class="row-trainer">' + c.trainer + ', ' + c.zaal + '</div></div>' +
+        '<div class="row-count' + (complete ? ' complete' : '') + '">' + n + ' / ' + b + '</div>' +
+        '</button>';
+    }).join('');
+
+    // COPY: confirm met Marlon
+    $('#dayCount').textContent = classes.length + ' lessen vandaag';
+  }
+
+  /* ---------- 3. Deelnemers ---------- */
+  function renderRoster() {
+    var c = byId(state.cls);
+    var n = checked(c), b = c.people.length;
+
+    $('#rTime').textContent = c.start + ' tot ' + c.end;
+    $('#rTitle').textContent = c.title;
+    $('#rMeta').textContent = c.trainer + ', ' + c.zaal;
+    $('#rCount').innerHTML = n + '<em> / ' + b + '</em>';
+    $('#rBar').style.width = (b ? Math.round(n / b * 100) : 0) + '%';
+
+    // COPY: confirm met Marlon (alle statusteksten hieronder)
+    var status, label, hint;
+    if (c.phase === 'open') {
+      status = 'Sluit automatisch om <strong>' + c.closes + '</strong>. Wie dan niet is ingecheckt, telt als no-show.';
+      label = 'Tik op wie er is';
+      hint = 'Nog een keer tikken maakt het ongedaan';
+    } else if (c.phase === 'closed') {
+      var ns = b - n;
+      status = '<strong>Afgesloten om ' + c.closes + '.</strong> ' +
+        (ns ? ns + (ns === 1 ? ' no-show. ' : ' no-shows. ') : 'Iedereen was er. ') +
+        'Vergeten iemand af te vinken? Corrigeren kan tot einde dag.';
+      label = ns ? 'Tik op een no-show om te corrigeren' : 'Iedereen ingecheckt';
+      hint = '';
+    } else {
+      status = 'Inchecken kan vanaf <strong>' + c.opens + '</strong>.';
+      label = 'Nog niet open';
+      hint = '';
+    }
+    $('#rStatus').innerHTML = status;
+    $('#rosterLabel').textContent = label;
+    $('#rosterHint').textContent = hint;
+    $('#btnWalkin').style.display = c.phase === 'open' ? '' : 'none';
+
+    $('#grid').innerHTML = c.people.map(function (p, i) {
+      var noshow = c.phase === 'closed' && !p.on;
+      // COPY: confirm met Marlon ("No-show")
+      var tag = noshow ? (p.tag ? p.tag + ', no-show' : 'No-show') : p.tag;
+      return '<button class="p' + (p.on ? ' on' : '') + (noshow ? ' noshow' : '') + ' needs-network" data-i="' + i + '"' +
+        (c.phase === 'upcoming' ? ' disabled' : '') + ' aria-pressed="' + p.on + '">' +
+        '<div><div class="nm">' + p.name + '</div><div class="tag">' + tag + '</div></div>' +
+        '<div class="ck">' + ICON_CHECK + '</div></button>';
+    }).join('');
+  }
+
+  function togglePerson(i) {
+    var c = byId(state.cls), p = c.people[i];
+    p.on = !p.on;
+    // COPY: confirm met Marlon
+    if (p.on) toast(p.name + (c.phase === 'closed' ? ' ingecheckt, no-show teruggedraaid' : ' ingecheckt'));
+    else toast('Check-in van ' + p.name + ' ongedaan gemaakt');
+    renderRoster();
+  }
+
+  /* ---------- Walk-in ---------- */
+  function openSheet() {
+    var c = byId(state.cls);
+    var full = c.people.length >= c.cap;
+    var w = $('#capWarn');
+    w.style.display = full ? '' : 'none';
+    // COPY: confirm met Marlon
+    w.textContent = 'Deze les is vol (' + c.people.length + ' van ' + c.cap + ' plekken). Een walk-in komt er als extra plek bij.';
+    $('#searchInput').value = '';
+    renderResults('');
+    $('#sheet').classList.add('open');
+    setTimeout(function () { $('#searchInput').focus(); }, 50);
+  }
+
+  function closeSheet() { $('#sheet').classList.remove('open'); }
+
+  function renderResults(q) {
+    var c = byId(state.cls);
+    var inClass = c.people.map(function (p) { return p.name; });
+    q = q.trim().toLowerCase();
+    var list = MEMBERS.filter(function (m) { return !q || m.name.toLowerCase().indexOf(q) === 0; });
+    if (!list.length) {
+      // COPY: confirm met Marlon
+      $('#results').innerHTML = '<div class="results-empty">Geen lid gevonden.</div>';
+      return;
+    }
+    $('#results').innerHTML = list.map(function (m) {
+      var already = inClass.indexOf(m.name) !== -1;
+      // COPY: confirm met Marlon ("Staat al op de lijst", "Toevoegen", "Niet mogelijk")
+      var st = already ? 'Staat al op de lijst' : m.st;
+      var btn = already || !m.ok
+        ? '<button class="add" disabled>' + (already ? 'Toegevoegd' : 'Niet mogelijk') + '</button>'
+        : '<button class="add" data-add="' + m.name + '">Toevoegen</button>';
+      return '<div class="res"><div><div class="nm">' + m.name + '</div><div class="st">' + st + '</div></div>' + btn + '</div>';
+    }).join('');
+  }
+
+  function addWalkin(name) {
+    var c = byId(state.cls);
+    // In het echt: boeking via dezelfde regels als gewoon boeken, met capaciteitsoverride voor de trainer,
+    // en direct ingecheckt.
+    // COPY: confirm met Marlon
+    c.people.push({ name: name, tag: 'Walk-in', on: true });
+    c.people.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    closeSheet();
+    renderRoster();
+    // COPY: confirm met Marlon
+    toast(name + ' toegevoegd en ingecheckt');
+  }
+
+  /* ---------- 4. Licht en geluid ---------- */
+  function renderControl() {
+    var r = ROOMS[state.room];
+    $('#tabs').innerHTML = Object.keys(ROOMS).map(function (k) {
+      return '<button class="tab' + (k === state.room ? ' on' : '') + '" data-room="' + k + '">' + ROOMS[k].label + '</button>';
+    }).join('');
+
+    $('#scenes').innerHTML = r.scenes.map(function (s) {
+      // COPY: confirm met Marlon ("Actief")
+      return '<button class="scene needs-network needs-ha' + (s.id === r.scene ? ' on' : '') + '" data-scene="' + s.id + '">' +
+        '<div class="sn">' + s.n + '</div><div class="sd">' + s.d + '</div><div class="sa">Actief</div></button>';
+    }).join('');
+
+    // COPY: confirm met Marlon ("Sonos", "Speelt", "Gepauzeerd", "Licht en muziek uit in")
+    $('#mName').textContent = 'Sonos, ' + r.label;
+    var ms = $('#mState');
+    ms.textContent = r.playing ? 'Speelt' : 'Gepauzeerd';
+    ms.classList.toggle('paused', !r.playing);
+    $('#btnPlay').innerHTML = r.playing ? ICON_PAUSE : ICON_PLAY;
+    $('#mVol').textContent = r.vol;
+    $('#mVolBar').style.width = r.vol + '%';
+    $('#btnAllOff').textContent = 'Licht en muziek uit in ' + r.label;
+
+    // COPY: confirm met Marlon
+    $('#haText').textContent = frame.classList.contains('ha-offline') ? 'Niet bereikbaar' : 'Verbonden met de studio';
+  }
+
+  function setScene(id) {
+    var r = ROOMS[state.room];
+    var el = document.querySelector('[data-scene="' + id + '"]');
+    document.querySelectorAll('.scene').forEach(function (s) { s.classList.remove('on'); });
+    el.classList.add('busy');
+    // COPY: confirm met Marlon
+    el.querySelector('.sa').textContent = 'Bezig...';
+    setTimeout(function () { r.scene = id; renderControl(); }, 600);
+  }
+
+  /* ---------- Inactiviteit ---------- */
+  // Na 90 seconden terug naar Vandaag, na 10 minuten op slot.
+  var idleT, lockT;
+  function poke() {
+    clearTimeout(idleT);
+    clearTimeout(lockT);
+    if (state.screen === 'slot') return;
+    idleT = setTimeout(function () {
+      if (state.screen !== 'vandaag') { closeSheet(); go('vandaag'); }
+    }, 90000);
+    lockT = setTimeout(lock, 600000);
+  }
+  document.addEventListener('pointerdown', poke, true);
+
+  /* ---------- Events ---------- */
+  document.addEventListener('click', function (e) {
+    var t;
+    if ((t = e.target.closest('.key'))) return pressKey(t.getAttribute('data-k'));
+    if ((t = e.target.closest('[data-open]'))) { state.cls = t.getAttribute('data-open'); return go('deelnemers'); }
+    if ((t = e.target.closest('[data-go]'))) return go(t.getAttribute('data-go'));
+    if ((t = e.target.closest('.p'))) return togglePerson(+t.getAttribute('data-i'));
+    if ((t = e.target.closest('[data-add]'))) return addWalkin(t.getAttribute('data-add'));
+    if ((t = e.target.closest('[data-room]'))) { state.room = t.getAttribute('data-room'); return renderControl(); }
+    if ((t = e.target.closest('[data-scene]'))) return setScene(t.getAttribute('data-scene'));
+    if ((t = e.target.closest('[data-mock]'))) {
+      var to = t.getAttribute('data-mock');
+      if (to !== 'slot' && !state.who) { state.who = 'Marlon'; $('#whoName').textContent = 'Marlon'; }
+      if (to === 'slot') return lock();
+      return go(to);
+    }
+  });
+
+  $('#btnLock').addEventListener('click', lock);
+
+  $('#btnCtl').addEventListener('click', function () {
+    // Opent op de zaal van de laatst gekozen les.
+    state.room = byId(state.cls).room;
+    go('bediening');
+  });
+
+  $('#btnWalkin').addEventListener('click', openSheet);
+  $('#btnSheetClose').addEventListener('click', closeSheet);
+  $('#sheet').addEventListener('click', function (e) { if (e.target.id === 'sheet') closeSheet(); });
+  $('#searchInput').addEventListener('input', function (e) { renderResults(e.target.value); });
+
+  $('#btnPlay').addEventListener('click', function () {
+    var r = ROOMS[state.room]; r.playing = !r.playing; renderControl();
+  });
+  $('#btnVolDown').addEventListener('click', function () {
+    var r = ROOMS[state.room]; r.vol = Math.max(0, r.vol - 5); renderControl();
+  });
+  $('#btnVolUp').addEventListener('click', function () {
+    var r = ROOMS[state.room]; r.vol = Math.min(100, r.vol + 5); renderControl();
+  });
+  $('#btnAllOff').addEventListener('click', function () {
+    var r = ROOMS[state.room]; r.scene = 'uit'; r.playing = false; renderControl();
+    // COPY: confirm met Marlon
+    toast('Licht en muziek uit in ' + r.label);
+  });
+
+  $('#tNet').addEventListener('change', function (e) { frame.classList.toggle('no-network', e.target.checked); });
+  $('#tHa').addEventListener('change', function (e) { frame.classList.toggle('ha-offline', e.target.checked); render(); });
+
+  /* ---------- Schaal (alleen mockup) ---------- */
+  function fit() {
+    var scale = Math.min(window.innerWidth / 1340, (window.innerHeight - 64) / 800, 1);
+    frame.style.transform = 'scale(' + scale + ')';
+  }
+  fit();
+  window.addEventListener('resize', fit);
+
+  go('slot');
+})();
+</script>
+
+</body>
+</html>
