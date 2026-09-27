@@ -232,6 +232,29 @@ test("playPause: POST naar media_play_pause met het juiste entity_id, geen retry
 });
 
 // ---------------------------------------------------------------------------
+// pause
+// ---------------------------------------------------------------------------
+
+test("pause: POST naar media_pause met het juiste entity_id, retryt eenmaal op 503", async () => {
+  queue.push((res) => {
+    res.statusCode = 503;
+    res.setHeader("retry-after", "0.01");
+    res.end("even dood");
+  });
+  queue.push((res) => {
+    res.statusCode = 200;
+    res.end("{}");
+  });
+  const client = getHomeAssistantClient(productionEnv())!;
+  await client.pause("media_player.yoga_studio_yoga_studio");
+  assert.equal(received.length, 2, "een retry: pause is een doelstand, geen toggle");
+  for (const r of received) {
+    assert.equal(r.url, "/api/services/media_player/media_pause");
+    assert.deepEqual(JSON.parse(r.body), { entity_id: "media_player.yoga_studio_yoga_studio" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // getStates
 // ---------------------------------------------------------------------------
 

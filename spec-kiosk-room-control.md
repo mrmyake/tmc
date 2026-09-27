@@ -2,7 +2,7 @@
 
 ## Status
 
-**In bouw.** PR 1 (deze PR) legt de spec vast en levert de HA-client en de event-types. Geen API-route, geen server action, geen UI: die komen in PR 2 en PR 3. Achtergrond en het volledige HA-discovery-logboek (inclusief stap 0, de handmatige HA-configuratie van 2026-09-27) staan in `discovery-kiosk-room-control.md`.
+**In bouw.** PR 1 (#210, gemerged) legde de spec vast en leverde de HA-client en de event-types. PR 2 levert de server action met de gesloten whitelist en de Sonos-regels. Geen UI: die komt in PR 3. Achtergrond en het volledige HA-discovery-logboek (inclusief stap 0, de handmatige HA-configuratie van 2026-09-27) staan in `discovery-kiosk-room-control.md`.
 
 ---
 
@@ -14,7 +14,9 @@ Staff (trainer of admin) bedient vanaf de kiosk-tablet of de eigen telefoon lich
 
 De browser praat nooit rechtstreeks met Home Assistant (HA). Een server-side laag (server action of route handler, PR 2) staat ertussen:
 
-1. **Staff-poort.** `requireTrainerOrAdmin()` (`src/lib/admin/require-trainer-or-admin.ts`), dezelfde gate als `/kiosk` en `/app/trainer/**`. v1 staat alleen open voor een ingelogde trainer- of adminsessie. Zie "PIN-pad" hieronder voor waarom er geen los kiosk-PIN-pad is.
+1. **Staff-poort.** `requireTrainerOrAdmin()` (`src/lib/admin/require-trainer-or-admin.ts`), dezelfde gate als `/kiosk` en `/app/trainer/**`. v1 staat alleen open voor een ingelogde trainer- of adminsessie. Zie "PIN-pad" hieronder voor waarom er geen los kiosk-PIN-pad is. Sinds PR 2 geeft de gate bij weigering een `reason` mee (`unauthenticated` als 401-equivalent, `forbidden` als 403-equivalent); additief, bestaande callers lezen alleen `ok` en `message`.
+
+**Server action, geen route handler (besluit PR 2).** Alle staff-mutaties in deze codebase zijn server actions met `requireTrainerOrAdmin()` als eerste regel (pt-booking, pt-busy, pt-intake, customer-actions, pt-agenda); route handlers zijn voorbehouden aan webhooks, crons en OAuth-callbacks. Een server action krijgt bovendien de same-origin-bescherming van Next mee (discovery-risico security #5). Gevolg: geen HTTP-statussen maar getypeerde uitkomsten. De ingang is `controlRoom(raw)` in `src/lib/room-control/actions.ts`; de logica staat in `src/lib/room-control/core.ts` (geen server-only imports, volledig getest met fakes in `scripts/room-control/`), de whitelist in `src/lib/room-control/whitelist.ts`.
 2. **Whitelist.** De aanroeper geeft nooit een HA-entity-id door. Hij geeft een zaal plus een vaste actie-enum door (bijvoorbeeld `{ room: "yoga_studio", action: "scene", scene: "les" }`); de whitelist-laag (PR 2, `src/lib/room-control/`) vertaalt dat naar het bijbehorende entity_id en roept pas dan de HA-client aan. Zie "Whitelist per zaal" hieronder voor de volledige, gesloten lijst.
 3. **HA-client** (`src/lib/home-assistant.ts`, deze PR). Roept de HA REST API aan via Nabu Casa Remote UI (`HA_BASE_URL`, `HA_TOKEN` van de niet-admin HA-gebruiker `tmc-kiosk`). Valideert zelf niets tegen de whitelist: dat is met opzet de taak van stap 2, zodat de client een dom, herbruikbaar stukje infrastructuur blijft en de whitelist op één plek staat.
 4. **Events.** Elke geslaagde of mislukte actie wordt gelogd via `emitEvent()` (`src/lib/events/emit.ts`), append-only in `tmc.events`. Geen migratie nodig: de database checkt alleen `actor_type`, event-namen en subject-type zijn pure TS-uitbreidingen.
@@ -71,6 +73,17 @@ Twee regels, precies zo geïmplementeerd in PR 2 (hier vastgelegd, nog niet gebo
 
 Deze validatie hoort in de whitelist-/orchestratielaag (PR 2), niet in `src/lib/home-assistant.ts`: de client roept exact aan wat hem gevraagd wordt en kent geen zaal-indeling.
 
+**Gebouwd in PR 2 (`src/lib/room-control/core.ts`):**
+
+- Invoer: alleen `room` (`yoga`, `kracht`), `action` (`scene`, `volume`, `play_pause`, `all_off`, `status`) en per actie `scene` (enum) of `level` (geheel getal 0 t/m 100). Strikte handmatige parser (de codebase gebruikt geen schema-library): onbekende velden, zalen, scènes of waarden buiten bereik geven `invalid_input`. Een scène op een zaal zonder licht geeft `unsupported_for_room`. Beide zonder HA-call en zonder event.
+- `volume`: `setVolume(level / 100)` op elke speler van de zaal, sequentieel. Faalt een speler halverwege, dan `unavailable` met de al toegepaste spelers in de event-payload.
+- `play_pause`: leest eerst `group_members` van de coördinator. Is de groep niet exact de eigen zaal (een speler te veel, of een eigen speler te weinig), dan `grouped_with_other_room` en er wordt niets uitgevoerd. Anders `playPause` op de coördinator.
+- `all_off`: dezelfde groepscheck vooraf; wijkt de groep af, dan gebeurt er niets, ook niet met het licht. Anders het uit-script als de zaal licht heeft, daarna `pause` op de coördinator uitsluitend als die `playing` is. Nooit de toggle.
+- `status`: per zaal `reachable`, `playing`, `volume` (0 t/m 100, afgerond) en `groupedWithOtherRoom`. Niets anders uit de HA-state komt door. Zonder client of bij een HA-fout: `{ reachable: false }`.
+- Fouten: client `null` of elke `HomeAssistantError` wordt de getypeerde uitkomst `unavailable` met vaste Nederlandse copy. Geen stacktrace, URL of token richting de aanroeper.
+- Events: `room.scene_activated` bij een scène; `room.sonos_adjusted` bij `volume`, `play_pause` en `all_off`; `room.control_failed` bij `unavailable` en `grouped_with_other_room`, met de reason in de payload. Geen events bij `status`, invoer-afwijzingen of auth-afwijzingen. Actor uit de gate, `subject_type` `room`, `subject_id` null.
+- Bekend venster: tussen het lezen van de groep en de daadwerkelijke call kan een docent in de Sonos-app nog hergroeperen. Er is geen lock mogelijk; het venster is klein en wordt geaccepteerd.
+
 ## Staff-toegang en het PIN-pad
 
 **v1: uitsluitend ingelogde staff.** Elke aanroep gaat door `requireTrainerOrAdmin()`, hetzelfde patroon als `/kiosk` en `/app/trainer/**`. Geen los kiosk-PIN-pad in v1.
@@ -85,7 +98,8 @@ Tot dat er is, blijft v1 op ingelogde staff staan. Dit is geen tijdelijke workar
 ## HA-client (`src/lib/home-assistant.ts`)
 
 - **Configuratie:** `getHomeAssistantClient()` geeft `null` zonder `HA_BASE_URL`/`HA_TOKEN`, en buiten productie (`VERCEL_ENV !== "production"`) tenzij `HA_ALLOW_NON_PRODUCTION=1` expliciet gezet is. Zonder die guard zou een preview-deployment (zelfde Supabase-project als productie) de echte studio kunnen bedienen.
-- **Functies:** `runScript(entityId)`, `setVolume(entityId, level)` (0 tot 1), `playPause(entityId)`, `getStates(entityIds)`.
+- **`HA_ALLOW_NON_PRODUCTION` mag nooit in Vercel gezet worden, niet op preview en niet op production.** Een preview met die vlag bedient de echte studio: de lampen en Sonos-spelers in Loosdrecht, niet een testomgeving. De vlag is uitsluitend bedoeld voor een bewuste, tijdelijke lokale test vanaf een ontwikkelmachine met een eigen `.env.local`, en wordt daarna weer verwijderd.
+- **Functies:** `runScript(entityId)`, `setVolume(entityId, level)` (0 tot 1), `playPause(entityId)` (toggle, geen retry), `pause(entityId)` (`media_player.media_pause`, doelstand, dus idempotent met één retry; sinds PR 2, voor "alles uit"), `getStates(entityIds)`.
 - **Timeout:** `HA_TIMEOUT_MS` (`outbound-timeouts.ts`), voorlopig 4 s naar analogie van Akiles; nog niet gemeten tegen live verkeer omdat Nabu Casa Remote UI op het moment van deze PR nog uitstaat (stap 0, punt 1). Herzien zodra dat wel actief is.
 - **Retries:** geen op `runScript` en `playPause` (niet idempotent: een tweede `media_play_pause` zou de eerste ongedaan maken). Ten hoogste één retry op `getStates` en `setVolume`, op 429/503, met `Retry-After` of 1 s.
 - **Fouten:** `HomeAssistantError` met status, pad (zonder host) en een afgekapte responsbody. Token en base-URL komen nooit in een foutmelding.
@@ -110,7 +124,7 @@ Geen. Deze feature is staff-only; er verandert niets aan een ledenscherm, ledenr
 
 **PR 2:** `src/lib/room-control/` met `ROOM_BY_PILLAR`, de whitelist als const-object (hierboven), de Sonos-regels (volume op alle zaalspelers, coördinator-check vóór play/pause), en één server action of `POST /api/room-control` die `requireTrainerOrAdmin()` doorloopt, valideert tegen de whitelist, de HA-client aanroept en het event schrijft. Unit-tests op de whitelist-validatie, de volume-clamp en de coördinator-/groepscheck, zonder een echte HA-verbinding.
 
-**PR 3:** UI, `/kiosk/bediening` met tabs Yoga Studio en Kracht Studio, standaardtab afgeleid uit de pillar van de meegegeven sessie (`ROOM_BY_PILLAR`), zes scèneknoppen voor Yoga, volume-stappen en play/pause per zaal, Kracht zonder lichtblok tot de controllers er hangen. Ingang vanaf `KioskFrame` (`/kiosk`) en vanaf `/app/trainer/sessies/[id]`; hetzelfde scherm op een telefoon-route voor staff. Foutmelding bij een HA-storing verwijst naar de Sonos-app en de fysieke schakelaars/afstandsbediening als terugval. Alle Nederlandse tekst met `// COPY: confirm met Marlon`.
+**PR 3:** UI, `/kiosk/bediening` met tabs Yoga Studio en Kracht Studio, standaardtab afgeleid uit de pillar van de meegegeven sessie (`ROOM_BY_PILLAR`), zes scèneknoppen voor Yoga, volume-stappen en play/pause per zaal, Kracht zonder lichtblok tot de controllers er hangen. Ingang vanaf `KioskFrame` (`/kiosk`) en vanaf `/app/trainer/sessies/[id]`; hetzelfde scherm op een telefoon-route voor staff. Foutmelding bij een HA-storing verwijst naar de Sonos-app en de fysieke schakelaars/afstandsbediening als terugval. Alle Nederlandse tekst met `// COPY: confirm met Marlon`. **Rate limiting hoort hier:** als debounce in de UI (een knop vuurt niet vaker dan eens per paar honderd milliseconden en is uitgeschakeld zolang een actie loopt), niet server-side in PR 2 (discovery-risico security #6). Laat Kracht zichtbaar maken dat "alles uit" daar alleen de muziek pauzeert zolang er geen licht hangt.
 
 **PR 4, later:** statusweergave (huidig volume, speelt/pauze, actieve scène) via `getStates`; het PIN-pad zodra de twee voorwaarden hierboven vervuld zijn; Kracht-lichtscripts zodra de controllers hangen.
 
@@ -120,4 +134,5 @@ Geen. Deze feature is staff-only; er verandert niets aan een ledenscherm, ledenr
 
 Elke PR die gedrag, schema of data van deze feature wijzigt voegt hier een regel toe: PR-nummer, datum, wat er gewijzigd is in één zin, en wat bewust niet is aangeraakt.
 
-- **PR #210, 2026-09-27: spec, HA-client en event-types (PR 1 van 4).** `spec-kiosk-room-control.md` en `discovery-kiosk-room-control.md` toegevoegd, `src/lib/home-assistant.ts` (configured-or-null, alleen productie tenzij `HA_ALLOW_NON_PRODUCTION=1`, timeout, geen retry op niet-idempotente calls, eigen foutklasse zonder token/URL) en `HA_TIMEOUT_MS` in `outbound-timeouts.ts`, event-types `room.scene_activated`/`room.sonos_adjusted`/`room.control_failed` en subject-type `room` in `src/lib/events/emit.ts`. Bewust niet aangeraakt: geen API-route, geen server action, geen UI, geen migratie (de database checkt alleen `actor_type`), geen whitelist-validatie in de client zelf, en niets aan de HA-configuratie zelf (die staat vast sinds stap 0 op 2026-09-27, zie `discovery-kiosk-room-control.md`).
+- **PR #211, 2026-09-27: server action met gesloten whitelist en Sonos-regels (PR 2 van 4).** `src/lib/room-control/` (whitelist, core, actions) met de strikte parser, de vier acties en `status`, `pause()` in `src/lib/home-assistant.ts`, additieve `reason` op `requireTrainerOrAdmin()`, 22 core-tests plus een pause-test. Bewust niet aangeraakt: geen UI, geen migratie, geen PIN-pad, geen rate limiting (naar PR 3 als debounce), geen wijziging aan de HA-configuratie.
+- **PR #210 (merge `e769556`), 2026-09-27: spec, HA-client en event-types (PR 1 van 4).** `spec-kiosk-room-control.md` en `discovery-kiosk-room-control.md` toegevoegd, `src/lib/home-assistant.ts` (configured-or-null, alleen productie tenzij `HA_ALLOW_NON_PRODUCTION=1`, timeout, geen retry op niet-idempotente calls, eigen foutklasse zonder token/URL) en `HA_TIMEOUT_MS` in `outbound-timeouts.ts`, event-types `room.scene_activated`/`room.sonos_adjusted`/`room.control_failed` en subject-type `room` in `src/lib/events/emit.ts`. Bewust niet aangeraakt: geen API-route, geen server action, geen UI, geen migratie (de database checkt alleen `actor_type`), geen whitelist-validatie in de client zelf, en niets aan de HA-configuratie zelf (die staat vast sinds stap 0 op 2026-09-27, zie `discovery-kiosk-room-control.md`).

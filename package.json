@@ -24,7 +24,8 @@
     "test:ntfy": "node --import ./scripts/ts-loader.mjs --test scripts/ntfy/*.test.mts",
     "test:account-deletion": "node --import ./scripts/ts-loader.mjs --test scripts/account-deletion/*.test.mts",
     "test:outbound": "node --import ./scripts/ts-loader.mjs --test scripts/outbound/*.test.mts",
-    "test:home-assistant": "node --import ./scripts/ts-loader.mjs --test scripts/home-assistant/*.test.mts"
+    "test:home-assistant": "node --import ./scripts/ts-loader.mjs --test scripts/home-assistant/*.test.mts",
+    "test:room-control": "node --import ./scripts/ts-loader.mjs --test scripts/room-control/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

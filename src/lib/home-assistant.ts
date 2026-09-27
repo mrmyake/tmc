@@ -52,6 +52,11 @@ export interface HomeAssistantApi {
   /** media_player.media_play_pause: een toggle, dus nooit retryen (een
    *  retry zou de vorige poging ongedaan kunnen maken). */
   playPause(entityId: string): Promise<void>;
+  /** media_player.media_pause: geen toggle maar een doelstand, dus
+   *  idempotent en met één retry op 429/503. Voor "alles uit"
+   *  (spec-kiosk-room-control.md PR 2), waar een toggle muziek zou kunnen
+   *  starten die net uit stond. */
+  pause(entityId: string): Promise<void>;
   /** Eén GET /api/states, lokaal gefilterd op de meegegeven ids. Idempotent:
    *  mag één retry doen op 429/503. */
   getStates(entityIds: string[]): Promise<HomeAssistantState[]>;
@@ -232,6 +237,17 @@ function buildClient(baseUrl: string, token: string): HomeAssistantApi {
         "/api/services/media_player/media_play_pause",
         { entity_id: entityId },
         { retriable: false },
+      );
+    },
+
+    async pause(entityId) {
+      await request<unknown>(
+        baseUrl,
+        token,
+        "POST",
+        "/api/services/media_player/media_pause",
+        { entity_id: entityId },
+        { retriable: true },
       );
     },
 
