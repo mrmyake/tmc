@@ -1,0 +1,41 @@
+{
+  "shared": {
+    "ref": "xoivleieyfcxcfawgveh",
+    "envPrefix": "SHARED"
+  },
+  "montagebaas": {
+    "envPrefix": "MONTAGEBAAS",
+    "ref": "vqhdxylnlduugrfjdrfz",
+    "schemas": ["montagebaas"],
+    "dumpArgs": ["--schema=montagebaas"],
+    "resetSql": "drop schema if exists montagebaas cascade;",
+    "buckets": ["offerte-tekeningen"],
+    "repo": "/Users/ilja/Projects/montagebaas",
+    "migrationsDir": "supabase/migrations",
+    "migrationVersions": ["0001", "0002", "0003", "0004", "0005", "0006"],
+    "deltaTables": [
+      { "table": "montagebaas.aanvragen", "ts": "created_at" },
+      { "table": "montagebaas.lead_status_log", "ts": "gewijzigd_op" },
+      { "table": "montagebaas.tarieven", "ts": "created_at" },
+      { "table": "montagebaas.advertentiekosten", "ts": "ingevoerd_op" },
+      { "table": "montagebaas.steden", "ts": null }
+    ]
+  },
+  "tvmuur": {
+    "envPrefix": "TVMUUR",
+    "ref": "ofmvajrmzckgxzjfwyoo",
+    "schemas": ["public"],
+    "dumpArgs": ["--schema=public"],
+    "resetSql": "drop table if exists public.project_photos, public.projects, public.offertes, public.leads cascade; drop function if exists public.set_offerte_updated_at() cascade;",
+    "buckets": ["gallery", "cinewall-previews", "lead-photos"],
+    "repo": "/Users/ilja/Projects/tvmuur",
+    "migrationsDir": "supabase/migrations",
+    "migrationVersions": ["20260503", "20260505", "20260513", "20260517"],
+    "deltaTables": [
+      { "table": "public.leads", "ts": "created_at" },
+      { "table": "public.offertes", "ts": "updated_at" },
+      { "table": "public.projects", "ts": "created_at" },
+      { "table": "public.project_photos", "ts": "created_at" }
+    ]
+  }
+}

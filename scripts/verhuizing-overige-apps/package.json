@@ -1,0 +1,10 @@
+{
+  "name": "verhuizing-overige-apps",
+  "private": true,
+  "type": "module",
+  "description": "Scripts voor de verhuizing van montagebaas en tvmuur uit het gedeelde Supabase-project. Zie README.md.",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "pg": "^8.16.0"
+  }
+}
