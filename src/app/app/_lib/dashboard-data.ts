@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isStaffRole } from "@/lib/auth/staff-role";
 import {
   addDaysIsoAmsterdam,
   formatDateLong,
@@ -121,7 +122,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     await Promise.all([
       supabase
         .from("profiles")
-        .select("first_name, last_name, health_intake_completed_at")
+        .select("first_name, last_name, health_intake_completed_at, role")
         .eq("id", user.id)
         .maybeSingle(),
       // Exacte kolommenset van /app/abonnement's currentResult-query (discovery
@@ -203,7 +204,10 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const profile = profileResult.data;
   const firstName = profile?.first_name?.trim() || "daar";
   const lastName = profile?.last_name ?? null;
-  const intakeDone = Boolean(profile?.health_intake_completed_at);
+  // Staf (trainer, admin) krijgt nooit een intake-drempel; de intake is een
+  // ledenstap (fix/profiles-self-update-lockdown).
+  const intakeDone =
+    isStaffRole(profile?.role) || Boolean(profile?.health_intake_completed_at);
 
   const membership = membershipResult.data;
   const creditRows: CreditMembershipRow[] = (creditsResult.data ?? []).map(

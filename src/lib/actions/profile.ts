@@ -221,16 +221,15 @@ export async function submitHealthIntake(data: FormData): Promise<ActionResult> 
       return { ok: false, error: "Vertel ons je doelen (verplicht veld)." };
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        health_notes: JSON.stringify(payload),
-        health_intake_completed_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
+    // Via de SECURITY DEFINER-RPC (migratie 20260928100000): een lid heeft
+    // geen UPDATE-grant op health_notes en health_intake_completed_at, en de
+    // database zet het stempel alleen samen met de notes, voor auth.uid().
+    const { error } = await supabase.rpc("submit_health_intake", {
+      p_health_notes: JSON.stringify(payload),
+    });
 
     if (error) {
-      console.error("[submitHealthIntake]", error);
+      console.error("[submitHealthIntake]", error, "user", userId);
       return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
     }
 

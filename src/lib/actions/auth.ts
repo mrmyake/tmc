@@ -159,10 +159,16 @@ export async function verifyLoginOtp(
   // Acquisition-attributie, first-touch-wint. Vult alleen nog-lege velden;
   // de trigger handle_new_auth_user vuurt namelijk uitsluitend bij
   // account-aanmaak en kan een later binnengekomen campagnebron nooit meer
-  // oppikken. Scope loopt via de zojuist geverifieerde sessie-user plus RLS
-  // (profiles_self_update: auth.uid() = id) — nooit een id uit clientinvoer.
-  // Mag de login nooit blokkeren: de helper throwt niet en logt alleen.
-  await recordAcquisitionOnLogin(supabase, data.session.user.id, acquisition);
+  // oppikken. Schrijft via de service-role-client: sinds
+  // fix/profiles-self-update-lockdown mag een lid de acquisitiekolommen niet
+  // zelf wijzigen (geen UPDATE-grant). De scope is de zojuist geverifieerde
+  // sessie-user, nooit een id uit clientinvoer. Mag de login nooit
+  // blokkeren: de helper throwt niet en logt alleen.
+  await recordAcquisitionOnLogin(
+    createAdminClient(),
+    data.session.user.id,
+    acquisition,
+  );
 
   // Landing per rol, of een veilige expliciete `next` (gedeelde helper,
   // zelfde regels als /auth/callback, /auth/confirm en /login).
