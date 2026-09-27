@@ -7,6 +7,8 @@ import { createServerClient } from "@supabase/ssr";
  * van /login.
  */
 const PROTECTED_PREFIXES = ["/app", "/checkin", "/kiosk"] as const;
+/** Kiosk-routes: wel cookies verversen, geen redirect naar /login zonder user. */
+const KIOSK_PREFIXES = ["/checkin", "/kiosk"] as const;
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -38,17 +40,21 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  // /checkin en /kiosk (staff-tablet) horen bij de beschermde routes:
-  // hun layouts eisen een staff-sessie, en alleen hier worden de ververste
-  // Supabase-cookies teruggeschreven (server components kunnen dat niet).
-  // Zonder deze regel verliep de tabletsessie zodra het access-token
-  // verliep (fix/checkin-cookie-gate).
+  // /checkin en /kiosk (staff-tablet) staan in de matcher zodat de
+  // ververste Supabase-cookies van een ingelogde staff hier worden
+  // teruggeschreven (server components kunnen dat niet). Ze sturen zonder
+  // login NIET naar /login: de tablet draait sinds check-in PR 2 op een
+  // gekoppeld apparaat met een kiosk-sessie in plaats van een login, en de
+  // /kiosk-layout beslist zelf (slotscherm, of "niet gekoppeld").
   const isProtectedRoute = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  const isKioskRoute = KIOSK_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
   const isLoginRoute = pathname === "/login";
 
-  if (isProtectedRoute && !user) {
+  if (isProtectedRoute && !isKioskRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

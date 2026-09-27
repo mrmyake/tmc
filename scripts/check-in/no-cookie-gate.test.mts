@@ -57,12 +57,16 @@ test("de oude cookie-bestanden bestaan niet meer", () => {
     "lib/check-in/admin-lock.ts",
     "app/checkin/_components/AdminLockScreen.tsx",
     "app/checkin/_components/CheckInTablet.tsx",
+    // check-in PR 2: team-PIN en /checkin-layout weg
+    "lib/admin/checkin-pin-actions.ts",
+    "app/app/admin/instellingen/_components/CheckinPinForm.tsx",
+    "app/checkin/layout.tsx",
   ]) {
     assert.equal(existsSync(path.join(SRC, rel)), false, `${rel} bestaat nog`);
   }
 });
 
-test("elke server action in actions.ts en admin-queries.ts begint met requireTrainerOrAdmin", () => {
+test("elke server action in actions.ts en admin-queries.ts begint met de kiosk-gate", () => {
   for (const rel of ["lib/check-in/actions.ts", "lib/check-in/admin-queries.ts"]) {
     const code = stripComments(readFileSync(path.join(SRC, rel), "utf8"));
     // Body begint bij de eerste "{" na de parameterlijst en het returntype;
@@ -73,10 +77,12 @@ test("elke server action in actions.ts en admin-queries.ts begint met requireTra
     assert.ok(actions.length > 0, `${rel}: geen actions gevonden`);
     for (const [, name, body] of actions) {
       const firstStatement = body.trim().split("\n")[0];
+      // Sinds check-in PR 2 is dat kioskGate() (requireKioskActor via
+      // asStaffGate); de oude requireTrainerOrAdmin() mag hier niet meer.
       assert.match(
         firstStatement,
-        /const gate = await requireTrainerOrAdmin\(\);/,
-        `${rel}: ${name} begint niet met de gate`,
+        /const gate = await kioskGate\(\);/,
+        `${rel}: ${name} begint niet met de kiosk-gate`,
       );
     }
   }

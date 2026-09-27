@@ -116,7 +116,16 @@ export type EventType =
   // enkel actor_type, geen migratie nodig.
   | "room.scene_activated"
   | "room.sonos_adjusted"
-  | "room.control_failed";
+  | "room.control_failed"
+  // Kiosk: apparaatkoppeling, staf-PIN en de getekende sessie (check-in PR 2,
+  // src/lib/kiosk/). Alleen TS-uitbreiding, geen migratie.
+  | "kiosk.device_paired"
+  | "kiosk.device_revoked"
+  | "kiosk.unlocked"
+  | "kiosk.unlock_failed"
+  | "kiosk.locked"
+  | "staff_pin.set"
+  | "staff_pin.cleared";
 
 export type ActorType =
   | "member"
@@ -144,7 +153,9 @@ export type SubjectType =
   | "trial_booking"
   // Zaalbediening: zalen hebben geen eigen rij/uuid, dus subject_id blijft
   // null bij dit subject_type.
-  | "room";
+  | "room"
+  // Kiosk-apparaat (tmc.kiosk_devices.id)
+  | "kiosk_device";
 
 export interface EmitEventInput {
   type: EventType;

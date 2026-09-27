@@ -27,7 +27,8 @@
     "test:home-assistant": "node --import ./scripts/ts-loader.mjs --test scripts/home-assistant/*.test.mts",
     "test:room-control": "node --import ./scripts/ts-loader.mjs --test scripts/room-control/*.test.mts",
     "test:check-in": "node --import ./scripts/ts-loader.mjs --test scripts/check-in/*.test.mts",
-    "test:attendance": "node --import ./scripts/ts-loader.mjs --test scripts/attendance/*.test.mts"
+    "test:attendance": "node --import ./scripts/ts-loader.mjs --test scripts/attendance/*.test.mts",
+    "test:kiosk": "node --import ./scripts/ts-loader.mjs --test scripts/kiosk/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
