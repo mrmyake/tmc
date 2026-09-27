@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EmitEventInput } from "../../src/lib/events/emit";
+import { chainArg, fakeAdmin, type Respond } from "../_helpers/fake-admin";
 import {
   checkInByProfileIdCore,
   createWalkInProfileCore,
@@ -64,67 +65,8 @@ function explodingDeps(): CheckInDeps {
 }
 
 // ---------------------------------------------------------------------------
-// Minimale fake Supabase-client: chainable builder, antwoord per call
+// Fake Supabase-client: scripts/_helpers/fake-admin.mts (gedeeld met attendance)
 // ---------------------------------------------------------------------------
-
-interface Call {
-  table: string;
-  op: "select" | "insert" | "update" | "delete" | "rpc";
-  chain: Array<[string, unknown[]]>;
-}
-
-type Respond = (call: Call) => { data?: unknown; error?: unknown; count?: number } | undefined;
-
-function fakeAdmin(respond: Respond): { client: SupabaseClient; calls: Call[] } {
-  const calls: Call[] = [];
-  const CHAINABLE = [
-    "select", "eq", "neq", "gte", "gt", "lt", "lte", "in", "is", "or", "order", "limit", "returns",
-  ];
-  function builder(table: string) {
-    const call: Call = { table, op: "select", chain: [] };
-    const finish = () => {
-      calls.push(call);
-      return Promise.resolve(respond(call) ?? { data: null, error: null });
-    };
-    const b: Record<string, unknown> = {};
-    for (const m of CHAINABLE) {
-      b[m] = (...args: unknown[]) => {
-        call.chain.push([m, args]);
-        return b;
-      };
-    }
-    for (const m of ["insert", "update", "delete"] as const) {
-      b[m] = (...args: unknown[]) => {
-        call.op = m;
-        call.chain.push([m, args]);
-        return b;
-      };
-    }
-    b.maybeSingle = finish;
-    b.single = finish;
-    b.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
-      finish().then(res, rej);
-    return b;
-  }
-  const client = {
-    from: builder,
-    rpc: (name: string, args: unknown) => {
-      const call: Call = { table: `rpc:${name}`, op: "rpc", chain: [[name, [args]]] };
-      calls.push(call);
-      return Promise.resolve(respond(call) ?? { data: { ok: true }, error: null });
-    },
-    auth: {
-      admin: {
-        createUser: async (args: unknown) => {
-          const call: Call = { table: "auth.createUser", op: "insert", chain: [["createUser", [args]]] };
-          calls.push(call);
-          return respond(call) ?? { data: { user: { id: "new-user" } }, error: null };
-        },
-      },
-    },
-  };
-  return { client: client as unknown as SupabaseClient, calls };
-}
 
 function recordingDeps(respond: Respond) {
   const { client, calls } = fakeAdmin(respond);
@@ -141,10 +83,6 @@ function recordingDeps(respond: Respond) {
     },
   };
   return { deps, calls, events, revalidated };
-}
-
-function chainArg(call: Call, method: string): unknown[] | undefined {
-  return call.chain.find(([m]) => m === method)?.[1];
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +173,7 @@ test("checkInByProfileId schrijft checked_in_by en het event met de gate-actor",
   assert.deepEqual(revalidated, ["/checkin", "/app/admin"]);
 });
 
-test("checkInByProfileId dwingt self_tablet af naar admin_web", async () => {
+test("checkInByProfileId dwingt een onbekende method (bv. het oude self_tablet) af naar admin_web", async () => {
   const { deps, calls } = recordingDeps((call) => {
     if (call.table === "profiles") return { data: { first_name: "Anna", last_name: "B" } };
     if (call.table === "booking_settings") {
@@ -248,7 +186,8 @@ test("checkInByProfileId dwingt self_tablet af naar admin_web", async () => {
     profileId: "p1",
     pillar: "kettlebell",
     accessType: "membership",
-    method: "self_tablet",
+    // Een oude client kan dit nog sturen; het type kent de waarde niet meer.
+    method: "self_tablet" as unknown as "admin_web",
   });
   assert.equal(res.ok, true);
   const insert = calls.find((c) => c.table === "check_ins" && c.op === "insert");

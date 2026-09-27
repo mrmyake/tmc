@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActorType, EmitEventInput } from "@/lib/events/emit";
 import type { RequireTrainerOrAdminResult } from "@/lib/admin/require-trainer-or-admin";
+import { setMemberAttendance } from "@/lib/attendance/core";
 import { normalizePhone, InvalidPhoneError } from "./normalize-phone";
 import { zonedWallClockToUtc, amsterdamYmd } from "@/lib/scheduling/amsterdam-time";
 
@@ -28,7 +29,8 @@ export interface CheckInDeps {
 export type StaffGate = RequireTrainerOrAdminResult;
 export type StaffActor = { userId: string; actorType: "admin" | "trainer" };
 
-export type CheckInMethod = "self_tablet" | "admin_tablet" | "admin_web";
+/** Herkomst van een check-in. self_tablet bestaat niet meer (check-in-spoor PR 1). */
+export type CheckInMethod = "admin_tablet" | "admin_web";
 export type AccessType =
   | "membership"
   | "guest_pass"
@@ -123,9 +125,15 @@ const AMSTERDAM_TIME = new Intl.DateTimeFormat("nl-NL", {
 // ----------------------------------------------------------------------------
 
 /**
- * Staff checkt iemand anders in vanaf /checkin of /app/admin. De method is
- * nooit self_tablet: dat pad is sinds #185 weg, en een client die het toch
- * meestuurt krijgt admin_web (herkomst blijft dan kloppen).
+ * Staff checkt iemand anders in vanaf /checkin of /app/admin. Een onbekende
+ * method (bijvoorbeeld het oude self_tablet van een verouderde client)
+ * wordt admin_web, zodat de herkomst op de rij blijft kloppen.
+ *
+ * Met sessionId gaat de check-in door de gedeelde aanwezigheidskern
+ * (src/lib/attendance/core.ts): een booked booking is verplicht, access_type
+ * komt uit de booking en er worden geen credits geraakt (die zijn bij het
+ * boeken al afgeschreven). Zonder sessionId is het vrij trainen: het
+ * pillar-pad hieronder, met de credit-aftrek per check-in.
  */
 export async function checkInByProfileIdCore(
   gate: StaffGate,
@@ -146,20 +154,104 @@ export async function checkInByProfileIdCore(
     .select("first_name, last_name")
     .eq("id", input.profileId)
     .maybeSingle();
+  const profileName: ProfileNameHint = {
+    firstName: profile?.first_name ?? "",
+    lastInitial: (profile?.last_name ?? "").charAt(0).toUpperCase(),
+  };
+  const method: CheckInMethod = input.method === "admin_tablet" ? "admin_tablet" : "admin_web";
+  const actor: StaffActor = { userId: gate.userId, actorType: gate.actorType };
+
+  if (input.sessionId) {
+    return checkInForSession(deps, {
+      profileId: input.profileId,
+      pillar: input.pillar,
+      sessionId: input.sessionId,
+      method,
+      actor,
+      profileName,
+    });
+  }
 
   return checkInForProfile(deps, {
     profileId: input.profileId,
     pillar: input.pillar,
-    sessionId: input.sessionId,
-    method: input.method === "admin_tablet" ? "admin_tablet" : "admin_web",
-    actor: { userId: gate.userId, actorType: gate.actorType },
+    method,
+    actor,
     accessType: input.accessType,
     notes: input.notes,
-    profileName: {
-      firstName: profile?.first_name ?? "",
-      lastInitial: (profile?.last_name ?? "").charAt(0).toUpperCase(),
-    },
+    profileName,
   });
+}
+
+/**
+ * Sessie-check-in vanaf de tablet: dezelfde vandaag- en pillar-checks als
+ * voorheen, daarna de gedeelde kern. Geen boeking geeft no_eligible_access
+ * (een walk-in maakt eerst een boeking; walk-in-RPC in PR 3).
+ */
+async function checkInForSession(
+  deps: CheckInDeps,
+  input: {
+    profileId: string;
+    pillar: string;
+    sessionId: string;
+    method: CheckInMethod;
+    actor: StaffActor;
+    profileName: ProfileNameHint;
+  },
+): Promise<CheckInResult> {
+  const { admin } = deps;
+  const settings = await readCheckInSettings(admin);
+  if (!settings.check_in_enabled) return fail("pillar_check_in_disabled");
+  if (!(settings.check_in_pillars ?? []).includes(input.pillar)) {
+    return fail("pillar_check_in_disabled");
+  }
+
+  const { data: session } = await admin
+    .from("class_sessions")
+    .select("id, start_at, end_at, pillar")
+    .eq("id", input.sessionId)
+    .maybeSingle();
+  if (!session) return fail("session_not_found");
+  if (session.pillar !== input.pillar) return fail("pillar_check_in_disabled");
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const sessionDate = new Date(session.start_at).toISOString().slice(0, 10);
+  if (sessionDate !== todayUtc) return fail("session_not_today");
+
+  const result = await setMemberAttendance(
+    { admin, emit: deps.emit },
+    {
+      sessionId: input.sessionId,
+      profileId: input.profileId,
+      present: true,
+      actor: input.actor,
+      method: input.method,
+      source: "kiosk",
+    },
+  );
+  if (!result.ok) {
+    switch (result.reason) {
+      case "session_not_found":
+        return fail("session_not_found");
+      case "no_booking":
+      case "booking_cancelled":
+      case "booking_not_found":
+      case "booking_not_in_session":
+        return fail("no_eligible_access");
+      default:
+        return fail("db_error");
+    }
+  }
+  if (!result.changed || !result.checkInId) return fail("already_checked_in");
+
+  deps.revalidate("/checkin");
+  deps.revalidate("/app/admin");
+  return {
+    ok: true,
+    checkInId: result.checkInId,
+    profile: { id: input.profileId, ...input.profileName },
+    accessType: result.accessType,
+    pillar: input.pillar,
+  };
 }
 
 /**
@@ -560,12 +652,15 @@ async function countCheckInsThisWeek(
 
 type ProfileNameHint = { firstName: string; lastInitial: string };
 
+/**
+ * Vrij trainen (geen sessie, geen boeking): pillar-check-in met de
+ * credit-aftrek per check-in. Sessie-check-ins lopen via checkInForSession.
+ */
 async function checkInForProfile(
   deps: CheckInDeps,
   input: {
     profileId: string;
     pillar: string;
-    sessionId?: string;
     method: CheckInMethod;
     actor: StaffActor;
     accessType?: AccessType;
@@ -583,29 +678,10 @@ async function checkInForProfile(
     return fail("pillar_check_in_disabled");
   }
 
-  // Valideer session als meegegeven
-  if (input.sessionId) {
-    const { data: session } = await admin
-      .from("class_sessions")
-      .select("id, start_at, end_at, pillar")
-      .eq("id", input.sessionId)
-      .maybeSingle();
-    if (!session) return fail("session_not_found");
-    if (session.pillar !== input.pillar) {
-      return fail("pillar_check_in_disabled");
-    }
-    const todayUtc = new Date().toISOString().slice(0, 10);
-    const sessionDate = new Date(session.start_at).toISOString().slice(0, 10);
-    if (sessionDate !== todayUtc) {
-      return fail("session_not_today");
-    }
-  }
-
   // Access-type resolven als niet expliciet: bestaande active/paused
   // membership met pillar coverage = "membership", anders "credit" bij een
-  // geldige rittenkaart, anders "drop_in".
+  // geldige rittenkaart, anders "drop_in" (betaling regelt de admin).
   let accessType: AccessType = input.accessType ?? "membership";
-  let coveringFrequencyCap: number | null = null;
   if (!input.accessType) {
     const { data: memberships } = await admin
       .from("memberships")
@@ -622,7 +698,6 @@ async function checkInForProfile(
     );
     if (covers) {
       accessType = "membership";
-      coveringFrequencyCap = covers.frequency_cap ?? null;
     } else {
       // Kaart moet op het check-in-moment geldig zijn (expiry-besluit
       // 2026-07-10); zelfde UTC-datum als current_date op de DB.
@@ -635,35 +710,16 @@ async function checkInForProfile(
       );
       accessType = credit ? "credit" : "drop_in";
     }
-    if (accessType === "drop_in") {
-      // Self-mode stuurt drop-ins niet door; admin moet betaling regelen.
-      if (input.method === "self_tablet") {
-        return fail("no_eligible_access");
-      }
-    }
   }
 
-  // Hard cap bij self-tablet: als het lid de weekly cap al heeft bereikt
-  // op check-ins voor deze pillar, weigeren we de check-in. Admin-modus
-  // (admin_tablet / admin_web) bypasst dit; Marlon beslist zelf of ze
-  // iemand over-cap laat trainen.
-  if (
-    input.method === "self_tablet" &&
-    accessType === "membership" &&
-    coveringFrequencyCap !== null
-  ) {
-    const weekCount = await countCheckInsThisWeek(admin, input.profileId, input.pillar);
-    if (weekCount >= coveringFrequencyCap) {
-      return fail("weekly_cap_reached");
-    }
-  }
-
+  // Geen weekcap-weigering: die bestond alleen voor de zelf-check-in. Staff
+  // beslist zelf of iemand over de cap traint.
   const { data: inserted, error: insertErr } = await admin
     .from("check_ins")
     .insert({
       profile_id: input.profileId,
-      session_id: input.sessionId ?? null,
-      booking_id: null, // PR2 wired als booking_id lookup
+      session_id: null,
+      booking_id: null,
       checked_in_by: input.actor.userId,
       check_in_method: input.method,
       access_type: accessType,
@@ -681,34 +737,9 @@ async function checkInForProfile(
     return fail("db_error");
   }
 
-  // Zelfde tegenkant als markAttendance(): bestaat er een booking voor
-  // deze sessie + profiel, zet dan ook bookings.attended_at zodat de
-  // aanwezigheidslijst en de tablet-check-in hetzelfde beeld geven.
-  // Walk-ins en vrij-trainen hebben geen sessionId of geen bijbehorende
-  // booking; dan blijft dit een no-op.
-  if (input.sessionId) {
-    const { data: booking } = await admin
-      .from("bookings")
-      .select("id")
-      .eq("session_id", input.sessionId)
-      .eq("profile_id", input.profileId)
-      .eq("status", "booked")
-      .maybeSingle();
-    if (booking) {
-      await admin
-        .from("bookings")
-        .update({ no_show_at: null, attended_at: new Date().toISOString() })
-        .eq("id", booking.id);
-    }
-  }
-
-  // Actor: self-tablet = het lid zelf (pad bestaat niet meer, tak blijft tot
-  // PR 1 de self-mode volledig opruimt); anders de ingelogde staff uit de
-  // gate. Nooit meer "tablet" zonder id: er is geen cookie-pad meer.
-  const actorType: ActorType =
-    input.method === "self_tablet" ? "member" : input.actor.actorType;
-  const actorId =
-    input.method === "self_tablet" ? input.profileId : input.actor.userId;
+  // Actor is altijd de ingelogde staff uit de gate; nooit "tablet" zonder id.
+  const actorType: ActorType = input.actor.actorType;
+  const actorId = input.actor.userId;
 
   // Credit-decrement voor ten-ride-kaart, via de RPC-laag onder row lock
   // (adjust_membership_credits). De RPC schrijft zelf het
@@ -725,7 +756,7 @@ async function checkInForProfile(
     subjectId: inserted.id,
     payload: {
       profile_id: input.profileId,
-      session_id: input.sessionId ?? null,
+      session_id: null,
       pillar: input.pillar,
       access_type: accessType,
       method: input.method,
