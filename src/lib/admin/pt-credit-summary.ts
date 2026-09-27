@@ -1,6 +1,6 @@
 "use server";
 
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { creditType } from "@/app/app/producten/lib";
 
@@ -22,8 +22,9 @@ export interface PtCreditSummary {
 export async function getPtCreditSummary(
   profileId: string,
 ): Promise<PtCreditSummary> {
-  // C3: admin of actieve trainer (de klantkaart in het boek-scherm).
-  const gate = await requireTrainerOrAdmin();
+  // fix/trainer-pt-scope: admin of PT-trainer (de klantkaart in het
+  // boek-scherm); een trainer zonder PT ziet geen PT-tegoed van leden.
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { pt: null, duo: null };
 
   const admin = createAdminClient();

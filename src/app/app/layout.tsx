@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppChrome } from "./AppChrome";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
@@ -120,6 +121,22 @@ export default async function AppLayout({
   // gehouden (zie besluiten-sectie in discovery-navigatie-structuur.md).
   const eligibleForPt = isActiveMember;
 
+  // fix/trainer-pt-scope: mag deze gebruiker de PT-ingangen in de
+  // TrainerNav zien (Agenda, Boeken)? Admin altijd; een trainer alleen met
+  // is_pt_available op de eigen actieve trainers-rij. Via de service-role-
+  // client, zoals requirePtTrainerOrAdmin: is_pt_available is voor
+  // authenticated niet leesbaar. Leden krijgen geen TrainerNav, dus false.
+  let ptTrainer = role === "admin";
+  if (role === "trainer") {
+    const { data: trainerRow } = await createAdminClient()
+      .from("trainers")
+      .select("is_pt_available")
+      .eq("profile_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle<{ is_pt_available: boolean }>();
+    ptTrainer = Boolean(trainerRow?.is_pt_available);
+  }
+
   return (
     <>
       <ServiceWorkerRegister />
@@ -129,6 +146,7 @@ export default async function AppLayout({
         role={role}
         eligibleForSchema={eligibleForSchema}
         eligibleForPt={eligibleForPt}
+        ptTrainer={ptTrainer}
       >
         {children}
       </AppChrome>

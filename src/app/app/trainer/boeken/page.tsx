@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
+import { TRAINER_HOME } from "@/lib/auth/safe-next";
 import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
 import { PtBookScreen } from "./_components/PtBookScreen";
 
@@ -20,13 +21,14 @@ interface TrainerRow {
 
 /**
  * PT-agenda C3: Boek-voor-klant-scherm, verhuisd van /app/admin/pt-boeken
- * naar /app/trainer/boeken. Toegang: admin of actieve trainer, dezelfde
- * gate als tmc.is_staff() op de onderliggende RPC's
+ * naar /app/trainer/boeken. Toegang (fix/trainer-pt-scope): admin, of een
+ * PT-trainer uitsluitend voor de eigen trainer_id, dezelfde gate als
+ * tmc.is_pt_trainer_for(p_trainer_id) op de onderliggende RPC's
  * (admin_book_pt_for_member, admin_plan_pt_program, get_pt_busy). De
- * trainer-layout-guard checkt alleen de rol; requireTrainerOrAdmin hier
- * voegt de is_active-voorwaarde toe, en de server actions gaten zichzelf
- * nogmaals. Betaallinks (tmc.admin_create_order) blijven admin-only, dus
- * die betaalmodus gaat alleen als prop aan voor admins.
+ * trainer-layout-guard checkt alleen de rol; resolveTrainerScope hier
+ * voegt is_active en is_pt_available toe, en de server actions gaten
+ * zichzelf nogmaals. Betaallinks (tmc.admin_create_order) blijven
+ * admin-only, dus die betaalmodus gaat alleen als prop aan voor admins.
  */
 export default async function PtBoekenPage(props: {
   searchParams: Promise<{ trainerId?: string }>;
@@ -34,18 +36,24 @@ export default async function PtBoekenPage(props: {
   const { trainerId: requestedTrainerId } = await props.searchParams;
   const scope = await resolveTrainerScope(requestedTrainerId);
   if (!scope.ok) redirect("/app");
+  // fix/trainer-pt-scope: een trainer zonder PT komt hier niet.
+  if (!scope.isPtTrainer) redirect(TRAINER_HOME);
 
-  // Boeken werkt bewust met de volledige trainerlijst: ook een trainer mag
-  // een PT-sessie voor een collega inplannen. resolveTrainerScope levert
-  // hier alleen de voorselectie (eigen rij, of de admin-keuze).
+  // Admin kiest uit alle actieve trainers; een PT-trainer boekt uitsluitend
+  // op de eigen agenda (tot fix/trainer-pt-scope mocht een trainer ook voor
+  // een collega inplannen, dat is bewust dichtgezet). De RPC's dwingen
+  // dezelfde grens af, de lijst hier voorkomt alleen een zinloze keuze.
   const admin = createAdminClient();
+  const trainerQuery = admin
+    .from("trainers")
+    .select("id, display_name, slug, is_active")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
   const [{ data: trainerRows }, catalogue] = await Promise.all([
-    admin
-      .from("trainers")
-      .select("id, display_name, slug, is_active")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true })
-      .returns<TrainerRow[]>(),
+    (scope.isAdmin
+      ? trainerQuery
+      : trainerQuery.eq("id", scope.ownTrainerId ?? "")
+    ).returns<TrainerRow[]>(),
     getCatalogue(),
   ]);
 

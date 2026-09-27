@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendEmail } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
@@ -58,7 +58,9 @@ export async function resolvePtCancellation(args: {
   withRestitution?: boolean;
   note?: string;
 }): Promise<ResolvePtCancellationResult> {
-  const gate = await requireTrainerOrAdmin();
+  // fix/trainer-pt-scope: admin of PT-trainer; de RPC bewaakt dat het om
+  // een eigen sessie gaat.
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();

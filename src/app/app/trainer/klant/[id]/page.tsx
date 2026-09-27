@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { TRAINER_HOME } from "@/lib/auth/safe-next";
+import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
 import {
   loadActiveProgramForProfile,
   loadTrainerClientProfile,
@@ -25,26 +25,21 @@ export const dynamic = "force-dynamic";
  * op /app/admin/leden en is hier bewust afwezig. Een trainer komt er
  * alleen voor eigen klanten in (minstens een PT-boeking op een eigen
  * sessie); een admin mag elk profiel zien, maar de agenda linkt admins
- * naar het ledenbeheer, niet hierheen.
+ * naar het ledenbeheer, niet hierheen. fix/trainer-pt-scope: een trainer
+ * zonder PT gaat naar de trainer-home, ook via een directe URL.
  */
 export default async function TrainerKlantPage(props: {
   params: Promise<{ id: string }>;
 }) {
-  const gate = await requireTrainerOrAdmin();
-  if (!gate.ok) redirect("/app");
+  const scope = await resolveTrainerScope();
+  if (!scope.ok) redirect("/app");
+  if (!scope.isPtTrainer) redirect(TRAINER_HOME);
 
   const { id } = await props.params;
 
-  if (gate.actorType !== "admin") {
-    const admin = createAdminClient();
-    const { data: ownTrainer } = await admin
-      .from("trainers")
-      .select("id")
-      .eq("profile_id", gate.userId)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!ownTrainer) redirect("/app");
-    if (!(await trainerHasClient(ownTrainer.id, id))) {
+  if (!scope.isAdmin) {
+    if (!scope.ownTrainerId) redirect("/app");
+    if (!(await trainerHasClient(scope.ownTrainerId, id))) {
       redirect("/app/trainer/agenda");
     }
   }

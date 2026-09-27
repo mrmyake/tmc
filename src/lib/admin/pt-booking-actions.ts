@@ -1,6 +1,6 @@
 "use server";
 
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
@@ -131,11 +131,12 @@ async function sendCustomerConfirmation(args: {
 export async function bookPtForMember(
   input: BookPtForMemberInput,
 ): Promise<BookPtForMemberResult> {
-  // C3: admin of actieve trainer, dezelfde gate als tmc.is_staff() in de
+  // fix/trainer-pt-scope: admin, of een PT-trainer uitsluitend op de eigen
+  // trainer_id, dezelfde gate als tmc.is_pt_trainer_for(p_trainer_id) in de
   // RPC. Let op: de payment_link-modus leunt op createPaymentRequest en
   // die blijft admin-only (tmc.admin_create_order); de UI biedt die modus
   // alleen aan admins aan.
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin(input.trainerId);
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -262,9 +263,9 @@ export type PlanPtProgramResult =
 export async function planPtProgram(
   input: PlanPtProgramInput,
 ): Promise<PlanPtProgramResult> {
-  // C3: admin of actieve trainer; payment_link is UI-side admin-only,
-  // zie bookPtForMember.
-  const gate = await requireTrainerOrAdmin();
+  // fix/trainer-pt-scope: admin, of een PT-trainer op de eigen trainer_id;
+  // payment_link is UI-side admin-only, zie bookPtForMember.
+  const gate = await requirePtTrainerOrAdmin(input.trainerId);
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
