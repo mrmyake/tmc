@@ -394,16 +394,24 @@ async function joinWaitlist(
   sessionId: string,
   userId: string,
 ): Promise<BookingActionResult> {
-  const supabase = await createClient();
+  // Service role (fix/profiles-self-update-lockdown): authenticated heeft
+  // geen schrijfrechten meer op waitlist_entries. Met de oude policy
+  // waitlist_self_all kon een lid zijn eigen positie op 0 zetten (de cron
+  // promoveert op position asc) en promoted_at of confirmed_at zelf zetten.
+  // De positie wordt hier server-side bepaald; userId komt uit de sessie van
+  // de aanroeper (createBooking), nooit uit clientinvoer. Vervolgpunt: twee
+  // gelijktijdige inschrijvingen kunnen dezelfde positie krijgen (dat was
+  // al zo); een RPC met rij-lock op de sessie lost dat op.
+  const admin = createAdminClient();
 
-  const positionResult = await supabase
+  const positionResult = await admin
     .from("waitlist_entries")
     .select("id", { count: "exact", head: true })
     .eq("session_id", sessionId);
 
   const position = (positionResult.count ?? 0) + 1;
 
-  const insertResult = await supabase
+  const insertResult = await admin
     .from("waitlist_entries")
     .insert({
       profile_id: userId,

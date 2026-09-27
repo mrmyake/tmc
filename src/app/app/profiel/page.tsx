@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
+import { isStaffRole } from "@/lib/auth/staff-role";
 import { formatDateLong } from "@/lib/format-date";
 import { ProfileForm } from "./ProfileForm";
 import { EmergencyContactForm } from "./EmergencyContactForm";
@@ -79,6 +80,9 @@ export default async function ProfielPage({
   const intakeDoneOn = profile.health_intake_completed_at
     ? formatDateLong(new Date(profile.health_intake_completed_at))
     : null;
+  // Staf (trainer, admin) krijgt geen intake-sectie; de health intake is een
+  // ledenstap (fix/profiles-self-update-lockdown).
+  const showIntake = !isStaffRole(profile.role);
 
   return (
     <Container className="py-16 md:py-20 max-w-3xl">
@@ -156,6 +160,7 @@ export default async function ProfielPage({
         />
       </div>
 
+      {showIntake && (
       <div className="mt-14 border-t border-[color:var(--ink-500)]/60 pt-10">
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text leading-[1.05] tracking-[-0.02em] mb-3">
           Health intake
@@ -195,6 +200,7 @@ export default async function ProfielPage({
           </>
         )}
       </div>
+      )}
 
       <div className="mt-14 border-t border-[color:var(--ink-500)]/60 pt-10">
         <MarketingOptInToggle initialOptIn={profile.marketing_opt_in} />

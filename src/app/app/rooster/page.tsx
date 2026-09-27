@@ -23,6 +23,7 @@ import { DayStrip, type DayStripDay } from "./_components/DayStrip";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
 import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
+import { isStaffRole } from "@/lib/auth/staff-role";
 import { OfflineBanner } from "./_components/OfflineBanner";
 
 export const metadata = {
@@ -281,7 +282,7 @@ export default async function RoosterPage(props: {
     // Profiel voor intake-banner check + age_category (canBook-input).
     supabase
       .from("profiles")
-      .select("health_intake_completed_at, age_category")
+      .select("health_intake_completed_at, age_category, role")
       .eq("id", user.id)
       .maybeSingle(),
     // Eerstvolgende geboekte sessie (voor NextSessionCard bovenaan)
@@ -640,9 +641,11 @@ export default async function RoosterPage(props: {
     : null;
 
   // NextSessionCard-input: komt van nextBookingResult
-  const intakeDone = Boolean(
-    profileResult.data?.health_intake_completed_at,
-  );
+  // Staf (trainer, admin) ziet de intake-banner nooit; de intake is een
+  // ledenstap (fix/profiles-self-update-lockdown).
+  const intakeDone =
+    isStaffRole(profileResult.data?.role) ||
+    Boolean(profileResult.data?.health_intake_completed_at);
   const nextBookingRow = nextBookingResult.data?.[0];
   const nextSession = nextBookingRow?.session
     ? {

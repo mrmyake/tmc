@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { isStaffRole } from "@/lib/auth/staff-role";
 import { IntakeForm } from "./IntakeForm";
 import type { HealthIntakePayload } from "@/lib/actions/profile";
 
@@ -29,9 +30,12 @@ export default async function IntakePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("health_notes, health_intake_completed_at")
+    .select("health_notes, health_intake_completed_at, role")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Staf (trainer, admin) heeft geen intake; terug naar het profiel.
+  if (isStaffRole(profile?.role)) redirect("/app/profiel");
 
   const initial = parseIntake(profile?.health_notes ?? null);
   const isUpdate = Boolean(profile?.health_intake_completed_at);

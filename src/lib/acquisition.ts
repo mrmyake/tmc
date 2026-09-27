@@ -1,8 +1,15 @@
 import "server-only";
-import type { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** De cookie-aware SSR-client; RLS draait als de ingelogde gebruiker. */
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
+/**
+ * De service-role-client (createAdminClient()). Sinds
+ * fix/profiles-self-update-lockdown heeft authenticated geen UPDATE-grant
+ * meer op de acquisitiekolommen van tmc.profiles (een lid mag zijn eigen
+ * herkomst niet herschrijven), dus dit pad schrijft via service role. De
+ * scope komt niet uit RLS maar uit de aanroeper: userId is uitsluitend de
+ * zojuist geverifieerde sessie-user (verifyLoginOtp), nooit clientinvoer.
+ */
+type ServiceClient = SupabaseClient;
 
 /**
  * Acquisition-attributie op tmc.profiles, first-touch-wint.
@@ -50,17 +57,17 @@ export interface AcquisitionInput {
 }
 
 /**
- * Vult de zes acquisition-velden op het eigen profiel, alleen waar ze nog
- * leeg zijn. Scope komt uit RLS (`profiles_self_update`: auth.uid() = id)
- * plus de expliciete match op de geverifieerde sessie-user — nooit een
- * profile_id uit clientinvoer.
+ * Vult de zes acquisition-velden op het profiel van de geverifieerde
+ * sessie-user, alleen waar ze nog leeg zijn (first-touch-wint). De
+ * expliciete match op userId is de enige scope; geef hier nooit een id uit
+ * clientinvoer door.
  *
  * Mag de login NOOIT blokkeren of laten falen: eigen try/catch, alleen
  * gelogd, flow gaat door. Zelfde contract als de ga_client_id-write in
  * createOrderAndCheckout.
  */
 export async function recordAcquisitionOnLogin(
-  supabase: ServerClient,
+  supabase: ServiceClient,
   userId: string,
   input: AcquisitionInput | undefined,
 ): Promise<void> {
