@@ -99,10 +99,14 @@ export async function readStaffPinInfo(profileId: string): Promise<StaffPinInfo 
   ]);
   if (!pin || !profile) return null;
   const isAdmin = profile.role === "admin";
+  // Zelfde stafdefinitie als tmc.is_staff_profile() en requireTrainerOrAdmin
+  // (fix/trainer-rls-lockdown): admin, of rol trainer MET actieve
+  // trainers-rij. Een actieve rij op een member-profiel telt niet.
+  const isTrainer = profile.role === "trainer" && Boolean(trainer);
   return {
     pinVersion: pin.pin_version,
     pinActive: pin.is_active,
-    isStaff: isAdmin || Boolean(trainer),
+    isStaff: isAdmin || isTrainer,
     actorType: isAdmin ? "admin" : "trainer",
   };
 }
