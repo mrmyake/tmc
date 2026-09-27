@@ -14,6 +14,7 @@ interface SessionRow {
   start_at: string;
   end_at: string;
   status: string;
+  pillar: string | null;
   class_type: { name: string | null } | { name: string | null }[] | null;
   trainer:
     | { display_name: string | null }
@@ -50,7 +51,7 @@ export default async function KioskPage() {
     let query = admin
       .from("class_sessions")
       .select(
-        `id, start_at, end_at, status,
+        `id, start_at, end_at, status, pillar,
          class_type:class_types(name),
          trainer:trainers(display_name)`,
       )
@@ -115,6 +116,7 @@ export default async function KioskPage() {
         trainerName: trainer?.display_name ?? "",
         bookedCount: bookedCounts.get(r.id) ?? 0,
         checkedInCount: checkedInCounts.get(r.id) ?? 0,
+        pillar: r.pillar ?? null,
       };
     });
   }

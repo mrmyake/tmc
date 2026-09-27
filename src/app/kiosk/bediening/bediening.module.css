@@ -1,0 +1,411 @@
+/*
+ * Scherm "Licht en geluid", vertaald uit mockups/kiosk-prototype.html
+ * (sectie 4). Tokens (--surface, --champagne, --card-radius, ...) komen van
+ * .kiosk in ../kiosk.module.css; dit bestand rendert altijd daarbinnen.
+ * Tikdoelen minimaal 56 px, geen hover-afhankelijke interactie.
+ */
+
+.screen {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 22px;
+  padding: 24px 40px 32px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Bovenrij: terug, tabs, status ---------- */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px 0 10px;
+  margin-left: -10px;
+  border-radius: var(--button-radius);
+  font-size: 18px;
+  color: var(--stone-muted);
+  text-decoration: none;
+}
+.back svg {
+  width: 22px;
+  height: 22px;
+}
+.back:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface);
+  border-radius: var(--card-radius);
+}
+.tab {
+  height: 60px;
+  padding: 0 30px;
+  border: none;
+  background: none;
+  border-radius: var(--button-radius);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--stone-muted);
+  cursor: pointer;
+}
+.tabOn {
+  background: var(--surface-lift);
+  color: var(--stone);
+  box-shadow: inset 0 0 0 1px var(--champagne);
+}
+.tab:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+.haStatus {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  color: var(--stone-muted);
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--champagne);
+  flex: none;
+}
+.dotOff {
+  background: var(--stone-faint);
+}
+
+.haDown {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-left: 3px solid var(--champagne);
+  border-radius: var(--button-radius);
+  background: var(--surface-lift);
+  font-size: 18px;
+}
+
+/* ---------- Twee kolommen ---------- */
+.ctl {
+  display: grid;
+  grid-template-columns: 1fr 440px;
+  gap: 32px;
+  min-height: 0;
+}
+
+.sectionLabel {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--stone-muted);
+  margin-bottom: 14px;
+}
+
+.noLight {
+  padding: 22px;
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  font-size: 18px;
+  color: var(--stone-muted);
+}
+
+/* ---------- Scènes ---------- */
+.scenes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.scene {
+  min-height: 150px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--card-radius);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+.scene:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.sceneBusy {
+  background: var(--surface-lift);
+  border-color: var(--champagne);
+  opacity: 1;
+}
+.scene:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+.sceneName {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+}
+.sceneDesc {
+  margin-top: 8px;
+  font-size: 17px;
+  color: var(--stone-muted);
+}
+.sceneState {
+  margin-top: auto;
+  min-height: 1.4em;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--champagne);
+}
+
+/* ---------- Muziek ---------- */
+.musicColumn {
+  display: flex;
+  flex-direction: column;
+}
+.music {
+  padding: 24px 28px;
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.mHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.mName {
+  font-size: 22px;
+  font-weight: 500;
+}
+.mState {
+  font-size: 18px;
+  color: var(--champagne);
+}
+.mStatePaused {
+  color: var(--stone-muted);
+}
+
+.mPlay {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.playBtn {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  border: none;
+  border-radius: 50%;
+  background: var(--champagne);
+  color: var(--warm-black);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.playBtn svg {
+  width: 32px;
+  height: 32px;
+}
+.playBtn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.playBtn:focus-visible {
+  outline: 3px solid var(--stone);
+  outline-offset: 4px;
+}
+.mHint {
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--stone-muted);
+}
+
+.volLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.volLabel span {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--stone-muted);
+}
+.volLabel strong {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.vol {
+  display: grid;
+  grid-template-columns: 72px 1fr 72px;
+  align-items: center;
+  gap: 16px;
+}
+.vBtn {
+  height: 72px;
+  border: none;
+  border-radius: var(--button-radius);
+  background: var(--surface-lift);
+  color: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.vBtn svg {
+  width: 26px;
+  height: 26px;
+}
+.vBtn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.vBtn:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+.bar {
+  height: 10px;
+  background: var(--surface-lift);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barFill {
+  height: 100%;
+  background: var(--champagne);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.allOff {
+  height: 72px;
+  width: 100%;
+  margin-top: 14px;
+  border: 1px solid var(--stone-faint);
+  border-radius: var(--button-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.allOff:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.allOff:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+/* ---------- Melding ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 6;
+  padding: 16px 26px;
+  border-radius: var(--button-radius);
+  background: var(--stone);
+  color: var(--warm-black);
+  font-size: 19px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translate(-50%, 16px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+.toastShow {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.toastError {
+  background: var(--champagne);
+}
+
+/* ---------- Telefoon ---------- */
+@media (max-width: 900px) {
+  .screen {
+    padding: 16px 16px 96px;
+    gap: 16px;
+  }
+  .top {
+    gap: 12px;
+  }
+  .tabs {
+    width: 100%;
+    order: 3;
+  }
+  .tab {
+    flex: 1;
+    padding: 0;
+    font-size: 18px;
+  }
+  .haStatus {
+    margin-left: auto;
+  }
+  .ctl {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .scenes {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .scene {
+    min-height: 120px;
+    padding: 16px;
+  }
+  .sceneName {
+    font-size: 24px;
+  }
+  .music {
+    padding: 18px 20px;
+  }
+  .playBtn {
+    width: 72px;
+    height: 72px;
+  }
+  .vol {
+    grid-template-columns: 64px 1fr 64px;
+  }
+  .vBtn {
+    height: 64px;
+  }
+}
