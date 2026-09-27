@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./_components/SettingsForm";
-import { CheckinPinForm } from "./_components/CheckinPinForm";
 import { OpeningHoursForm } from "./_components/OpeningHoursForm";
 import { AccessLockdownToggle } from "./_components/AccessLockdownToggle";
 import { ACCESS_CONFIG_ID } from "@/lib/access/constants";
@@ -128,9 +127,13 @@ export default async function AdminSettingsPage() {
         }}
       />
 
-      <div className="mt-16">
-        <CheckinPinForm isSet={Boolean(row.admin_checkin_pin_hash)} />
-      </div>
+      {/* De sectie voor de gedeelde check-in-PIN (CheckinPinForm) is
+          verborgen sinds fix/checkin-cookie-gate: /checkin vereist een
+          staff-login en leest geen PIN of cookie meer, dus een PIN zetten
+          zou niets doen. De RPC set_admin_checkin_pin en de kolom
+          admin_checkin_pin_hash blijven bestaan; de persoonlijke
+          trainer-PIN op de kiosk (discovery-kiosk-checkin.md, PR 2)
+          vervangt dit formulier. */}
 
       <div className="mt-16">
         <AccessLockdownToggle

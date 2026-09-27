@@ -6,6 +6,8 @@ import { createServerClient } from "@supabase/ssr";
  * op elke request, gate'd protected routes en redirect ingelogde users weg
  * van /login.
  */
+const PROTECTED_PREFIXES = ["/app", "/checkin", "/kiosk"] as const;
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -36,10 +38,17 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAppRoute = pathname === "/app" || pathname.startsWith("/app/");
+  // /checkin en /kiosk (staff-tablet) horen bij de beschermde routes:
+  // hun layouts eisen een staff-sessie, en alleen hier worden de ververste
+  // Supabase-cookies teruggeschreven (server components kunnen dat niet).
+  // Zonder deze regel verliep de tabletsessie zodra het access-token
+  // verliep (fix/checkin-cookie-gate).
+  const isProtectedRoute = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
   const isLoginRoute = pathname === "/login";
 
-  if (isAppRoute && !user) {
+  if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
@@ -57,7 +66,15 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Match app-routes en login. Overige paths zien we met rust — geen
-  // onnodige auth-checks op marketing pages of assets.
-  matcher: ["/app", "/app/:path*", "/login"],
+  // Match app-routes, de staff-tablet-routes en login. Overige paths zien
+  // we met rust: geen onnodige auth-checks op marketing pages of assets.
+  matcher: [
+    "/app",
+    "/app/:path*",
+    "/checkin",
+    "/checkin/:path*",
+    "/kiosk",
+    "/kiosk/:path*",
+    "/login",
+  ],
 };

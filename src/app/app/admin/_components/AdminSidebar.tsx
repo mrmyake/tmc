@@ -44,9 +44,9 @@ interface ExternalItem {
  * shell now"). Content↗ opent /studio in nieuw tabblad.
  *
  * Check-in↗ opent /checkin in nieuw tabblad, zelfde patroon als
- * Content. /checkin is en blijft een publieke route met eigen
- * PIN-gate; deze link wijzigt daar niets aan, hij bespaart Marlon
- * alleen het onthouden van de URL.
+ * Content. /checkin vereist sinds fix/checkin-cookie-gate dezelfde
+ * staff-login als /kiosk (geen PIN, geen cookie meer); de admin is hier
+ * al ingelogd, dus de link opent direct het paneel.
  */
 const DAILY: NavItem[] = [
   { href: "/app/admin", label: "Dashboard", icon: LayoutDashboard },

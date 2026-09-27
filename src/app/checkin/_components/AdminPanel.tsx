@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { RefreshCw, UserPlus, Undo2, LogOut, Search } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, RefreshCw, UserPlus, Undo2, Search } from "lucide-react";
 import {
   searchProfiles,
   getTodayCheckIns,
@@ -16,10 +17,6 @@ import {
 } from "@/lib/check-in/actions";
 import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
 
-interface Props {
-  onExit: () => void;
-}
-
 const PILLAR_LABELS: Record<string, string> = {
   yoga_mobility: "Yoga & Mobility",
   kettlebell: "Kettlebell",
@@ -28,7 +25,7 @@ const PILLAR_LABELS: Record<string, string> = {
   senior: "Senior",
 };
 
-export function AdminPanel({ onExit }: Props) {
+export function AdminPanel() {
   const [checkIns, setCheckIns] = useState<TodayCheckInRow[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AdminProfileRow[]>([]);
@@ -112,20 +109,20 @@ export function AdminPanel({ onExit }: Props) {
     <div className="flex-1 flex flex-col">
       <header className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-[color:var(--ink-500)]/60">
         <div>
-          <span className="tmc-eyebrow tmc-eyebrow--accent">Admin modus</span>
-          <p className="text-text-muted text-xs mt-1">
-            Sluit automatisch na 5 minuten inactiviteit.
-          </p>
+          {/* COPY: confirm met Marlon */}
+          <span className="tmc-eyebrow tmc-eyebrow--accent">Check-in</span>
         </div>
-        <button
-          type="button"
-          onClick={onExit}
+        {/* Geen vergrendel-knop meer: de tablet is ingelogd als staff en
+            gaat terug naar het kiosk-overzicht in plaats van naar een
+            PIN-scherm (fix/checkin-cookie-gate). */}
+        <Link
+          href="/kiosk"
           className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted hover:border-accent hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] cursor-pointer"
         >
-          <LogOut size={14} strokeWidth={1.5} />
+          <ArrowLeft size={14} strokeWidth={1.5} />
           {/* COPY: confirm met Marlon */}
-          Vergrendel
-        </button>
+          Naar kiosk
+        </Link>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6 p-6 md:p-10">

@@ -1,17 +1,12 @@
-import { CheckInTablet } from "./_components/CheckInTablet";
-import { cookies } from "next/headers";
+import { AdminPanel } from "./_components/AdminPanel";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Publieke tablet-route. Geen auth — de tablet staat fysiek in de
- * studio; fraud-threat is laag. Admin-modus ontgrendelt via PIN,
- * sessie via httpOnly cookie tmc_admin_unlock (5 min TTL).
+ * Staff-tablet-route. De layout eist een ingelogde admin of trainer; er is
+ * geen PIN-scherm en geen cookie meer (fix/checkin-cookie-gate). Het
+ * paneel zelf is ongewijzigd: zoeken, inchecken, walk-in, undo.
  */
-export default async function CheckinPage() {
-  const cookieStore = await cookies();
-  const adminUnlocked =
-    cookieStore.get("tmc_admin_unlock")?.value === "1";
-
-  return <CheckInTablet adminUnlocked={adminUnlocked} />;
+export default function CheckinPage() {
+  return <AdminPanel />;
 }
