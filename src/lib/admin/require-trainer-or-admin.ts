@@ -4,7 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type RequireTrainerOrAdminResult =
   | { ok: true; userId: string; actorType: "admin" | "trainer" }
-  | { ok: false; message: string };
+  // reason (additief, spec-kiosk-room-control.md PR 2): "unauthenticated"
+  // is niet ingelogd (HTTP 401-equivalent), "forbidden" is ingelogd maar
+  // geen staff (403-equivalent). Bestaande callers lezen alleen ok/message.
+  | { ok: false; reason: "unauthenticated" | "forbidden"; message: string };
 
 /**
  * PT-agenda C3: gedeelde gate voor acties die een admin OF een actieve
@@ -21,7 +24,7 @@ export async function requireTrainerOrAdmin(): Promise<RequireTrainerOrAdminResu
     data: { user },
   } = await supabase.auth.getUser();
   // COPY: confirm met Marlon
-  if (!user) return { ok: false, message: "Je bent uitgelogd." };
+  if (!user) return { ok: false, reason: "unauthenticated", message: "Je bent uitgelogd." };
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -43,7 +46,7 @@ export async function requireTrainerOrAdmin(): Promise<RequireTrainerOrAdminResu
     .maybeSingle();
   if (!trainer) {
     // COPY: confirm met Marlon
-    return { ok: false, message: "Geen toegang." };
+    return { ok: false, reason: "forbidden", message: "Geen toegang." };
   }
   return { ok: true, userId: user.id, actorType: "trainer" };
 }
