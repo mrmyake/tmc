@@ -63,6 +63,17 @@ export const MAILERSEND_TIMEOUT_MS = 10_000;
 export const AKILES_TIMEOUT_MS = 4_000;
 export const NTFY_TIMEOUT_MS = 5_000;
 export const GA4_TIMEOUT_MS = 5_000;
+/**
+ * Home Assistant (spec-kiosk-room-control.md), via Nabu Casa Remote UI.
+ * Niet gemeten op live verkeer: Remote UI staat op het moment van deze PR
+ * nog uit (discovery-kiosk-room-control.md, stap 0), dus er is geen
+ * curl-reeks om op te baseren zoals bij de andere waarden hierboven. 4 s,
+ * gelijk aan Akiles, is een analogie: een enkele call naar een cloud-relay
+ * die op zijn beurt lokaal doorschakelt naar de studio, vergelijkbare vorm
+ * als Akiles' REST-call. Herzie deze waarde zodra Remote UI actief is en
+ * er een echte latentiemeting ligt.
+ */
+export const HA_TIMEOUT_MS = 4_000;
 
 /**
  * Fout die withTimeout() oplevert. `code` is bewust "ETIMEDOUT": de

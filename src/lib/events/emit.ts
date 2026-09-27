@@ -110,7 +110,13 @@ export type EventType =
   | "access.device_token_issued"
   | "access.device_token_revoked"
   // Uitlogpad: meegestuurd token-id of pushtoken hoort niet bij de sessie (device-cleanup-core.ts)
-  | "access.device_cleanup_rejected";
+  | "access.device_cleanup_rejected"
+  // Zaalbediening licht en Sonos vanaf de kiosk (spec-kiosk-room-control.md,
+  // src/lib/home-assistant.ts). Alleen TS-uitbreiding: tmc.events checkt
+  // enkel actor_type, geen migratie nodig.
+  | "room.scene_activated"
+  | "room.sonos_adjusted"
+  | "room.control_failed";
 
 export type ActorType =
   | "member"
@@ -135,7 +141,10 @@ export type SubjectType =
   | "guest_booking"
   | "trainer_hours"
   | "check_in"
-  | "trial_booking";
+  | "trial_booking"
+  // Zaalbediening: zalen hebben geen eigen rij/uuid, dus subject_id blijft
+  // null bij dit subject_type.
+  | "room";
 
 export interface EmitEventInput {
   type: EventType;
