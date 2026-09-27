@@ -388,3 +388,274 @@
   font-size: 16px;
   color: var(--stone-muted);
 }
+
+/* ---------- Slotscherm (check-in PR 2; mockups/kiosk-prototype.html, scherm Slot) ---------- */
+.lockScreen {
+  display: grid;
+  grid-template-columns: 1fr 520px;
+  height: 100%;
+  min-height: 0;
+}
+.lockInfo {
+  padding: 52px 48px 40px;
+  border-right: 1px solid var(--stone-faint);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.lockFlag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--champagne);
+  margin-bottom: 22px;
+}
+.lockFlag svg {
+  width: 20px;
+  height: 20px;
+}
+.lockTitle {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 60px;
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+}
+.lockSub {
+  font-size: 22px;
+  color: var(--stone-muted);
+}
+.lockList {
+  margin-top: auto;
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sectionLabelKiosk {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--stone-muted);
+  margin-bottom: 6px;
+}
+.lockEmpty {
+  font-size: 18px;
+  color: var(--stone-muted);
+}
+.lockRow {
+  min-height: 64px;
+  padding: 0 22px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--card-radius);
+  color: var(--stone);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.lockRowOn {
+  background: var(--surface-lift);
+  border-color: var(--champagne);
+}
+.lockRow:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+.pin {
+  padding: 44px 56px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+}
+.pin .sectionLabelKiosk {
+  margin-bottom: 18px;
+}
+.pinDots {
+  display: flex;
+  gap: 22px;
+  margin-bottom: 16px;
+}
+.pinDots span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--stone-muted);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pinDotFilled {
+  background: var(--champagne);
+  border-color: var(--champagne) !important;
+}
+.pinDotsShake {
+  animation: shake 0.35s ease;
+}
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-10px);
+  }
+  40%,
+  80% {
+    transform: translateX(10px);
+  }
+}
+.pinMsg {
+  min-height: 28px;
+  margin-bottom: 18px;
+  font-size: 19px;
+  color: var(--stone-muted);
+  text-align: center;
+}
+.pinMsgErr {
+  color: var(--champagne);
+}
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 120px);
+  gap: 16px;
+}
+.keypadOff {
+  opacity: 0.35;
+}
+.key {
+  height: 88px;
+  border: none;
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  color: var(--stone);
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 36px;
+  font-weight: 400;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.key:active {
+  background: var(--surface-lift);
+}
+.key:disabled {
+  cursor: default;
+}
+.key:focus-visible {
+  outline: 3px solid var(--champagne);
+  outline-offset: 3px;
+}
+.keyAux {
+  background: transparent;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 18px;
+  color: var(--stone-muted);
+}
+.key svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* ---------- Niet gekoppeld, koppelen, paneel ---------- */
+.notPaired,
+.pairScreen {
+  padding: 52px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+}
+.inlineLink {
+  color: var(--champagne);
+  text-decoration: underline;
+}
+.pairTitle {
+  font-family: var(--font-kiosk-serif), Georgia, serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+.pairSub {
+  font-size: 20px;
+  color: var(--stone-muted);
+}
+.pairWarn {
+  font-size: 18px;
+  color: var(--champagne);
+}
+.pairOk {
+  font-size: 18px;
+  color: var(--stone);
+}
+.pairForm {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+}
+.pairInput {
+  flex: 1;
+  height: 64px;
+  padding: 0 18px;
+  background: var(--surface);
+  border: 1px solid var(--stone-faint);
+  border-radius: var(--button-radius);
+  color: var(--stone);
+  font: inherit;
+  font-size: 20px;
+}
+.pairForm .cta {
+  width: auto;
+  height: 64px;
+  padding: 0 28px;
+  font-size: 20px;
+}
+.panelBody {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+@media (max-width: 900px) {
+  .lockScreen {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    overflow-y: auto;
+  }
+  .lockInfo {
+    padding: 24px 16px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--stone-faint);
+    overflow: visible;
+  }
+  .lockTitle {
+    font-size: 40px;
+  }
+  .lockList {
+    margin-top: 20px;
+  }
+  .pin {
+    padding: 20px 16px 32px;
+    overflow: visible;
+  }
+  .keypad {
+    grid-template-columns: repeat(3, minmax(0, 96px));
+    gap: 12px;
+  }
+  .key {
+    height: 72px;
+    font-size: 30px;
+  }
+  .notPaired,
+  .pairScreen {
+    padding: 24px 16px;
+  }
+  .pairForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

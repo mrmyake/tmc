@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Fraunces } from "next/font/google";
-import { createClient } from "@/lib/supabase/server";
+import { requireKioskActor } from "@/lib/kiosk/gate";
+import { KIOSK_FAIL_COPY } from "@/lib/kiosk/gate-core";
+import { listKioskStaff } from "@/lib/kiosk/actions";
+import { KioskLock } from "./_components/KioskLock";
+import { KioskSessionGuard } from "./_components/KioskSessionGuard";
 import styles from "./kiosk.module.css";
 
 export const metadata: Metadata = {
@@ -13,11 +17,8 @@ export const dynamic = "force-dynamic";
 
 // Fraunces-gewicht 300 (clock, now-time in de mockup) zit niet in de
 // site-brede Fraunces-load (src/app/layout.tsx laadt bewust alleen
-// 400/500, zie het commentaar daar: "Fraunces needs weight 400+ to stay
-// sharp"). Een eigen, aan /kiosk gebonden font-load houdt de rest van de
-// site op dat budget en geeft alleen deze route de exacte
-// mockup-typografie. Zie de PR-body voor de vraag of gewicht 300 hier
-// bewust is, gegeven die eerdere leesbaarheidsafweging.
+// 400/500). Een eigen, aan /kiosk gebonden font-load houdt de rest van de
+// site op dat budget.
 const kioskSerif = Fraunces({
   subsets: ["latin"],
   weight: ["300", "400"],
@@ -26,45 +27,57 @@ const kioskSerif = Fraunces({
 });
 
 /**
- * Zelfde auth-/rolcheck als /app/trainer/**: ingelogde admin of actieve
- * trainer. Geen eigen auth-laag, geen device-token, geen publieke
- * toegang. Publiek uitgesloten via robots.txt (DISALLOW), net als
- * /checkin. Geen MemberNav, bottom-tabs of marketing-chrome: SiteShell
- * slaat die op basis van pathname over (zie src/components/layout/
- * SiteShell.tsx), zelfde patroon als /checkin daar.
+ * Eén gate voor alle /kiosk-schermen (check-in PR 2, requireKioskActor):
+ *  - staff-login (telefoon van de trainer): gewoon door, geen PIN;
+ *  - gekoppeld apparaat met geldige kiosk-sessie: door, plus de
+ *    sessiebewaker (60-secondencontrole zonder verlenging, 10 minuten
+ *    inactief is vergrendelen);
+ *  - gekoppeld apparaat zonder sessie: het slotscherm (naam, dan PIN);
+ *  - geen apparaat en geen login: alleen de melding dat het apparaat niet
+ *    gekoppeld is, met de koppelroute voor een ingelogde admin.
+ * Renderen verlengt nooit (extend: false); alleen acties doen dat.
  */
 export default async function KioskLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // ?next=/kiosk zodat een her-login op de tablet weer op /kiosk landt
-  // i.p.v. op de rol-standaard uit roleRedirect() (voor een admin zonder
-  // eigen trainers-rij is dat /app/admin, dat AdminMobileBlock geeft op
-  // tabletbreedte). Zelfde next-mechanisme als /auth/callback en
-  // verifyLoginOtp al ondersteunen voor elke andere expliciete interne
-  // route.
-  if (!user) redirect("/login?next=/kiosk");
+  const actor = await requireKioskActor({ extend: false });
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  // Admin is een superset en mag hier binnen, zelfde uitzondering als
-  // /app/trainer/layout.tsx.
-  if (!profile || (profile.role !== "trainer" && profile.role !== "admin")) {
-    redirect("/app");
+  let body: React.ReactNode;
+  if (actor.ok) {
+    body = (
+      <>
+        {children}
+        {actor.via === "kiosk" && <KioskSessionGuard />}
+      </>
+    );
+  } else if (
+    actor.reason === "device_not_paired" ||
+    actor.reason === "device_revoked" ||
+    actor.reason === "not_configured"
+  ) {
+    body = (
+      <section className={styles.notPaired}>
+        {/* COPY: confirm met Marlon */}
+        <h1 className={styles.lockTitle}>Apparaat niet gekoppeld</h1>
+        <p className={styles.lockSub}>{KIOSK_FAIL_COPY[actor.reason]}</p>
+        {/* COPY: confirm met Marlon */}
+        <p className={styles.lockSub}>
+          Een admin koppelt de tablet via <Link href="/login?next=/kiosk/koppelen" className={styles.inlineLink}>inloggen</Link>, daarna
+          werkt ontgrendelen met een pincode.
+        </p>
+      </section>
+    );
+  } else {
+    const staff = await listKioskStaff();
+    body = (
+      <KioskLock
+        staff={staff}
+        message={actor.reason === "pin_changed" ? KIOSK_FAIL_COPY.pin_changed : null}
+      />
+    );
   }
 
-  return (
-    <div className={`${styles.kiosk} ${kioskSerif.variable}`}>
-      {children}
-    </div>
-  );
+  return <div className={`${styles.kiosk} ${kioskSerif.variable}`}>{body}</div>;
 }

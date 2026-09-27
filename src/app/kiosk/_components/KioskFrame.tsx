@@ -37,9 +37,15 @@ function sessionHref(id: string) {
 export function KioskFrame({
   now,
   sessions,
+  showControl = true,
+  lockable = false,
 }: {
   now: Date;
   sessions: KioskSession[];
+  /** "Licht en geluid" alleen bij een staff-login (controlRoom zit nog op die gate). */
+  showControl?: boolean;
+  /** Vergrendelknop alleen onder een kiosk-sessie. */
+  lockable?: boolean;
 }) {
   const nowMs = now.getTime();
   const active = sessions.find(
@@ -55,7 +61,7 @@ export function KioskFrame({
 
   return (
     <div className={styles.frame}>
-      <KioskHeader current="vandaag" controlHref={controlHref}>
+      <KioskHeader current="vandaag" controlHref={controlHref} showControl={showControl} lockable={lockable}>
         {/* COPY: confirm met Marlon */}
         <div className={styles.todayDate}>{dateFmt.format(now)}</div>
         <div className={styles.clock}>{timeFmt.format(now)}</div>

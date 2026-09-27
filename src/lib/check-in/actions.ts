@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { asStaffGate, requireKioskActor } from "@/lib/kiosk/gate";
 import {
   checkInByProfileIdCore,
   createWalkInProfileCore,
@@ -26,15 +26,19 @@ export type {
 } from "./core";
 
 /**
- * Server actions voor check-in. Elke actie is gate-eerst: requireTrainerOrAdmin()
- * (ingelogde admin of actieve trainer, TS-spiegel van tmc.is_staff()) en
- * daarna de kern in core.ts met de echte deps. Er is geen tweede
- * autorisatiepad meer: het ongetekende cookie tmc_admin_unlock uit de oude
- * /checkin-PIN-flow is verwijderd (fix/checkin-cookie-gate), samen met de
- * dode self-mode-exports lookupByIdentifier en checkInByIdentifier.
+ * Server actions voor check-in. Elke actie is gate-eerst: de kiosk-gate
+ * requireKioskActor() (check-in PR 2): een ingelogde admin of actieve
+ * trainer, óf een gekoppeld apparaat met een geldige, getekende
+ * kiosk-sessie (naam plus PIN). Beide geven het echte staflid-id. Elke
+ * aanroep hier is door de gebruiker gestart en verlengt de sessie. Daarna
+ * de kern in core.ts met de echte deps.
  */
 function liveDeps(): CheckInDeps {
   return { admin: createAdminClient(), emit: emitEvent, revalidate: revalidatePath };
+}
+
+async function kioskGate() {
+  return asStaffGate(await requireKioskActor());
 }
 
 /** Staff checkt iemand anders in vanaf /checkin of /app/admin. */
@@ -46,7 +50,7 @@ export async function checkInByProfileId(input: {
   method?: CheckInMethod;
   notes?: string;
 }): Promise<CheckInResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await kioskGate();
   return checkInByProfileIdCore(gate, liveDeps(), input);
 }
 
@@ -54,7 +58,7 @@ export async function checkInByProfileId(input: {
 export async function undoCheckIn(
   checkInId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await kioskGate();
   return undoCheckInCore(gate, liveDeps(), checkInId);
 }
 
@@ -65,7 +69,7 @@ export async function createWalkInProfile(input: {
   phoneRaw: string;
   email?: string;
 }): Promise<{ ok: true; profileId: string } | { ok: false; message: string }> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await kioskGate();
   return createWalkInProfileCore(gate, liveDeps(), input);
 }
 
@@ -74,12 +78,12 @@ export async function getCheckInsThisWeek(
   profileId: string,
   pillar: string,
 ): Promise<number> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await kioskGate();
   return getCheckInsThisWeekCore(gate, liveDeps(), profileId, pillar);
 }
 
 /** Alle check-ins van vandaag (Amsterdam-dag), nieuwste eerst. */
 export async function getTodayCheckIns(): Promise<TodayCheckIn[]> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await kioskGate();
   return getTodayCheckInsCore(gate, liveDeps());
 }

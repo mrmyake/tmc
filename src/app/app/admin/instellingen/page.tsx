@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./_components/SettingsForm";
 import { OpeningHoursForm } from "./_components/OpeningHoursForm";
 import { AccessLockdownToggle } from "./_components/AccessLockdownToggle";
+import { KioskSettings } from "./_components/KioskSettings";
+import { listKioskDevices, listStaffPins } from "@/lib/admin/kiosk-admin-actions";
 import { ACCESS_CONFIG_ID } from "@/lib/access/constants";
 import { isAkilesConfigured } from "@/lib/akiles";
 import {
@@ -36,7 +38,6 @@ export default async function AdminSettingsPage() {
            booking_window_days, waitlist_confirmation_minutes,
            fair_use_daily_max, no_show_strike_window_days,
            no_show_strike_threshold, no_show_block_days,
-           admin_checkin_pin_hash,
            check_in_enabled, check_in_pillars, no_show_release_minutes`,
         )
         .eq("id", "singleton")
@@ -57,6 +58,7 @@ export default async function AdminSettingsPage() {
         .maybeSingle(),
       isAkilesConfigured(),
     ]);
+  const [staffPins, kioskDevices] = await Promise.all([listStaffPins(), listKioskDevices()]);
 
   const openingHoursRows: OpeningHoursRowInput[] = (hoursData ?? []).map(
     (r) => ({
@@ -127,13 +129,9 @@ export default async function AdminSettingsPage() {
         }}
       />
 
-      {/* De sectie voor de gedeelde check-in-PIN (CheckinPinForm) is
-          verborgen sinds fix/checkin-cookie-gate: /checkin vereist een
-          staff-login en leest geen PIN of cookie meer, dus een PIN zetten
-          zou niets doen. De RPC set_admin_checkin_pin en de kolom
-          admin_checkin_pin_hash blijven bestaan; de persoonlijke
-          trainer-PIN op de kiosk (discovery-kiosk-checkin.md, PR 2)
-          vervangt dit formulier. */}
+      <div className="mt-16">
+        <KioskSettings staff={staffPins} devices={kioskDevices} />
+      </div>
 
       <div className="mt-16">
         <AccessLockdownToggle

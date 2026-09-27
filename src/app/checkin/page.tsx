@@ -1,12 +1,12 @@
-import { AdminPanel } from "./_components/AdminPanel";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Staff-tablet-route. De layout eist een ingelogde admin of trainer; er is
- * geen PIN-scherm en geen cookie meer (fix/checkin-cookie-gate). Het
- * paneel zelf is ongewijzigd: zoeken, inchecken, walk-in, undo.
+ * /checkin bestaat alleen nog als bladwijzer op de tablet: de kiosk op
+ * /kiosk heeft het slotscherm en (tot PR 5) het paneel op /kiosk/paneel.
+ * Check-in-spoor PR 2.
  */
 export default function CheckinPage() {
-  return <AdminPanel />;
+  redirect("/kiosk");
 }

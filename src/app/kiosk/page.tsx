@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
+import { requireKioskActor } from "@/lib/kiosk/gate";
 import {
   amsterdamYmd,
   zonedWallClockToUtc,
@@ -25,14 +25,16 @@ interface SessionRow {
 /**
  * /kiosk: vandaag-weergave voor de muurtablet, tweede ingang naar
  * dezelfde deelnemerslijst/markAttendance() als /app/trainer/sessies/[id].
- * Geen nieuwe incheck-logica hier. Admin ziet alle sessies van vandaag;
- * een trainer ziet wat resolveTrainerScope haar geeft (eigen sessies).
+ * Geen nieuwe incheck-logica hier. Sinds check-in PR 2 komt de actor uit
+ * de kiosk-gate (staff-login óf apparaat plus kiosk-sessie); een admin ziet
+ * alle sessies van vandaag, een trainer de eigen (via de trainers-rij op
+ * het staflid-id). Renderen verlengt de sessie niet.
  */
 export default async function KioskPage() {
-  const scope = await resolveTrainerScope();
+  const actor = await requireKioskActor({ extend: false });
   // Layout gate al af; dit is defensief voor het geval de sessie
   // tussentijds wegvalt.
-  if (!scope.ok) redirect("/app");
+  if (!actor.ok) redirect("/kiosk");
 
   const now = new Date();
   const admin = createAdminClient();
@@ -40,10 +42,19 @@ export default async function KioskPage() {
   const dayStart = zonedWallClockToUtc(year, month, day, 0, 0);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
 
-  const trainerFilterId = scope.isAdmin ? null : scope.selectedTrainerId;
+  let trainerFilterId: string | null = null;
+  if (actor.actorType !== "admin") {
+    const { data: trainer } = await admin
+      .from("trainers")
+      .select("id")
+      .eq("profile_id", actor.userId)
+      .eq("is_active", true)
+      .maybeSingle();
+    trainerFilterId = trainer?.id ?? null;
+  }
   // Trainer zonder (actieve) eigen trainers-rij: niets te tonen, geen
   // query nodig.
-  const skipQuery = !scope.isAdmin && !trainerFilterId;
+  const skipQuery = actor.actorType !== "admin" && !trainerFilterId;
 
   let sessions: KioskSession[] = [];
 
@@ -76,12 +87,8 @@ export default async function KioskPage() {
             .in("session_id", sessionIds)
             .eq("status", "booked")
         : Promise.resolve({ data: [] as { session_id: string }[] }),
-      // Ingecheckt-aantal komt uit tmc.check_ins, niet bookings.attended_at:
-      // de admin-tablet (/checkin) schrijft attended_at niet. Zie de
-      // PR-body voor de bevestiging dat een sessie-gebonden check_ins-rij
-      // vandaag uitsluitend via markAttendance() ontstaat (dus via precies
-      // deze deelnemerslijst), dus deze telling loopt niet uit de pas met
-      // wat de trainer net heeft afgevinkt.
+      // Ingecheckt-aantal komt uit tmc.check_ins, niet bookings.attended_at;
+      // sessie-gebonden check-ins ontstaan uitsluitend via de kern uit #214.
       sessionIds.length
         ? admin
             .from("check_ins")
@@ -121,5 +128,12 @@ export default async function KioskPage() {
     });
   }
 
-  return <KioskFrame now={now} sessions={sessions} />;
+  return (
+    <KioskFrame
+      now={now}
+      sessions={sessions}
+      showControl={actor.via === "login"}
+      lockable={actor.via === "kiosk"}
+    />
+  );
 }
