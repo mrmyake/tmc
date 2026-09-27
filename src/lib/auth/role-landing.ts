@@ -1,4 +1,14 @@
+import "server-only";
 import type { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  ADMIN_LANDING,
+  MEMBER_LANDING,
+  TRAINER_LANDING,
+  safeNextPath,
+} from "./safe-next";
+
+export { ADMIN_LANDING, MEMBER_LANDING, TRAINER_LANDING, safeNextPath };
 
 /** De cookie-aware SSR-client uit lib/supabase/server.ts (leest onder RLS). */
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -18,27 +28,11 @@ type ServerClient = Awaited<ReturnType<typeof createClient>>;
  *   een inactieve trainer op, geen losse is_active-check hier)
  * - anders: /app (ledenlanding sinds de landing-flip van 2026-07-12)
  */
-export const MEMBER_LANDING = "/app";
-export const TRAINER_LANDING = "/app/trainer/agenda";
-export const ADMIN_LANDING = "/app/admin";
-
 /**
- * Alleen interne paden accepteren voor `next` (voorkom open-redirect):
- * moet met "/" beginnen en mag niet met "//" beginnen (protocol-relatieve
- * URL). De bare ledenlanding telt als "geen next": wie daarmee binnenkomt
- * krijgt de rol-default, zodat een niet-lid met next=/app niet op de
- * ledenlanding strandt.
- */
-export function safeNextPath(next: string | null | undefined): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next === MEMBER_LANDING ? null : next;
-}
-
-/**
- * Landing op basis van de profielrol. Leest met de meegegeven client, dus
- * onder RLS als de ingelogde gebruiker (profiles_self_read en de eigen
- * trainers-rij zijn leesbaar). Zonder profiel valt het terug op de
- * ledenlanding.
+ * Landing op basis van de profielrol. Het profiel wordt met de meegegeven
+ * client gelezen (onder RLS als de ingelogde gebruiker); de trainers-lookup
+ * voor admins via de service role, zie hieronder. Zonder profiel valt het
+ * terug op de ledenlanding.
  */
 export async function resolveRoleLanding(
   supabase: ServerClient,
@@ -53,7 +47,11 @@ export async function resolveRoleLanding(
   const role = profile?.role as string | null | undefined;
 
   if (role === "admin") {
-    const { data: trainerRow } = await supabase
+    // Via de service-role-client, zoals requireTrainerOrAdmin
+    // (fix/trainer-rls-lockdown): stafbepaling in de app hangt niet van de
+    // kolom-grants op tmc.trainers af. Alleen-lezen, alleen voor een admin.
+    const admin = createAdminClient();
+    const { data: trainerRow } = await admin
       .from("trainers")
       .select("id")
       .eq("profile_id", userId)

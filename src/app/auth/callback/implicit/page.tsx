@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { safeNextPath } from '@/lib/auth/role-landing'
+import { safeNextPath } from '@/lib/auth/safe-next'
 
 // useSearchParams bail-out vereist een Suspense-boundary bij static
 // export. Pagina moet sowieso client-side draaien voor de hash-fragment
