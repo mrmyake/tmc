@@ -11,6 +11,7 @@ import {
   type AcquisitionInput,
 } from "@/lib/acquisition";
 import { cleanupDeviceOnSignOut } from "@/lib/member/device-cleanup";
+import { postLoginTarget } from "@/lib/auth/role-landing";
 
 /**
  * Uitloggen, met het opruimpad voor device-credentials (E1,
@@ -49,26 +50,6 @@ export type VerifyOtpResult =
   | { ok: false; error: string };
 
 /**
- * Post-login landing per rol. Zelfde mapping als
- * src/app/auth/callback/route.ts (die route blijft bestaan voor
- * trainer-invites en de seed-workflow, dus de mapping leeft op twee
- * plekken; wijzig ze samen).
- *
- * PT-agenda PR D: zie de uitgebreide toelichting bij de tegenhanger in
- * auth/callback/route.ts.
- */
-function roleRedirect(
-  role: string | null | undefined,
-  adminHasActiveTrainerRow: boolean,
-): string {
-  if (role === "admin") {
-    return adminHasActiveTrainerRow ? "/app/trainer/agenda" : "/app/admin";
-  }
-  if (role === "trainer") return "/app/trainer/agenda";
-  return "/app";
-}
-
-/**
  * Verifieert een 6-cijferige e-mail-OTP en zet de sessie-cookies.
  *
  * Waarom een server action en geen directe client-side verifyOtp:
@@ -93,15 +74,6 @@ function roleRedirect(
  * IP-limiet. Geaccepteerd op deze schaal; de korte expiry en de
  * codelengte houden de slaagkans ook dan verwaarloosbaar.
  */
-/**
- * Alleen interne paths accepteren voor `next` (voorkom open-redirect).
- * Zelfde validatie als src/app/auth/callback/route.ts — wijzig ze samen.
- */
-function safeNextPath(next: string | undefined | null): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next === "/app" ? null : next;
-}
-
 export async function verifyLoginOtp(
   email: string,
   token: string,
@@ -192,29 +164,14 @@ export async function verifyLoginOtp(
   // Mag de login nooit blokkeren: de helper throwt niet en logt alleen.
   await recordAcquisitionOnLogin(supabase, data.session.user.id, acquisition);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", data.session.user.id)
-    .maybeSingle();
-
-  let adminHasActiveTrainerRow = false;
-  if (profile?.role === "admin") {
-    const { data: trainerRow } = await supabase
-      .from("trainers")
-      .select("id")
-      .eq("profile_id", data.session.user.id)
-      .eq("is_active", true)
-      .maybeSingle();
-    adminHasActiveTrainerRow = trainerRow !== null;
-  }
-
-  const safeNext = safeNextPath(next);
-  return {
-    ok: true,
-    redirectTo:
-      safeNext ?? roleRedirect(profile?.role, adminHasActiveTrainerRow),
-  };
+  // Landing per rol, of een veilige expliciete `next` (gedeelde helper,
+  // zelfde regels als /auth/callback, /auth/confirm en /login).
+  const redirectTo = await postLoginTarget(
+    supabase,
+    data.session.user.id,
+    next,
+  );
+  return { ok: true, redirectTo };
 }
 
 async function lookupProfileId(email: string): Promise<string | null> {

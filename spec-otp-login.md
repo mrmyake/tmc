@@ -107,6 +107,27 @@ Smoke test results: existing-member login end-to-end in browser (role redirect t
 **Ledger.**
 
 - **PR #173, 2026-09-08.** `/login` zet `shouldCreateUser: false`, behandelt `otp_disabled` als succes met een neutrale bevestigingstekst en toont permanent een verwijzing naar `/abonnement`; `IdentifyStage` krijgt alleen een comment. Bewust niet aangeraakt: `IdentifyStage`-gedrag, Supabase-config (`disable_signup`, rate limits), `/auth/callback` en de invite-flows, de 32 bestaande profielen zonder membership.
+- **PR #TBD, 2026-09-27 (fix/trainer-invite-landing).** Eén gedeelde landing-helper `src/lib/auth/role-landing.ts` (`safeNextPath`, `resolveRoleLanding`, `postLoginTarget`) vervangt de dubbele `roleRedirect`-kopieën in `verifyLoginOtp` en `/auth/callback`; `/login` met bestaande sessie bepaalt de landing nu zelf per rol (de proxy-redirect naar `/app` die ook `next` weggooide is weg); nieuwe server-route `/auth/confirm?token_hash=...&type=invite|magiclink` voor de trainer-invite (inviteUserByEmail kent geen PKCE, dus `/auth/callback` kan die link niet verwerken); de implicit-fallback valideert `next` met dezelfde helper; `/app` stuurt rol `trainer` door naar `/app/trainer/agenda`; "Trainer view" in de switchers wijst naar de agenda. Bewust niet aangeraakt: `inviteTrainer()` krijgt geen `redirectTo` (geen tokens in de URL als standaardpad), de implicit-pagina blijft bestaan voor het seed-script, member-routes zoals `/app/rooster` blijven voor trainers bereikbaar, de Supabase-config wordt pas na merge en deploy gewijzigd (zie hieronder), geen migraties.
+
+**Template "Invite user" (live config, wijziging na merge en deploy van bovenstaande PR, uitsluitend de link).** Stand op 2026-09-27, gelezen via `GET /v1/projects/<ref>/config/auth`, veld `mailer_templates_invite_content` (Supabase-default, onderwerp `mailer_subjects_invite` = "You have been invited", ongewijzigd):
+
+```html
+<h2>You have been invited</h2>
+
+<p>You have been invited to create a user on {{ .SiteURL }}. Follow this link to accept the invite:</p>
+<p><a href="{{ .ConfirmationURL }}">Accept the invite</a></p>
+```
+
+Nieuwe waarde (alleen `{{ .ConfirmationURL }}` vervangen door de token_hash-link naar `/auth/confirm`; onderwerp en tekst gelijk):
+
+```html
+<h2>You have been invited</h2>
+
+<p>You have been invited to create a user on {{ .SiteURL }}. Follow this link to accept the invite:</p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Accept the invite</a></p>
+```
+
+Waarom: met `{{ .ConfirmationURL }}` bevestigt Supabase's verify-endpoint de invite zelf en stuurt de browser met de sessie in het URL-fragment (implicit flow, `login_method: implicit` in de auth-logs) naar de Site URL, dus de homepage, zonder rolbepaling. Met de token_hash-link verifieert `/auth/confirm` server-side, zet de cookies en landt de trainer via `role-landing.ts` op de agenda. De allow list hoeft niet aangepast: `https://www.themovementclub.nl/**` staat er al op. Zolang de template nog op de oude waarde staat, werkt de invite-mail als voorheen (sessie op de homepage); de trainer komt dan via `/login` of `/app` alsnog op de agenda uit.
 
 ---
 

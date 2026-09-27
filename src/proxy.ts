@@ -3,8 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 
 /**
  * Next 16 proxy (voorheen middleware). Ververst de Supabase sessie-cookies
- * op elke request, gate'd protected routes en redirect ingelogde users weg
- * van /login.
+ * op elke request en gate'd protected routes.
  */
 const PROTECTED_PREFIXES = ["/app", "/checkin", "/kiosk"] as const;
 /** Kiosk-routes: wel cookies verversen, geen redirect naar /login zonder user. */
@@ -52,19 +51,16 @@ export async function proxy(request: NextRequest) {
   const isKioskRoute = KIOSK_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-  const isLoginRoute = pathname === "/login";
+  // /login met sessie wordt hier bewust NIET meer omgeleid: de pagina zelf
+  // bepaalt de landing per rol via src/lib/auth/role-landing.ts en houdt
+  // daarbij een expliciete `next` in stand (de proxy gooide die weg en
+  // stuurde iedereen, ook trainers, naar /app). /login blijft wel in de
+  // matcher zodat de sessie-cookies ververst worden.
 
   if (isProtectedRoute && !isKioskRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (isLoginRoute && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/app";
-    url.search = "";
     return NextResponse.redirect(url);
   }
 

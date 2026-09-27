@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { safeNextPath } from '@/lib/auth/role-landing'
 
 // useSearchParams bail-out vereist een Suspense-boundary bij static
 // export. Pagina moet sowieso client-side draaien voor de hash-fragment
@@ -31,7 +32,10 @@ function ImplicitCallback() {
       const hash = new URLSearchParams(window.location.hash.substring(1))
       const access_token = hash.get('access_token')
       const refresh_token = hash.get('refresh_token')
-      const next = params.get('next') ?? '/app'
+      // Alleen interne paden volgen (gedeelde validatie uit
+      // role-landing.ts); zonder geldige next naar de ledenlanding. Het
+      // seed-script gebruikt deze pagina met next=/app.
+      const next = safeNextPath(params.get('next')) ?? '/app'
 
       if (!access_token || !refresh_token) {
         router.replace('/login?error=no_tokens')

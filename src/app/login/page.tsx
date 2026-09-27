@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { postLoginTarget, safeNextPath } from "@/lib/auth/role-landing";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -11,8 +12,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Deze error-keys komen uit /auth/callback (die route blijft bestaan
-// voor trainer-invites en de seed-workflow) en dekken dus link-flows,
+// Deze error-keys komen uit /auth/callback (PKCE, seed-workflow) en
+// /auth/confirm (token_hash, trainer-invites) en dekken dus link-flows,
 // niet de OTP-flow; OTP-fouten rendert LoginForm zelf inline.
 // COPY: confirm with Marlon
 const ERROR_MESSAGES: Record<string, string> = {
@@ -33,25 +34,23 @@ export default async function LoginPage({
     ? ERROR_MESSAGES[errorKey] ?? ERROR_MESSAGES.unknown
     : undefined;
 
-  // Alleen interne paths accepteren voor `next` (voorkom open-redirect) —
-  // zelfde validatie als src/app/auth/callback/route.ts en
-  // verifyLoginOtp in lib/actions/auth.ts.
-  const safeNext =
-    params.next && params.next.startsWith("/") && !params.next.startsWith("//")
-      ? params.next
-      : undefined;
+  // Alleen interne paths accepteren voor `next` (voorkom open-redirect);
+  // gedeelde validatie met /auth/callback, /auth/confirm en verifyLoginOtp.
+  const safeNext = safeNextPath(params.next) ?? undefined;
 
-  // Already authenticated? Send straight to the member app (of naar
-  // `next` als dat er is — bijv. een lid dat via /early-member komt en
-  // toevallig al ingelogd is). Keeps the "Inloggen" link in the marketing
-  // navbar doing the right thing for both states without requiring an
-  // auth-aware navbar.
+  // Al ingelogd? Dan direct door naar de landing per rol (trainer naar de
+  // agenda, admin naar cockpit of agenda, lid naar /app), of naar `next`
+  // als dat er is (bijv. een lid dat via /early-member komt en toevallig
+  // al ingelogd is). Zo doet de "Inloggen"-link in de marketing-navbar
+  // voor beide states het juiste zonder auth-aware navbar. De proxy laat
+  // /login met sessie sinds fix/trainer-invite-landing met rust; deze
+  // pagina is de enige plek die de landing bepaalt.
   if (!errorKey) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) redirect(safeNext ?? "/app");
+    if (user) redirect(await postLoginTarget(supabase, user.id, safeNext));
   }
 
   return (

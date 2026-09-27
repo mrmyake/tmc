@@ -568,11 +568,11 @@ Top-nav (`Navbar.tsx`) is gesplitst in twee visuele clusters, zelfde styling, al
 Het schema ondersteunt geen role-arrays. "Trainer+member" combos zijn niet mogelijk; admins zijn per definitie superset.
 
 **Default landing per rol (post-login redirect in `/auth/callback`):**
-- `member` → `/app` (bare dashboard-landing; **niet** `/app/rooster` — dat was de oorspronkelijke spec, maar sinds de landing-flip van 2026-07-12 retourneert `roleRedirect()` gewoon `/app`)
+- `member` → `/app` (bare dashboard-landing; **niet** `/app/rooster`; dat was de oorspronkelijke spec, maar sinds de landing-flip van 2026-07-12 is de ledenlanding gewoon `/app`)
 - `trainer` → `/app/trainer/agenda` (sinds PT-agenda PR D, 2026-07-14; was `/app/trainer/sessies`)
 - `admin` → `/app/trainer/agenda` (met trainer-kiezer) als er een actieve eigen `trainers`-rij bestaat (bv. Marlon), anders ongewijzigd `/app/admin`
 
-Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check.
+Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check. De mapping en de `next`-validatie staan op één plek, `src/lib/auth/role-landing.ts` (`safeNextPath`, `resolveRoleLanding`, `postLoginTarget`), gebruikt door `verifyLoginOtp`, `/auth/callback` (PKCE), `/auth/confirm` (token_hash, trainer-invites), de implicit-fallback en `/login` met bestaande sessie. `/app` stuurt rol `trainer` door naar de agenda; admins en leden niet.
 
 **Drie layouts, één auth-guard:**
 - `src/app/app/layout.tsx` — outer: auth-guard + `ensureProfile`, berekent `eligibleForSchema`/`eligibleForPt` (zie hieronder) en geeft die + `firstName`/`role` door aan `AppChrome`.
