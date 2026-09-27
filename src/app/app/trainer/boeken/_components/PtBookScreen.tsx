@@ -45,7 +45,7 @@ const MODE_TABS: Array<{ id: Mode; label: string }> = [
  * PT-agenda C2/C3: Boek-voor-klant-scherm. Links de klant (of, in
  * intake-modus, de intake-toelichting); rechts de drie boek-vormen op de
  * RPC's uit C1. Toegang: admin of actieve trainer (tmc.is_staff() op de
- * RPC's, requireTrainerOrAdmin in de actions). Betaallinks blijven
+ * RPC's, requirePtTrainerOrAdmin in de actions). Betaallinks blijven
  * admin-only via paymentLinksEnabled.
  */
 export function PtBookScreen({

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
-import { TRAINER_LANDING } from "@/lib/auth/role-landing";
+import { resolveRoleLanding } from "@/lib/auth/role-landing";
 import { loadDashboardData } from "./_lib/dashboard-data";
 import { DashboardGreeting } from "./_components/DashboardGreeting";
 import { DashboardOnboarding } from "./_components/DashboardOnboarding";
@@ -24,9 +24,11 @@ export const dynamic = "force-dynamic";
 export default async function AppDashboardPage() {
   // Een trainer heeft geen membership en geen credits, dus dit dashboard
   // zou voor hem het onboarding-scherm (intake, kies een abonnement)
-  // tonen. Trainers gaan daarom door naar hun agenda. Admins bewust niet:
-  // hun "Member view" in de avatar-switcher wijst hierheen. De outer
-  // layout heeft de user al geverifieerd (redirect naar /login zonder).
+  // tonen. Trainers gaan daarom door naar hun rol-landing (PT-agenda voor
+  // PT-trainers, trainer-home voor trainers zonder PT; fix/trainer-pt-scope,
+  // mapping in resolveRoleLanding). Admins bewust niet: hun "Member view"
+  // in de avatar-switcher wijst hierheen. De outer layout heeft de user al
+  // geverifieerd (redirect naar /login zonder).
   const supabase = await createClient();
   const {
     data: { user },
@@ -37,7 +39,9 @@ export default async function AppDashboardPage() {
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    if (profile?.role === "trainer") redirect(TRAINER_LANDING);
+    if (profile?.role === "trainer") {
+      redirect(await resolveRoleLanding(supabase, user.id));
+    }
   }
 
   const data = await loadDashboardData();

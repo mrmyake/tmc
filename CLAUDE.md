@@ -569,10 +569,11 @@ Het schema ondersteunt geen role-arrays. "Trainer+member" combos zijn niet mogel
 
 **Default landing per rol (post-login redirect in `/auth/callback`):**
 - `member` → `/app` (bare dashboard-landing; **niet** `/app/rooster`; dat was de oorspronkelijke spec, maar sinds de landing-flip van 2026-07-12 is de ledenlanding gewoon `/app`)
-- `trainer` → `/app/trainer/agenda` (sinds PT-agenda PR D, 2026-07-14; was `/app/trainer/sessies`)
+- `trainer` met `is_pt_available` op de eigen actieve trainers-rij → `/app/trainer/agenda` (sinds PT-agenda PR D, 2026-07-14; was `/app/trainer/sessies`)
+- `trainer` zonder PT → `/app/trainer` (`TRAINER_HOME`, trainer-home met eigen lessen en uren; sinds fix/trainer-pt-scope, 2026-09-27). Zo'n trainer ziet geen enkele PT-ingang: `TrainerNav` toont Agenda en Boeken alleen bij PT (vlag `ptTrainer` via de outer layout en `AppChrome`), en `/app/trainer/agenda`, `/app/trainer/boeken` en `/app/trainer/klant/[id]` sturen hem naar `/app/trainer`. Server-side gate voor alles wat PT raakt: `requirePtTrainerOrAdmin(trainerId?)` (`src/lib/admin/require-pt-trainer-or-admin.ts`, spiegel van `tmc.is_pt_trainer_for`); `requireTrainerOrAdmin` blijft voor niet-PT-stafwerk (check-in, kiosk, room-control, eigen lessen, aanwezigheid).
 - `admin` → `/app/trainer/agenda` (met trainer-kiezer) als er een actieve eigen `trainers`-rij bestaat (bv. Marlon), anders ongewijzigd `/app/admin`
 
-Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check. De mapping en de `next`-validatie staan op één plek, `src/lib/auth/role-landing.ts` (`safeNextPath`, `resolveRoleLanding`, `postLoginTarget`), gebruikt door `verifyLoginOtp`, `/auth/callback` (PKCE), `/auth/confirm` (token_hash, trainer-invites), de implicit-fallback en `/login` met bestaande sessie. `/app` stuurt rol `trainer` door naar de agenda; admins en leden niet.
+Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. bare `/app`, die vangen we op). Open-redirect geblokkeerd via `//`-prefix-check. De mapping en de `next`-validatie staan op één plek, `src/lib/auth/role-landing.ts` (`safeNextPath`, `resolveRoleLanding`, `postLoginTarget`), gebruikt door `verifyLoginOtp`, `/auth/callback` (PKCE), `/auth/confirm` (token_hash, trainer-invites), de implicit-fallback en `/login` met bestaande sessie. `/app` stuurt rol `trainer` door via `resolveRoleLanding` (agenda of trainer-home); admins en leden niet.
 
 **Drie layouts, één auth-guard:**
 - `src/app/app/layout.tsx` — outer: auth-guard + `ensureProfile`, berekent `eligibleForSchema`/`eligibleForPt` (zie hieronder) en geeft die + `firstName`/`role` door aan `AppChrome`.

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TRAINER_HOME } from "@/lib/auth/safe-next";
 import { resolveTrainerScope } from "@/lib/trainer/trainer-scope";
 import { getAgendaSessions } from "@/lib/trainer/pt-agenda-actions";
 import { getPtBusy } from "@/lib/admin/pt-busy-actions";
@@ -121,6 +122,9 @@ export default async function TrainerAgendaPage(props: {
   const searchParams = await props.searchParams;
   const scope = await resolveTrainerScope(searchParams.trainerId);
   if (!scope.ok) redirect("/app");
+  // fix/trainer-pt-scope: de PT-agenda is er alleen voor admins en
+  // PT-trainers; een trainer zonder PT gaat naar de trainer-home.
+  if (!scope.isPtTrainer) redirect(TRAINER_HOME);
 
   const admin = createAdminClient();
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -24,8 +24,9 @@ export async function getPtBusy(
   fromIso: string,
   toIso: string,
 ): Promise<PtBusyBlock[]> {
-  // C3: admin of actieve trainer, dezelfde gate als tmc.is_staff() in de RPC.
-  const gate = await requireTrainerOrAdmin();
+  // fix/trainer-pt-scope: admin, of een PT-trainer op de eigen trainer_id,
+  // dezelfde gate als tmc.is_pt_trainer_for(p_trainer_id) in de RPC.
+  const gate = await requirePtTrainerOrAdmin(trainerId);
   if (!gate.ok) return [];
 
   const supabase = await createClient();

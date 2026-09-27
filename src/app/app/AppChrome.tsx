@@ -20,6 +20,8 @@ interface AppChromeProps {
   role: Role;
   eligibleForSchema: boolean;
   eligibleForPt: boolean;
+  /** fix/trainer-pt-scope: toont Agenda en Boeken in de TrainerNav. */
+  ptTrainer: boolean;
   children: React.ReactNode;
 }
 
@@ -28,6 +30,7 @@ export function AppChrome({
   role,
   eligibleForSchema,
   eligibleForPt,
+  ptTrainer,
   children,
 }: AppChromeProps) {
   const pathname = usePathname();
@@ -41,7 +44,7 @@ export function AppChrome({
   return (
     <div className="min-h-screen flex flex-col">
       {isTrainer ? (
-        <TrainerNav firstName={firstName} role={role} />
+        <TrainerNav firstName={firstName} role={role} ptTrainer={ptTrainer} />
       ) : (
         <MemberNav
           firstName={firstName}

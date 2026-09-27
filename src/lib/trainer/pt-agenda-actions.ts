@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { emitEvent } from "@/lib/events/emit";
 import {
   cancelPtBooking,
@@ -24,14 +24,16 @@ import type {
  * (bestaande RLS-policy) alleen groepsles-boekingen dekt, geen
  * pt_bookings — een trainer kan een PT-klant-profiel dus niet via de
  * gewone RLS-client lezen. De toegangscontrole is hier de
- * requireTrainerOrAdmin-gate, niet RLS.
+ * requirePtTrainerOrAdmin-gate (fix/trainer-pt-scope: admin, of een
+ * PT-trainer op de eigen trainer_id), niet RLS.
  *
  * C4 (20260802-migratie): de drie beheer-RPC's zijn verruimd naar de
  * eigen-sessie-trainer — mark_pt_attendance accepteert staff met een
  * eigen-sessie-grens, en cancel_pt/reschedule_pt zien een boeking ook
  * als die op een sessie van de eigen actieve trainers-rij staat. De
- * wrappers gate'en dus alleen nog op requireTrainerOrAdmin; de RPC zelf
- * bewaakt de eigen-sessie-grens (andermans sessie blijft `not_found`).
+ * wrappers gate'en dus alleen nog op requirePtTrainerOrAdmin; de RPC zelf
+ * bewaakt de eigen-sessie-grens (andermans sessie blijft `not_found`) en
+ * eist sinds fix/trainer-pt-scope ook is_pt_available op de eigen rij.
  * Nieuw in C4: createPtBlock/deletePtBlock (ad-hoc tijd blokkeren,
  * kind='block', geen klant en geen credit).
  *
@@ -76,7 +78,7 @@ export async function getAgendaSessions(
   fromIso: string,
   toIso: string,
 ): Promise<AgendaSessionData[]> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin(trainerId);
   if (!gate.ok) return [];
 
   const admin = createAdminClient();
@@ -152,7 +154,7 @@ export async function markPtAttendance(
   ptBookingId: string,
   status: "attended" | "no_show",
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -201,7 +203,7 @@ export async function cancelPtBookingAsStaff(
   ptBookingId: string,
   withRestitution: boolean | undefined,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
   return cancelPtBooking(ptBookingId, withRestitution);
 }
@@ -214,7 +216,7 @@ export async function reschedulePtBookingAsStaff(
   newStartAt: string,
   opts?: { allowOverlap?: boolean; allowNoTurnaround?: boolean },
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
   return reschedulePtBooking(ptBookingId, newStartAt, opts);
 }
@@ -234,9 +236,9 @@ const PT_BLOCK_REASON_COPY: Record<string, string> = {
 
 /**
  * Ad-hoc tijd blokkeren in de agenda (kind='block', geen klant, geen
- * credit). trainerId komt uit de agenda-selectie; de RPC dwingt af dat
- * een niet-admin alleen de eigen agenda blokkeert, dus dit is geen
- * vertrouwde parameter.
+ * credit). trainerId komt uit de agenda-selectie; zowel de TS-gate als
+ * de RPC dwingen af dat een niet-admin alleen de eigen agenda blokkeert,
+ * dus dit is geen vertrouwde parameter.
  */
 export async function createPtBlock(args: {
   trainerId: string;
@@ -246,7 +248,7 @@ export async function createPtBlock(args: {
   allowOverlap?: boolean;
   allowNoTurnaround?: boolean;
 }): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin(args.trainerId);
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -294,7 +296,7 @@ export async function createPtBlock(args: {
 export async function deletePtBlock(
   ptSessionId: string,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -349,7 +351,7 @@ const PT_INTAKE_REASON_COPY: Record<string, string> = {
 export async function completePtIntake(
   ptSessionId: string,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();
@@ -396,7 +398,7 @@ export async function completePtIntake(
 export async function cancelPtIntake(
   ptSessionId: string,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requireTrainerOrAdmin();
+  const gate = await requirePtTrainerOrAdmin();
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const supabase = await createClient();

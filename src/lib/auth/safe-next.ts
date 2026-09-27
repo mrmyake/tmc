@@ -4,7 +4,10 @@
  * kan gebruiken. De rolbepaling zelf staat in role-landing.ts (server-only).
  */
 export const MEMBER_LANDING = "/app";
+/** PT-trainers en admins met eigen trainers-rij: de PT-agenda. */
 export const TRAINER_LANDING = "/app/trainer/agenda";
+/** Trainers zonder PT (fix/trainer-pt-scope): trainer-home met eigen lessen en uren. */
+export const TRAINER_HOME = "/app/trainer";
 export const ADMIN_LANDING = "/app/admin";
 
 /**

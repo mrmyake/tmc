@@ -28,12 +28,23 @@ export type TrainerScope =
        * alleen tonen als dit true is.
        */
       isOwnData: boolean;
+      /**
+       * fix/trainer-pt-scope: mag de ingelogde gebruiker PT-schermen zien?
+       * Admin altijd; een trainer alleen met is_pt_available op de eigen
+       * actieve rij. Agenda, boeken en de klantpagina sturen anders naar
+       * /app/trainer (trainer-home met eigen lessen en uren).
+       */
+      isPtTrainer: boolean;
     };
 
 interface TrainerRow {
   id: string;
   display_name: string;
   slug: string;
+}
+
+interface OwnTrainerRow extends TrainerRow {
+  is_pt_available: boolean;
 }
 
 /**
@@ -44,6 +55,8 @@ interface TrainerRow {
  *   kiezer en mag via de trainerId-queryparam wisselen.
  * - Een trainer krijgt uitsluitend de eigen rij en kan de queryparam niet
  *   gebruiken om andermans data te bekijken.
+ * - isPtTrainer (fix/trainer-pt-scope) zegt of de PT-schermen open zijn:
+ *   admin altijd, een trainer alleen met is_pt_available op de eigen rij.
  *
  * Dit is de TS-kant van dezelfde hiërarchie die de database al afdwingt
  * (tmc.is_staff() poort de PT-RPC's, en elke trainer-tabel heeft naast de
@@ -69,10 +82,10 @@ export async function resolveTrainerScope(
   const [{ data: ownRow }, { data: allRows }] = await Promise.all([
     admin
       .from("trainers")
-      .select("id, display_name, slug")
+      .select("id, display_name, slug, is_pt_available")
       .eq("profile_id", user.id)
       .eq("is_active", true)
-      .maybeSingle<TrainerRow>(),
+      .maybeSingle<OwnTrainerRow>(),
     isAdmin
       ? admin
           .from("trainers")
@@ -114,5 +127,6 @@ export async function resolveTrainerScope(
     selectedTrainerId,
     ownTrainerId: ownRow?.id ?? null,
     isOwnData: selectedTrainerId !== null && selectedTrainerId === ownRow?.id,
+    isPtTrainer: isAdmin || Boolean(ownRow?.is_pt_available),
   };
 }

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, CalendarDays, CalendarPlus, UserCircle } from "lucide-react";
+import {
+  Calendar,
+  CalendarDays,
+  CalendarPlus,
+  Home,
+  UserCircle,
+} from "lucide-react";
+import { TRAINER_HOME, TRAINER_LANDING } from "@/lib/auth/safe-next";
 import { AvatarDropdown, type Role } from "./AvatarDropdown";
 
 interface NavItem {
@@ -10,21 +17,39 @@ interface NavItem {
   label: string;
   labelMobile?: string;
   icon: typeof CalendarDays;
+  /** Alleen zichtbaar voor admins en PT-trainers (fix/trainer-pt-scope). */
+  pt?: boolean;
+  /** Alleen zichtbaar als de PT-items verborgen zijn. */
+  nonPtOnly?: boolean;
+  /** Alleen actief op exact dit pad (voor de Home-tab). */
+  exact?: boolean;
 }
 
 // PT-agenda PR D: Agenda toegevoegd als primaire trainer-landing-tab.
 // PT-agenda PR C3 bouwde /app/trainer/boeken al maar liet 'm nav-loos
 // (bewust, buiten C3-scope); Boeken hier meenemen sluit dat gat.
+// fix/trainer-pt-scope: Agenda en Boeken zijn PT-ingangen en verschijnen
+// alleen voor admins en PT-trainers. Een trainer zonder PT krijgt in plaats
+// daarvan een Home-tab naar de trainer-home (eigen lessen, uren).
 const ITEMS: NavItem[] = [
   {
-    href: "/app/trainer/agenda",
+    href: TRAINER_HOME,
+    label: "Home",
+    icon: Home,
+    nonPtOnly: true,
+    exact: true,
+  },
+  {
+    href: TRAINER_LANDING,
     label: "Agenda",
     icon: Calendar,
+    pt: true,
   },
   {
     href: "/app/trainer/boeken",
     label: "Boeken",
     icon: CalendarPlus,
+    pt: true,
   },
   {
     href: "/app/trainer/sessies",
@@ -42,14 +67,21 @@ const ITEMS: NavItem[] = [
 interface TrainerNavProps {
   firstName: string;
   role: Role;
+  /** Admin of PT-trainer: toont Agenda en Boeken, logo naar de agenda. */
+  ptTrainer: boolean;
 }
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+function isActive(pathname: string, item: NavItem): boolean {
+  if (item.exact) return pathname === item.href;
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function TrainerNav({ firstName, role }: TrainerNavProps) {
+export function TrainerNav({ firstName, role, ptTrainer }: TrainerNavProps) {
   const pathname = usePathname();
+  const items = ITEMS.filter((item) =>
+    ptTrainer ? !item.nonPtOnly : !item.pt,
+  );
+  const logoHref = ptTrainer ? TRAINER_LANDING : TRAINER_HOME;
 
   return (
     <>
@@ -58,7 +90,7 @@ export function TrainerNav({ firstName, role }: TrainerNavProps) {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link
-              href="/app/trainer/agenda"
+              href={logoHref}
               className="font-[family-name:var(--font-playfair)] text-xl text-text hover:text-accent transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)]"
             >
               The Movement Club
@@ -68,8 +100,8 @@ export function TrainerNav({ firstName, role }: TrainerNavProps) {
               aria-label="Trainer-navigatie"
               className="flex items-center gap-1"
             >
-              {ITEMS.map((item) => {
-                const active = isActive(pathname, item.href);
+              {items.map((item) => {
+                const active = isActive(pathname, item);
                 return (
                   <Link
                     key={item.href}
@@ -101,10 +133,10 @@ export function TrainerNav({ firstName, role }: TrainerNavProps) {
         aria-label="Trainer-navigatie"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg/95 backdrop-blur-sm border-t border-[color:var(--ink-500)]/60 safe-bottom"
       >
-        <ul className="grid grid-cols-4">
-          {ITEMS.map((item) => {
+        <ul className={items.length === 4 ? "grid grid-cols-4" : "grid grid-cols-3"}>
+          {items.map((item) => {
             const Icon = item.icon;
-            const active = isActive(pathname, item.href);
+            const active = isActive(pathname, item);
             return (
               <li key={item.href}>
                 <Link

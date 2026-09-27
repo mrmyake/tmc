@@ -1,6 +1,6 @@
 "use server";
 
-import { requireTrainerOrAdmin } from "@/lib/admin/require-trainer-or-admin";
+import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { getPtBusy } from "@/lib/admin/pt-busy-actions";
@@ -46,9 +46,11 @@ const DEFAULT_INTAKE_DURATION_MIN = 90;
 export async function createPtIntake(
   input: CreatePtIntakeInput,
 ): Promise<CreatePtIntakeResult> {
-  // C3: admin of actieve trainer. De service-role-insert hieronder heeft
-  // geen DB-gate, dus deze TS-check is hier de enige toegangscontrole.
-  const gate = await requireTrainerOrAdmin();
+  // fix/trainer-pt-scope: admin, of een PT-trainer op de eigen trainer_id.
+  // De service-role-insert hieronder heeft geen DB-gate, dus deze TS-check
+  // is hier de enige toegangscontrole (getPtBusy verderop loopt wel via de
+  // RPC met dezelfde gate).
+  const gate = await requirePtTrainerOrAdmin(input.trainerId);
   if (!gate.ok) return { ok: false, message: gate.message };
 
   const name = input.prospectName.trim();
