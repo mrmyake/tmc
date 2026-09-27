@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
+import { setMemberAttendance } from "@/lib/attendance/core";
 
 export type AttendanceStatus = "booked" | "attended" | "no_show" | "cancelled";
 
@@ -369,24 +370,16 @@ export async function markAttendance(
 
   const admin = createAdminClient();
 
-  // Fetch current bookings + sessie (voor check_in insert: pillar) + bestaande
-  // check_ins/strikes-koppelingen. De UI stuurt semantische tokens (attended/
-  // booked/no_show) en wij vertalen naar check_ins + no_show_at + strikes.
+  // De UI stuurt semantische tokens (attended/booked/no_show). Aanwezigheid
+  // (check_ins, attended_at, strike weg) loopt per rij door de gedeelde kern
+  // in src/lib/attendance/core.ts; alleen het no-show-markeren (no_show_at,
+  // strike erbij, event) staat nog hier, tot de cron close-sessions (PR 4).
   const ids = attendances.map((a) => a.bookingId);
-  const [bookingsRes, sessionRes, checkInsRes, strikesRes] = await Promise.all([
+  const [bookingsRes, strikesRes] = await Promise.all([
     admin
       .from("bookings")
       .select("id, session_id, profile_id, status")
       .in("id", ids),
-    admin
-      .from("class_sessions")
-      .select("id, pillar")
-      .eq("id", sessionId)
-      .maybeSingle(),
-    admin
-      .from("check_ins")
-      .select("id, booking_id, profile_id")
-      .eq("session_id", sessionId),
     admin
       .from("no_show_strikes")
       .select("id, booking_id")
@@ -397,11 +390,7 @@ export async function markAttendance(
     console.error("[markAttendance] fetch failed", bookingsRes.error);
     return { ok: false, message: "Kon boekingen niet laden." };
   }
-  if (!sessionRes.data) {
-    return { ok: false, message: "Sessie niet gevonden." };
-  }
 
-  const sessionPillar = sessionRes.data.pillar as string;
   const byId = new Map(
     (bookingsRes.data ?? []).map((b) => [
       b.id,
@@ -412,17 +401,13 @@ export async function markAttendance(
       },
     ]),
   );
-  const checkInByBooking = new Map<string, string>();
-  const checkInByProfile = new Map<string, string>();
-  for (const ci of checkInsRes.data ?? []) {
-    if (ci.booking_id) checkInByBooking.set(ci.booking_id, ci.id);
-    if (ci.profile_id) checkInByProfile.set(ci.profile_id, ci.id);
-  }
   const strikesByBooking = new Map<string, string>();
   for (const s of strikesRes.data ?? []) {
     if (s.booking_id) strikesByBooking.set(s.booking_id, s.id);
   }
 
+  const actor = { userId: auth.ctx.userId, actorType: auth.ctx.role };
+  const deps = { admin, emit: emitEvent };
   const nowIso = new Date().toISOString();
   const newStrikeRows: Array<{
     id: string;
@@ -439,81 +424,30 @@ export async function markAttendance(
     if (cur.status === "cancelled") continue;
 
     if (a.status === "attended") {
-      // check_ins-row garanderen (idempotent via unique-index session+profile).
-      const existingCi =
-        checkInByBooking.get(a.bookingId) ??
-        checkInByProfile.get(cur.profileId);
-      if (!existingCi) {
-        const { error: ciErr } = await admin.from("check_ins").insert({
-          profile_id: cur.profileId,
-          session_id: sessionId,
-          booking_id: a.bookingId,
-          check_in_method: "admin_web",
-          access_type: "membership",
-          pillar: sessionPillar,
-          checked_in_at: nowIso,
-          checked_in_by: auth.ctx.userId,
-        });
-        if (ciErr && ciErr.code !== "23505") {
-          console.error("[markAttendance] check_in insert failed", ciErr);
-          return { ok: false, message: "Bijwerken lukte niet." };
-        }
-        if (!ciErr) {
-          await emitEvent({
-            type: "checkin.recorded",
-            actorType: auth.ctx.role,
-            actorId: auth.ctx.userId,
-            subjectType: "booking",
-            subjectId: a.bookingId,
-            payload: {
-              profile_id: cur.profileId,
-              session_id: sessionId,
-              booking_id: a.bookingId,
-              method: "admin_web",
-              source: "attendance",
-            },
-          });
-        }
-      } else if (!checkInByBooking.get(a.bookingId)) {
-        // Check_in bestond wel op sessie+profiel niveau maar booking_id
-        // was null — koppel even bij.
-        await admin
-          .from("check_ins")
-          .update({ booking_id: a.bookingId })
-          .eq("id", existingCi);
-      }
-      // Attended overrulet no_show/strike signals — opruimen.
-      await admin
-        .from("bookings")
-        .update({ no_show_at: null, attended_at: nowIso })
-        .eq("id", a.bookingId);
-      const strikeId = strikesByBooking.get(a.bookingId);
-      if (strikeId) {
-        await admin.from("no_show_strikes").delete().eq("id", strikeId);
-      }
+      const res = await setMemberAttendance(deps, {
+        sessionId,
+        bookingId: a.bookingId,
+        present: true,
+        actor,
+        source: "attendance",
+      });
+      if (!res.ok) return { ok: false, message: res.message };
     } else if (a.status === "no_show") {
+      // Eerst de aanwezigheid weg via de kern (strike blijft, die zetten we
+      // zo direct), dan no_show_at en de strike.
+      const res = await setMemberAttendance(deps, {
+        sessionId,
+        bookingId: a.bookingId,
+        present: false,
+        actor,
+        source: "no_show_correction",
+        keepStrike: true,
+      });
+      if (!res.ok) return { ok: false, message: res.message };
       await admin
         .from("bookings")
         .update({ no_show_at: nowIso, attended_at: null })
         .eq("id", a.bookingId);
-      // Eventueel eerder gezette check_in die nu wordt "corrected".
-      const ciId = checkInByBooking.get(a.bookingId);
-      if (ciId) {
-        await admin.from("check_ins").delete().eq("id", ciId);
-        await emitEvent({
-          type: "checkin.reverted",
-          actorType: auth.ctx.role,
-          actorId: auth.ctx.userId,
-          subjectType: "booking",
-          subjectId: a.bookingId,
-          payload: {
-            profile_id: cur.profileId,
-            session_id: sessionId,
-            booking_id: a.bookingId,
-            source: "no_show_correction",
-          },
-        });
-      }
       const strikeIssued = !strikesByBooking.has(a.bookingId);
       if (strikeIssued) {
         newStrikeRows.push({
@@ -536,31 +470,16 @@ export async function markAttendance(
         },
       });
     } else {
-      // "booked" = reset naar neutraal — verwijder check_in, strike, no_show_at.
-      await admin
-        .from("bookings")
-        .update({ no_show_at: null, attended_at: null })
-        .eq("id", a.bookingId);
-      const ciId = checkInByBooking.get(a.bookingId);
-      if (ciId) {
-        await admin.from("check_ins").delete().eq("id", ciId);
-        await emitEvent({
-          type: "checkin.reverted",
-          actorType: auth.ctx.role,
-          actorId: auth.ctx.userId,
-          subjectType: "booking",
-          subjectId: a.bookingId,
-          payload: {
-            session_id: sessionId,
-            booking_id: a.bookingId,
-            source: "reset",
-          },
-        });
-      }
-      const strikeId = strikesByBooking.get(a.bookingId);
-      if (strikeId) {
-        await admin.from("no_show_strikes").delete().eq("id", strikeId);
-      }
+      // "booked" = reset naar neutraal: check_in, attended_at, no_show_at en
+      // strike weg, met checkin.reverted (source reset) als er een rij was.
+      const res = await setMemberAttendance(deps, {
+        sessionId,
+        bookingId: a.bookingId,
+        present: false,
+        actor,
+        source: "reset",
+      });
+      if (!res.ok) return { ok: false, message: res.message };
     }
   }
 

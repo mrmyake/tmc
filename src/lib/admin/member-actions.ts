@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
 import { emitEvent } from "@/lib/events/emit";
+import { setMemberAttendance } from "@/lib/attendance/core";
 import { requestAccountDeletionByAdmin } from "@/lib/account-deletion/service";
 import {
   cancelMembershipCore,
@@ -602,48 +603,35 @@ export async function overrideNoShow(
     return { ok: false, message: "Boeking zonder sessie." };
   }
 
-  const { data: session } = await admin
-    .from("class_sessions")
-    .select("pillar")
-    .eq("id", booking.session_id)
-    .maybeSingle();
-  if (!session) return { ok: false, message: "Sessie niet gevonden." };
-
   const nowIso = new Date().toISOString();
+  const deps = { admin, emit: emitEvent };
+  const actor = { userId: auth.userId, actorType: "admin" as const };
 
+  // Aanwezigheid via de gedeelde kern (src/lib/attendance/core.ts): die
+  // schrijft ook checkin.recorded / checkin.reverted met subject booking.
   if (input.newStatus === "attended") {
-    // Check-in upserten; no_show_at wissen; strike verwijderen.
-    const { error: ciErr } = await admin.from("check_ins").insert({
-      profile_id: booking.profile_id,
-      session_id: booking.session_id,
-      booking_id: booking.id,
-      check_in_method: "admin_web",
-      access_type: "membership",
-      pillar: session.pillar,
-      checked_in_at: nowIso,
-      checked_in_by: auth.userId,
+    const res = await setMemberAttendance(deps, {
+      sessionId: booking.session_id,
+      bookingId: booking.id,
+      present: true,
+      actor,
+      source: "override",
     });
-    if (ciErr && ciErr.code !== "23505") {
-      console.error("[overrideNoShow] check_in insert failed", ciErr);
-      return { ok: false, message: "Bijwerken lukte niet." };
-    }
-    await admin
-      .from("bookings")
-      .update({ no_show_at: null, attended_at: nowIso })
-      .eq("id", booking.id);
-    await admin
-      .from("no_show_strikes")
-      .delete()
-      .eq("booking_id", booking.id);
+    if (!res.ok) return { ok: false, message: res.message };
   } else if (input.newStatus === "no_show") {
+    const res = await setMemberAttendance(deps, {
+      sessionId: booking.session_id,
+      bookingId: booking.id,
+      present: false,
+      actor,
+      source: "override",
+      keepStrike: true,
+    });
+    if (!res.ok) return { ok: false, message: res.message };
     await admin
       .from("bookings")
       .update({ no_show_at: nowIso, attended_at: null })
       .eq("id", booking.id);
-    await admin
-      .from("check_ins")
-      .delete()
-      .eq("booking_id", booking.id);
     // Strike idempotent toevoegen.
     const { data: existingStrike } = await admin
       .from("no_show_strikes")
@@ -662,19 +650,15 @@ export async function overrideNoShow(
       });
     }
   } else {
-    // Reset naar neutraal: check_in + strike + no_show_at weg.
-    await admin
-      .from("bookings")
-      .update({ no_show_at: null, attended_at: null })
-      .eq("id", booking.id);
-    await admin
-      .from("check_ins")
-      .delete()
-      .eq("booking_id", booking.id);
-    await admin
-      .from("no_show_strikes")
-      .delete()
-      .eq("booking_id", booking.id);
+    // Reset naar neutraal: check_in, attended_at, no_show_at en strike weg.
+    const res = await setMemberAttendance(deps, {
+      sessionId: booking.session_id,
+      bookingId: booking.id,
+      present: false,
+      actor,
+      source: "override",
+    });
+    if (!res.ok) return { ok: false, message: res.message };
   }
 
   await admin.from("admin_audit_log").insert({
@@ -689,23 +673,9 @@ export async function overrideNoShow(
     },
   });
 
-  // Outcome-event. Reset-naar-neutraal (attendance.cleared) is bewust
-  // uitgesteld, dus daar emitten we niets.
-  if (input.newStatus === "attended") {
-    await emitEvent({
-      type: "checkin.recorded",
-      actorType: "admin",
-      actorId: auth.userId,
-      subjectType: "booking",
-      subjectId: booking.id,
-      payload: {
-        profile_id: input.profileId,
-        session_id: booking.session_id,
-        booking_id: booking.id,
-        source: "override",
-      },
-    });
-  } else if (input.newStatus === "no_show") {
+  // Outcome-event. checkin.recorded en checkin.reverted schrijft de kern
+  // zelf (alleen bij een echte wijziging); hier alleen het no-show-event.
+  if (input.newStatus === "no_show") {
     await emitEvent({
       type: "attendance.no_show_marked",
       actorType: "admin",
