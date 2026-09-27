@@ -108,6 +108,7 @@ Smoke test results: existing-member login end-to-end in browser (role redirect t
 
 - **PR #173, 2026-09-08.** `/login` zet `shouldCreateUser: false`, behandelt `otp_disabled` als succes met een neutrale bevestigingstekst en toont permanent een verwijzing naar `/abonnement`; `IdentifyStage` krijgt alleen een comment. Bewust niet aangeraakt: `IdentifyStage`-gedrag, Supabase-config (`disable_signup`, rate limits), `/auth/callback` en de invite-flows, de 32 bestaande profielen zonder membership.
 - **PR #217, 2026-09-27.** Eén gedeelde landing-helper `src/lib/auth/role-landing.ts` (`safeNextPath`, `resolveRoleLanding`, `postLoginTarget`) vervangt de dubbele `roleRedirect`-kopieën in `verifyLoginOtp` en `/auth/callback`; `/login` met bestaande sessie bepaalt de landing nu zelf per rol (de proxy-redirect naar `/app` die ook `next` weggooide is weg); nieuwe server-route `/auth/confirm?token_hash=...&type=invite|magiclink` voor de trainer-invite (inviteUserByEmail kent geen PKCE, dus `/auth/callback` kan die link niet verwerken); de implicit-fallback valideert `next` met dezelfde helper; `/app` stuurt rol `trainer` door naar `/app/trainer/agenda`; "Trainer view" in de switchers wijst naar de agenda. Bewust niet aangeraakt: `inviteTrainer()` krijgt geen `redirectTo` (geen tokens in de URL als standaardpad), de implicit-pagina blijft bestaan voor het seed-script, member-routes zoals `/app/rooster` blijven voor trainers bereikbaar, de Supabase-config wordt pas na merge en deploy gewijzigd (zie hieronder), geen migraties.
+- **PR #TBD, 2026-09-27 (docs).** Legt de Nederlandse tekst van de Supabase-template "Invite user" vast (onderwerp en inhoud, oud en nieuw), gezet via de Management API na akkoord van Marlon; zie het blok hieronder. Bewust niet aangeraakt: code, andere templates, andere configvelden.
 
 **Template "Invite user" (live config, wijziging na merge en deploy van bovenstaande PR, uitsluitend de link).** Stand op 2026-09-27, gelezen via `GET /v1/projects/<ref>/config/auth`, veld `mailer_templates_invite_content` (Supabase-default, onderwerp `mailer_subjects_invite` = "You have been invited", ongewijzigd):
 
@@ -128,6 +129,47 @@ Nieuwe waarde (alleen `{{ .ConfirmationURL }}` vervangen door de token_hash-link
 ```
 
 Waarom: met `{{ .ConfirmationURL }}` bevestigt Supabase's verify-endpoint de invite zelf en stuurt de browser met de sessie in het URL-fragment (implicit flow, `login_method: implicit` in de auth-logs) naar de Site URL, dus de homepage, zonder rolbepaling. Met de token_hash-link verifieert `/auth/confirm` server-side, zet de cookies en landt de trainer via `role-landing.ts` op de agenda. De allow list hoeft niet aangepast: `https://www.themovementclub.nl/**` staat er al op. Zolang de template nog op de oude waarde staat, werkt de invite-mail als voorheen (sessie op de homepage); de trainer komt dan via `/login` of `/app` alsnog op de agenda uit.
+
+**Template "Invite user", Nederlandse tekst (live config, PATCH 2026-09-27 via de Management API, na akkoord van Marlon; docs-PR #TBD).** De PATCH van hierboven (alleen de link) is dezelfde dag uitgevoerd nadat #217 op productie stond, en daarna zijn onderwerp en tekst vervangen. Gecontroleerd met een diff van de complete auth-config voor en na: uitsluitend `mailer_subjects_invite` en `mailer_templates_invite_content` zijn gewijzigd.
+
+Onderwerp (`mailer_subjects_invite`), oud:
+
+```
+You have been invited
+```
+
+Onderwerp, nieuw:
+
+```
+Je trainersaccount bij The Movement Club
+```
+
+Template (`mailer_templates_invite_content`), oud (de waarde uit de PATCH van #217, zie hierboven):
+
+```html
+<h2>You have been invited</h2>
+
+<p>You have been invited to create a user on {{ .SiteURL }}. Follow this link to accept the invite:</p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Accept the invite</a></p>
+```
+
+Template, nieuw:
+
+```html
+<div style="background:#F4EFE6;padding:32px 16px;font-family:Inter,Helvetica,Arial,sans-serif;color:#0E0C0B;">
+  <div style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:8px;padding:32px;">
+    <p style="font-family:Georgia,serif;font-size:22px;margin:0 0 24px;">The Movement <span style="color:#B9986A;">Club</span></p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 16px;">Hoi {{ .Data.first_name }},</p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 24px;">Welkom bij het team van The Movement Club. Je bent uitgenodigd als trainer. Met je account zie je je agenda en lessen, check je deelnemers in en houd je je uren bij.</p>
+    <p style="margin:0 0 24px;"><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite" style="display:inline-block;background:#B9986A;color:#0E0C0B;text-decoration:none;font-weight:600;font-size:16px;padding:14px 28px;border-radius:4px;">Account activeren</a></p>
+    <p style="font-size:14px;line-height:1.6;color:#5C5650;margin:0 0 16px;">Deze link werkt één keer. Daarna log je in op themovementclub.nl/login met dit e-mailadres; je krijgt dan een inlogcode per mail.</p>
+    <p style="font-size:14px;line-height:1.6;color:#5C5650;margin:0 0 24px;">Had je deze uitnodiging niet verwacht? Dan kun je deze mail negeren.</p>
+    <p style="font-size:16px;line-height:1.6;margin:0;">Tot in de studio,<br>Marlon<br>The Movement Club</p>
+  </div>
+</div>
+```
+
+`{{ .Data.first_name }}` komt uit de `data` die `inviteTrainer()` meegeeft aan `inviteUserByEmail` (`first_name`, `last_name`); de template heeft geen fallback voor een lege voornaam, anders dan `supabase/templates/magic_link.html`. Dat is aanvaardbaar omdat het invite-formulier de voornaam verplicht stelt.
 
 ---
 
