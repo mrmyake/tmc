@@ -104,6 +104,7 @@ export const SITE = {
 // discovery-navigatie-structuur.md voor de onderbouwing.
 export const NAV_LINKS = [
   { label: "Aanbod", href: "/aanbod" }, // COPY: confirm met Marlon
+  { label: "Rooster", href: "/rooster" }, // COPY: confirm met Marlon
   { label: "Prijzen", href: "/prijzen" }, // COPY: confirm met Marlon
   { label: "Early Member", href: "/early-member" }, // COPY: confirm met Marlon
   { label: "Over ons", href: "/over" }, // COPY: confirm met Marlon

@@ -109,9 +109,9 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-10">
-          {/* Content-cluster: Aanbod, Prijzen, Early Member, Over ons. */}
-          <div className="flex items-center gap-10">
+        <div className="hidden md:flex items-center gap-5 lg:gap-10">
+          {/* Content-cluster: Aanbod, Rooster, Prijzen, Early Member, Over ons. */}
+          <div className="flex items-center gap-5 lg:gap-10">
           {NAV_LINKS.map((link) => {
             if (link.label === "Aanbod") {
               return (
