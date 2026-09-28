@@ -3,87 +3,109 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "./require-admin";
+import { isValidTrialCodeFormat, normalizeTrialCode } from "@/lib/trial-codes/normalize";
 
 /**
- * Deze drie RPC's (tmc.generate_trial_codes, tmc.revoke_trial_code,
- * tmc.revoke_trial_batch) checken zelf auth.uid() plus tmc.is_admin()
- * (SECURITY DEFINER). Ze moeten dus via de sessie-gebonden client
- * (createClient) lopen, niet via de service-role admin-client: die laatste
- * heeft geen auth.uid() en zou altijd op de is_admin()-guard stuklopen.
+ * De RPC's (tmc.create_trial_code, tmc.revoke_trial_code,
+ * tmc.admin_cancel_trial_booking) checken zelf auth.uid() plus
+ * tmc.is_admin() (SECURITY DEFINER). Ze lopen dus via de sessie-gebonden
+ * client (createClient), niet via de service-role admin-client: die heeft
+ * geen auth.uid() en zou altijd op de is_admin()-guard stuklopen.
  * requireAdmin() blijft ervoor als dezelfde defense-in-depth-laag die alle
  * andere admin-actions ook gebruiken.
  */
 
-export type PillarChoice = "yoga_mobility" | "kettlebell" | "both";
+export type TrialCodeKind = "single" | "multi" | "unlimited";
 
-export interface GeneratedTrialCode {
+export interface CreatedTrialCode {
+  id: string;
   code: string;
-  pillar: string | null;
-  batchId: string;
-  batchLabel: string | null;
-  expiresAt: string;
+  label: string;
+  maxUses: number | null;
 }
 
-export type GenerateTrialCodesResult =
-  | { ok: true; codes: GeneratedTrialCode[] }
+export type CreateTrialCodeResult =
+  | { ok: true; code: CreatedTrialCode }
   | { ok: false; message: string };
 
-export async function generateTrialCodes(input: {
-  count: number;
-  pillar: PillarChoice;
+const CREATE_REASON_COPY: Record<string, string> = {
+  // COPY: confirm met Marlon
+  label_required: "Geef een omschrijving op.",
+  // COPY: confirm met Marlon
+  code_invalid: "Een code bestaat uit 4 tot 32 letters en cijfers.",
+  // COPY: confirm met Marlon
+  code_exists: "Deze code bestaat al. Kies een andere.",
+  // COPY: confirm met Marlon
+  max_uses_invalid: "Aantal keer moet minstens 1 zijn.",
+};
+
+export async function createTrialCode(input: {
+  code: string;
   label: string;
-  validDays: number;
-}): Promise<GenerateTrialCodesResult> {
+  kind: TrialCodeKind;
+  maxUses?: number;
+}): Promise<CreateTrialCodeResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const label = input.label.trim();
-  if (!label) {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Geef een batch-label op." };
+  if (!label) return { ok: false, message: CREATE_REASON_COPY.label_required };
+
+  const code = normalizeTrialCode(input.code ?? "");
+  if (code && !isValidTrialCodeFormat(code)) {
+    return { ok: false, message: CREATE_REASON_COPY.code_invalid };
   }
-  if (!Number.isInteger(input.count) || input.count < 1 || input.count > 50) {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Aantal moet tussen 1 en 50 liggen." };
-  }
-  if (!Number.isInteger(input.validDays) || input.validDays < 1) {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Geldigheidsduur moet minstens 1 dag zijn." };
+
+  let maxUses: number | null;
+  if (input.kind === "single") maxUses = 1;
+  else if (input.kind === "unlimited") maxUses = null;
+  else {
+    if (!Number.isInteger(input.maxUses) || (input.maxUses ?? 0) < 1) {
+      return { ok: false, message: CREATE_REASON_COPY.max_uses_invalid };
+    }
+    maxUses = input.maxUses as number;
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("generate_trial_codes", {
-    p_count: input.count,
-    p_pillar: input.pillar === "both" ? null : input.pillar,
+  const { data, error } = await supabase.rpc("create_trial_code", {
+    p_code: code || null,
     p_label: label,
-    p_valid_days: input.validDays,
+    p_max_uses: maxUses,
   });
 
   if (error) {
-    console.error("[generateTrialCodes] rpc failed", error);
+    console.error("[createTrialCode] rpc failed", error);
     // COPY: confirm met Marlon
-    return { ok: false, message: "Genereren lukte niet. Probeer opnieuw." };
+    return { ok: false, message: "Aanmaken lukte niet. Probeer opnieuw." };
   }
 
-  const rows = (data ?? []) as Array<{
-    code: string;
-    pillar: string | null;
-    batch_id: string;
-    batch_label: string | null;
-    expires_at: string;
-  }>;
+  const result = data as {
+    ok: boolean;
+    reason?: string;
+    id?: string;
+    code?: string;
+    label?: string;
+    max_uses?: number | null;
+  };
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        CREATE_REASON_COPY[result.reason ?? ""] ??
+        // COPY: confirm met Marlon
+        "Aanmaken lukte niet.",
+    };
+  }
 
   revalidatePath("/app/admin/proefcodes");
-
   return {
     ok: true,
-    codes: rows.map((r) => ({
-      code: r.code,
-      pillar: r.pillar,
-      batchId: r.batch_id,
-      batchLabel: r.batch_label,
-      expiresAt: r.expires_at,
-    })),
+    code: {
+      id: result.id ?? "",
+      code: result.code ?? code,
+      label: result.label ?? label,
+      maxUses: result.max_uses ?? null,
+    },
   };
 }
 
@@ -95,19 +117,15 @@ const REVOKE_REASON_COPY: Record<string, string> = {
   // COPY: confirm met Marlon
   code_not_found: "Deze code bestaat niet (meer).",
   // COPY: confirm met Marlon
-  code_not_active: "Deze code is al verzilverd of ingetrokken.",
+  code_already_revoked: "Deze code is al ingetrokken.",
 };
 
-export async function revokeTrialCode(
-  id: string,
-): Promise<TrialCodeActionResult> {
+export async function revokeTrialCode(id: string): Promise<TrialCodeActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("revoke_trial_code", {
-    p_id: id,
-  });
+  const { data, error } = await supabase.rpc("revoke_trial_code", { p_id: id });
 
   if (error) {
     console.error("[revokeTrialCode] rpc failed", error);
@@ -127,51 +145,54 @@ export async function revokeTrialCode(
   }
 
   revalidatePath("/app/admin/proefcodes");
+  revalidatePath(`/app/admin/proefcodes/${id}`);
   // COPY: confirm met Marlon
   return { ok: true, message: "Code ingetrokken." };
 }
 
-export type RevokeBatchResult =
-  | { ok: true; message: string; revokedCount: number }
-  | { ok: false; message: string };
+const CANCEL_REASON_COPY: Record<string, string> = {
+  // COPY: confirm met Marlon
+  booking_not_found: "Deze boeking bestaat niet (meer).",
+  // COPY: confirm met Marlon
+  booking_not_open: "Deze boeking staat niet (meer) open.",
+};
 
-export async function revokeTrialCodeBatch(
-  batchId: string,
-): Promise<RevokeBatchResult> {
+/**
+ * Admin annuleert een individuele proefles-boeking (bij misbruik van een
+ * code, of op verzoek). Alleen status 'paid'; de release-trigger geeft bij
+ * een codeboeking het gebruik terug aan de code.
+ */
+export async function adminCancelTrialBooking(input: {
+  trialBookingId: string;
+  codeId?: string;
+}): Promise<TrialCodeActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("revoke_trial_batch", {
-    p_batch_id: batchId,
+  const { data, error } = await supabase.rpc("admin_cancel_trial_booking", {
+    p_id: input.trialBookingId,
   });
 
   if (error) {
-    console.error("[revokeTrialCodeBatch] rpc failed", error);
+    console.error("[adminCancelTrialBooking] rpc failed", error);
     // COPY: confirm met Marlon
-    return { ok: false, message: "Intrekken lukte niet. Probeer opnieuw." };
+    return { ok: false, message: "Annuleren lukte niet. Probeer opnieuw." };
   }
 
-  const result = data as {
-    ok: boolean;
-    reason?: string;
-    revoked_count?: number;
-  };
+  const result = data as { ok: boolean; reason?: string };
   if (!result.ok) {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Deze batch bestaat niet (meer)." };
+    return {
+      ok: false,
+      message:
+        CANCEL_REASON_COPY[result.reason ?? ""] ??
+        // COPY: confirm met Marlon
+        "Annuleren lukte niet.",
+    };
   }
 
   revalidatePath("/app/admin/proefcodes");
-  const count = result.revoked_count ?? 0;
-  return {
-    ok: true,
-    message:
-      count === 0
-        ? // COPY: confirm met Marlon
-          "Geen actieve codes meer in deze batch om in te trekken."
-        : // COPY: confirm met Marlon
-          `${count} ${count === 1 ? "code" : "codes"} ingetrokken.`,
-    revokedCount: count,
-  };
+  if (input.codeId) revalidatePath(`/app/admin/proefcodes/${input.codeId}`);
+  // COPY: confirm met Marlon
+  return { ok: true, message: "Boeking geannuleerd." };
 }

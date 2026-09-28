@@ -1,11 +1,10 @@
 import {
   getTrialCodeKpis,
-  listTrialCodeBatches,
   listTrialCodes,
   type TrialCodeStatusFilter,
 } from "@/lib/admin/trial-codes-query";
 import { KpiCard } from "../_components/KpiCard";
-import { GenerateCodesDialog } from "./_components/GenerateCodesDialog";
+import { CreateCodeDialog } from "./_components/CreateCodeDialog";
 import { ProefcodesToolbar } from "./_components/ProefcodesToolbar";
 import { ProefcodesTable } from "./_components/ProefcodesTable";
 
@@ -16,12 +15,7 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-const VALID_STATUSES: TrialCodeStatusFilter[] = [
-  "active",
-  "redeemed",
-  "revoked",
-  "all",
-];
+const VALID_STATUSES: TrialCodeStatusFilter[] = ["active", "exhausted", "revoked", "all"];
 
 function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
   const get = (k: string) => {
@@ -32,9 +26,8 @@ function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
   const status = (VALID_STATUSES as string[]).includes(statusRaw)
     ? (statusRaw as TrialCodeStatusFilter)
     : "active";
-  const batch = get("batch") ?? "";
   const q = get("q")?.trim() ?? "";
-  return { status, batch, q };
+  return { status, q };
 }
 
 export default async function AdminProefcodesPage(props: {
@@ -43,14 +36,9 @@ export default async function AdminProefcodesPage(props: {
   const searchParams = await props.searchParams;
   const parsed = parseSearchParams(searchParams);
 
-  const [kpis, batches, rows] = await Promise.all([
+  const [kpis, rows] = await Promise.all([
     getTrialCodeKpis(),
-    listTrialCodeBatches(),
-    listTrialCodes({
-      status: parsed.status,
-      batchId: parsed.batch || undefined,
-      q: parsed.q,
-    }),
+    listTrialCodes({ status: parsed.status, q: parsed.q }),
   ]);
 
   return (
@@ -65,37 +53,31 @@ export default async function AdminProefcodesPage(props: {
             {/* COPY: confirm met Marlon */}
             Proefcodes.
           </h1>
+          <p className="text-text-muted text-sm mt-4 max-w-xl">
+            {/* COPY: confirm met Marlon */}
+            Een code maakt een proefles gratis en blijft geldig tot je hem
+            intrekt. Bezoekers vullen de code in bij het boeken op
+            /proefles/boeken.
+          </p>
         </div>
-        <GenerateCodesDialog />
+        <CreateCodeDialog />
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-10">
+        {/* COPY: confirm met Marlon */}
+        <KpiCard label="Actief" value={kpis.activeNow.toString()} />
+        <KpiCard label="Op" value={kpis.exhausted.toString()} />
+        <KpiCard label="Ingetrokken" value={kpis.revoked.toString()} />
         <KpiCard
-          // COPY: confirm met Marlon
-          label="Uitgegeven totaal"
-          value={kpis.issuedTotal.toString()}
-        />
-        <KpiCard
-          // COPY: confirm met Marlon
-          label="Nu actief"
-          value={kpis.activeNow.toString()}
-        />
-        <KpiCard
-          // COPY: confirm met Marlon
-          label="Verzilverd"
-          value={kpis.redeemed.toString()}
+          label="Open inwisselingen"
+          value={kpis.redemptionsOpen.toString()}
+          hint="Gratis boekingen die nog staan"
         />
       </div>
 
-      <ProefcodesToolbar
-        status={parsed.status}
-        batch={parsed.batch}
-        q={parsed.q}
-        batches={batches}
-        rows={rows}
-      />
+      <ProefcodesToolbar status={parsed.status} q={parsed.q} />
 
-      <ProefcodesTable rows={rows} status={parsed.status} />
+      <ProefcodesTable rows={rows} />
     </div>
   );
 }

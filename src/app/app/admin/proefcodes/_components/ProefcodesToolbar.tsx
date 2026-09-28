@@ -2,84 +2,34 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { Search, X, Download } from "lucide-react";
-import { Dialog, DialogFooter } from "@/components/ui/Dialog";
-import { revokeTrialCodeBatch } from "@/lib/admin/trial-codes-actions";
-import type {
-  TrialCodeBatchOption,
-  TrialCodeRow,
-  TrialCodeStatusFilter,
-} from "@/lib/admin/trial-codes-query";
-import { formatShortDateWithYear } from "@/lib/format-date";
+import { useState } from "react";
+import { Search, X } from "lucide-react";
+import type { TrialCodeStatusFilter } from "@/lib/admin/trial-codes-query";
 
 // COPY: confirm met Marlon
 const STATUS_LABEL: Record<TrialCodeStatusFilter, string> = {
   active: "Actief",
-  redeemed: "Verzilverd",
+  exhausted: "Op",
   revoked: "Ingetrokken",
   all: "Alles",
 };
 
-// COPY: confirm met Marlon
-const PILLAR_LABEL: Record<string, string> = {
-  yoga_mobility: "Yoga & mobility",
-  kettlebell: "Kettlebell",
-};
-
-function pillarLabel(pillar: string | null): string {
-  // COPY: confirm met Marlon
-  return pillar ? (PILLAR_LABEL[pillar] ?? pillar) : "Beide";
-}
-
-function downloadCsv(
-  headers: string[],
-  rows: string[][],
-  filenamePrefix: string,
-) {
-  const csv = [headers, ...rows]
-    .map((row) =>
-      row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
-    )
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 interface ProefcodesToolbarProps {
   status: TrialCodeStatusFilter;
-  batch: string;
   q: string;
-  batches: TrialCodeBatchOption[];
-  rows: TrialCodeRow[];
 }
 
-export function ProefcodesToolbar({
-  status,
-  batch,
-  q,
-  batches,
-  rows,
-}: ProefcodesToolbarProps) {
+export function ProefcodesToolbar({ status, q }: ProefcodesToolbarProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const [query, setQuery] = useState(q);
-  const [batchRevokeOpen, setBatchRevokeOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(
-    null,
-  );
-
-  useEffect(() => {
+  // Nieuwe searchParam van buiten (reset-link, terugknop): lokale invoer
+  // meenemen zonder effect (react.dev: state afleiden tijdens de render).
+  const [syncedQ, setSyncedQ] = useState(q);
+  if (syncedQ !== q) {
+    setSyncedQ(q);
     setQuery(q);
-  }, [q]);
+  }
 
   function pushWith(patch: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
@@ -95,74 +45,14 @@ export function ProefcodesToolbar({
     pushWith({ q: query.trim() || null });
   }
 
-  function resetAll() {
-    router.push("/app/admin/proefcodes");
-  }
-
-  const hasFilters = Boolean(q) || status !== "active" || Boolean(batch);
-
-  const selectedBatch = batches.find((b) => b.batchId === batch);
-
-  function openBatchRevoke() {
-    setResult(null);
-    setBatchRevokeOpen(true);
-  }
-
-  function confirmBatchRevoke() {
-    startTransition(async () => {
-      const res = await revokeTrialCodeBatch(batch);
-      setResult(res);
-      if (res.ok) {
-        router.refresh();
-      }
-    });
-  }
-
-  function exportCsv() {
-    if (status === "active") {
-      // COPY: confirm met Marlon
-      const headers = ["Code", "Pillar", "Batch", "Vervalt"];
-      const body = rows.map((r) => [
-        r.code,
-        pillarLabel(r.pillar),
-        r.batchLabel ?? "",
-        formatShortDateWithYear(new Date(r.expiresAt)),
-      ]);
-      downloadCsv(headers, body, "proefcodes-actief");
-    } else if (status === "redeemed") {
-      // COPY: confirm met Marlon
-      const headers = [
-        "Code",
-        "Naam",
-        "E-mail",
-        "Telefoon",
-        "Les",
-        "Datum",
-        "Verzilverd op",
-      ];
-      const body = rows.map((r) => [
-        r.code,
-        r.redeemer?.name ?? "",
-        r.redeemer?.email ?? "",
-        r.redeemer?.phone ?? "",
-        r.redeemer?.className ?? "",
-        r.redeemer?.sessionStartAt
-          ? formatShortDateWithYear(new Date(r.redeemer.sessionStartAt))
-          : "",
-        r.redeemedAt ? formatShortDateWithYear(new Date(r.redeemedAt)) : "",
-      ]);
-      downloadCsv(headers, body, "proefcodes-verzilverd");
-    }
-  }
-
-  const showExport = status === "active" || status === "redeemed";
+  const hasFilters = Boolean(q) || status !== "active";
 
   return (
     <div className="flex flex-col gap-4 mb-8">
       <form onSubmit={submitSearch} className="relative">
         <label htmlFor="proefcodes-search" className="sr-only">
           {/* COPY: confirm met Marlon */}
-          Zoek op code, batch, naam of e-mail
+          Zoek op code of omschrijving
         </label>
         <Search
           size={16}
@@ -176,7 +66,7 @@ export function ProefcodesToolbar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           // COPY: confirm met Marlon
-          placeholder="Zoek op code, batch, naam of e-mail"
+          placeholder="Zoek op code of omschrijving"
           className="w-full bg-bg-elevated border border-[color:var(--ink-500)] px-12 py-3.5 text-sm text-text focus:outline-none focus:border-accent"
         />
         {query && (
@@ -195,52 +85,28 @@ export function ProefcodesToolbar({
       </form>
 
       <div className="flex flex-wrap items-center gap-3">
-        <FilterSelect
-          label="Status"
-          value={status}
-          options={Object.entries(STATUS_LABEL)}
-          onChange={(v) => pushWith({ status: v === "active" ? null : v })}
-        />
-        <FilterSelect
-          label="Batch"
-          value={batch}
-          options={[
-            // COPY: confirm met Marlon
-            ["", "Alle batches"],
-            ...batches.map(
-              (b): [string, string] => [b.batchId, b.label],
-            ),
-          ]}
-          onChange={(v) => pushWith({ batch: v === "" ? null : v })}
-        />
-        {batch && (
-          <button
-            type="button"
-            onClick={openBatchRevoke}
-            className="inline-flex items-center gap-2 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors cursor-pointer"
+        <label className="inline-flex items-center gap-2">
+          {/* COPY: confirm met Marlon */}
+          <span className="tmc-eyebrow">Status</span>
+          <select
+            value={status}
+            onChange={(e) =>
+              pushWith({ status: e.target.value === "active" ? null : e.target.value })
+            }
+            className="bg-bg-elevated border border-[color:var(--ink-500)] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-text focus:outline-none focus:border-accent cursor-pointer"
           >
-            {/* COPY: confirm met Marlon */}
-            Hele batch intrekken
-          </button>
-        )}
-        {showExport && (
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="inline-flex items-center gap-2 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-colors duration-300 hover:border-accent hover:text-accent cursor-pointer"
-          >
-            <Download size={14} strokeWidth={1.5} aria-hidden />
-            {/* COPY: confirm met Marlon */}
-            Export CSV
-          </button>
-        )}
+            {(Object.entries(STATUS_LABEL) as Array<[TrialCodeStatusFilter, string]>).map(
+              ([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
         {hasFilters && (
           <Link
             href="/app/admin/proefcodes"
-            onClick={(e) => {
-              e.preventDefault();
-              resetAll();
-            }}
             className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted hover:text-accent transition-colors"
           >
             {/* COPY: confirm met Marlon */}
@@ -248,63 +114,6 @@ export function ProefcodesToolbar({
           </Link>
         )}
       </div>
-
-      <Dialog
-        open={batchRevokeOpen}
-        onClose={() => setBatchRevokeOpen(false)}
-        // COPY: confirm met Marlon
-        title="Hele batch intrekken?"
-        eyebrow="Proefcodes"
-        tone="danger"
-        size="narrow"
-      >
-        <p className="text-text-muted text-sm mb-3">
-          {/* COPY: confirm met Marlon */}
-          Dit trekt alle nog actieve codes in batch &ldquo;
-          {selectedBatch?.label ?? batch}&rdquo; in, ongeacht welke statusweergave
-          je nu open hebt staan. Al verzilverde codes in deze batch blijven
-          gewoon geldig.
-        </p>
-        <DialogFooter
-          result={result}
-          onClose={() => setBatchRevokeOpen(false)}
-          onConfirm={confirmBatchRevoke}
-          // COPY: confirm met Marlon
-          cancelLabel="Terug"
-          confirmLabel={pending ? "Bezig" : "Batch intrekken"}
-          confirmDisabled={pending}
-          confirmTone="danger"
-        />
-      </Dialog>
     </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: Array<[string, string]>;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="inline-flex items-center gap-2">
-      <span className="tmc-eyebrow">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-bg-elevated border border-[color:var(--ink-500)] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-text focus:outline-none focus:border-accent cursor-pointer"
-      >
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }

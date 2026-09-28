@@ -33,6 +33,7 @@ export function TrialBookingList({ options }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [formStarted, setFormStarted] = useState(false);
@@ -50,6 +51,7 @@ export function TrialBookingList({ options }: Props) {
       name,
       email,
       phone,
+      code,
       returnTarget: returnTargetForThisClient(),
     });
 
@@ -59,9 +61,19 @@ export function TrialBookingList({ options }: Props) {
       return;
     }
 
+    if (result.free) {
+      // Gratis via proefcode: geen Mollie, de boeking staat al vast.
+      // Bestaand event, waarde 0 (spec-analytics.md eventregister).
+      trackLead("trial_booking", 0);
+      window.location.assign(result.redirectUrl);
+      return;
+    }
+
     trackLead("trial_booking", selected.priceCents / 100);
     await openCheckout(result.checkoutUrl);
   }
+
+  const hasCode = code.trim().length > 0;
 
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh]">
@@ -202,6 +214,22 @@ export function TrialBookingList({ options }: Props) {
                     className={fieldInputClasses}
                   />
                 </Field>
+                <Field
+                  // COPY: confirm met Marlon
+                  label="Proefcode (optioneel)"
+                  // COPY: confirm met Marlon
+                  hint="Heb je een proefcode gekregen? Dan is deze les gratis."
+                >
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    className={`${fieldInputClasses} font-mono uppercase`}
+                  />
+                </Field>
 
                 {error && (
                   <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-3">
@@ -216,11 +244,15 @@ export function TrialBookingList({ options }: Props) {
                   {/* COPY: confirm with Marlon */}
                   {busy
                     ? "Bezig..."
-                    : `Betaal ${formatEuro(Math.round(selected.priceCents / 100))} en boek`}
+                    : hasCode
+                      ? "Boek met proefcode"
+                      : `Betaal ${formatEuro(Math.round(selected.priceCents / 100))} en boek`}
                 </Button>
                 <p className="text-text-muted text-xs text-center">
                   {/* COPY: confirm with Marlon */}
-                  Je wordt doorgestuurd naar Mollie om veilig te betalen.
+                  {hasCode
+                    ? "Is je code geldig, dan is de les gratis en staat je plek direct vast."
+                    : "Je wordt doorgestuurd naar Mollie om veilig te betalen."}
                 </p>
               </form>
             </div>
