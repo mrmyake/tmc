@@ -259,6 +259,22 @@ export async function saveInvoiceLines(
   if (!auth.ok) return { ok: false, error: auth.message };
   const admin = createAdminClient();
 
+  // De client valideert ook, maar de server is autoritair: ongeldige invoer
+  // leest of schrijft niets, zeker niet de delete hieronder.
+  const badLine = inputs.findIndex(
+    (l) =>
+      !Number.isSafeInteger(l.grossCents) ||
+      !Number.isSafeInteger(l.vatRateBp) ||
+      !Number.isFinite(l.quantity),
+  );
+  if (badLine !== -1) {
+    // COPY: confirm met Marlon
+    return {
+      ok: false,
+      error: `Regel ${badLine + 1} heeft een ongeldig bedrag, tarief of aantal. Er is niets opgeslagen.`,
+    };
+  }
+
   const { data: invoice } = await admin
     .from("invoices")
     .select("id, status")

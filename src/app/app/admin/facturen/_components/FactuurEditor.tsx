@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   saveInvoiceLines,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/invoice-actions";
 import { getInvoiceDownloadUrl } from "@/lib/member/invoice-actions";
 import { formatEuro } from "@/lib/format";
+import { EuroInput } from "@/components/ui/EuroInput";
 
 /**
  * Concept-editor plus de drie stappen (9.3/9.4/9.5). Bruto wordt ingevoerd
@@ -73,12 +74,9 @@ interface FactuurEditorProps {
   catalogueOptions: CatalogueOption[];
 }
 
-function euroInput(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-/** Komma en punt allebei toegestaan als decimaalscheiding (NL toetsenbord
- * typt komma). Staan beide in de invoer, dan is de LAATSTE de
+/** Alleen nog voor het aantal-veld; bedragen lopen via EuroInput en
+ * `parseEuroInput`. Komma en punt allebei toegestaan als decimaalscheiding
+ * (NL toetsenbord typt komma). Staan beide in de invoer, dan is de LAATSTE de
  * decimaalscheiding en is de andere een duizendtal-scheiding (dekt zowel
  * "1.234,56" als "1,234.56"). Nooit een spinner-input: die is onwerkbaar
  * voor bedragen en levert bovendien geen komma-invoer. Ongeldige invoer
@@ -101,6 +99,12 @@ function parseDecimalInput(raw: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Editor-interne regel: `uid` als stabiele React-key (regels worden
+ * verwijderd en hernummerd), `amountInvalid` zolang het bedragveld geen
+ * geldig bedrag bevat. Beide worden vóór het opslaan van de regel gehaald,
+ * zodat het contract met `saveInvoiceLines` ongewijzigd blijft. */
+type EditorRow = EditorLine & { uid: number; amountInvalid: boolean };
+
 export function FactuurEditor({
   invoice,
   initialLines,
@@ -108,7 +112,10 @@ export function FactuurEditor({
 }: FactuurEditorProps) {
   const router = useRouter();
   const isDraft = invoice.status === "draft";
-  const [lines, setLines] = useState<EditorLine[]>(initialLines);
+  const nextUid = useRef(initialLines.length);
+  const [lines, setLines] = useState<EditorRow[]>(() =>
+    initialLines.map((l, i) => ({ ...l, uid: i, amountInvalid: false })),
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -132,7 +139,9 @@ export function FactuurEditor({
     [catalogueOptions],
   );
 
-  function updateLine(i: number, patch: Partial<EditorLine>) {
+  const hasInvalidAmount = lines.some((l) => l.amountInvalid);
+
+  function updateLine(i: number, patch: Partial<EditorRow>) {
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   }
 
@@ -149,6 +158,8 @@ export function FactuurEditor({
         grossCents: opt.grossCents,
         vatRateBp: opt.vatRateBp,
         revenueCategory: null,
+        uid: nextUid.current++,
+        amountInvalid: false,
       },
     ]);
   }
@@ -166,6 +177,8 @@ export function FactuurEditor({
         // TMC verkoopt (9.3); net zo goed te wijzigen.
         vatRateBp: 900,
         revenueCategory: null,
+        uid: nextUid.current++,
+        amountInvalid: false,
       },
     ]);
   }
@@ -178,8 +191,21 @@ export function FactuurEditor({
 
   function save() {
     setMessage(null);
+    // Nooit stil 0 opslaan: een ongeldig bedrag blokkeert het opslaan.
+    if (hasInvalidAmount) return;
     startTransition(async () => {
-      const r = await saveInvoiceLines(invoice.id, lines);
+      const r = await saveInvoiceLines(
+        invoice.id,
+        lines.map((l) => ({
+          lineNo: l.lineNo,
+          catalogueSlug: l.catalogueSlug,
+          description: l.description,
+          quantity: l.quantity,
+          grossCents: l.grossCents,
+          vatRateBp: l.vatRateBp,
+          revenueCategory: l.revenueCategory,
+        })),
+      );
       // COPY: confirm met Marlon
       setMessage(r.ok ? "Regels opgeslagen." : r.error);
       if (r.ok) router.refresh();
@@ -286,7 +312,7 @@ export function FactuurEditor({
             defaultRate !== undefined && defaultRate !== l.vatRateBp;
           return (
             <div
-              key={i}
+              key={l.uid}
               className="grid grid-cols-[1fr_90px_110px_90px_auto] gap-3 items-start bg-bg-elevated p-3"
             >
               <div className="flex flex-col gap-1">
@@ -315,15 +341,16 @@ export function FactuurEditor({
                 className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1 text-right"
                 aria-label="Aantal"
               />
-              <input
+              <EuroInput
                 disabled={!isDraft}
-                type="text"
-                inputMode="decimal"
-                value={euroInput(l.grossCents)}
-                onChange={(e) =>
-                  updateLine(i, {
-                    grossCents: Math.round(parseDecimalInput(e.target.value) * 100),
-                  })
+                value={l.grossCents}
+                onChange={(cents) =>
+                  updateLine(
+                    i,
+                    cents === null
+                      ? { amountInvalid: true }
+                      : { grossCents: cents, amountInvalid: false },
+                  )
                 }
                 className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1 text-right"
                 aria-label="Bedrag incl. BTW"
@@ -393,10 +420,16 @@ export function FactuurEditor({
               {/* COPY: confirm met Marlon */}
               + Vrije regel
             </button>
+            {hasInvalidAmount && (
+              // COPY: confirm met Marlon
+              <span className="text-[color:var(--danger)] text-xs">
+                Corrigeer eerst de ongeldige bedragen.
+              </span>
+            )}
             <button
               type="button"
               onClick={save}
-              disabled={isPending}
+              disabled={isPending || hasInvalidAmount}
               className="ml-auto px-4 py-1.5 border border-accent text-accent text-xs uppercase tracking-[0.16em] hover:bg-accent hover:text-bg transition-colors disabled:opacity-50"
             >
               Regels opslaan
