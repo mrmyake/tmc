@@ -29,6 +29,7 @@ import PtTrainerChange from "@/emails/pt_trainer_change";
 
 // COPY: confirm met Marlon
 const PT_MANAGE_REASON_COPY: Record<string, string> = {
+  admin_only: "Alleen beheer kan een sessie annuleren. Overleg met Marlon.",
   not_found: "Deze boeking bestaat niet (meer).",
   not_cancellable: "Deze boeking kan niet meer geannuleerd worden.",
   not_reschedulable: "Deze boeking kan niet meer verzet worden.",

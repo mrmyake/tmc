@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
+import { requireAdmin } from "@/lib/admin/require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendEmail } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
@@ -29,6 +29,7 @@ import PtCancellationOutcome, {
 
 // COPY: confirm met Marlon
 const RESOLVE_REASON_COPY: Record<string, string> = {
+  admin_only: "Alleen beheer kan een sessie annuleren. Overleg met Marlon.",
   not_found:
     "Dit verzoek bestaat niet (meer) of hoort niet bij jouw agenda.",
   already_resolved: "Dit verzoek is al afgehandeld.",
@@ -40,6 +41,10 @@ const RESOLVE_REASON_COPY: Record<string, string> = {
   restitution_not_allowed:
     "Alleen een trainer of beheerder kan de restitutie-keuze maken.",
 };
+
+// COPY: confirm met Marlon
+const ADMIN_ONLY_COPY =
+  "Alleen beheer kan een sessie annuleren. Overleg met Marlon.";
 
 // COPY: confirm met Marlon
 const SESSION_LABEL: Record<string, string> = {
@@ -58,10 +63,10 @@ export async function resolvePtCancellation(args: {
   withRestitution?: boolean;
   note?: string;
 }): Promise<ResolvePtCancellationResult> {
-  // fix/trainer-pt-scope: admin of PT-trainer; de RPC bewaakt dat het om
-  // een eigen sessie gaat.
-  const gate = await requirePtTrainerOrAdmin();
-  if (!gate.ok) return { ok: false, message: gate.message };
+  // fix/trainer-no-session-cancel: admin-only, ook de RPC weigert een
+  // niet-admin met reason admin_only.
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, message: ADMIN_ONLY_COPY };
 
   const supabase = await createClient();
   const { data: result, error: rpcError } = await supabase.rpc(
@@ -98,7 +103,7 @@ export async function resolvePtCancellation(args: {
     // schrijft (zelfde conventie als alle pt_booking-events).
     await emitEvent({
       type: "pt_booking.cancelled",
-      actorType: gate.actorType,
+      actorType: "admin",
       actorId: gate.userId,
       subjectType: "pt_booking",
       subjectId: result.pt_booking_id,
@@ -117,7 +122,7 @@ export async function resolvePtCancellation(args: {
     type: approved
       ? "pt_booking.cancellation_approved"
       : "pt_booking.cancellation_rejected",
-    actorType: gate.actorType,
+    actorType: "admin",
     actorId: gate.userId,
     subjectType: "pt_booking",
     subjectId: result.pt_booking_id,

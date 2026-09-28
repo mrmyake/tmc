@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
+import { requireAdmin } from "@/lib/admin/require-admin";
 import { emitEvent } from "@/lib/events/emit";
 import {
   cancelPtBooking,
@@ -40,6 +41,11 @@ import type {
  * PR G (20260803-migratie): completePtIntake/cancelPtIntake voor
  * kind='intake' (account-loos en gratis, dus buiten de boeking-RPC's om);
  * zelfde staff-gate en eigen-sessie-grens, geen credit en geen geld.
+ *
+ * fix/trainer-no-session-cancel (20260928120000-migratie): annuleren van
+ * een PT-sessie of intake is admin-only; cancelPtBookingAsStaff en
+ * cancelPtIntake gaten op requireAdmin, de RPC's geven een trainer
+ * reason admin_only. deletePtBlock blijft voor de eigen PT-trainer open.
  *
  * PR J (20260804-migratie): cancel_pt kent nu een expliciete,
  * staff-only restitutie-keuze (p_with_restitution). getAgendaSessions
@@ -194,17 +200,22 @@ export async function markPtAttendance(
   return { ok: true };
 }
 
+// COPY: confirm met Marlon
+const ADMIN_ONLY_COPY =
+  "Alleen beheer kan een sessie annuleren. Overleg met Marlon.";
+
 /**
- * Staff-wrapper om cancelPtBooking (src/lib/member/pt-manage-actions.ts,
- * gedeeld met PR E): dezelfde event-emissie en trainer-notificatie
- * hergebruiken; de RPC bewaakt de eigen-sessie-grens.
+ * Admin-wrapper om cancelPtBooking (src/lib/member/pt-manage-actions.ts,
+ * gedeeld met PR E): dezelfde event-emissie hergebruiken. Sinds
+ * fix/trainer-no-session-cancel is annuleren admin-only: de TS-gate en de
+ * RPC (reason admin_only) weigeren een trainer allebei expliciet.
  */
 export async function cancelPtBookingAsStaff(
   ptBookingId: string,
   withRestitution: boolean | undefined,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requirePtTrainerOrAdmin();
-  if (!gate.ok) return { ok: false, message: gate.message };
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, message: ADMIN_ONLY_COPY };
   return cancelPtBooking(ptBookingId, withRestitution);
 }
 
@@ -337,6 +348,7 @@ export async function deletePtBlock(
 
 // COPY: confirm met Marlon
 const PT_INTAKE_REASON_COPY: Record<string, string> = {
+  admin_only: "Alleen beheer kan een sessie annuleren. Overleg met Marlon.",
   not_found: "Deze intake bestaat niet (meer) of hoort niet bij jouw agenda.",
   not_completable: "Deze intake is al afgerond of geannuleerd.",
   not_cancellable: "Deze intake is al afgerond of geannuleerd.",
@@ -398,8 +410,9 @@ export async function completePtIntake(
 export async function cancelPtIntake(
   ptSessionId: string,
 ): Promise<PtAgendaActionResult> {
-  const gate = await requirePtTrainerOrAdmin();
-  if (!gate.ok) return { ok: false, message: gate.message };
+  // fix/trainer-no-session-cancel: admin-only, net als cancel_pt.
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, message: ADMIN_ONLY_COPY };
 
   const supabase = await createClient();
   const { data: result, error } = await supabase.rpc("cancel_pt_intake", {
@@ -422,7 +435,7 @@ export async function cancelPtIntake(
 
   await emitEvent({
     type: "pt_intake.cancelled",
-    actorType: gate.actorType,
+    actorType: "admin",
     actorId: gate.userId,
     subjectType: "pt_session",
     subjectId: ptSessionId,

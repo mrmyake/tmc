@@ -49,6 +49,10 @@ const STATUS_LABEL: Record<string, string> = {
   no_show: "No-show",
 };
 
+// COPY: confirm met Marlon
+const TRAINER_CANCEL_NOTE =
+  "Verhinderd? Overleg met Marlon, alleen beheer kan deze sessie annuleren.";
+
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -64,6 +68,10 @@ function todayIso(): string {
  * verwijderd worden via deletePtBlock. Intakes kunnen sinds PR G afgerond
  * (status 'completed', blijft als historie zichtbaar) of geannuleerd
  * (harde delete, tijd komt vrij) worden.
+ *
+ * fix/trainer-no-session-cancel: annuleren (PT-sessie en intake) is
+ * admin-only. Een trainer ziet op die plek een verwijzing naar Marlon;
+ * verzetten, aanwezigheid en "Blok verwijderen" blijven voor de trainer.
  *
  * PR J (20260804-migratie): annuleren gaat niet meer direct, maar via een
  * expliciete restitutie-keuze-stap (mode 'cancel'). Het annuleringsvenster
@@ -309,22 +317,31 @@ export function SessionDetailPanel({
                       {pending ? "Bezig..." : "Afronden"}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={handleIntakeCancel}
-                    className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                  >
-                    {/* COPY: confirm met Marlon */}
-                    {pending ? "Bezig..." : "Annuleren"}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={handleIntakeCancel}
+                      className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                    >
+                      {/* COPY: confirm met Marlon */}
+                      {pending ? "Bezig..." : "Annuleren"}
+                    </button>
+                  )}
                 </div>
-                <p className="text-text-muted/70 text-xs mt-3">
-                  {/* COPY: confirm met Marlon */}
-                  Annuleren verwijdert de intake uit de agenda en geeft de
-                  tijd vrij. Een intake is gratis, er wordt niets
-                  terugbetaald of verrekend.
-                </p>
+                {isAdmin ? (
+                  <p className="text-text-muted/70 text-xs mt-3">
+                    {/* COPY: confirm met Marlon */}
+                    Annuleren verwijdert de intake uit de agenda en geeft de
+                    tijd vrij. Een intake is gratis, er wordt niets
+                    terugbetaald of verrekend.
+                  </p>
+                ) : (
+                  <p className="text-text-muted text-xs mt-3">
+                    {/* COPY: confirm met Marlon */}
+                    {TRAINER_CANCEL_NOTE}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -378,28 +395,38 @@ export function SessionDetailPanel({
             )}
 
             {canManage && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => setMode("reschedule")}
-                  className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                >
-                  {/* COPY: confirm met Marlon */}
-                  Verzetten
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    setWithRestitution(withinWindow);
-                    setMode("cancel");
-                  }}
-                  className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                >
-                  {/* COPY: confirm met Marlon */}
-                  Annuleren
-                </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => setMode("reschedule")}
+                    className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    Verzetten
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        setWithRestitution(withinWindow);
+                        setMode("cancel");
+                      }}
+                      className="flex-1 px-3 py-3 text-xs font-medium uppercase tracking-[0.1em] border border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                    >
+                      {/* COPY: confirm met Marlon */}
+                      Annuleren
+                    </button>
+                  )}
+                </div>
+                {!isAdmin && (
+                  <p className="text-text-muted text-xs">
+                    {/* COPY: confirm met Marlon */}
+                    {TRAINER_CANCEL_NOTE}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -485,7 +512,7 @@ export function SessionDetailPanel({
           </div>
         )}
 
-        {session.kind === "bookable" && booking && mode === "cancel" && (
+        {session.kind === "bookable" && booking && mode === "cancel" && isAdmin && (
           <div className="flex flex-col gap-4">
             {booking.usedCredit ? (
               <>
