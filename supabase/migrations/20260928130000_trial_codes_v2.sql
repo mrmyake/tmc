@@ -608,70 +608,19 @@ create trigger trial_bookings_release_code
   execute function tmc.trial_bookings_release_code();
 
 -- ---------------------------------------------------------------------------
--- 10. Grants asserteren
--- ---------------------------------------------------------------------------
-
-do $$
-declare
-  v_fn text;
-  v_public_fns text[] := array[
-    'tmc.redeem_trial_code(text, uuid, text, text, text, boolean)',
-    'tmc.register_trial_code_attempt(text)'
-  ];
-  v_admin_fns text[] := array[
-    'tmc.create_trial_code(text, text, integer)',
-    'tmc.revoke_trial_code(uuid)',
-    'tmc.admin_cancel_trial_booking(uuid)'
-  ];
-  v_tbl text;
-begin
-  foreach v_fn in array v_public_fns loop
-    if has_function_privilege('anon', v_fn, 'execute')
-       or has_function_privilege('authenticated', v_fn, 'execute') then
-      raise exception 'trial_codes_v2: % mag niet voor anon/authenticated', v_fn;
-    end if;
-    if not has_function_privilege('service_role', v_fn, 'execute') then
-      raise exception 'trial_codes_v2: % moet voor service_role', v_fn;
-    end if;
-  end loop;
-
-  foreach v_fn in array v_admin_fns loop
-    if has_function_privilege('anon', v_fn, 'execute') then
-      raise exception 'trial_codes_v2: % mag niet voor anon', v_fn;
-    end if;
-    if not has_function_privilege('authenticated', v_fn, 'execute')
-       or not has_function_privilege('service_role', v_fn, 'execute') then
-      raise exception 'trial_codes_v2: % moet voor authenticated en service_role', v_fn;
-    end if;
-  end loop;
-
-  foreach v_tbl in array array['tmc.trial_codes', 'tmc.trial_code_redemptions', 'tmc.trial_code_attempts', 'tmc.trial_bookings'] loop
-    if has_table_privilege('anon', v_tbl, 'select')
-       or has_table_privilege('authenticated', v_tbl, 'select')
-       or has_table_privilege('authenticated', v_tbl, 'insert') then
-      raise exception 'trial_codes_v2: % heeft grants voor anon/authenticated', v_tbl;
-    end if;
-    if not has_table_privilege('service_role', v_tbl, 'insert') then
-      raise exception 'trial_codes_v2: % mist service_role', v_tbl;
-    end if;
-  end loop;
-
-  if exists (
-    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'tmc' and p.proname in ('generate_trial_codes', 'revoke_trial_batch')
-  ) then
-    raise exception 'trial_codes_v2: v1-functies bestaan nog';
-  end if;
-end $$;
-
--- ---------------------------------------------------------------------------
--- 11. Zelfcontrole binnen dezelfde transactie
+-- 10. Zelfcontrole binnen een savepoint
 --
 -- Speelt de kern na zonder app-data te eisen: is er geen class_types-,
 -- trainers- of profiles-rij (verse shadow-database), dan slaat de controle
--- zichzelf over met een notice (migrations/README.md, regel 6). Alles wordt
--- aan het eind weer verwijderd.
+-- zichzelf over met een notice (migrations/README.md, regel 6). Elke
+-- assert breekt met RAISE EXCEPTION de hele migratie af. Na de laatste
+-- assert rolt ROLLBACK TO SAVEPOINT alle testrijen terug (codes,
+-- inwisselingen, boekingen, events, pogingen) zonder DELETE, zodat de
+-- append-only trigger op tmc.events ongemoeid blijft. SAVEPOINT kan niet
+-- binnen een DO-blok, vandaar de framing eromheen.
 -- ---------------------------------------------------------------------------
+
+savepoint trial_codes_v2_selftest;
 
 do $$
 declare
@@ -801,18 +750,66 @@ begin
     raise exception 'trial_codes_v2: elfde poging hoort geblokkeerd te zijn';
   end if;
 
-  -- Opruimen binnen de transactie (redemptions cascaden mee met de boekingen).
-  -- tmc.events is append-only (trigger events_no_update_delete); voor de
-  -- events van deze zelfcontrole wordt die trigger binnen deze transactie
-  -- even uitgezet, zodat er geen events naar niet-bestaande testcodes
-  -- achterblijven.
-  delete from tmc.trial_code_attempts where ip = 'zelfcontrole-ip';
-  alter table tmc.events disable trigger events_no_update_delete;
-  delete from tmc.events where type like 'trial_code.%' and subject_id in (v_code, v_code_unl);
-  alter table tmc.events enable trigger events_no_update_delete;
-  delete from tmc.trial_bookings where session_id in (v_sid, v_sid2);
-  delete from tmc.trial_codes where id in (v_code, v_code_unl);
-  delete from tmc.class_sessions where id in (v_sid, v_sid2);
+end $$;
+
+rollback to savepoint trial_codes_v2_selftest;
+release savepoint trial_codes_v2_selftest;
+
+-- ---------------------------------------------------------------------------
+-- 11. Grants asserteren (buiten het savepoint, aan het slot van de transactie)
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  v_fn text;
+  v_public_fns text[] := array[
+    'tmc.redeem_trial_code(text, uuid, text, text, text, boolean)',
+    'tmc.register_trial_code_attempt(text)'
+  ];
+  v_admin_fns text[] := array[
+    'tmc.create_trial_code(text, text, integer)',
+    'tmc.revoke_trial_code(uuid)',
+    'tmc.admin_cancel_trial_booking(uuid)'
+  ];
+  v_tbl text;
+begin
+  foreach v_fn in array v_public_fns loop
+    if has_function_privilege('anon', v_fn, 'execute')
+       or has_function_privilege('authenticated', v_fn, 'execute') then
+      raise exception 'trial_codes_v2: % mag niet voor anon/authenticated', v_fn;
+    end if;
+    if not has_function_privilege('service_role', v_fn, 'execute') then
+      raise exception 'trial_codes_v2: % moet voor service_role', v_fn;
+    end if;
+  end loop;
+
+  foreach v_fn in array v_admin_fns loop
+    if has_function_privilege('anon', v_fn, 'execute') then
+      raise exception 'trial_codes_v2: % mag niet voor anon', v_fn;
+    end if;
+    if not has_function_privilege('authenticated', v_fn, 'execute')
+       or not has_function_privilege('service_role', v_fn, 'execute') then
+      raise exception 'trial_codes_v2: % moet voor authenticated en service_role', v_fn;
+    end if;
+  end loop;
+
+  foreach v_tbl in array array['tmc.trial_codes', 'tmc.trial_code_redemptions', 'tmc.trial_code_attempts', 'tmc.trial_bookings'] loop
+    if has_table_privilege('anon', v_tbl, 'select')
+       or has_table_privilege('authenticated', v_tbl, 'select')
+       or has_table_privilege('authenticated', v_tbl, 'insert') then
+      raise exception 'trial_codes_v2: % heeft grants voor anon/authenticated', v_tbl;
+    end if;
+    if not has_table_privilege('service_role', v_tbl, 'insert') then
+      raise exception 'trial_codes_v2: % mist service_role', v_tbl;
+    end if;
+  end loop;
+
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'tmc' and p.proname in ('generate_trial_codes', 'revoke_trial_batch')
+  ) then
+    raise exception 'trial_codes_v2: v1-functies bestaan nog';
+  end if;
 end $$;
 
 commit;
