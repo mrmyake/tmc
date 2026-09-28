@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
@@ -7,10 +8,17 @@ import { trialBookingMode } from "@/lib/mollie-mode";
 import { trialWebhookUrl } from "@/lib/site-url";
 import { emitEvent } from "@/lib/events/emit";
 import { getCatalogue } from "@/lib/catalogue";
+import { sendNotification } from "@/lib/ntfy";
+import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
+import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
+import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
+import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 
 export type StartTrialBookingResult =
-  | { ok: true; checkoutUrl: string }
+  | { ok: true; free: false; checkoutUrl: string }
+  /** Gratis via een geldige proefcode: geen Mollie, direct bevestigd. */
+  | { ok: true; free: true; redirectUrl: string }
   | { ok: false; error: string };
 
 /**
@@ -46,6 +54,169 @@ interface StartTrialBookingInput {
   phone: string;
   /** Terugkeerdoel na Mollie (workstream A): "app" of "web"; alleen een enum. */
   returnTarget?: ReturnTarget;
+  /**
+   * Optionele proefcode (spec-community-growth.md §1 "Proefcodes"). Leeg:
+   * de betaalde flow, byte-voor-byte ongewijzigd. Gevuld: de server
+   * beslist via tmc.redeem_trial_code of de les gratis is; de prijs wordt
+   * nooit client-side bepaald.
+   */
+  code?: string;
+}
+
+// COPY: confirm met Marlon
+const CODE_INVALID_MESSAGE = "Deze proefcode is niet geldig.";
+// COPY: confirm met Marlon
+const CODE_EMAIL_ALREADY_BOOKED_MESSAGE =
+  "Dit e-mailadres staat al ingeschreven voor deze les.";
+// COPY: confirm met Marlon
+const CODE_RATE_LIMITED_MESSAGE = "Te veel pogingen. Probeer het later opnieuw.";
+
+// Weigeringen van tmc.redeem_trial_code (jsonb-reason, conventie
+// book_class_session). Bestaat-niet, ingetrokken en op komen alle drie als
+// code_invalid terug: de bezoeker mag niet kunnen afleiden welke codes
+// bestaan. Alleen een dubbele inschrijving op dezelfde les krijgt een
+// eigen tekst.
+// COPY: confirm met Marlon
+const REDEEM_REASON_MESSAGE: Record<string, string> = {
+  code_invalid: CODE_INVALID_MESSAGE,
+  email_already_booked: CODE_EMAIL_ALREADY_BOOKED_MESSAGE,
+  missing_fields: "Vul alle velden in.",
+  capacity_full: "Deze sessie is helaas vol.",
+  session_not_found: "Deze sessie bestaat niet (meer).",
+  session_not_scheduled: "Deze sessie is niet meer beschikbaar.",
+  session_in_past: "Deze sessie is al voorbij.",
+  session_not_trial_eligible: "Deze discipline is niet beschikbaar als proefles.",
+};
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+}
+
+interface RedeemArgs {
+  code: string;
+  sessionId: string;
+  name: string;
+  email: string;
+  phone: string;
+  isTest: boolean;
+}
+
+/**
+ * Gratis pad: rate limiting per IP (tmc.register_trial_code_attempt, het
+ * patroon van register_kiosk_pin_attempt), daarna de atomaire
+ * inwissel-RPC. Bij succes wordt de pogingenteller gewist, de bezoeker
+ * krijgt dezelfde bevestigingsmail als een betaalde proefles (zonder
+ * prijsregel) en bij een herhaalde gratis proefles van hetzelfde
+ * e-mailadres gaat de misbruikmelding naar Marlon en Ilja. Mail en
+ * melding lopen na de commit van de boeking en draaien die nooit terug.
+ */
+async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBookingResult> {
+  const admin = createAdminClient();
+  const ip = await clientIp();
+
+  const { data: attempt, error: attemptErr } = await admin.rpc(
+    "register_trial_code_attempt",
+    { p_ip: ip },
+  );
+  if (attemptErr) {
+    console.error("[startTrialBooking] register_trial_code_attempt failed", attemptErr);
+    return { ok: false, error: CODE_INVALID_MESSAGE };
+  }
+  if (!(attempt as { allowed?: boolean } | null)?.allowed) {
+    return { ok: false, error: CODE_RATE_LIMITED_MESSAGE };
+  }
+
+  const { data, error } = await admin.rpc("redeem_trial_code", {
+    p_code: args.code,
+    p_session_id: args.sessionId,
+    p_name: args.name,
+    p_email: args.email,
+    p_phone: args.phone,
+    p_is_test: args.isTest,
+  });
+  if (error) {
+    console.error("[startTrialBooking] redeem_trial_code failed", error);
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Boeken lukte niet. Probeer het opnieuw." };
+  }
+
+  const result = data as {
+    ok: boolean;
+    reason?: string;
+    trial_booking_id?: string;
+    cancel_token?: string;
+    code_id?: string;
+    code?: string;
+    session_id?: string;
+    session_start_at?: string;
+    prior_free_count?: number;
+  };
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        REDEEM_REASON_MESSAGE[result.reason ?? ""] ??
+        // COPY: confirm met Marlon
+        "Boeken lukte niet. Probeer het opnieuw.",
+    };
+  }
+
+  // Geslaagd: de teller van dit IP mag weg (zelfde patroon als de kiosk).
+  const { error: clearErr } = await admin.from("trial_code_attempts").delete().eq("ip", ip);
+  if (clearErr) console.error("[startTrialBooking] teller-reset", clearErr);
+
+  const trialBookingId = result.trial_booking_id ?? "";
+  const cancelToken = result.cancel_token ?? "";
+
+  await sendTrialBookingConfirmationEmail({
+    id: trialBookingId,
+    session_id: args.sessionId,
+    name: args.name,
+    email: args.email,
+    cancel_token: cancelToken,
+    price_paid_cents: 0,
+  });
+
+  // Staf-melding zonder persoonsgegevens (PR #205): het topic is openbaar.
+  void sendNotification(
+    "Proefles geboekt met code!",
+    `Proefles-boeking ${trialBookingId} is gratis geboekt met code ${result.code ?? "?"}. Zie de sessie in het admin-rooster.`,
+    "ticket,muscle",
+  );
+
+  if ((result.prior_free_count ?? 0) > 0) {
+    const { data: session } = await admin
+      .from("class_sessions")
+      .select("start_at, end_at, class_type:class_types(name)")
+      .eq("id", args.sessionId)
+      .maybeSingle();
+    type ClassTypeRel = { name: string } | { name: string }[] | null;
+    const classTypeRaw = session?.class_type as ClassTypeRel;
+    const className = Array.isArray(classTypeRaw)
+      ? (classTypeRaw[0]?.name ?? "Proefles")
+      : (classTypeRaw?.name ?? "Proefles");
+    const startAt = new Date(session?.start_at ?? result.session_start_at ?? Date.now());
+    const endAt = session?.end_at ? new Date(session.end_at) : startAt;
+
+    await sendTrialCodeAbuseAlert({
+      trialBookingId,
+      codeId: result.code_id ?? "",
+      code: result.code ?? args.code,
+      name: args.name,
+      email: args.email,
+      phone: args.phone,
+      className,
+      whenLabel: `${formatWeekdayDate(startAt)} · ${formatTimeRange(startAt, endAt)}`,
+    });
+  }
+
+  return {
+    ok: true,
+    free: true,
+    redirectUrl: `/proefles/boeken/bedankt?trial=${trialBookingId}`,
+  };
 }
 
 /**
@@ -113,6 +284,22 @@ export async function startTrialBooking(
 
   // Publieke route: de deployment bepaalt de modus (mollie-mode.ts).
   const mode = trialBookingMode();
+
+  // Proefcode ingevuld: het gratis pad. Alle checks hierboven (sessie,
+  // discipline, capaciteits-voorcheck) gelden ook hier; de RPC herhaalt ze
+  // onder de rijlocks en beslist als enige of de les gratis is.
+  const code = normalizeTrialCode(input.code ?? "");
+  if (code) {
+    return redeemTrialCodeBooking({
+      code,
+      sessionId: session.id,
+      name,
+      email,
+      phone,
+      isTest: mode === "test",
+    });
+  }
+
   const mollie = getMollieClient(mode);
   if (!mollie) {
     return { ok: false, error: "Betalingsprovider niet geconfigureerd." };
@@ -206,7 +393,7 @@ export async function startTrialBooking(
     return { ok: false, error: "Kon betaallink niet genereren." };
   }
 
-  return { ok: true, checkoutUrl };
+  return { ok: true, free: false, checkoutUrl };
 }
 
 interface TrialBookingSummary {
@@ -220,10 +407,9 @@ interface TrialBookingSummary {
   cancellationWindowHours: number;
   canCancel: boolean;
   /**
-   * True wanneer deze boeking via een trial_code is ontstaan en die code
-   * (na de release-trigger uit community-growth PR B) weer 'active' en
-   * niet verlopen is. Community-growth PR D §7: de annuleerpagina moet
-   * expliciet tonen dat de code weer bruikbaar is.
+   * True wanneer deze boeking via een proefcode is ontstaan en die code na
+   * de release-trigger weer bruikbaar is (niet ingetrokken en niet op).
+   * De annuleerpagina toont dan expliciet dat de code opnieuw te gebruiken is.
    */
   codeStillUsable: boolean;
 }
@@ -233,20 +419,16 @@ export async function getTrialBookingByToken(
 ): Promise<TrialBookingSummary | null> {
   const admin = createAdminClient();
 
-  // trial_bookings en trial_codes hebben twee FK's naar elkaar
-  // (trial_bookings.trial_code_id en trial_codes.trial_booking_id);
-  // PostgREST kan de relatie niet raden zonder de expliciete FK-naam
-  // (zie PR #118). Deze select gaat van trial_bookings naar trial_codes
-  // via trial_bookings.trial_code_id, dus de constraint hier is
-  // trial_bookings_trial_code_id_fkey (niet de omgekeerde
-  // trial_codes_trial_booking_id_fkey uit PR #118).
+  // Sinds proefcodes v2 is er nog een FK tussen de twee tabellen
+  // (trial_bookings.trial_code_id); de expliciete naam blijft staan als
+  // documentatie van de joinrichting.
   const { data: trial } = await admin
     .from("trial_bookings")
     .select(
       `
         id, name, status, cancelled_at,
         session:class_sessions(start_at, end_at, class_type:class_types(name)),
-        trial_code:trial_codes!trial_bookings_trial_code_id_fkey(status, expires_at)
+        trial_code:trial_codes!trial_bookings_trial_code_id_fkey(revoked_at, max_uses, uses_count)
       `,
     )
     .eq("cancel_token", token)
@@ -277,15 +459,20 @@ export async function getTrialBookingByToken(
   const hoursUntil =
     (new Date(startAt).getTime() - Date.now()) / (1000 * 60 * 60);
 
-  type TrialCodeRel = { status: string; expires_at: string } | { status: string; expires_at: string }[] | null;
+  type TrialCodeRow = {
+    revoked_at: string | null;
+    max_uses: number | null;
+    uses_count: number;
+  };
+  type TrialCodeRel = TrialCodeRow | TrialCodeRow[] | null;
   const trialCodeRaw = trial.trial_code as unknown as TrialCodeRel;
   const trialCode = Array.isArray(trialCodeRaw)
     ? (trialCodeRaw[0] ?? null)
     : trialCodeRaw;
   const codeStillUsable = Boolean(
     trialCode &&
-      trialCode.status === "active" &&
-      new Date(trialCode.expires_at) > new Date(),
+      trialCode.revoked_at === null &&
+      (trialCode.max_uses === null || trialCode.uses_count < trialCode.max_uses),
   );
 
   return {
@@ -355,8 +542,8 @@ export async function cancelTrialBooking(
     payload: {},
   });
 
-  // Verse read na de update: de release-trigger (PR B) heeft de code
-  // intussen al teruggezet naar 'active' als hij niet verlopen was.
+  // Verse read na de update: de release-trigger heeft het gebruik intussen
+  // al teruggegeven aan de code (released_at gezet, uses_count omlaag).
   const refreshed = await getTrialBookingByToken(token);
   const message = refreshed?.codeStillUsable
     ? // COPY: confirm met Marlon

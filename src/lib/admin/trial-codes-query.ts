@@ -1,55 +1,59 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type TrialCodeStatusFilter = "active" | "redeemed" | "revoked" | "all";
+/**
+ * Leesqueries voor de admin-pagina proefcodes (spec-community-growth.md §1
+ * "Proefcodes"). Service-role, alleen lezen; schrijven loopt via de RPC's
+ * in trial-codes-actions.ts.
+ */
 
-export interface TrialCodeBatchOption {
-  batchId: string;
-  label: string;
-}
-
-export interface TrialCodeRedeemer {
-  name: string;
-  email: string;
-  phone: string;
-  sessionStartAt: string | null;
-  sessionEndAt: string | null;
-  sessionPillar: string | null;
-  className: string | null;
-}
+export type TrialCodeStatus = "active" | "exhausted" | "revoked";
+export type TrialCodeStatusFilter = TrialCodeStatus | "all";
 
 export interface TrialCodeRow {
   id: string;
   code: string;
-  pillar: string | null;
-  batchId: string;
-  batchLabel: string | null;
+  label: string;
+  /** null = onbeperkt, 1 = eenmalig, >1 = X keer. */
+  maxUses: number | null;
+  usesCount: number;
+  status: TrialCodeStatus;
   createdAt: string;
-  expiresAt: string;
-  status: "active" | "redeemed" | "revoked";
-  redeemedAt: string | null;
-  /** status 'active' met expires_at in het verleden: ongebruikt verlopen. */
-  isExpired: boolean;
-  /**
-   * Laatste trial_code.released-event voor deze code, alleen gezet
-   * wanneer status weer 'active' is. Onderscheidt een teruggegeven code
-   * (na annulering van de bijbehorende boeking) van een nooit-gebruikte
-   * code: de rij zelf is voor die twee gevallen identiek.
-   */
-  releasedAt: string | null;
-  /**
-   * trial_codes heeft geen revoked_at-kolom; dit komt uit tmc.events
-   * (individuele of batch-intrekking). Een code kan maar één keer
-   * intrekken, dus precedentie individueel-dan-batch is ondubbelzinnig.
-   */
+  createdByName: string | null;
   revokedAt: string | null;
-  redeemer: TrialCodeRedeemer | null;
+  revokedByName: string | null;
+  /** Aantal inwisselingen ooit, inclusief teruggegeven (geannuleerde). */
+  redemptionsTotal: number;
+}
+
+export interface TrialCodeRedemptionRow {
+  id: string;
+  trialBookingId: string;
+  name: string;
+  email: string;
+  phone: string;
+  bookingStatus: string;
+  redeemedAt: string;
+  releasedAt: string | null;
+  sessionId: string;
+  sessionStartAt: string | null;
+  sessionEndAt: string | null;
+  className: string | null;
+  /** Aantal gratis proeflessen van dit e-mailadres over alle codes heen. */
+  emailFreeCount: number;
+  /** Boeking staat op 'paid' en de les is nog niet begonnen: admin mag annuleren. */
+  canCancel: boolean;
+}
+
+export interface TrialCodeDetail extends TrialCodeRow {
+  redemptions: TrialCodeRedemptionRow[];
 }
 
 export interface TrialCodeKpis {
-  issuedTotal: number;
   activeNow: number;
-  redeemed: number;
+  exhausted: number;
+  revoked: number;
+  redemptionsOpen: number;
 }
 
 function firstOf<T>(value: T | T[] | null | undefined): T | null {
@@ -57,230 +61,234 @@ function firstOf<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-type RawSession = {
-  id: string;
-  start_at: string;
-  end_at: string;
-  pillar: string;
-  class_type: { name: string } | { name: string }[] | null;
-};
+export function deriveStatus(row: {
+  revoked_at: string | null;
+  max_uses: number | null;
+  uses_count: number;
+}): TrialCodeStatus {
+  if (row.revoked_at) return "revoked";
+  if (row.max_uses !== null && row.uses_count >= row.max_uses) return "exhausted";
+  return "active";
+}
 
-type RawTrialBooking = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  session: RawSession | RawSession[] | null;
-};
+type RawProfile = { first_name: string | null } | { first_name: string | null }[] | null;
 
 type RawTrialCodeRow = {
   id: string;
   code: string;
-  pillar: string | null;
-  batch_id: string;
-  batch_label: string | null;
+  label: string;
+  max_uses: number | null;
+  uses_count: number;
   created_at: string;
-  expires_at: string;
-  status: string;
-  redeemed_at: string | null;
-  trial_booking: RawTrialBooking | RawTrialBooking[] | null;
+  revoked_at: string | null;
+  created_by_profile: RawProfile;
+  revoked_by_profile: RawProfile;
 };
 
-// trial_bookings heeft twee FK's naar trial_codes (trial_bookings.trial_code_id
-// EN trial_codes.trial_booking_id): PostgREST kan de relatie niet raden en
-// weigert de query zonder de expliciete FK-naam. We willen hier altijd de
-// trial_codes.trial_booking_id-kant (de huidige, actuele boeking van deze
-// code), niet de omgekeerde historische trial_code_id-relatie.
+// Twee FK's van trial_codes naar profiles (created_by en revoked_by):
+// PostgREST kan de relatie niet raden zonder de expliciete FK-naam.
 const TRIAL_CODE_SELECT = `
-  id, code, pillar, batch_id, batch_label, created_at, expires_at, status, redeemed_at,
-  trial_booking:trial_bookings!trial_codes_trial_booking_id_fkey(
-    id, name, email, phone,
-    session:class_sessions(
-      id, start_at, end_at, pillar,
-      class_type:class_types(name)
-    )
-  )
+  id, code, label, max_uses, uses_count, created_at, revoked_at,
+  created_by_profile:profiles!trial_codes_created_by_fkey(first_name),
+  revoked_by_profile:profiles!trial_codes_revoked_by_fkey(first_name)
 `;
 
-/**
- * Altijd server-side geteld tegen de volledige tabel, ongeacht de
- * huidige toolbar-filters: de KPI-strip hoort niet mee te bewegen met
- * status/batch/zoek-filters op de tabel eronder.
- */
-export async function getTrialCodeKpis(): Promise<TrialCodeKpis> {
+async function redemptionTotals(codeIds: string[]): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  if (codeIds.length === 0) return totals;
   const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
+  const { data, error } = await admin
+    .from("trial_code_redemptions")
+    .select("code_id")
+    .in("code_id", codeIds);
+  if (error) {
+    console.error("[trial-codes-query] redemption totals failed", error);
+    return totals;
+  }
+  for (const r of data ?? []) {
+    totals.set(r.code_id, (totals.get(r.code_id) ?? 0) + 1);
+  }
+  return totals;
+}
 
-  const [issuedRes, activeRes, redeemedRes] = await Promise.all([
-    admin.from("trial_codes").select("id", { count: "exact", head: true }),
-    admin
-      .from("trial_codes")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .gt("expires_at", nowIso),
-    admin
-      .from("trial_codes")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "redeemed"),
-  ]);
-
+function mapRow(r: RawTrialCodeRow, redemptionsTotal: number): TrialCodeRow {
   return {
-    issuedTotal: issuedRes.count ?? 0,
-    activeNow: activeRes.count ?? 0,
-    redeemed: redeemedRes.count ?? 0,
+    id: r.id,
+    code: r.code,
+    label: r.label,
+    maxUses: r.max_uses,
+    usesCount: r.uses_count,
+    status: deriveStatus(r),
+    createdAt: r.created_at,
+    createdByName: firstOf(r.created_by_profile)?.first_name ?? null,
+    revokedAt: r.revoked_at,
+    revokedByName: firstOf(r.revoked_by_profile)?.first_name ?? null,
+    redemptionsTotal,
   };
 }
 
-/** Distinct batches over alle codes, meest recent eerst. */
-export async function listTrialCodeBatches(): Promise<TrialCodeBatchOption[]> {
+/** Altijd over de volledige tabel geteld, ongeacht de filters eronder. */
+export async function getTrialCodeKpis(): Promise<TrialCodeKpis> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("trial_codes")
-    .select("batch_id, batch_label, created_at")
-    .order("created_at", { ascending: false });
+  const [codesRes, openRes] = await Promise.all([
+    admin.from("trial_codes").select("revoked_at, max_uses, uses_count"),
+    admin
+      .from("trial_code_redemptions")
+      .select("id", { count: "exact", head: true })
+      .is("released_at", null),
+  ]);
 
-  if (error) {
-    console.error("[listTrialCodeBatches] query failed", error);
-    return [];
+  const kpis: TrialCodeKpis = {
+    activeNow: 0,
+    exhausted: 0,
+    revoked: 0,
+    redemptionsOpen: openRes.count ?? 0,
+  };
+  for (const row of codesRes.data ?? []) {
+    const status = deriveStatus(row);
+    if (status === "active") kpis.activeNow += 1;
+    else if (status === "exhausted") kpis.exhausted += 1;
+    else kpis.revoked += 1;
   }
-
-  const seen = new Set<string>();
-  const batches: TrialCodeBatchOption[] = [];
-  for (const row of data ?? []) {
-    if (seen.has(row.batch_id)) continue;
-    seen.add(row.batch_id);
-    batches.push({
-      batchId: row.batch_id,
-      label: row.batch_label || row.batch_id.slice(0, 8),
-    });
-  }
-  return batches;
+  return kpis;
 }
 
 export async function listTrialCodes(params: {
   status: TrialCodeStatusFilter;
-  batchId?: string;
   q?: string;
 }): Promise<TrialCodeRow[]> {
   const admin = createAdminClient();
-
-  let query = admin
+  const { data, error } = await admin
     .from("trial_codes")
     .select(TRIAL_CODE_SELECT)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<RawTrialCodeRow[]>();
 
-  if (params.status !== "all") {
-    query = query.eq("status", params.status);
-  }
-  if (params.batchId) {
-    query = query.eq("batch_id", params.batchId);
-  }
-
-  const { data, error } = await query.returns<RawTrialCodeRow[]>();
   if (error) {
     console.error("[listTrialCodes] query failed", error);
     return [];
   }
 
   const rows = data ?? [];
-  const nowMs = Date.now();
+  const totals = await redemptionTotals(rows.map((r) => r.id));
 
-  const codeIds = rows.map((r) => r.id);
-  const batchIds = Array.from(new Set(rows.map((r) => r.batch_id)));
+  let mapped = rows.map((r) => mapRow(r, totals.get(r.id) ?? 0));
 
-  // Read-only lookup in tmc.events voor twee dingen die niet uit de
-  // trial_codes-rij zelf zijn af te leiden: een teruggegeven code (de
-  // release-trigger zet 'm terug naar 'active', ononderscheidbaar van
-  // een nooit-gebruikte code) en het intrek-moment (geen revoked_at-
-  // kolom op trial_codes). Schrijft niets, leest alleen.
-  const [releaseEventsRes, revokeEventsRes, batchRevokeEventsRes] = await Promise.all([
-    codeIds.length
-      ? admin
-          .from("events")
-          .select("subject_id, created_at")
-          .eq("type", "trial_code.released")
-          .in("subject_id", codeIds)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as { subject_id: string; created_at: string }[] }),
-    codeIds.length
-      ? admin
-          .from("events")
-          .select("subject_id, created_at")
-          .eq("type", "trial_code.revoked")
-          .in("subject_id", codeIds)
-      : Promise.resolve({ data: [] as { subject_id: string; created_at: string }[] }),
-    batchIds.length
-      ? admin
-          .from("events")
-          .select("subject_id, created_at")
-          .eq("type", "trial_code.batch_revoked")
-          .in("subject_id", batchIds)
-      : Promise.resolve({ data: [] as { subject_id: string; created_at: string }[] }),
-  ]);
-
-  const releasedAtByCode = new Map<string, string>();
-  for (const e of releaseEventsRes.data ?? []) {
-    // Al aflopend gesorteerd op created_at: de eerste treffer per code is
-    // de meest recente release.
-    if (!releasedAtByCode.has(e.subject_id)) {
-      releasedAtByCode.set(e.subject_id, e.created_at);
-    }
+  if (params.status !== "all") {
+    mapped = mapped.filter((r) => r.status === params.status);
   }
-  const revokedAtByCode = new Map<string, string>();
-  for (const e of revokeEventsRes.data ?? []) {
-    revokedAtByCode.set(e.subject_id, e.created_at);
-  }
-  const batchRevokedAtByBatch = new Map<string, string>();
-  for (const e of batchRevokeEventsRes.data ?? []) {
-    batchRevokedAtByBatch.set(e.subject_id, e.created_at);
-  }
-
-  let mapped: TrialCodeRow[] = rows.map((r) => {
-    const booking = firstOf(r.trial_booking);
-    const session = booking ? firstOf(booking.session) : null;
-    const classType = session ? firstOf(session.class_type) : null;
-    const status = r.status as TrialCodeRow["status"];
-
-    return {
-      id: r.id,
-      code: r.code,
-      pillar: r.pillar,
-      batchId: r.batch_id,
-      batchLabel: r.batch_label,
-      createdAt: r.created_at,
-      expiresAt: r.expires_at,
-      status,
-      redeemedAt: r.redeemed_at,
-      isExpired: status === "active" && new Date(r.expires_at).getTime() <= nowMs,
-      releasedAt: status === "active" ? (releasedAtByCode.get(r.id) ?? null) : null,
-      revokedAt:
-        status === "revoked"
-          ? (revokedAtByCode.get(r.id) ?? batchRevokedAtByBatch.get(r.batch_id) ?? null)
-          : null,
-      redeemer: booking
-        ? {
-            name: booking.name,
-            email: booking.email,
-            phone: booking.phone,
-            sessionStartAt: session?.start_at ?? null,
-            sessionEndAt: session?.end_at ?? null,
-            sessionPillar: session?.pillar ?? null,
-            className: classType?.name ?? null,
-          }
-        : null,
-    };
-  });
 
   const q = params.q?.trim().toLowerCase();
   if (q) {
-    mapped = mapped.filter((r) => {
-      if (r.code.toLowerCase().includes(q)) return true;
-      if (r.batchLabel?.toLowerCase().includes(q)) return true;
-      if (r.redeemer?.name.toLowerCase().includes(q)) return true;
-      if (r.redeemer?.email.toLowerCase().includes(q)) return true;
-      return false;
-    });
+    const qCode = q.replace(/[\s-]/g, "");
+    mapped = mapped.filter(
+      (r) =>
+        (qCode.length > 0 && r.code.toLowerCase().includes(qCode)) ||
+        r.label.toLowerCase().includes(q),
+    );
   }
 
   return mapped;
+}
+
+type RawSession = {
+  start_at: string;
+  end_at: string;
+  class_type: { name: string } | { name: string }[] | null;
+};
+
+type RawBooking = { name: string; email: string; phone: string; status: string };
+
+type RawRedemptionRow = {
+  id: string;
+  trial_booking_id: string;
+  session_id: string;
+  email_normalized: string;
+  redeemed_at: string;
+  released_at: string | null;
+  booking: RawBooking | RawBooking[] | null;
+  session: RawSession | RawSession[] | null;
+};
+
+export async function getTrialCodeDetail(id: string): Promise<TrialCodeDetail | null> {
+  const admin = createAdminClient();
+
+  const { data: code, error } = await admin
+    .from("trial_codes")
+    .select(TRIAL_CODE_SELECT)
+    .eq("id", id)
+    .maybeSingle<RawTrialCodeRow>();
+
+  if (error) {
+    console.error("[getTrialCodeDetail] query failed", error);
+    return null;
+  }
+  if (!code) return null;
+
+  const { data: redemptions, error: redErr } = await admin
+    .from("trial_code_redemptions")
+    .select(
+      `
+        id, trial_booking_id, session_id, email_normalized, redeemed_at, released_at,
+        booking:trial_bookings(name, email, phone, status),
+        session:class_sessions(start_at, end_at, class_type:class_types(name))
+      `,
+    )
+    .eq("code_id", id)
+    .order("redeemed_at", { ascending: false })
+    .returns<RawRedemptionRow[]>();
+
+  if (redErr) {
+    console.error("[getTrialCodeDetail] redemptions failed", redErr);
+  }
+
+  const rows = redemptions ?? [];
+
+  // Markering: e-mailadressen die over alle codes heen meer dan een gratis
+  // proefles hebben geboekt (inclusief geannuleerde).
+  const emails = Array.from(new Set(rows.map((r) => r.email_normalized)));
+  const emailCounts = new Map<string, number>();
+  if (emails.length > 0) {
+    const { data: all } = await admin
+      .from("trial_code_redemptions")
+      .select("email_normalized")
+      .in("email_normalized", emails);
+    for (const r of all ?? []) {
+      emailCounts.set(r.email_normalized, (emailCounts.get(r.email_normalized) ?? 0) + 1);
+    }
+  }
+
+  const nowMs = Date.now();
+  const mappedRedemptions: TrialCodeRedemptionRow[] = rows.map((r) => {
+    const booking = firstOf(r.booking);
+    const session = firstOf(r.session);
+    const classType = session ? firstOf(session.class_type) : null;
+    const startAt = session?.start_at ?? null;
+    const bookingStatus = booking?.status ?? "unknown";
+    return {
+      id: r.id,
+      trialBookingId: r.trial_booking_id,
+      name: booking?.name ?? "?",
+      email: booking?.email ?? r.email_normalized,
+      phone: booking?.phone ?? "",
+      bookingStatus,
+      redeemedAt: r.redeemed_at,
+      releasedAt: r.released_at,
+      sessionId: r.session_id,
+      sessionStartAt: startAt,
+      sessionEndAt: session?.end_at ?? null,
+      className: classType?.name ?? null,
+      emailFreeCount: emailCounts.get(r.email_normalized) ?? 1,
+      canCancel:
+        bookingStatus === "paid" &&
+        r.released_at === null &&
+        startAt !== null &&
+        new Date(startAt).getTime() > nowMs,
+    };
+  });
+
+  return {
+    ...mapRow(code, rows.length),
+    redemptions: mappedRedemptions,
+  };
 }

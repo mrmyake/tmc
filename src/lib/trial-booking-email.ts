@@ -8,9 +8,11 @@ import { siteUrl } from "@/lib/site-url";
 
 /**
  * Fire-and-forget bevestigingsmail naar de bezoeker na een geslaagde
- * proefles-betaling. Twee callers, allebei "trial_booking wordt paid":
- * /api/trial-bookings/webhook (het normale pad) en de expire-orders cron
- * (reconciliatie tegen Mollie als de webhook nooit aankwam — de cron
+ * proefles-betaling of een gratis boeking met proefcode. Drie callers,
+ * allemaal "trial_booking is paid": /api/trial-bookings/webhook (het
+ * normale betaalde pad), startTrialBooking met proefcode (gratis, direct
+ * bevestigd, price_paid_cents 0 dus zonder prijsregel) en de expire-orders
+ * cron (reconciliatie tegen Mollie als de webhook nooit aankwam; de cron
  * beweerde al "hetzelfde vervolg als de webhook", dat klopte tot deze fix
  * niet voor de e-mail zelf). Vóór deze functie stuurde alleen de ntfy naar
  * de staf: de bezoeker kreeg de cancel_token nooit te zien, terwijl het
@@ -92,7 +94,9 @@ export async function sendTrialBookingConfirmationEmail(trial: {
         whenLabel,
         cancelUrl,
         cancellationWindowHours,
-        priceLabel: formatPriceEuro(trial.price_paid_cents),
+        // Gratis via proefcode: geen prijsregel en geen betaalverwijzing.
+        priceLabel:
+          trial.price_paid_cents > 0 ? formatPriceEuro(trial.price_paid_cents) : null,
       }),
     });
   } catch (err) {

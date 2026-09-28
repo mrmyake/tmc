@@ -99,6 +99,10 @@ export type EventType =
   | "trial_booking.created"
   | "trial_booking.paid"
   | "trial_booking.cancelled"
+  // Proefcodes v2 (src/lib/trial-codes/): de DB-RPC's schrijven
+  // trial_code.created/redeemed/revoked/released zelf; alleen de
+  // misbruikmelding wordt vanuit TS gelogd.
+  | "trial_code.abuse_alert_sent"
   | "member.milestone_reached"
   // Deurtoegang (Akiles, spec-akiles-access.md; src/lib/access/)
   | "access.granted"
@@ -151,6 +155,7 @@ export type SubjectType =
   | "trainer_hours"
   | "check_in"
   | "trial_booking"
+  | "trial_code"
   // Zaalbediening: zalen hebben geen eigen rij/uuid, dus subject_id blijft
   // null bij dit subject_type.
   | "room"
