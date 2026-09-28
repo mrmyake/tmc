@@ -96,3 +96,9 @@ Alle drie de teksten zijn placeholders: `// COPY: confirm met Marlon`. De bar li
 4. Early Member = tijdelijk campagneslot, verandert/verdwijnt na deadline via campagne-fase-logica.
 5. Teaser = site-wide bar boven de nav, dismissable, drie fases.
 6. Eén datum-config als single source of truth voor teaser + menuslot + `/early-member`-afteller. Placeholder: opening medio aug 2026, deadline 1 okt 2026.
+
+---
+
+## Ledger
+
+- **PR #225, 2026-09-28, Rooster in de publieke navigatie** (branch `feat/public-nav-rooster`). `{ label: "Rooster", href: "/rooster" }` staat in `NAV_LINKS` direct na Aanbod (desktop, mobiel en via `FOOTER_NAV_LINKS` ook de footer), label met `// COPY: confirm met Marlon`; in `Navbar.tsx` is de gap onder `lg` verkleind (`gap-5 lg:gap-10`) omdat de CTA bij 900px anders buiten beeld viel. Actieve staat via de bestaande `pathname === href`-check: `/rooster` actief, `/yoga/rooster` niet. Bewust niet aangeraakt: MemberNav en de bottom tab bar, schema, RLS en data-ophalen op `/rooster`, de lege-staat-copy van `/rooster`, en het hamburger-breakpoint (`md`); de nav is op 768 tot 1023px al krap zonder Rooster en loopt bij 768 over, structurele oplossing (breakpoint naar `lg`) is een apart besluit. Merge-hash volgt na merge.
