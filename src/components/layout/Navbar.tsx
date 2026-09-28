@@ -109,9 +109,9 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-5 lg:gap-10">
+        <div className="hidden xl:flex items-center gap-10">
           {/* Content-cluster: Aanbod, Rooster, Prijzen, Early Member, Over ons. */}
-          <div className="flex items-center gap-5 lg:gap-10">
+          <div className="flex items-center gap-10">
           {NAV_LINKS.map((link) => {
             if (link.label === "Aanbod") {
               return (
@@ -193,7 +193,7 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
 
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden text-text p-2 -mr-2"
+          className="xl:hidden text-text p-2 -mr-2"
           aria-label={mobileOpen ? "Sluit menu" : "Open menu"}
           aria-expanded={mobileOpen}
         >
@@ -209,7 +209,7 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
           animates the child's natural height without JS. Inner div
           needs min-h-0 so the grid track can collapse to zero. */}
       <div
-        className={`md:hidden grid overflow-hidden transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
+        className={`xl:hidden grid overflow-hidden transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
           mobileOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
         inert={!mobileOpen ? true : undefined}
