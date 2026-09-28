@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
+import { syncPaymentRefundsFromMollie } from "@/lib/refunds/process";
+import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 
 export async function POST(request: Request) {
   try {
@@ -94,6 +96,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Restitutiespiegel (spec-facturatie.md 4.7 stap 3): Mollie roept deze
+    // webhook ook aan als een refund van status verandert. De payment-
+    // status blijft dan 'paid'; alleen amountRefunded beweegt. Schrijf die
+    // naar refunded_amount_cents/refunded_at en werk onze refund-intenties
+    // bij, zodat v_revenue_lines en de retry-knop de werkelijkheid zien.
+    const { data: paymentRow } = await admin
+      .from("payments")
+      .select("id")
+      .eq("mollie_payment_id", payment.id)
+      .maybeSingle();
+    if (paymentRow) {
+      await syncPaymentRefundsFromMollie({
+        paymentRowId: paymentRow.id,
+        molliePaymentId: payment.id,
+        amountRefundedValue: payment.amountRefunded?.value ?? null,
+        isTest: trial.is_test === true,
+      });
+    }
+
     // Idempotent: al in een eindstatus, en niet opnieuw naar pending.
     if (trial.status !== "pending") {
       return NextResponse.json({ ok: true });
@@ -139,6 +160,18 @@ export async function POST(request: Request) {
         payload: { session_id: trial.session_id },
       });
 
+      // Bijvangst: is de sessie intussen door de studio geannuleerd, dan
+      // meteen weer annuleren met refund en annuleringsmail, en geen
+      // bevestiging sturen.
+      if (await cancelIfSessionCancelled(trial)) {
+        await sendNotification(
+          "Proefles betaald op geannuleerde sessie",
+          `Proefles-boeking ${trial.id} kwam binnen op een geannuleerde sessie en is direct geannuleerd met terugbetaling.`,
+          "warning",
+        );
+        return NextResponse.json({ ok: true });
+      }
+
       await sendNotification(
         "Nieuwe proefles-boeking!",
         `Proefles-boeking ${trial.id} is betaald. Zie de sessie in het admin-rooster.`,
@@ -147,7 +180,7 @@ export async function POST(request: Request) {
 
       // Bevestiging naar de bezoeker zelf: datum/tijd/lestype, adres,
       // annuleerlink op cancel_token en het annuleringsvenster. Ontbrak
-      // hiervoor volledig — zie src/lib/trial-booking-email.ts.
+      // hiervoor volledig, zie src/lib/trial-booking-email.ts.
       await sendTrialBookingConfirmationEmail(trial);
     } else if (newStatus === "failed" || newStatus === "canceled" || newStatus === "expired") {
       await admin

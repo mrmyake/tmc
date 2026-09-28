@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Dialog, DialogFooter } from "@/components/ui/Dialog";
 import { Chip } from "@/components/ui/Chip";
-import { adminCancelTrialBooking } from "@/lib/admin/trial-codes-actions";
+import { adminCancelTrialBooking } from "@/lib/admin/trial-booking-actions";
 import type { TrialCodeRedemptionRow } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear, formatTime } from "@/lib/format-date";
 
@@ -95,12 +95,14 @@ function CancelBookingButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [reason, setReason] = useState("");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   function confirm() {
     startTransition(async () => {
       const res = await adminCancelTrialBooking({
         trialBookingId: row.trialBookingId,
+        reason,
         codeId,
       });
       setResult(res);
@@ -114,6 +116,7 @@ function CancelBookingButton({
         type="button"
         onClick={() => {
           setResult(null);
+          setReason("");
           setOpen(true);
         }}
         className="inline-flex items-center gap-1.5 border border-[color:var(--danger)]/40 text-[color:var(--danger)] text-[11px] font-medium uppercase tracking-[0.14em] px-3 py-2 hover:bg-[color:var(--danger)]/10 transition-colors cursor-pointer"
@@ -134,8 +137,20 @@ function CancelBookingButton({
           {/* COPY: confirm met Marlon */}
           De proefles van {row.name} ({row.className ?? "sessie"}) wordt
           geannuleerd en de plek komt vrij. Het gebruik gaat terug naar de
-          code. De bezoeker krijgt hiervan geen automatische mail.
+          code. De bezoeker krijgt een mail met de reden.
         </p>
+        <label className="flex flex-col gap-2 mb-4">
+          {/* COPY: confirm met Marlon */}
+          <span className="tmc-eyebrow">Reden (verplicht, gaat in de mail)</span>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            // COPY: confirm met Marlon
+            placeholder="Bv. dubbel geboekt, of misbruik van de code"
+            className="bg-bg border border-[color:var(--ink-500)] px-4 py-3 text-sm text-text focus:outline-none focus:border-accent resize-none"
+          />
+        </label>
         <DialogFooter
           result={result}
           onClose={() => setOpen(false)}
@@ -143,7 +158,7 @@ function CancelBookingButton({
           // COPY: confirm met Marlon
           cancelLabel="Terug"
           confirmLabel={pending ? "Bezig" : "Annuleren"}
-          confirmDisabled={pending || result?.ok === true}
+          confirmDisabled={pending || result?.ok === true || !reason.trim()}
           confirmTone="danger"
         />
       </Dialog>

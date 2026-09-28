@@ -78,6 +78,35 @@ export interface GuestRow {
   bookedAt: string;
 }
 
+/** Terugbetalingsintentie bij een betaalde proefles (tmc.payment_refunds). */
+export interface TrialRefundInfo {
+  refundId: string;
+  status: "requested" | "queued" | "pending" | "processing" | "refunded" | "failed" | "canceled";
+  amountCents: number;
+  requestedAt: string;
+  lastError: string | null;
+  /** requested ouder dan een paar minuten, of failed: opnieuw in te dienen. */
+  retryable: boolean;
+}
+
+/**
+ * Proefles van deze sessie (tmc.trial_bookings): betaald via Mollie of gratis
+ * via een proefcode. Geen aanwezigheidsmodel (attended/no_show worden nergens
+ * gezet, zie spec-community-growth.md §1); alleen tonen en annuleren.
+ */
+export interface TrialRow {
+  trialBookingId: string;
+  name: string;
+  status: "pending" | "paid" | "attended" | "no_show" | "cancelled";
+  isFree: boolean;
+  pricePaidCents: number;
+  isTest: boolean;
+  bookedAt: string;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  refund: TrialRefundInfo | null;
+}
+
 // ----------------------------------------------------------------------------
 // Authorization: admin OR trainer-of-this-session
 // ----------------------------------------------------------------------------
@@ -162,6 +191,7 @@ export async function loadParticipants(
       session: SessionSummary;
       participants: ParticipantRow[];
       guests: GuestRow[];
+      trials: TrialRow[];
     }
   | { ok: false; message: string }
 > {
@@ -170,7 +200,7 @@ export async function loadParticipants(
 
   const admin = createAdminClient();
 
-  const [sessionRes, bookingsRes, checkInsRes, guestsRes] = await Promise.all([
+  const [sessionRes, bookingsRes, checkInsRes, guestsRes, trialsRes] = await Promise.all([
     admin
       .from("class_sessions")
       .select(
@@ -208,6 +238,16 @@ export async function loadParticipants(
          inviter:profiles!guest_bookings_booked_by_fkey(first_name, last_name)`,
       )
       .eq("session_id", sessionId)
+      .order("booked_at", { ascending: true }),
+    // Proeflessen van deze sessie, betaald en gratis. Zonder e-mail en
+    // telefoon in de lijst; die staan op de proefcodes-detailpagina.
+    admin
+      .from("trial_bookings")
+      .select(
+        "id, name, status, price_paid_cents, trial_code_id, is_test, booked_at, cancelled_at, cancellation_reason",
+      )
+      .eq("session_id", sessionId)
+      .in("status", ["paid", "attended", "no_show", "cancelled"])
       .order("booked_at", { ascending: true }),
   ]);
 
@@ -319,7 +359,47 @@ export async function loadParticipants(
     };
   });
 
-  return { ok: true, session, participants, guests };
+  // Refund-intenties bij de betaalde proeflessen (alleen de laatste per
+  // boeking telt voor de weergave; een retry hergebruikt dezelfde rij).
+  const trialRows = trialsRes.data ?? [];
+  const refundByTrial = new Map<string, TrialRefundInfo>();
+  const paidTrialIds = trialRows.filter((t) => t.price_paid_cents > 0).map((t) => t.id);
+  if (paidTrialIds.length > 0) {
+    const { data: refunds } = await admin
+      .from("payment_refunds")
+      .select("id, trial_booking_id, status, amount_cents, requested_at, last_error")
+      .in("trial_booking_id", paidTrialIds)
+      .order("requested_at", { ascending: false });
+    const nowMs = Date.now();
+    for (const r of refunds ?? []) {
+      if (!r.trial_booking_id || refundByTrial.has(r.trial_booking_id)) continue;
+      const status = r.status as TrialRefundInfo["status"];
+      refundByTrial.set(r.trial_booking_id, {
+        refundId: r.id,
+        status,
+        amountCents: r.amount_cents,
+        requestedAt: r.requested_at,
+        lastError: r.last_error,
+        retryable:
+          status === "failed" ||
+          (status === "requested" && nowMs - new Date(r.requested_at).getTime() > 2 * 60 * 1000),
+      });
+    }
+  }
+  const trials: TrialRow[] = trialRows.map((t) => ({
+    trialBookingId: t.id,
+    name: t.name,
+    status: t.status as TrialRow["status"],
+    isFree: t.price_paid_cents === 0,
+    pricePaidCents: t.price_paid_cents,
+    isTest: t.is_test === true,
+    bookedAt: t.booked_at,
+    cancelledAt: t.cancelled_at,
+    cancellationReason: t.cancellation_reason,
+    refund: refundByTrial.get(t.id) ?? null,
+  }));
+
+  return { ok: true, session, participants, guests, trials };
 }
 
 // ----------------------------------------------------------------------------

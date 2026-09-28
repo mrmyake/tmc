@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import TrialCodeConfirmation from "@/emails/trial_code_confirmation";
+import TrialBookingCancelledByStudio from "@/emails/trial_booking_cancelled_by_studio";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { siteUrl } from "@/lib/site-url";
@@ -105,5 +106,83 @@ export async function sendTrialBookingConfirmationEmail(trial: {
       trial.id,
       err,
     );
+  }
+}
+
+/**
+ * Annuleringsmail na een annulering door de studio (losse admin-annulering,
+ * sessie-annulering of de webhook-bijvangst). Fire-and-forget: nooit
+ * throwen, alleen loggen. Zelfservice-annulering door de bezoeker stuurt
+ * bewust geen mail (spec-community-growth.md §1).
+ */
+export async function sendTrialBookingCancelledEmail(args: {
+  trialBookingId: string;
+  reason: string;
+  /** Terug te betalen bedrag in centen; 0 of null bij een codeboeking. */
+  refundAmountCents: number | null;
+}): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data: trial } = await admin
+      .from("trial_bookings")
+      .select(
+        `
+          id, name, email, trial_code_id,
+          session:class_sessions(start_at, end_at, class_type:class_types(name)),
+          trial_code:trial_codes!trial_bookings_trial_code_id_fkey(revoked_at, max_uses, uses_count)
+        `,
+      )
+      .eq("id", args.trialBookingId)
+      .maybeSingle();
+    if (!trial) {
+      console.error("[trial-booking-email] cancel skipped: booking not found", args.trialBookingId);
+      return false;
+    }
+
+    type SessionRel = {
+      start_at: string;
+      end_at: string;
+      class_type: { name: string } | { name: string }[] | null;
+    } | null;
+    const session = (Array.isArray(trial.session) ? trial.session[0] : trial.session) as unknown as SessionRel;
+    const classTypeRaw = session?.class_type;
+    const className = Array.isArray(classTypeRaw)
+      ? (classTypeRaw[0]?.name ?? "Proefles")
+      : (classTypeRaw?.name ?? "Proefles");
+    const startAt = session ? new Date(session.start_at) : new Date();
+    const endAt = session ? new Date(session.end_at) : startAt;
+    const whenLabel = `${formatWeekdayDate(startAt)} · ${formatTimeRange(startAt, endAt)}`;
+
+    type CodeRel = { revoked_at: string | null; max_uses: number | null; uses_count: number };
+    const codeRaw = trial.trial_code as unknown as CodeRel | CodeRel[] | null;
+    const code = Array.isArray(codeRaw) ? (codeRaw[0] ?? null) : codeRaw;
+    const codeReusable = Boolean(
+      code && code.revoked_at === null && (code.max_uses === null || code.uses_count < code.max_uses),
+    );
+
+    const firstName = trial.name.split(" ")[0] ?? "";
+    const refundAmountLabel =
+      args.refundAmountCents && args.refundAmountCents > 0
+        ? (args.refundAmountCents / 100).toFixed(2).replace(".", ",")
+        : null;
+
+    return await sendEmail({
+      to: trial.email,
+      toName: firstName,
+      // COPY: confirm met Marlon
+      subject: `Proefles geannuleerd: ${className} · ${whenLabel}`,
+      react: TrialBookingCancelledByStudio({
+        firstName,
+        className,
+        whenLabel,
+        reason: args.reason,
+        refundAmountLabel,
+        codeReusable,
+        siteUrl: siteUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error("[trial-booking-email] cancel email failed", args.trialBookingId, err);
+    return false;
   }
 }

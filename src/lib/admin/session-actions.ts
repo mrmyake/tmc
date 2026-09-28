@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
+import { createClient } from "@/lib/supabase/server";
+import { finalizeTrialBookingCancellation, type CancelCoreResult } from "@/lib/trial-booking-cancel";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendEmail } from "@/lib/email";
@@ -228,6 +230,17 @@ export async function adminCancelSession(
     return { ok: false, message: "Annuleren lukte niet." };
   }
 
+  // Proeflessen (betaald en gratis) gaan mee, per boeking via
+  // tmc.admin_cancel_trial_booking: annulering, reden en refund-intentie in
+  // een transactie, daarna refund bij Mollie en de annuleringsmail. Na de
+  // sessie-update, zodat een betaling die nu nog binnenkomt de
+  // webhook-bijvangst treft. Gastboekingen bewust nog niet (open punt in de
+  // ledger van spec-community-growth.md).
+  const trialOutcome = await cancelTrialBookingsForSession({
+    sessionId: input.id,
+    reason: `Sessie geannuleerd: ${reason}`,
+  });
+
   await emitEvent({
     type: "session.cancelled",
     actorType: "admin",
@@ -238,6 +251,9 @@ export async function adminCancelSession(
       session_id: input.id,
       reason,
       affected_booking_count: affected.length,
+      trial_bookings_cancelled: trialOutcome.cancelled,
+      trial_refunds_requested: trialOutcome.refundsRequested,
+      trial_refunds_failed: trialOutcome.refundsFailed,
     },
   });
   for (const b of affected) {
@@ -259,7 +275,7 @@ export async function adminCancelSession(
 
   await sendNotification(
     "Sessie geannuleerd",
-    `${affected.length} boeking(en) geannuleerd — reden: ${reason}`,
+    `${affected.length} boeking(en) en ${trialOutcome.cancelled} proefles(sen) geannuleerd, reden: ${reason}`,
     "warning",
   );
 
@@ -274,13 +290,76 @@ export async function adminCancelSession(
 
   revalidateAll();
 
+  const parts: string[] = [];
+  if (affected.length > 0) {
+    parts.push(`${affected.length} boeking(en) teruggezet en credits hersteld`);
+  }
+  if (trialOutcome.cancelled > 0) {
+    // COPY: confirm met Marlon
+    parts.push(
+      `${trialOutcome.cancelled} proefles(sen) geannuleerd` +
+        (trialOutcome.refundsRequested > 0
+          ? `, ${trialOutcome.refundsRequested} terugbetaling(en) ingediend`
+          : ""),
+    );
+  }
+  if (trialOutcome.refundsFailed > 0) {
+    // COPY: confirm met Marlon
+    parts.push(
+      `${trialOutcome.refundsFailed} terugbetaling(en) niet bij Mollie aangekomen, opnieuw proberen via de sessiepagina`,
+    );
+  }
   return {
     ok: true,
-    message:
-      affected.length === 0
-        ? "Sessie geannuleerd."
-        : `Sessie geannuleerd. ${affected.length} boeking(en) teruggezet en credits hersteld.`,
+    message: parts.length === 0 ? "Sessie geannuleerd." : `Sessie geannuleerd. ${parts.join(". ")}.`,
   };
+}
+
+/**
+ * Alle open proeflessen van een sessie annuleren, via dezelfde RPC als de
+ * losse admin-annulering (sessie-gebonden client: is_admin binnenin).
+ * Een mislukte refund of mail blokkeert de rest niet.
+ */
+async function cancelTrialBookingsForSession(args: {
+  sessionId: string;
+  reason: string;
+}): Promise<{ cancelled: number; refundsRequested: number; refundsFailed: number }> {
+  const out = { cancelled: 0, refundsRequested: 0, refundsFailed: 0 };
+  try {
+    const admin = createAdminClient();
+    const { data: trials } = await admin
+      .from("trial_bookings")
+      .select("id")
+      .eq("session_id", args.sessionId)
+      .eq("status", "paid");
+    if (!trials || trials.length === 0) return out;
+
+    const supabase = await createClient();
+    for (const t of trials) {
+      const { data, error } = await supabase.rpc("admin_cancel_trial_booking", {
+        p_id: t.id,
+        p_reason: args.reason,
+      });
+      if (error) {
+        console.error("[adminCancelSession] trial cancel rpc failed", t.id, error);
+        continue;
+      }
+      const result = data as CancelCoreResult;
+      if (!result.ok) {
+        console.error("[adminCancelSession] trial cancel refused", t.id, result.reason);
+        continue;
+      }
+      out.cancelled += 1;
+      const outcome = await finalizeTrialBookingCancellation(result, args.reason);
+      if (result.refund_id) {
+        if (outcome.refundOk) out.refundsRequested += 1;
+        else out.refundsFailed += 1;
+      }
+    }
+  } catch (err) {
+    console.error("[adminCancelSession] trial bookings step failed", err);
+  }
+  return out;
 }
 
 // ----------------------------------------------------------------------------

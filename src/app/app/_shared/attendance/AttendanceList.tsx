@@ -12,7 +12,9 @@ import {
   type GuestRow,
   type ParticipantRow,
   type SessionSummary,
+  type TrialRow,
 } from "@/lib/admin/attendance-actions";
+import { TrialBookingsBlock } from "./TrialBookingsBlock";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
@@ -33,6 +35,8 @@ export interface AttendanceListProps {
   initialParticipants: ParticipantRow[];
   /** Gasten van de sessie; apart van leden (ander aanwezigheidsmodel). */
   initialGuests?: GuestRow[];
+  /** Proeflessen van de sessie (betaald en via code); alleen tonen en annuleren. */
+  initialTrials?: TrialRow[];
   canRefund: boolean;
   embedded?: boolean;
   /**
@@ -46,6 +50,7 @@ export function AttendanceList({
   session,
   initialParticipants,
   initialGuests = [],
+  initialTrials = [],
   canRefund,
   embedded = false,
   selfFetch = false,
@@ -53,6 +58,7 @@ export function AttendanceList({
   const [participants, setParticipants] =
     useState<ParticipantRow[]>(initialParticipants);
   const [guests, setGuests] = useState<GuestRow[]>(initialGuests);
+  const [trials, setTrials] = useState<TrialRow[]>(initialTrials);
   const [dirty, setDirty] = useState<DirtyMap>(new Map());
   const [guestDirty, setGuestDirty] = useState<DirtyMap>(new Map());
   const [pending, startTransition] = useTransition();
@@ -75,6 +81,7 @@ export function AttendanceList({
       if (res.ok) {
         setParticipants(res.participants);
         setGuests(res.guests);
+        setTrials(res.trials);
       } else {
         setMessage({ tone: "error", text: res.message });
       }
@@ -546,6 +553,12 @@ export function AttendanceList({
             ))}
           </ul>
         </div>
+      )}
+
+      {/* Proeflessen: eigen blok, geen aanwezigheidsmodel. Annuleren en de
+          terugbetaling opnieuw indienen alleen voor admins (canRefund). */}
+      {!loading && (
+        <TrialBookingsBlock trials={trials} sessionId={session.id} canManage={canRefund} />
       )}
 
       {cancelledGuests.length > 0 && (
