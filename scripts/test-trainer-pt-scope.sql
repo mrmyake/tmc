@@ -143,11 +143,14 @@ do $$ begin
   perform tmc.complete_pt_intake('f1000000-0000-4000-8000-000000000041');
   raise exception 'FAIL 1g: complete_pt_intake niet geweigerd';
 exception when insufficient_privilege then null; end $$;
-do $$ begin
-  perform tmc.cancel_pt_intake('f1000000-0000-4000-8000-000000000041');
-  raise exception 'FAIL 1g: cancel_pt_intake niet geweigerd';
-exception when insufficient_privilege then
-  raise notice 'PASS 1g: delete_pt_block, complete_pt_intake en cancel_pt_intake geweigerd voor trainer zonder PT';
+-- cancel_pt_intake is sinds fix/trainer-no-session-cancel admin-only en
+-- antwoordt met reason admin_only in plaats van een gate-exception.
+do $$ declare r jsonb; begin
+  r := tmc.cancel_pt_intake('f1000000-0000-4000-8000-000000000041');
+  if r ->> 'reason' <> 'admin_only' then
+    raise exception 'FAIL 1g: cancel_pt_intake gaf % voor trainer zonder PT', r;
+  end if;
+  raise notice 'PASS 1g: delete_pt_block en complete_pt_intake geweigerd voor trainer zonder PT, cancel_pt_intake admin_only';
 end $$;
 
 -- Gedeelde RPC's: de trainer-tak eist PT, dus de eigen (fixture-)sessie is onzichtbaar.
@@ -161,14 +164,14 @@ do $$ declare r jsonb; begin
     raise exception 'FAIL 1h: override door trainer zonder PT gaf %', r;
   end if;
   r := tmc.cancel_pt('f2000000-0000-4000-8000-000000000042');
-  if coalesce((r ->> 'ok')::boolean, false) or r ->> 'reason' <> 'not_found' then
+  if coalesce((r ->> 'ok')::boolean, false) or r ->> 'reason' <> 'admin_only' then
     raise exception 'FAIL 1h: cancel_pt gaf % voor trainer zonder PT', r;
   end if;
   r := tmc.resolve_pt_cancellation('f3000000-0000-4000-8000-000000000042', false);
-  if coalesce((r ->> 'ok')::boolean, false) or r ->> 'reason' <> 'not_found' then
+  if coalesce((r ->> 'ok')::boolean, false) or r ->> 'reason' <> 'admin_only' then
     raise exception 'FAIL 1h: resolve_pt_cancellation gaf % voor trainer zonder PT', r;
   end if;
-  raise notice 'PASS 1h: reschedule_pt, cancel_pt en resolve_pt_cancellation zien de sessie van een trainer zonder PT niet (not_found), override geweigerd';
+  raise notice 'PASS 1h: reschedule_pt ziet de sessie van een trainer zonder PT niet (not_found), override geweigerd; cancel_pt en resolve_pt_cancellation admin_only';
 end $$;
 
 do $$ declare n int; begin
@@ -254,22 +257,24 @@ do $$ declare r jsonb; begin
   raise notice 'PASS 2g: PT-trainer verzet eigen boeking (met override), collega-boeking blijft not_found';
 end $$;
 
+-- Sinds fix/trainer-no-session-cancel (20260928120000) is afhandelen en
+-- annuleren admin-only; de PT-trainer krijgt admin_only, ook op de eigen sessie.
 do $$ declare n int; r jsonb; begin
   select count(*) into n from tmc.pt_cancellation_requests;
   if n <> 1 then raise exception 'FAIL 2h: PT-trainer leest % annuleringsverzoeken (verwacht 1, alleen eigen sessie)', n; end if;
   r := tmc.resolve_pt_cancellation('f3000000-0000-4000-8000-000000000042', false);
-  if r ->> 'reason' <> 'not_found' then raise exception 'FAIL 2h: resolve op collega-verzoek gaf %', r; end if;
+  if r ->> 'reason' <> 'admin_only' then raise exception 'FAIL 2h: resolve op collega-verzoek gaf %', r; end if;
   r := tmc.resolve_pt_cancellation('f3000000-0000-4000-8000-000000000032', false, null, 'nee');
-  if not coalesce((r ->> 'ok')::boolean, false) or r ->> 'outcome' <> 'rejected' then raise exception 'FAIL 2h: resolve op eigen verzoek gaf %', r; end if;
-  raise notice 'PASS 2h: pcr_trainer_read en resolve_pt_cancellation alleen voor het eigen verzoek';
+  if r ->> 'reason' <> 'admin_only' then raise exception 'FAIL 2h: resolve op eigen verzoek gaf %', r; end if;
+  raise notice 'PASS 2h: pcr_trainer_read alleen het eigen verzoek; resolve_pt_cancellation admin_only voor een PT-trainer';
 end $$;
 
 do $$ declare r jsonb; begin
   r := tmc.cancel_pt('f2000000-0000-4000-8000-000000000042', false);
-  if r ->> 'reason' <> 'not_found' then raise exception 'FAIL 2i: annuleren collega-boeking gaf %', r; end if;
+  if r ->> 'reason' <> 'admin_only' then raise exception 'FAIL 2i: annuleren collega-boeking gaf %', r; end if;
   r := tmc.cancel_pt('f2000000-0000-4000-8000-000000000032', false);
-  if not coalesce((r ->> 'ok')::boolean, false) then raise exception 'FAIL 2i: annuleren eigen boeking gaf %', r; end if;
-  raise notice 'PASS 2i: PT-trainer annuleert eigen boeking met restitutiekeuze, collega-boeking blijft not_found';
+  if r ->> 'reason' <> 'admin_only' then raise exception 'FAIL 2i: annuleren eigen boeking gaf %', r; end if;
+  raise notice 'PASS 2i: cancel_pt admin_only voor een PT-trainer, ook op de eigen boeking';
 end $$;
 
 -- ---------------------------------------------------------------------------

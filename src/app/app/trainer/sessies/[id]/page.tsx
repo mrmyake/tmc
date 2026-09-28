@@ -44,6 +44,10 @@ export default async function TrainerSessionPage(props: {
         initialParticipants={res.participants}
         initialGuests={res.guests}
       />
+      <p className="max-w-xl mx-auto mt-8 text-text-muted text-xs">
+        {/* COPY: confirm met Marlon */}
+        Verhinderd? Overleg met Marlon, alleen beheer kan deze les annuleren.
+      </p>
     </div>
   );
 }
