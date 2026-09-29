@@ -32,7 +32,8 @@
     "test:auth": "node --import ./scripts/ts-loader.mjs --test scripts/auth/*.test.mts",
     "test:format": "node --import ./scripts/ts-loader.mjs --test scripts/format/*.test.mts",
     "test:trial-codes": "node --import ./scripts/ts-loader.mjs --test scripts/trial-codes/*.test.mts",
-    "test:refunds": "node --import ./scripts/ts-loader.mjs --test scripts/refunds/*.test.mts"
+    "test:refunds": "node --import ./scripts/ts-loader.mjs --test scripts/refunds/*.test.mts",
+    "test:trial-self-cancel": "node --import ./scripts/ts-loader.mjs --test scripts/trial-self-cancel/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
