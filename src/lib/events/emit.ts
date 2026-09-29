@@ -103,6 +103,11 @@ export type EventType =
   // trial_code.created/redeemed/revoked/released zelf; alleen de
   // misbruikmelding wordt vanuit TS gelogd.
   | "trial_code.abuse_alert_sent"
+  // Annulering door de studio en terugbetaling (src/lib/refunds/); de
+  // DB-kern schrijft trial_booking.cancelled en trial_booking.refund_requested zelf.
+  | "trial_booking.refund_failed"
+  | "payment.refund_created"
+  | "payment.refunded"
   | "member.milestone_reached"
   // Deurtoegang (Akiles, spec-akiles-access.md; src/lib/access/)
   | "access.granted"
@@ -156,6 +161,7 @@ export type SubjectType =
   | "check_in"
   | "trial_booking"
   | "trial_code"
+  | "payment_refund"
   // Zaalbediening: zalen hebben geen eigen rij/uuid, dus subject_id blijft
   // null bij dit subject_type.
   | "room"

@@ -5,6 +5,7 @@ import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
+import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +160,12 @@ export async function GET(req: Request) {
           subjectId: trial.id,
           payload: { session_id: trial.session_id, via: "cron_reconcile" },
         });
+        // Zelfde bijvangst als de webhook: sessie intussen geannuleerd,
+        // dan direct annuleren met refund en annuleringsmail.
+        if (await cancelIfSessionCancelled(trial)) {
+          trialsPaid += 1;
+          continue;
+        }
         await sendNotification(
           "Nieuwe proefles-boeking!",
           `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,

@@ -6,8 +6,8 @@ import { requireAdmin } from "./require-admin";
 import { isValidTrialCodeFormat, normalizeTrialCode } from "@/lib/trial-codes/normalize";
 
 /**
- * De RPC's (tmc.create_trial_code, tmc.revoke_trial_code,
- * tmc.admin_cancel_trial_booking) checken zelf auth.uid() plus
+ * De RPC's (tmc.create_trial_code, tmc.revoke_trial_code) checken zelf
+ * auth.uid() plus
  * tmc.is_admin() (SECURITY DEFINER). Ze lopen dus via de sessie-gebonden
  * client (createClient), niet via de service-role admin-client: die heeft
  * geen auth.uid() en zou altijd op de is_admin()-guard stuklopen.
@@ -148,51 +148,4 @@ export async function revokeTrialCode(id: string): Promise<TrialCodeActionResult
   revalidatePath(`/app/admin/proefcodes/${id}`);
   // COPY: confirm met Marlon
   return { ok: true, message: "Code ingetrokken." };
-}
-
-const CANCEL_REASON_COPY: Record<string, string> = {
-  // COPY: confirm met Marlon
-  booking_not_found: "Deze boeking bestaat niet (meer).",
-  // COPY: confirm met Marlon
-  booking_not_open: "Deze boeking staat niet (meer) open.",
-};
-
-/**
- * Admin annuleert een individuele proefles-boeking (bij misbruik van een
- * code, of op verzoek). Alleen status 'paid'; de release-trigger geeft bij
- * een codeboeking het gebruik terug aan de code.
- */
-export async function adminCancelTrialBooking(input: {
-  trialBookingId: string;
-  codeId?: string;
-}): Promise<TrialCodeActionResult> {
-  const auth = await requireAdmin();
-  if (!auth.ok) return { ok: false, message: auth.message };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_cancel_trial_booking", {
-    p_id: input.trialBookingId,
-  });
-
-  if (error) {
-    console.error("[adminCancelTrialBooking] rpc failed", error);
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Annuleren lukte niet. Probeer opnieuw." };
-  }
-
-  const result = data as { ok: boolean; reason?: string };
-  if (!result.ok) {
-    return {
-      ok: false,
-      message:
-        CANCEL_REASON_COPY[result.reason ?? ""] ??
-        // COPY: confirm met Marlon
-        "Annuleren lukte niet.",
-    };
-  }
-
-  revalidatePath("/app/admin/proefcodes");
-  if (input.codeId) revalidatePath(`/app/admin/proefcodes/${input.codeId}`);
-  // COPY: confirm met Marlon
-  return { ok: true, message: "Boeking geannuleerd." };
 }
