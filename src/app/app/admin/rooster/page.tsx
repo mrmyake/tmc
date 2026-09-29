@@ -92,6 +92,10 @@ type SessionRow = {
   age_category: string;
   notes: string | null;
   blocks_free_training: boolean;
+  cancellation_reason: string | null;
+  occurrence_start_at: string;
+  rescheduled_at: string | null;
+  trainer_overridden_at: string | null;
   class_type: { name: string } | null;
   trainer: { display_name: string } | null;
 };
@@ -115,6 +119,7 @@ type AvailabilityRow = {
   id: string;
   booked_count: number | null;
   taken_count: number | null;
+  waitlist_count: number | null;
 };
 
 export default async function AdminRoosterPage(props: {
@@ -161,6 +166,10 @@ export default async function AdminRoosterPage(props: {
           age_category,
           notes,
           blocks_free_training,
+          cancellation_reason,
+          occurrence_start_at,
+          rescheduled_at,
+          trainer_overridden_at,
           class_type:class_types(name),
           trainer:trainers(display_name)
         `,
@@ -171,7 +180,7 @@ export default async function AdminRoosterPage(props: {
       .returns<SessionRow[]>(),
     admin
       .from("trainers")
-      .select("id, display_name, is_active")
+      .select("id, display_name, is_active, pillar_specialties")
       .order("display_name", { ascending: true }),
     admin
       .from("class_types")
@@ -203,14 +212,16 @@ export default async function AdminRoosterPage(props: {
       ? { data: [] as AvailabilityRow[] }
       : await admin
           .from("v_session_availability")
-          .select("id, booked_count, taken_count")
+          .select("id, booked_count, taken_count, waitlist_count")
           .in("id", sessionIds);
   const bookedBy = new Map<string, number>();
   const takenBy = new Map<string, number>();
+  const waitlistBy = new Map<string, number>();
   for (const r of availability.data ?? []) {
     if (r.id) {
       bookedBy.set(r.id, r.booked_count ?? 0);
       takenBy.set(r.id, r.taken_count ?? 0);
+      waitlistBy.set(r.id, r.waitlist_count ?? 0);
     }
   }
 
@@ -253,6 +264,7 @@ export default async function AdminRoosterPage(props: {
       monthShort: MONTH_SHORT_NL[parts.month - 1],
       isToday: isoDateAms(date) === todayKey,
       sessions: [],
+      hasCancellableSessions: false,
     };
   });
   const dayByKey = new Map(days.map((d) => [d.isoDate, d]));
@@ -298,17 +310,32 @@ export default async function AdminRoosterPage(props: {
       notes: s.notes,
       blocksFreeTraining: s.blocks_free_training,
       templateId: s.template_id,
+      waitlistCount: waitlistBy.get(s.id) ?? 0,
+      cancellationReason: s.cancellation_reason,
+      rescheduledFromLabel:
+        s.rescheduled_at && s.occurrence_start_at !== s.start_at
+          ? (() => {
+              const op = amsterdamParts(new Date(s.occurrence_start_at));
+              return `${String(op.hour).padStart(2, "0")}:${String(op.minute).padStart(2, "0")}`;
+            })()
+          : null,
+      trainerReplaced: Boolean(s.trainer_overridden_at),
+      hasStarted: start.getTime() <= now.getTime(),
       startOffsetMin,
       durationMin,
       startLabel: `${String(sp.hour).padStart(2, "0")}:${String(sp.minute).padStart(2, "0")}`,
     };
     dayBucket.sessions.push(block);
+    if (block.status === "scheduled" && !block.hasStarted) {
+      dayBucket.hasCancellableSessions = true;
+    }
   }
 
   const trainers: AdminTrainerOption[] = (trainersRes.data ?? []).map((t) => ({
     id: t.id,
     displayName: t.display_name,
     isActive: t.is_active,
+    pillarSpecialties: t.pillar_specialties ?? [],
   }));
 
   const classTypes: AdminClassTypeOption[] = (classTypesRes.data ?? []).map(

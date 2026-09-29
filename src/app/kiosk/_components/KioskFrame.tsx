@@ -14,6 +14,10 @@ export interface KioskSession {
   checkedInCount: number;
   /** class_sessions.pillar; bepaalt de startzaal van "Licht en geluid". */
   pillar: string | null;
+  /** Door de studio geannuleerd: zichtbaar als "Vervalt", niet klikbaar. */
+  cancelled: boolean;
+  /** Oorspronkelijke start als de les eenmalig verschoven is. */
+  rescheduledFrom: Date | null;
 }
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -48,12 +52,14 @@ export function KioskFrame({
   lockable?: boolean;
 }) {
   const nowMs = now.getTime();
-  const active = sessions.find(
+  // Een vervallen les is nooit "nu" of "hierna".
+  const live = sessions.filter((s) => !s.cancelled);
+  const active = live.find(
     (s) => s.startAt.getTime() <= nowMs && nowMs < s.endAt.getTime(),
   );
   const next = active
     ? undefined
-    : sessions.find((s) => s.startAt.getTime() > nowMs);
+    : live.find((s) => s.startAt.getTime() > nowMs);
   const hero = active ?? next;
 
   // Bediening opent op de zaal van de les die nu bezig is of eraan komt.
@@ -96,7 +102,7 @@ export function KioskFrame({
             <span>Kiosk entree</span>
             {/* COPY: confirm met Marlon */}
             <span>
-              {sessions.length} {sessions.length === 1 ? "les" : "lessen"}{" "}
+              {live.length} {live.length === 1 ? "les" : "lessen"}{" "}
               vandaag
             </span>
           </div>
@@ -182,7 +188,7 @@ function ClassRow({
   const rowClass = [
     styles.classRow,
     isNow ? styles.classRowIsNow : "",
-    isPast ? styles.classRowIsPast : "",
+    isPast || session.cancelled ? styles.classRowIsPast : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -190,12 +196,34 @@ function ClassRow({
     .filter(Boolean)
     .join(" ");
 
+  if (session.cancelled) {
+    return (
+      <div className={rowClass} aria-disabled="true">
+        <div className={styles.rowTime}>{timeFmt.format(session.startAt)}</div>
+        <div>
+          <div className={styles.rowTitle}>{session.className}</div>
+          <div className={styles.rowTrainer}>{session.trainerName}</div>
+        </div>
+        {/* COPY: confirm met Marlon */}
+        <div className={styles.rowCount}>Vervalt</div>
+      </div>
+    );
+  }
+
   return (
     <Link href={sessionHref(session.id)} className={rowClass}>
       <div className={styles.rowTime}>{timeFmt.format(session.startAt)}</div>
       <div>
         <div className={styles.rowTitle}>{session.className}</div>
-        <div className={styles.rowTrainer}>{session.trainerName}</div>
+        <div className={styles.rowTrainer}>
+          {session.trainerName}
+          {session.rescheduledFrom && (
+            <>
+              {/* COPY: confirm met Marlon */}
+              {" · "}nieuwe tijd, was {timeFmt.format(session.rescheduledFrom)}
+            </>
+          )}
+        </div>
       </div>
       <div className={countClass}>
         {session.checkedInCount} / {session.bookedCount}

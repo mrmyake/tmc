@@ -6,6 +6,7 @@ import { AdminWeekGrid } from "./_components/AdminWeekGrid";
 import { SessionEditPanel } from "./_components/SessionEditPanel";
 import { NewSessionDialog } from "./_components/NewSessionDialog";
 import { SeriesManagerPanel } from "./_components/SeriesManagerPanel";
+import { DayCancelPanel } from "./_components/DayCancelPanel";
 import type {
   AdminClassTypeOption,
   AdminDay,
@@ -31,6 +32,7 @@ export function RoosterEditorClient({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [seriesOpen, setSeriesOpen] = useState(false);
+  const [cancelDay, setCancelDay] = useState<string | null>(null);
 
   const allSessions = useMemo(
     () => days.flatMap((d) => d.sessions),
@@ -61,7 +63,13 @@ export function RoosterEditorClient({
         </button>
       </div>
 
-      <AdminWeekGrid days={days} onSelect={setSelectedId} />
+      <AdminWeekGrid
+        days={days}
+        onSelect={setSelectedId}
+        onCancelDay={setCancelDay}
+      />
+
+      <DayCancelPanel isoDate={cancelDay} onClose={() => setCancelDay(null)} />
 
       <SessionEditPanel
         session={selected}

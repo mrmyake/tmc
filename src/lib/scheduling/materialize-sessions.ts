@@ -39,8 +39,16 @@ export interface MaterializeResult {
 /**
  * Materialiseert class_sessions-rijen voor de gegeven templates over
  * `horizonDays` vanaf `fromDate` (default: nu). Idempotent via
- * upsert(onConflict: template_id,start_at, ignoreDuplicates: true) — een
- * herhaalde aanroep (of de dagelijkse cron erna) maakt nooit duplicaten.
+ * upsert(onConflict: template_id,occurrence_start_at, ignoreDuplicates:
+ * true): een herhaalde aanroep (of de dagelijkse cron erna) maakt nooit
+ * duplicaten.
+ *
+ * De sleutel is occurrence_start_at, de vaste plek van de les in de serie,
+ * niet start_at. Een eenmalig verschoven les (admin_reschedule_class_session)
+ * houdt zijn occurrence_start_at, dus deze upsert ziet hem nog steeds als
+ * "bestaat al" en maakt geen duplicaat op de oude tijd
+ * (spec-session-overrides.md). Een geannuleerde les blijft als rij staan en
+ * wordt om dezelfde reden niet opnieuw ingepland.
  */
 export async function materializeSessionsForTemplates(
   admin: SupabaseClient,
@@ -87,12 +95,13 @@ export async function materializeSessionsForTemplates(
           pillar: tpl.class_type.pillar,
           age_category: tpl.class_type.age_category,
           start_at: startUtc.toISOString(),
+          occurrence_start_at: startUtc.toISOString(),
           end_at: endUtc.toISOString(),
           capacity: tpl.capacity,
           blocks_free_training: tpl.blocks_free_training,
           status: "scheduled",
         },
-        { onConflict: "template_id,start_at", ignoreDuplicates: true },
+        { onConflict: "template_id,occurrence_start_at", ignoreDuplicates: true },
       );
 
       if (upErr) {

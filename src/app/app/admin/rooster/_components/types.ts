@@ -23,6 +23,16 @@ export interface AdminSessionBlockData {
   blocksFreeTraining: boolean;
   /** Onderdeel van een herhalende serie (schedule_templates.id), of null voor een ad-hoc sessie. */
   templateId: string | null;
+  /** Open wachtlijstplekken, voor het annuleer-bevestigscherm. */
+  waitlistCount: number;
+  /** Reden bij een geannuleerde sessie. */
+  cancellationReason: string | null;
+  /** Oude starttijd ("18:00") als de les eenmalig verschoven is (spec-session-overrides.md). */
+  rescheduledFromLabel: string | null;
+  /** Trainer eenmalig vervangen voor deze les. */
+  trainerReplaced: boolean;
+  /** Les is begonnen of voorbij: eenmalige wijzigingen kunnen niet meer. */
+  hasStarted: boolean;
   // Pre-computed Amsterdam-local offsets so the client doesn't need to do
   // timezone math. startOffsetMin is minutes after GRID_START_HOUR (06:00 AMS);
   // durationMin is session length.
@@ -35,6 +45,8 @@ export interface AdminTrainerOption {
   id: string;
   displayName: string;
   isActive: boolean;
+  /** trainers.pillar_specialties, voor de waarschuwing bij vervangen. */
+  pillarSpecialties: string[];
 }
 
 export interface AdminClassTypeOption {
@@ -71,6 +83,8 @@ export interface AdminDay {
   monthShort: string;
   isToday: boolean;
   sessions: AdminSessionBlockData[];
+  /** Er is op deze dag minstens een geplande les die nog moet beginnen. */
+  hasCancellableSessions: boolean;
 }
 
 export const GRID_START_HOUR = 6;

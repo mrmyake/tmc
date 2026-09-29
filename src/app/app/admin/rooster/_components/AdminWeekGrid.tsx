@@ -11,13 +11,15 @@ import { AdminSessionBlock } from "./AdminSessionBlock";
 interface AdminWeekGridProps {
   days: AdminDay[];
   onSelect: (sessionId: string) => void;
+  /** "Alle lessen op deze dag annuleren" (spec-session-overrides.md). */
+  onCancelDay: (isoDate: string) => void;
 }
 
 function hourLabel(h: number): string {
   return `${h.toString().padStart(2, "0")}:00`;
 }
 
-export function AdminWeekGrid({ days, onSelect }: AdminWeekGridProps) {
+export function AdminWeekGrid({ days, onSelect, onCancelDay }: AdminWeekGridProps) {
   const hours: number[] = [];
   for (let h = GRID_START_HOUR; h <= GRID_END_HOUR; h++) hours.push(h);
 
@@ -51,6 +53,17 @@ export function AdminWeekGrid({ days, onSelect }: AdminWeekGridProps) {
             <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted mt-1">
               {d.monthShort}
             </div>
+            {d.hasCancellableSessions && (
+              <button
+                type="button"
+                onClick={() => onCancelDay(d.isoDate)}
+                className="mt-2 text-[9px] font-medium uppercase tracking-[0.18em] text-text-muted hover:text-[color:var(--danger)] transition-colors cursor-pointer"
+                aria-label={`Alle lessen op ${d.weekdayShort} ${d.dayNumber} ${d.monthShort} annuleren`}
+              >
+                {/* COPY: confirm met Marlon */}
+                Dag annuleren
+              </button>
+            )}
           </div>
         ))}
       </div>

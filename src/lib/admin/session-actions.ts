@@ -7,13 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 import { finalizeTrialBookingCancellation, type CancelCoreResult } from "@/lib/trial-booking-cancel";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
-import { sendEmail } from "@/lib/email";
-import SessionCancelledByAdmin from "@/emails/session_cancelled_by_admin";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
-}
+import { amsterdamYmd, zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
+import {
+  notifySessionCancelled,
+  notifySessionRescheduled,
+  type CancelledSessionResult,
+  type RescheduledSessionResult,
+} from "./session-override-notify";
 
 export type AdminActionResult =
   | { ok: true; message: string; id?: string }
@@ -23,17 +23,77 @@ function revalidateAll() {
   revalidatePath("/app/admin");
   revalidatePath("/app/admin/rooster");
   revalidatePath("/app/rooster");
+  revalidatePath("/app/boekingen");
+  revalidatePath("/app/trainer");
+  revalidatePath("/app/trainer/sessies");
   revalidatePath("/app");
   revalidatePath("/rooster");
+  revalidatePath("/kiosk");
+}
+
+/**
+ * Weigeringen van de session-override-RPC's (spec-session-overrides.md) naar
+ * Nederlandse meldingen voor Marlon.
+ */
+function overrideRefusal(reason: string | undefined): string {
+  switch (reason) {
+    case "session_not_found":
+      // COPY: confirm met Marlon
+      return "Sessie niet gevonden.";
+    case "already_cancelled":
+      // COPY: confirm met Marlon
+      return "Deze sessie is al geannuleerd.";
+    case "not_scheduled":
+      // COPY: confirm met Marlon
+      return "Deze sessie staat niet meer op gepland.";
+    case "session_started":
+      // COPY: confirm met Marlon
+      return "Deze les is al begonnen of voorbij. Wijzigen kan alleen voor lessen die nog moeten beginnen.";
+    case "missing_reason":
+      // COPY: confirm met Marlon
+      return "Geef een reden op.";
+    case "has_check_ins":
+      // COPY: confirm met Marlon
+      return "Er zijn al leden ingecheckt voor deze les. De tijd kan niet meer verschuiven.";
+    case "new_start_in_past":
+      // COPY: confirm met Marlon
+      return "De nieuwe starttijd ligt in het verleden.";
+    case "different_day":
+      // COPY: confirm met Marlon
+      return "Verschuiven kan alleen binnen dezelfde dag.";
+    case "invalid_duration":
+      // COPY: confirm met Marlon
+      return "Duur moet tussen 5 en 600 minuten liggen.";
+    case "no_change":
+      // COPY: confirm met Marlon
+      return "Er is niets veranderd.";
+    case "trainer_not_found":
+      // COPY: confirm met Marlon
+      return "Trainer niet gevonden.";
+    case "trainer_inactive":
+      // COPY: confirm met Marlon
+      return "Trainer is niet actief.";
+    case "missing_date":
+      // COPY: confirm met Marlon
+      return "Kies een datum.";
+    default:
+      // COPY: confirm met Marlon
+      return "Dat lukte niet. Probeer het opnieuw.";
+  }
 }
 
 // ----------------------------------------------------------------------------
-// Update a session — trainer / capacity / notes
+// Update a session: trainer / capacity / notes
 // ----------------------------------------------------------------------------
 
 interface UpdateSessionInput {
   id: string;
   trainerId?: string;
+  /**
+   * Alleen bij een trainerwissel: Marlon heeft de waarschuwing "pijler niet
+   * in de specialisaties" gezien en bevestigd. Gaat mee in het event.
+   */
+  pillarWarningOverridden?: boolean;
   /** NULL betekent onbeperkt (alleen kettlebell); undefined betekent niet wijzigen. */
   capacity?: number | null;
   notes?: string | null;
@@ -50,7 +110,7 @@ export async function adminUpdateSession(
 
   const { data: existing, error: fetchErr } = await admin
     .from("class_sessions")
-    .select("id, status, capacity")
+    .select("id, status, capacity, trainer_id")
     .eq("id", input.id)
     .maybeSingle();
 
@@ -61,20 +121,27 @@ export async function adminUpdateSession(
     return { ok: false, message: "Deze sessie is al geannuleerd." };
   }
 
-  const patch: Record<string, unknown> = {};
-
-  if (input.trainerId !== undefined) {
-    const { data: trainer } = await admin
-      .from("trainers")
-      .select("id, is_active")
-      .eq("id", input.trainerId)
-      .maybeSingle();
-    if (!trainer) return { ok: false, message: "Trainer niet gevonden." };
-    if (!trainer.is_active) {
-      return { ok: false, message: "Trainer is niet actief." };
+  // Trainerwissel: eenmalige override via de admin-RPC (is_admin, rijlock,
+  // alleen lessen die nog moeten beginnen, event in dezelfde transactie).
+  // Eerst, zodat een weigering de rest van het formulier niet half opslaat.
+  let trainerReplaced = false;
+  if (input.trainerId !== undefined && input.trainerId !== existing.trainer_id) {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("admin_replace_session_trainer", {
+      p_session_id: input.id,
+      p_trainer_id: input.trainerId,
+      p_pillar_warning_overridden: input.pillarWarningOverridden ?? false,
+    });
+    if (error) {
+      console.error("[adminUpdateSession] trainer rpc failed", error);
+      return { ok: false, message: "Trainer vervangen lukte niet. Probeer het opnieuw." };
     }
-    patch.trainer_id = input.trainerId;
+    const res = data as { ok: boolean; reason?: string };
+    if (!res.ok) return { ok: false, message: overrideRefusal(res.reason) };
+    trainerReplaced = true;
   }
+
+  const patch: Record<string, unknown> = {};
 
   if (input.capacity !== undefined) {
     if (input.capacity !== null) {
@@ -102,7 +169,11 @@ export async function adminUpdateSession(
   }
 
   if (Object.keys(patch).length === 0) {
-    return { ok: true, message: "Geen wijzigingen." };
+    revalidateAll();
+    return trainerReplaced
+      ? // COPY: confirm met Marlon
+        { ok: true, message: "Trainer vervangen voor deze les." }
+      : { ok: true, message: "Geen wijzigingen." };
   }
 
   const { error } = await admin
@@ -124,7 +195,6 @@ export async function adminUpdateSession(
     payload: {
       session_id: input.id,
       changed: Object.keys(patch),
-      trainer_id: patch.trainer_id ?? null,
       capacity: patch.capacity ?? null,
       blocks_free_training: patch.blocks_free_training ?? null,
     },
@@ -135,12 +205,89 @@ export async function adminUpdateSession(
 }
 
 // ----------------------------------------------------------------------------
-// Cancel a session — cascade cancel bookings + refund credits
+// Cancel a session: een les, of alle lessen op een datum
 // ----------------------------------------------------------------------------
 
 interface CancelSessionInput {
   id: string;
   reason: string;
+}
+
+interface TrialOutcome {
+  cancelled: number;
+  refundsRequested: number;
+  refundsFailed: number;
+}
+
+/**
+ * Na de atomaire annulering in de RPC: proeflessen (Mollie-refund kan niet in
+ * de transactie), meldingen, ntfy. Gedeeld door de losse en de dag-annulering.
+ */
+async function afterSessionsCancelled(
+  results: CancelledSessionResult[],
+  reason: string,
+): Promise<TrialOutcome> {
+  const trials: TrialOutcome = { cancelled: 0, refundsRequested: 0, refundsFailed: 0 };
+  for (const r of results) {
+    const t = await cancelTrialBookingsForSession({
+      sessionId: r.session_id,
+      reason: `Sessie geannuleerd: ${reason}`,
+    });
+    trials.cancelled += t.cancelled;
+    trials.refundsRequested += t.refundsRequested;
+    trials.refundsFailed += t.refundsFailed;
+  }
+
+  const bookings = results.reduce((n, r) => n + r.bookings.length, 0);
+  const waitlist = results.reduce((n, r) => n + r.waitlist.length, 0);
+  const guests = results.reduce((n, r) => n + r.guests.length, 0);
+  await sendNotification(
+    results.length === 1 ? "Sessie geannuleerd" : `${results.length} sessies geannuleerd`,
+    `${bookings} boeking(en), ${waitlist} wachtlijstplek(ken), ${guests} gast(en) en ${trials.cancelled} proefles(sen) geannuleerd, reden: ${reason}`,
+    "warning",
+  );
+
+  // Meldingen na het antwoord aan Marlon; fouten worden alleen gelogd.
+  for (const r of results) {
+    void notifySessionCancelled(r, reason);
+  }
+
+  return trials;
+}
+
+function cancelSummary(results: CancelledSessionResult[], trials: TrialOutcome): string {
+  const bookings = results.reduce((n, r) => n + r.bookings.length, 0);
+  const waitlist = results.reduce((n, r) => n + r.waitlist.length, 0);
+  const guests = results.reduce((n, r) => n + r.guests.length, 0);
+  const parts: string[] = [];
+  if (bookings > 0) {
+    // COPY: confirm met Marlon
+    parts.push(`${bookings} boeking(en) geannuleerd en tegoed teruggezet`);
+  }
+  if (waitlist > 0) {
+    // COPY: confirm met Marlon
+    parts.push(`${waitlist} wachtlijstplek(ken) vervallen`);
+  }
+  if (guests > 0) {
+    // COPY: confirm met Marlon
+    parts.push(`${guests} gast(en) afgemeld en gastpas teruggezet`);
+  }
+  if (trials.cancelled > 0) {
+    // COPY: confirm met Marlon
+    parts.push(
+      `${trials.cancelled} proefles(sen) geannuleerd` +
+        (trials.refundsRequested > 0
+          ? `, ${trials.refundsRequested} terugbetaling(en) ingediend`
+          : ""),
+    );
+  }
+  if (trials.refundsFailed > 0) {
+    // COPY: confirm met Marlon
+    parts.push(
+      `${trials.refundsFailed} terugbetaling(en) niet bij Mollie aangekomen, opnieuw proberen via de sessiepagina`,
+    );
+  }
+  return parts.length === 0 ? "" : ` ${parts.join(". ")}.`;
 }
 
 export async function adminCancelSession(
@@ -152,179 +299,142 @@ export async function adminCancelSession(
   const reason = input.reason?.trim();
   if (!reason) return { ok: false, message: "Geef een reden op." };
 
-  const admin = createAdminClient();
-
-  const { data: session } = await admin
-    .from("class_sessions")
-    .select("id, status, start_at")
-    .eq("id", input.id)
-    .maybeSingle();
-  if (!session) return { ok: false, message: "Sessie niet gevonden." };
-  if (session.status === "cancelled") {
-    return { ok: false, message: "Sessie is al geannuleerd." };
-  }
-
-  const { data: bookings } = await admin
-    .from("bookings")
-    .select("id, profile_id, membership_id, credits_used")
-    .eq("session_id", input.id)
-    .eq("status", "booked");
-
-  const affected = bookings ?? [];
-
-  // Refund credits for any bookings that used them, per boeking via de
-  // RPC-laag: lockt membership plus boeking, zet credits_used atomair op
-  // 0 (een retry van deze actie geeft already_refunded en refundt dus
-  // nooit dubbel) en schrijft het credits.adjusted-event mee. Eén
-  // mislukte refund blokkeert de annulering van de sessie niet.
-  for (const b of affected) {
-    if (!b.membership_id || !b.credits_used || b.credits_used <= 0) continue;
-    const { data: result, error } = await admin.rpc(
-      "adjust_membership_credits",
-      {
-        p_membership_id: b.membership_id,
-        p_delta: b.credits_used,
-        p_reason: `Sessie geannuleerd: ${reason}`,
-        p_source: "session_cancelled",
-        p_actor_type: "admin",
-        p_actor_id: auth.userId,
-        p_booking_id: b.id,
-      },
-    );
-    if (error || !(result as { ok?: boolean } | null)?.ok) {
-      console.error(
-        "[adminCancelSession] credit-refund faalde",
-        b.id,
-        error ?? result,
-      );
-    }
-  }
-
-  const nowIso = new Date().toISOString();
-
-  if (affected.length > 0) {
-    const { error: bErr } = await admin
-      .from("bookings")
-      .update({
-        status: "cancelled",
-        cancelled_at: nowIso,
-        cancellation_reason: "session_cancelled",
-      })
-      .eq("session_id", input.id)
-      .eq("status", "booked");
-    if (bErr) {
-      console.error("[adminCancelSession] bookings update failed", bErr);
-    }
-  }
-
-  const { error: sErr } = await admin
-    .from("class_sessions")
-    .update({
-      status: "cancelled",
-      cancellation_reason: reason,
-    })
-    .eq("id", input.id);
-
-  if (sErr) {
-    console.error("[adminCancelSession] session update failed", sErr);
-    return { ok: false, message: "Annuleren lukte niet." };
-  }
-
-  // Proeflessen (betaald en gratis) gaan mee, per boeking via
-  // tmc.admin_cancel_trial_booking: annulering, reden en refund-intentie in
-  // een transactie, daarna refund bij Mollie en de annuleringsmail. Na de
-  // sessie-update, zodat een betaling die nu nog binnenkomt de
-  // webhook-bijvangst treft. Gastboekingen bewust nog niet (open punt in de
-  // ledger van spec-community-growth.md).
-  const trialOutcome = await cancelTrialBookingsForSession({
-    sessionId: input.id,
-    reason: `Sessie geannuleerd: ${reason}`,
+  // Boekingen, tegoed, wachtlijst, gastboekingen, gastpassen, sessiestatus en
+  // events in een transactie (tmc.admin_cancel_class_session). Sessie-client:
+  // is_admin() binnenin.
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_cancel_class_session", {
+    p_session_id: input.id,
+    p_reason: reason,
   });
-
-  await emitEvent({
-    type: "session.cancelled",
-    actorType: "admin",
-    actorId: auth.userId,
-    subjectType: "session",
-    subjectId: input.id,
-    payload: {
-      session_id: input.id,
-      reason,
-      affected_booking_count: affected.length,
-      trial_bookings_cancelled: trialOutcome.cancelled,
-      trial_refunds_requested: trialOutcome.refundsRequested,
-      trial_refunds_failed: trialOutcome.refundsFailed,
-    },
-  });
-  for (const b of affected) {
-    await emitEvent({
-      type: "booking.cancelled",
-      actorType: "admin",
-      actorId: auth.userId,
-      subjectType: "booking",
-      subjectId: b.id,
-      payload: {
-        profile_id: b.profile_id,
-        session_id: input.id,
-        reason: "session_cancelled",
-        credits_refunded:
-          Boolean(b.membership_id) && (b.credits_used ?? 0) > 0,
-      },
-    });
+  if (error) {
+    console.error("[adminCancelSession] rpc failed", error);
+    return { ok: false, message: "Annuleren lukte niet. Probeer het opnieuw." };
   }
+  const result = data as ({ ok: true } & CancelledSessionResult) | { ok: false; reason?: string };
+  if (!result.ok) return { ok: false, message: overrideRefusal(result.reason) };
 
-  await sendNotification(
-    "Sessie geannuleerd",
-    `${affected.length} boeking(en) en ${trialOutcome.cancelled} proefles(sen) geannuleerd, reden: ${reason}`,
-    "warning",
-  );
-
-  // Fire-and-forget member mails. Errors only get logged.
-  if (affected.length > 0) {
-    void notifyAffectedMembers({
-      sessionId: input.id,
-      bookings: affected,
-      reason,
-    });
-  }
+  const trials = await afterSessionsCancelled([result], reason);
 
   revalidateAll();
+  // COPY: confirm met Marlon
+  return { ok: true, message: `Sessie geannuleerd.${cancelSummary([result], trials)}` };
+}
 
-  const parts: string[] = [];
-  if (affected.length > 0) {
-    parts.push(`${affected.length} boeking(en) teruggezet en credits hersteld`);
-  }
-  if (trialOutcome.cancelled > 0) {
+export interface DayCancellationPreview {
+  date: string;
+  sessionCount: number;
+  bookingCount: number;
+  waitlistCount: number;
+  guestCount: number;
+  trialCount: number;
+  startedOrPastCount: number;
+  sessions: Array<{ id: string; startAt: string; className: string | null }>;
+}
+
+export async function adminPreviewDayCancellation(
+  isoDate: string,
+): Promise<{ ok: true; preview: DayCancellationPreview } | { ok: false; message: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
     // COPY: confirm met Marlon
-    parts.push(
-      `${trialOutcome.cancelled} proefles(sen) geannuleerd` +
-        (trialOutcome.refundsRequested > 0
-          ? `, ${trialOutcome.refundsRequested} terugbetaling(en) ingediend`
-          : ""),
-    );
+    return { ok: false, message: "Ongeldige datum." };
   }
-  if (trialOutcome.refundsFailed > 0) {
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_preview_day_cancellation", {
+    p_date: isoDate,
+  });
+  if (error || !data) {
+    console.error("[adminPreviewDayCancellation] rpc failed", error);
     // COPY: confirm met Marlon
-    parts.push(
-      `${trialOutcome.refundsFailed} terugbetaling(en) niet bij Mollie aangekomen, opnieuw proberen via de sessiepagina`,
-    );
+    return { ok: false, message: "Het overzicht laden lukte niet." };
   }
+  const d = data as {
+    date: string;
+    session_count: number;
+    booking_count: number;
+    waitlist_count: number;
+    guest_count: number;
+    trial_count: number;
+    started_or_past_count: number;
+    sessions: Array<{ id: string; start_at: string; class_name: string | null }>;
+  };
   return {
     ok: true,
-    message: parts.length === 0 ? "Sessie geannuleerd." : `Sessie geannuleerd. ${parts.join(". ")}.`,
+    preview: {
+      date: d.date,
+      sessionCount: d.session_count,
+      bookingCount: d.booking_count,
+      waitlistCount: d.waitlist_count,
+      guestCount: d.guest_count,
+      trialCount: d.trial_count,
+      startedOrPastCount: d.started_or_past_count,
+      sessions: d.sessions.map((s) => ({
+        id: s.id,
+        startAt: s.start_at,
+        className: s.class_name,
+      })),
+    },
+  };
+}
+
+export async function adminCancelDay(input: {
+  isoDate: string;
+  reason: string;
+}): Promise<AdminActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const reason = input.reason?.trim();
+  if (!reason) return { ok: false, message: "Geef een reden op." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.isoDate)) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Ongeldige datum." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_cancel_class_sessions_on_date", {
+    p_date: input.isoDate,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[adminCancelDay] rpc failed", error);
+    return { ok: false, message: "Annuleren lukte niet. Probeer het opnieuw." };
+  }
+  const result = data as
+    | { ok: true; sessions: CancelledSessionResult[] }
+    | { ok: false; reason?: string };
+  if (!result.ok) return { ok: false, message: overrideRefusal(result.reason) };
+
+  if (result.sessions.length === 0) {
+    // COPY: confirm met Marlon
+    return { ok: true, message: "Er waren geen lessen meer om te annuleren op deze dag." };
+  }
+
+  const trials = await afterSessionsCancelled(result.sessions, reason);
+
+  revalidateAll();
+  return {
+    ok: true,
+    // COPY: confirm met Marlon
+    message: `${result.sessions.length} les(sen) geannuleerd.${cancelSummary(result.sessions, trials)}`,
   };
 }
 
 /**
  * Alle open proeflessen van een sessie annuleren, via dezelfde RPC als de
  * losse admin-annulering (sessie-gebonden client: is_admin binnenin).
- * Een mislukte refund of mail blokkeert de rest niet.
+ * Een mislukte refund of mail blokkeert de rest niet. Loopt na de
+ * sessie-annulering, zodat een betaling die nu nog binnenkomt de
+ * webhook-bijvangst treft.
  */
 async function cancelTrialBookingsForSession(args: {
   sessionId: string;
   reason: string;
-}): Promise<{ cancelled: number; refundsRequested: number; refundsFailed: number }> {
-  const out = { cancelled: 0, refundsRequested: 0, refundsFailed: 0 };
+}): Promise<TrialOutcome> {
+  const out: TrialOutcome = { cancelled: 0, refundsRequested: 0, refundsFailed: 0 };
   try {
     const admin = createAdminClient();
     const { data: trials } = await admin
@@ -360,6 +470,79 @@ async function cancelTrialBookingsForSession(args: {
     console.error("[adminCancelSession] trial bookings step failed", err);
   }
   return out;
+}
+
+// ----------------------------------------------------------------------------
+// Reschedule a session: starttijd verschuiven binnen dezelfde dag
+// ----------------------------------------------------------------------------
+
+interface RescheduleSessionInput {
+  id: string;
+  /** Nieuwe starttijd als Amsterdamse wandkloktijd "HH:mm", op dezelfde dag. */
+  startTime: string;
+  /** Nieuwe duur in minuten; weglaten houdt de huidige duur. */
+  durationMinutes?: number;
+}
+
+export async function adminRescheduleSession(
+  input: RescheduleSessionInput,
+): Promise<AdminActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(input.startTime ?? "");
+  if (!m) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Starttijd moet HH:mm zijn." };
+  }
+  if (
+    input.durationMinutes !== undefined &&
+    (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 5)
+  ) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Duur moet een heel aantal minuten zijn, minstens 5." };
+  }
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("class_sessions")
+    .select("id, start_at")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (!session) return { ok: false, message: "Sessie niet gevonden." };
+
+  // Nieuwe wandkloktijd op de huidige Amsterdamse dag van de les. De RPC
+  // controleert zelf ook dat de dag gelijk blijft.
+  const ymd = amsterdamYmd(new Date(session.start_at));
+  const newStart = zonedWallClockToUtc(ymd.year, ymd.month, ymd.day, Number(m[1]), Number(m[2]));
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_reschedule_class_session", {
+    p_session_id: input.id,
+    p_new_start_at: newStart.toISOString(),
+    p_duration_min: input.durationMinutes ?? null,
+  });
+  if (error) {
+    console.error("[adminRescheduleSession] rpc failed", error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Tijd wijzigen lukte niet. Probeer het opnieuw." };
+  }
+  const result = data as ({ ok: true } & RescheduledSessionResult) | { ok: false; reason?: string };
+  if (!result.ok) return { ok: false, message: overrideRefusal(result.reason) };
+
+  void notifySessionRescheduled(result);
+
+  revalidateAll();
+  const n = result.bookings.length;
+  return {
+    ok: true,
+    message:
+      n === 0
+        ? // COPY: confirm met Marlon
+          "Tijd gewijzigd voor deze les."
+        : // COPY: confirm met Marlon
+          `Tijd gewijzigd voor deze les. ${n} lid/leden krijgen een mail en push met de nieuwe tijd.`,
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -474,77 +657,4 @@ export async function adminCreateSession(
   revalidateAll();
 
   return { ok: true, message: "Sessie aangemaakt.", id: data.id };
-}
-
-// ----------------------------------------------------------------------------
-// Notify affected members when a session is cancelled by admin
-// ----------------------------------------------------------------------------
-
-interface AffectedBooking {
-  id: string;
-  profile_id: string;
-  membership_id: string | null;
-  credits_used: number;
-}
-
-async function notifyAffectedMembers(args: {
-  sessionId: string;
-  bookings: AffectedBooking[];
-  reason: string;
-}): Promise<void> {
-  try {
-    const admin = createAdminClient();
-
-    const { data: sessionRow } = await admin
-      .from("class_sessions")
-      .select(
-        `start_at, end_at,
-         class_type:class_types(name)`,
-      )
-      .eq("id", args.sessionId)
-      .maybeSingle();
-    if (!sessionRow) return;
-
-    const ct = (Array.isArray(sessionRow.class_type)
-      ? sessionRow.class_type[0]
-      : sessionRow.class_type) as { name: string | null } | null;
-
-    const start = new Date(sessionRow.start_at);
-    const end = new Date(sessionRow.end_at);
-    const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
-
-    const profileIds = args.bookings.map((b) => b.profile_id);
-    if (profileIds.length === 0) return;
-
-    const { data: profiles } = await admin
-      .from("profiles")
-      .select("id, email, first_name")
-      .in("id", profileIds);
-
-    const profileById = new Map(
-      (profiles ?? []).map((p) => [p.id, p]),
-    );
-
-    for (const b of args.bookings) {
-      const profile = profileById.get(b.profile_id);
-      if (!profile?.email) continue;
-      const creditRestored =
-        Boolean(b.membership_id) && (b.credits_used ?? 0) > 0;
-      await sendEmail({
-        to: profile.email,
-        toName: profile.first_name ?? undefined,
-        subject: `${ct?.name ?? "Sessie"} geannuleerd: ${whenLabel}`,
-        react: SessionCancelledByAdmin({
-          firstName: profile.first_name ?? "",
-          className: ct?.name ?? "Sessie",
-          whenLabel,
-          reason: args.reason,
-          creditRestored,
-          siteUrl: siteUrl(),
-        }),
-      });
-    }
-  } catch (err) {
-    console.error("[notifyAffectedMembers] skipped", err);
-  }
 }

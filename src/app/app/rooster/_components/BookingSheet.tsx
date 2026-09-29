@@ -194,8 +194,14 @@ export function BookingSheet({
   const isBooked = session?.status === "booked";
   const isWaitlisted = session?.status === "waitlisted";
   const isFull = session?.status === "full";
+  // Verschoven les en geboekt van voor de verschuiving: kosteloos tot de
+  // start, dus geen waarschuwing (zelfde regel als cancel_class_booking).
+  const freeCancel = Boolean(isBooked && session?.freeCancel);
   const lateCancel =
-    isBooked && session && hoursUntil(session.startAt) < cancellationWindowHours;
+    isBooked &&
+    session &&
+    !freeCancel &&
+    hoursUntil(session.startAt) < cancellationWindowHours;
   const canInviteGuest =
     isBooked &&
     passStatus?.eligible &&
@@ -256,7 +262,12 @@ export function BookingSheet({
                 <Detail label="Wanneer" value={formatWeekdayDate(session.startAt)} />
                 <Detail
                   label="Tijd"
-                  value={formatTimeRange(session.startAt, session.endAt)}
+                  value={
+                    session.rescheduledFrom
+                      ? // COPY: confirm met Marlon
+                        `${formatTimeRange(session.startAt, session.endAt)} (nieuwe tijd, was ${session.rescheduledFrom})`
+                      : formatTimeRange(session.startAt, session.endAt)
+                  }
                 />
                 <Detail label="Coach" value={session.trainerName} />
                 <Detail
@@ -509,6 +520,13 @@ export function BookingSheet({
 
               {(isBooked || isWaitlisted) && (
                 <>
+                  {freeCancel && (
+                    <p className="text-xs text-text-muted leading-relaxed">
+                      {/* COPY: confirm met Marlon */}
+                      Deze les heeft een nieuwe tijd. Tot de start annuleer je
+                      kosteloos.
+                    </p>
+                  )}
                   {lateCancel && (
                     <p className="text-xs text-[color:var(--danger)] leading-relaxed">
                       Je zit binnen het cancel-venster. Annuleren kan, maar de

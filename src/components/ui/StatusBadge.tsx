@@ -32,12 +32,19 @@ interface StatusBadgeProps {
    * ook toegankelijk is zonder een tweede kleur of icoon te verzinnen.
    */
   reasonText?: string | null;
+  /**
+   * Label voor status "cancelled". Default "Geannuleerd" (een geannuleerde
+   * boeking); het rooster toont een door de studio geannuleerde les als
+   * "Vervalt" (spec-session-overrides.md).
+   */
+  cancelledLabel?: string;
 }
 
 export function StatusBadge({
   status,
   spotsAvailable,
   reasonText,
+  cancelledLabel = "Geannuleerd",
 }: StatusBadgeProps) {
   const base =
     "inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em]";
@@ -201,9 +208,9 @@ export function StatusBadge({
     return (
       <span
         className={`${base} text-[color:var(--stone-600)]`}
-        aria-label="Geannuleerd"
+        aria-label={cancelledLabel}
       >
-        Geannuleerd
+        {cancelledLabel}
       </span>
     );
   }

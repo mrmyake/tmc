@@ -23,6 +23,8 @@ interface SerializedSession {
   checkInHint: string | null;
   checkedIn: boolean;
   reasonText: string | null;
+  rescheduledFrom: string | null;
+  freeCancel: boolean;
 }
 
 interface SessionListProps {
@@ -60,6 +62,8 @@ export function SessionList({
         spotsAvailable: openSerialized.spotsAvailable,
         status: openSerialized.status,
         bookingId: openSerialized.bookingId,
+        rescheduledFrom: openSerialized.rescheduledFrom,
+        freeCancel: openSerialized.freeCancel,
       }
     : null;
 
@@ -96,6 +100,8 @@ export function SessionList({
               checkInHint: s.checkInHint,
               checkedIn: s.checkedIn,
               reasonText: s.reasonText,
+              rescheduledFrom: s.rescheduledFrom,
+              freeCancel: s.freeCancel,
             }}
             onOpen={(session) => setOpenSessionId(session.id)}
           />

@@ -9,6 +9,11 @@ export interface SessionCancelledByAdminProps {
   reason: string;
   creditRestored: boolean;
   siteUrl: string;
+  /**
+   * "booking" (default): het lid had een plek. "waitlist": het lid stond op
+   * de wachtlijst (spec-session-overrides.md); dan geen credit-regel.
+   */
+  audience?: "booking" | "waitlist";
 }
 
 export default function SessionCancelledByAdmin({
@@ -18,6 +23,7 @@ export default function SessionCancelledByAdmin({
   reason,
   creditRestored,
   siteUrl,
+  audience = "booking",
 }: SessionCancelledByAdminProps) {
   return (
     <EmailLayout preview={`${className} op ${whenLabel} is geannuleerd`}>
@@ -47,11 +53,19 @@ export default function SessionCancelledByAdmin({
         Hé {firstName || "daar"}, de sessie gaat niet door.
       </Heading>
 
-      <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
-        We moeten {className} van {whenLabel} annuleren. Reden: {reason}.
-      </Text>
+      {audience === "waitlist" ? (
+        <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
+          {/* COPY: confirm met Marlon */}
+          Je stond op de wachtlijst voor {className} van {whenLabel}. We moeten
+          die les annuleren. Reden: {reason}. Je wachtlijstplek vervalt.
+        </Text>
+      ) : (
+        <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
+          We moeten {className} van {whenLabel} annuleren. Reden: {reason}.
+        </Text>
+      )}
 
-      {creditRestored && (
+      {audience === "booking" && creditRestored && (
         <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
           Je credit staat weer op je account. Boek gerust een andere sessie.
         </Text>
