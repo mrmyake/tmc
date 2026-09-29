@@ -27,19 +27,41 @@ export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps)
         height: `${Math.max(30, session.durationMin) - 2}px`,
       }}
       className={`absolute left-1 right-1 flex flex-col items-start gap-0.5 px-3 py-2 border border-[color:var(--ink-500)] border-l-4 ${tone} bg-bg-elevated text-left transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:bg-bg-elevated/80 cursor-pointer overflow-hidden ${
-        isCancelled ? "opacity-50 line-through decoration-text-muted/60" : ""
+        isCancelled ? "opacity-60" : ""
       }`}
-      aria-label={`${session.className} om ${session.startLabel}`}
+      aria-label={`${session.className} om ${session.startLabel}${isCancelled ? ", vervalt" : ""}`}
     >
       <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted">
         {session.startLabel}
+        {isCancelled && (
+          // Op de tijdregel, zodat het ook in een blok van een uur zichtbaar blijft.
+          <span className="text-[color:var(--danger)]">
+            {/* COPY: confirm met Marlon */}
+            {" · "}Vervalt
+          </span>
+        )}
+        {session.rescheduledFromLabel && !isCancelled && (
+          <span className="text-accent normal-case tracking-normal">
+            {/* COPY: confirm met Marlon */}
+            {" "}(was {session.rescheduledFromLabel})
+          </span>
+        )}
       </span>
-      <span className="text-xs font-medium text-text leading-tight line-clamp-2">
+      <span
+        className={`text-xs font-medium text-text leading-tight line-clamp-2 ${
+          isCancelled ? "line-through decoration-text-muted/60" : ""
+        }`}
+      >
         {session.className}
       </span>
       <span className="text-[10px] text-text-muted leading-tight">
         {session.trainerName}
+        {session.trainerReplaced && !isCancelled && (
+          // COPY: confirm met Marlon
+          <span className="text-accent"> · vervanging</span>
+        )}
       </span>
+
       <span
         className={`text-[10px] mt-auto ${
           full ? "text-[color:var(--warning)]" : "text-text-muted"

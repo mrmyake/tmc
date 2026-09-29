@@ -208,6 +208,8 @@ type CancelClassBookingResult = {
   session_id?: string;
   pillar?: string;
   within_window?: boolean;
+  /** Kosteloos door een verschuiving van de les (spec-session-overrides.md). */
+  free_after_reschedule?: boolean;
   credits_refunded?: boolean;
 };
 
@@ -504,7 +506,11 @@ export async function cancelBooking(
     payload: {
       profile_id: user.id,
       session_id: sessionId,
-      reason: withinWindow ? "within_window" : "late",
+      reason: result.free_after_reschedule
+        ? "rescheduled"
+        : withinWindow
+          ? "within_window"
+          : "late",
       credits_refunded: Boolean(result.credits_refunded),
     },
   });

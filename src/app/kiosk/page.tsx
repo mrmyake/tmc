@@ -15,6 +15,8 @@ interface SessionRow {
   end_at: string;
   status: string;
   pillar: string | null;
+  rescheduled_at: string | null;
+  occurrence_start_at: string;
   class_type: { name: string | null } | { name: string | null }[] | null;
   trainer:
     | { display_name: string | null }
@@ -62,13 +64,14 @@ export default async function KioskPage() {
     let query = admin
       .from("class_sessions")
       .select(
-        `id, start_at, end_at, status, pillar,
+        `id, start_at, end_at, status, pillar, rescheduled_at, occurrence_start_at,
          class_type:class_types(name),
          trainer:trainers(display_name)`,
       )
       .gte("start_at", dayStart.toISOString())
       .lt("start_at", dayEnd.toISOString())
-      .neq("status", "cancelled")
+      // Geannuleerde lessen blijven zichtbaar als "Vervalt"
+      // (spec-session-overrides.md); KioskFrame maakt ze niet klikbaar.
       .order("start_at", { ascending: true });
 
     if (trainerFilterId) {
@@ -124,6 +127,11 @@ export default async function KioskPage() {
         bookedCount: bookedCounts.get(r.id) ?? 0,
         checkedInCount: checkedInCounts.get(r.id) ?? 0,
         pillar: r.pillar ?? null,
+        cancelled: r.status === "cancelled",
+        rescheduledFrom:
+          r.rescheduled_at && r.occurrence_start_at !== r.start_at
+            ? new Date(r.occurrence_start_at)
+            : null,
       };
     });
   }

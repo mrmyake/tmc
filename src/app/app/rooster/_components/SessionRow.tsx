@@ -28,6 +28,10 @@ export interface SessionRowData {
    * op de badge.
    */
   reasonText?: string | null;
+  /** Oude starttijd ("18:00") als de studio de les eenmalig verschoof. */
+  rescheduledFrom?: string | null;
+  /** Geboekt voor de verschuiving: kosteloos annuleren tot de start. */
+  freeCancel?: boolean;
 }
 
 interface SessionRowProps {
@@ -126,6 +130,12 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
           met {session.trainerName} ·{" "}
           {durationMinutes(session.startAt, session.endAt)} min
         </span>
+        {session.rescheduledFrom && session.status !== "cancelled" && (
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-accent">
+            {/* COPY: confirm met Marlon */}
+            Nieuwe tijd · was {session.rescheduledFrom}
+          </span>
+        )}
         {session.checkInHint && (
           <span
             className={`text-[11px] font-medium uppercase tracking-[0.14em] ${
@@ -161,6 +171,8 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
             : Math.max(0, session.spotsAvailable ?? session.capacity)
         }
         reasonText={session.reasonText}
+        // COPY: confirm met Marlon
+        cancelledLabel="Vervalt"
       />
       <ChevronRight
         size={16}

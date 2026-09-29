@@ -21,6 +21,10 @@ export interface UpcomingRowData {
   /** "Ingecheckt 09:14" (past) of "Check in bij de tablet" (future today). */
   checkInHint?: string | null;
   checkedIn?: boolean;
+  /** Oude starttijd ("18:00") als de studio de les eenmalig verschoof. */
+  rescheduledFrom?: string | null;
+  /** Geboekt voor de verschuiving: kosteloos annuleren tot de start. */
+  freeCancel?: boolean;
 }
 
 interface UpcomingRowProps {
@@ -40,7 +44,8 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
   const end = new Date(row.endAt);
 
   function doCancel() {
-    const note = isLateCancel(start.getTime(), cancellationWindowHours)
+    const note =
+      !row.freeCancel && isLateCancel(start.getTime(), cancellationWindowHours)
       ? "Je annuleert binnen het cancel-venster. Deze sessie telt mee. Weet je het zeker?"
       : null;
     if (note && !window.confirm(note)) return;
@@ -83,6 +88,13 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
         </h3>
         <p className="text-text-muted text-sm">Met {row.trainerName}</p>
         <p className="text-text-muted text-sm">{formatTimeRange(start, end)}</p>
+        {row.rescheduledFrom && (
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent">
+            {/* COPY: confirm met Marlon */}
+            Nieuwe tijd · was {row.rescheduledFrom}
+            {row.freeCancel ? " · kosteloos annuleren tot de start" : ""}
+          </p>
+        )}
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent">
           {formatRelativeWhen(start)}
         </p>

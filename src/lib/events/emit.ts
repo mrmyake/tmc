@@ -75,10 +75,16 @@ export type EventType =
   // Guest
   | "guest.booked"
   | "guest.attendance_marked"
-  // Sessions (admin)
+  // guest.cancelled schrijft tmc.cancel_class_session_core zelf
+  | "guest.cancelled"
+  // Sessions (admin). session.cancelled, session.rescheduled en
+  // session.trainer_replaced schrijven de session-override-RPC's zelf
+  // (spec-session-overrides.md).
   | "session.created"
   | "session.updated"
   | "session.cancelled"
+  | "session.rescheduled"
+  | "session.trainer_replaced"
   // Recurring series (admin, schedule_templates)
   | "series.created"
   | "series.updated"

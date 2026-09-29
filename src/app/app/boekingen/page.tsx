@@ -25,11 +25,14 @@ type BookingRow = {
   id: string;
   status: string;
   no_show_at: string | null;
+  booked_at?: string;
   session:
     | {
         id: string;
         start_at: string;
         end_at: string;
+        rescheduled_at?: string | null;
+        occurrence_start_at?: string;
         class_type: { name: string } | null;
         trainer: { display_name: string } | null;
       }
@@ -156,8 +159,9 @@ export default async function BoekingenPage(props: {
                 id,
                 status,
                 no_show_at,
+                booked_at,
                 session:class_sessions!inner(
-                  id, start_at, end_at,
+                  id, start_at, end_at, rescheduled_at, occurrence_start_at,
                   class_type:class_types(name),
                   trainer:trainers(display_name)
                 )
@@ -315,6 +319,20 @@ export default async function BoekingenPage(props: {
         } else if (isToday && status === "booked") {
           checkInHint = "Check in bij de tablet";
         }
+        // Verschoven les (spec-session-overrides.md): oude tijd tonen en,
+        // als de boeking van voor de verschuiving is, kosteloos annuleren
+        // tot de start (zelfde regel als cancel_class_booking).
+        const rescheduledAt = b.session!.rescheduled_at ?? null;
+        const occurrence = b.session!.occurrence_start_at ?? b.session!.start_at;
+        const rescheduledFrom =
+          rescheduledAt && occurrence !== b.session!.start_at
+            ? amsterdamTime.format(new Date(occurrence))
+            : null;
+        const freeCancel = Boolean(
+          rescheduledAt &&
+            b.booked_at &&
+            new Date(b.booked_at).getTime() < new Date(rescheduledAt).getTime(),
+        );
         return {
           bookingId: b.id,
           startAt: b.session!.start_at,
@@ -324,6 +342,8 @@ export default async function BoekingenPage(props: {
           status,
           checkInHint,
           checkedIn,
+          rescheduledFrom,
+          freeCancel,
         };
       });
 

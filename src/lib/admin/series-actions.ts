@@ -18,6 +18,7 @@ export type SeriesActionResult =
       id?: string;
       materializedCount?: number;
       skippedWithBookings?: number;
+      skippedWithOverrides?: number;
     }
   | { ok: false; message: string };
 
@@ -164,24 +165,40 @@ async function fetchTemplateForMaterialization(
 /**
  * Vindt toekomstige, geplande sessies van een template en splitst ze in
  * "zonder actieve boekingen of wachtlijst" (veilig aan te passen/
- * annuleren) en "bezet" (nooit stilzwijgend wijzigen — blijft ongemoeid,
+ * annuleren) en "bezet" (nooit stilzwijgend wijzigen, blijft ongemoeid,
  * gerapporteerd aan de admin). Een actieve wachtlijst-entry telt ook als
  * bezet, ook zonder bevestigde boeking.
+ *
+ * Met `skipOverrides` vallen sessies met een eenmalige override (verschoven
+ * of andere trainer, spec-session-overrides.md) ook buiten emptyIds: een
+ * serie-wijziging mag die nooit terugdraaien. Ze worden apart geteld.
  */
 async function splitFutureSessionsByBookings(
   admin: ReturnType<typeof createAdminClient>,
   templateId: string,
-): Promise<{ emptyIds: string[]; skippedCount: number }> {
+  opts: { skipOverrides: boolean },
+): Promise<{ emptyIds: string[]; skippedCount: number; overriddenCount: number }> {
   const nowIso = new Date().toISOString();
   const { data: sessions } = await admin
     .from("class_sessions")
-    .select("id")
+    .select("id, rescheduled_at, trainer_overridden_at")
     .eq("template_id", templateId)
     .eq("status", "scheduled")
     .gt("start_at", nowIso);
 
-  const sessionIds = (sessions ?? []).map((s) => s.id);
-  if (sessionIds.length === 0) return { emptyIds: [], skippedCount: 0 };
+  const overriddenIds = new Set(
+    opts.skipOverrides
+      ? (sessions ?? [])
+          .filter((s) => s.rescheduled_at || s.trainer_overridden_at)
+          .map((s) => s.id)
+      : [],
+  );
+  const sessionIds = (sessions ?? [])
+    .map((s) => s.id)
+    .filter((id) => !overriddenIds.has(id));
+  if (sessionIds.length === 0) {
+    return { emptyIds: [], skippedCount: 0, overriddenCount: overriddenIds.size };
+  }
 
   const [bookedRes, waitlistRes] = await Promise.all([
     admin
@@ -206,7 +223,11 @@ async function splitFutureSessionsByBookings(
   ]);
   const emptyIds = sessionIds.filter((id) => !occupiedIds.has(id));
 
-  return { emptyIds, skippedCount: occupiedIds.size };
+  return {
+    emptyIds,
+    skippedCount: occupiedIds.size,
+    overriddenCount: overriddenIds.size,
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -371,10 +392,10 @@ export async function adminUpdateSeries(
     f.dayOfWeek !== existing.day_of_week ||
     f.startTime !== existing.start_time.slice(0, 5);
 
-  const { emptyIds, skippedCount } = await splitFutureSessionsByBookings(
-    admin,
-    input.templateId,
-  );
+  const { emptyIds, skippedCount, overriddenCount } =
+    await splitFutureSessionsByBookings(admin, input.templateId, {
+      skipOverrides: true,
+    });
 
   if (emptyIds.length > 0) {
     if (timeChanged) {
@@ -448,6 +469,7 @@ export async function adminUpdateSeries(
       template_id: input.templateId,
       rematerialized: attempts,
       skipped_with_bookings: skippedCount,
+      skipped_with_overrides: overriddenCount,
     },
   });
 
@@ -459,16 +481,29 @@ export async function adminUpdateSeries(
 
   revalidateAll();
 
+  const skippedParts: string[] = [];
+  if (skippedCount > 0) {
+    // COPY: confirm met Marlon
+    skippedParts.push(`${skippedCount} sessie(s) met boekingen of wachtlijst`);
+  }
+  if (overriddenCount > 0) {
+    // COPY: confirm met Marlon
+    skippedParts.push(
+      `${overriddenCount} sessie(s) met een eenmalige wijziging (tijd of trainer)`,
+    );
+  }
+
   return {
     ok: true,
     message:
-      skippedCount > 0
+      skippedParts.length > 0
         ? // COPY: confirm met Marlon
-          `Serie bijgewerkt. ${skippedCount} sessie(s) met boekingen of wachtlijst zijn ongewijzigd gelaten.`
+          `Serie bijgewerkt. ${skippedParts.join(" en ")} zijn ongewijzigd gelaten.`
         : // COPY: confirm met Marlon
           "Serie bijgewerkt.",
     materializedCount: attempts,
     skippedWithBookings: skippedCount,
+    skippedWithOverrides: overriddenCount,
   };
 }
 
@@ -509,9 +544,12 @@ export async function adminCancelSeries(
     return { ok: false, message: "Stoppen van de serie lukte niet." };
   }
 
+  // Een gestopte serie neemt ook boekingloze sessies met een override mee:
+  // die horen bij de serie en zouden anders als losse les blijven hangen.
   const { emptyIds, skippedCount } = await splitFutureSessionsByBookings(
     admin,
     templateId,
+    { skipOverrides: false },
   );
 
   if (emptyIds.length > 0) {

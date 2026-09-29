@@ -42,6 +42,10 @@ type SessionRow = {
   capacity: number | null;
   pillar: string;
   age_category: string;
+  /** Gezet bij een eenmalige verschuiving (spec-session-overrides.md). */
+  rescheduled_at: string | null;
+  /** Oorspronkelijke tijd van de les; verschilt van start_at na een verschuiving. */
+  occurrence_start_at: string;
   class_type: { name: string } | null;
   trainer: { display_name: string; bio: string | null } | null;
 };
@@ -238,6 +242,8 @@ export default async function RoosterPage(props: {
             capacity,
             pillar,
             age_category,
+            rescheduled_at,
+            occurrence_start_at,
             class_type:class_types(name),
             trainer:trainers(display_name, bio)
           `,
@@ -253,7 +259,7 @@ export default async function RoosterPage(props: {
     })(),
     supabase
       .from("bookings")
-      .select("id, session_id, status")
+      .select("id, session_id, status, booked_at")
       .eq("profile_id", user.id)
       .gte("session_date", fromIso)
       .lt("session_date", addDaysIsoAmsterdam(fromIso, WINDOW_DAYS))
@@ -361,10 +367,17 @@ export default async function RoosterPage(props: {
   }
 
   const sessions = sessionsResult.data ?? [];
-  const bookingsBySession = new Map<string, { id: string; status: string }>();
+  const bookingsBySession = new Map<
+    string,
+    { id: string; status: string; bookedAt: string }
+  >();
   for (const b of bookingsResult.data ?? []) {
     if (b.status === "booked") {
-      bookingsBySession.set(b.session_id, { id: b.id, status: b.status });
+      bookingsBySession.set(b.session_id, {
+        id: b.id,
+        status: b.status,
+        bookedAt: b.booked_at,
+      });
     }
   }
   const waitlistedSessions = new Set(
@@ -483,16 +496,20 @@ export default async function RoosterPage(props: {
     let status: SessionStatus;
     let reasonText: string | null = null;
 
+    // Geannuleerd gaat voor geboekt en wachtlijst: een open wachtlijstplek
+    // van voor de annulering mocht de les niet als "Wachtlijst" tonen
+    // (spec-session-overrides.md). Sinds de annuleer-RPC vervallen die
+    // plekken ook zelf; deze volgorde dekt oude rijen.
     if (end.getTime() < now.getTime()) {
       status = "past";
+    } else if (s.status !== "scheduled") {
+      status = "cancelled";
     } else if (isOngoing(start, end, now)) {
       status = "ongoing";
     } else if (booking) {
       status = "booked";
     } else if (waitlisted) {
       status = "waitlisted";
-    } else if (s.status !== "scheduled") {
-      status = "cancelled";
     } else {
       // Live kandidaat: canBook() beslist, wij tonen alleen. Zelfde functie,
       // zelfde volgorde en reason-codes als de RPC — geen eigen regels hier.
@@ -572,10 +589,27 @@ export default async function RoosterPage(props: {
       checkInHint = "Check in bij de tablet";
     }
 
+    // Verschoven les: oude tijd tonen, en wie van voor de verschuiving
+    // geboekt heeft mag tot de start kosteloos annuleren (zelfde regel als
+    // cancel_class_booking).
+    const rescheduledFrom =
+      s.rescheduled_at && s.occurrence_start_at !== s.start_at
+        ? amsterdamTime.format(new Date(s.occurrence_start_at))
+        : null;
+    const freeCancel = Boolean(
+      booking &&
+        s.rescheduled_at &&
+        new Date(booking.bookedAt).getTime() <
+          new Date(s.rescheduled_at).getTime() &&
+        now.getTime() < start.getTime(),
+    );
+
     return {
       id: s.id,
       startAt: s.start_at,
       endAt: s.end_at,
+      rescheduledFrom,
+      freeCancel,
       className: s.class_type?.name ?? "Sessie",
       trainerName: s.trainer?.display_name ?? "coach",
       trainerBio: s.trainer?.bio ?? null,
@@ -721,6 +755,8 @@ export default async function RoosterPage(props: {
           checkInHint: s.checkInHint,
           checkedIn: s.checkedIn,
           reasonText: s.reasonText,
+          rescheduledFrom: s.rescheduledFrom,
+          freeCancel: s.freeCancel,
         }))}
         cancellationWindowHours={cancellationWindowHours}
       />
