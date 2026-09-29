@@ -572,11 +572,14 @@ async function ensureSessionsForWeek(mondayYmd, templateDefs, templateIds, class
           pillar: ct.pillar,
           age_category: ct.ageCategory,
           start_at: startUtc.toISOString(),
+          // Vaste seriesleutel sinds PR #239; de oude sleutel
+          // (template_id, start_at) is weg sinds fix/tmc-hardening.
+          occurrence_start_at: startUtc.toISOString(),
           end_at: endUtc.toISOString(),
           capacity: def.capacity,
           status: "scheduled",
         },
-        { onConflict: "template_id,start_at", ignoreDuplicates: true },
+        { onConflict: "template_id,occurrence_start_at", ignoreDuplicates: true },
       );
     if (error) {
       errors += 1;
