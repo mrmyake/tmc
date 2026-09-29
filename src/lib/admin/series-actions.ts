@@ -379,15 +379,17 @@ export async function adminUpdateSeries(
   }
 
   // Dag/tijd ongewijzigd: bestaande boekingloze occurrences vallen op
-  // dezelfde (template_id, start_at) als voorheen. Die direct patchen i.p.v.
-  // annuleren + her-materialiseren — de materialisatie-upsert slaat een
-  // reeds bestaande (ook geannuleerde) rij op die sleutel over
-  // (ignoreDuplicates), dus annuleren zou de sessie stilzwijgend geannuleerd
-  // laten staan in plaats van bijgewerkt.
+  // dezelfde (template_id, occurrence_start_at) als voorheen. Die direct
+  // patchen in plaats van annuleren en opnieuw materialiseren: de
+  // materialisatie-upsert slaat een al bestaande (ook geannuleerde) rij op
+  // die sleutel over (ignoreDuplicates), dus annuleren zou de sessie
+  // stilzwijgend geannuleerd laten staan in plaats van bijgewerkt.
   //
-  // Dag of tijd wél gewijzigd: de oude occurrences vallen op de verkeerde
-  // datum. Die annuleren en opnieuw materialiseren op de nieuwe dag/tijd —
-  // dat botst niet, want de nieuwe start_at wijkt af van de oude.
+  // Dag of tijd wel gewijzigd: de oude occurrences vallen op de verkeerde
+  // datum. Die annuleren en opnieuw materialiseren op de nieuwe dag/tijd;
+  // dat botst niet, want de nieuwe occurrence_start_at wijkt af van de oude.
+  // Lessen met een eenmalige override slaat splitFutureSessionsByBookings
+  // hier over (spec-session-overrides.md).
   const timeChanged =
     f.dayOfWeek !== existing.day_of_week ||
     f.startTime !== existing.start_time.slice(0, 5);
