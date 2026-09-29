@@ -5,6 +5,8 @@ import { sendPushToProfile } from "@/lib/push";
 import SessionCancelledByAdmin from "@/emails/session_cancelled_by_admin";
 import SessionRescheduled from "@/emails/session_rescheduled";
 import GuestSessionCancelled from "@/emails/guest_session_cancelled";
+import VisitorSessionRescheduled from "@/emails/visitor_session_rescheduled";
+import { siteUrl as publicSiteUrl } from "@/lib/site-url";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
 /**
@@ -171,12 +173,20 @@ export interface RescheduledSessionResult {
   bookings: Array<{ booking_id: string; profile_id: string }>;
 }
 
-/** Mail en push naar geboekte leden met oude en nieuwe tijd. */
+/**
+ * Antwoordadres voor bezoekersmails: een inbox die Marlon leest. De
+ * standaardafzender (MAILERSEND_FROM_EMAIL) is een no-reply-adres.
+ */
+const VISITOR_REPLY_TO = { email: "marlon@themovementclub.nl", name: "The Movement Club" };
+
+/**
+ * Mail en push naar geboekte leden met oude en nieuwe tijd, daarna een mail
+ * (geen push, geen account) naar betaalde proefles-bezoekers en gasten.
+ */
 export async function notifySessionRescheduled(
   result: RescheduledSessionResult,
 ): Promise<void> {
   try {
-    if (result.bookings.length === 0) return;
     const name = await className(result.session_id);
     const oldWhen = whenLabel(result.old_start_at, result.old_end_at);
     const newWhen = whenLabel(result.new_start_at, result.new_end_at);
@@ -207,7 +217,88 @@ export async function notifySessionRescheduled(
         data: { type: "session_rescheduled", sessionId: result.session_id },
       });
     }
+
+    await notifyVisitorsRescheduled({
+      sessionId: result.session_id,
+      className: name,
+      oldWhen,
+      newWhen,
+    });
   } catch (err) {
     console.error("[notifySessionRescheduled] overgeslagen", err);
+  }
+}
+
+/**
+ * Proefles-bezoekers (status 'paid', dus betaald of gratis via code; is_test
+ * bewust niet uitgesloten) en gasten (status 'booked') van de verschoven
+ * les. Opgehaald direct na de geslaagde RPC; wie daarna nog boekt, ziet de
+ * nieuwe tijd al. Pending proeflessen horen bij een lopende betaling en
+ * krijgen geen mail.
+ */
+async function notifyVisitorsRescheduled(args: {
+  sessionId: string;
+  className: string;
+  oldWhen: string;
+  newWhen: string;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const [trialsRes, guestsRes] = await Promise.all([
+    admin
+      .from("trial_bookings")
+      .select("id, name, email, cancel_token, price_paid_cents")
+      .eq("session_id", args.sessionId)
+      .eq("status", "paid"),
+    admin
+      .from("guest_bookings")
+      .select("id, guest_name, guest_email, booked_by")
+      .eq("session_id", args.sessionId)
+      .eq("status", "booked"),
+  ]);
+  if (trialsRes.error) console.error("[notifyVisitorsRescheduled] trials", trialsRes.error);
+  if (guestsRes.error) console.error("[notifyVisitorsRescheduled] guests", guestsRes.error);
+
+  for (const t of trialsRes.data ?? []) {
+    const firstName = (t.name ?? "").trim().split(" ")[0] ?? "";
+    await sendEmail({
+      to: t.email,
+      toName: firstName || undefined,
+      // COPY: confirm met Marlon
+      subject: `Nieuwe tijd voor je proefles: ${args.newWhen}`,
+      replyTo: VISITOR_REPLY_TO,
+      react: VisitorSessionRescheduled({
+        recipient: "trial",
+        trialKind: (t.price_paid_cents ?? 0) > 0 ? "paid" : "code",
+        firstName,
+        className: args.className,
+        oldWhenLabel: args.oldWhen,
+        newWhenLabel: args.newWhen,
+        cancelUrl: `${publicSiteUrl()}/proefles/annuleren/${t.cancel_token}`,
+      }),
+    });
+  }
+
+  const guests = guestsRes.data ?? [];
+  const hosts = await profilesById(guests.map((g) => g.booked_by));
+  for (const g of guests) {
+    const guestFirstName = (g.guest_name ?? "").trim().split(" ")[0] ?? "";
+    // Alleen de voornaam van het lid (besluit Ilja).
+    // COPY: confirm met Marlon
+    const hostFirstName = hosts.get(g.booked_by)?.first_name?.trim() || "het lid dat je uitnodigde";
+    await sendEmail({
+      to: g.guest_email,
+      toName: guestFirstName || undefined,
+      // COPY: confirm met Marlon
+      subject: `Nieuwe tijd voor ${args.className}: ${args.newWhen}`,
+      replyTo: VISITOR_REPLY_TO,
+      react: VisitorSessionRescheduled({
+        recipient: "guest",
+        firstName: guestFirstName,
+        hostFirstName,
+        className: args.className,
+        oldWhenLabel: args.oldWhen,
+        newWhenLabel: args.newWhen,
+      }),
+    });
   }
 }

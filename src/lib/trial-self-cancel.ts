@@ -25,6 +25,27 @@ export function isWithinCancelWindow(
   return startAt.getTime() - now.getTime() >= windowHours * 3_600_000;
 }
 
+/**
+ * Kosteloos annuleren na een eenmalige verschuiving van de les
+ * (spec-session-overrides.md): de boeking is van voor de verschuiving en de
+ * (nieuwe) start is nog niet bereikt. Zelfde regel als
+ * visitor_cancel_trial_booking en cancel_class_booking. Alleen weergave; de
+ * database beslist.
+ */
+export function isFreeAfterReschedule(args: {
+  bookedAt: Date;
+  rescheduledAt: Date | null;
+  startAt: Date;
+  now?: Date;
+}): boolean {
+  const now = args.now ?? new Date();
+  return (
+    args.rescheduledAt !== null &&
+    args.bookedAt.getTime() < args.rescheduledAt.getTime() &&
+    now.getTime() < args.startAt.getTime()
+  );
+}
+
 export interface SelfCancelOutcome {
   withinWindow: boolean;
   /** Prijs van de boeking in centen; 0 bij een codeboeking. */
