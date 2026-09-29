@@ -585,11 +585,17 @@ export async function overrideNoShow(
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, profile_id, session_id, status")
+    .select("id, profile_id, session_id, status, pillar")
     .eq("id", input.bookingId)
     .maybeSingle();
 
   if (!booking) return { ok: false, message: "Boeking niet gevonden." };
+  // Vrij trainen levert nooit een no-show of strike op
+  // (spec-vrij-trainen-slots.md); de DB weigert het ook.
+  if (input.newStatus === "no_show" && booking.pillar === "vrij_trainen") {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Bij vrij trainen worden geen no-shows gemarkeerd." };
+  }
   if (booking.profile_id !== input.profileId) {
     return { ok: false, message: "Boeking hoort niet bij dit lid." };
   }

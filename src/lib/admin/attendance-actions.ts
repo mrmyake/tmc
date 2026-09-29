@@ -293,7 +293,16 @@ export async function loadParticipants(
     credits_remaining: number | null;
   };
 
-  const participants: ParticipantRow[] = (bookingsRes.data ?? []).map((b) => {
+  // Een rij per lid: na annuleren en opnieuw boeken (partiele unique index,
+  // vrij-trainen-slots) kan een lid een geannuleerde en een geboekte rij
+  // hebben. De geboekte wint, anders de laatste annulering.
+  const bookingByProfile = new Map<string, NonNullable<typeof bookingsRes.data>[number]>();
+  for (const b of bookingsRes.data ?? []) {
+    const prev = bookingByProfile.get(b.profile_id);
+    if (!prev || prev.status !== "booked") bookingByProfile.set(b.profile_id, b);
+  }
+
+  const participants: ParticipantRow[] = [...bookingByProfile.values()].map((b) => {
     const p = (Array.isArray(b.profile) ? b.profile[0] : b.profile) as
       | ProfileRef
       | null;
@@ -458,7 +467,7 @@ export async function markAttendance(
   const [bookingsRes, strikesRes] = await Promise.all([
     admin
       .from("bookings")
-      .select("id, session_id, profile_id, status")
+      .select("id, session_id, profile_id, status, pillar")
       .in("id", ids),
     admin
       .from("no_show_strikes")
@@ -478,6 +487,7 @@ export async function markAttendance(
         sessionId: b.session_id,
         profileId: b.profile_id,
         status: b.status as string,
+        pillar: b.pillar as string,
       },
     ]),
   );
@@ -513,6 +523,12 @@ export async function markAttendance(
       });
       if (!res.ok) return { ok: false, message: res.message };
     } else if (a.status === "no_show") {
+      // Vrij trainen levert nooit een no-show of strike op
+      // (spec-vrij-trainen-slots.md); de DB weigert het ook.
+      if (cur.pillar === "vrij_trainen") {
+        // COPY: confirm met Marlon
+        return { ok: false, message: "Bij vrij trainen worden geen no-shows gemarkeerd." };
+      }
       // Eerst de aanwezigheid weg via de kern (strike blijft, die zetten we
       // zo direct), dan no_show_at en de strike.
       const res = await setMemberAttendance(deps, {
@@ -688,11 +704,17 @@ export async function autoMarkNoShows(
 
   const { data: session } = await admin
     .from("class_sessions")
-    .select("id, end_at")
+    .select("id, end_at, pillar")
     .eq("id", sessionId)
     .maybeSingle();
 
   if (!session) return { ok: false, message: "Sessie niet gevonden." };
+  // Vrij trainen levert nooit no-shows of strikes op
+  // (spec-vrij-trainen-slots.md); de DB weigert het ook.
+  if (session.pillar === "vrij_trainen") {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Bij vrij trainen worden geen no-shows gemarkeerd." };
+  }
   if (new Date(session.end_at).getTime() > Date.now()) {
     return {
       ok: false,

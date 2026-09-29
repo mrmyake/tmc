@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
 import type { MemberStatus } from "./members-query";
+import { bookingTimes } from "@/lib/member/booking-times";
 
 export interface MemberDetailProfile {
   id: string;
@@ -269,6 +270,7 @@ export async function loadMemberDetail(
         .select(
           `
             id, session_id, status, credits_used, attended_at, no_show_at,
+            slot_start_at, slot_end_at,
             session:class_sessions(
               start_at, end_at, pillar,
               class_type:class_types(name),
@@ -414,12 +416,15 @@ export async function loadMemberDetail(
     let displayStatus = b.status as string;
     if (checkedInAt) displayStatus = "attended";
     else if (b.no_show_at) displayStatus = "no_show";
+    // Vrij trainen: het eigen slot, niet de dagsessie van 07:00
+    // (spec-vrij-trainen-slots.md).
+    const times = s ? bookingTimes(b, s) : null;
     return {
       id: b.id,
       sessionId: b.session_id,
       status: displayStatus,
-      startAt: s?.start_at ?? "",
-      endAt: s?.end_at ?? "",
+      startAt: times?.startAt ?? "",
+      endAt: times?.endAt ?? "",
       className: ct?.name ?? "Sessie",
       trainerName: tr?.display_name ?? "—",
       pillar: s?.pillar ?? "",
@@ -436,7 +441,7 @@ export async function loadMemberDetail(
         new Date(b.startAt).getTime() >= now &&
         (b.status === "booked" || b.status === "waitlisted"),
     )
-    .sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
   const pastBookings = bookings.filter(
     (b) => !upcomingBookings.find((u) => u.id === b.id),
   );
@@ -575,7 +580,9 @@ export async function loadMemberDetail(
     audit,
     pendingChange,
     stats: {
-      totalSessions: bookings.length,
+      // Geannuleerde rijen tellen niet als sessie; sinds de partiele unique
+      // index kan een lid naast een annulering opnieuw geboekt staan.
+      totalSessions: bookings.filter((b) => b.status !== "cancelled").length,
       attendedSessions: attendedList.length,
       favoritePillar,
       lastSessionAt: lastSession,

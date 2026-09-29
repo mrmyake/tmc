@@ -70,6 +70,9 @@ export default async function KioskPage() {
       )
       .gte("start_at", dayStart.toISOString())
       .lt("start_at", dayEnd.toISOString())
+      // Vrij trainen is een dagsessie met eigen slots en hoort niet op de
+      // kiosk (spec-vrij-trainen-slots.md); check-in loopt via /kiosk/paneel.
+      .neq("pillar", "vrij_trainen")
       // Geannuleerde lessen blijven zichtbaar als "Vervalt"
       // (spec-session-overrides.md); KioskFrame maakt ze niet klikbaar.
       .order("start_at", { ascending: true });

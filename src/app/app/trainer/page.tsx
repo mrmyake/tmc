@@ -158,6 +158,9 @@ export default async function TrainerHomePage(props: {
         )
         .eq("trainer_id", trainer.id)
         .eq("status", "scheduled")
+        // Vrij trainen (dagsessie met eigen slots) is geen les van de
+        // trainer (spec-vrij-trainen-slots.md).
+        .neq("pillar", "vrij_trainen")
         .gte("start_at", new Date(`${todayIso}T00:00:00Z`).toISOString())
         .lt(
           "start_at",
@@ -170,6 +173,7 @@ export default async function TrainerHomePage(props: {
         .select("id", { count: "exact", head: true })
         .eq("trainer_id", trainer.id)
         .eq("status", "scheduled")
+        .neq("pillar", "vrij_trainen")
         .gte("start_at", weekStart.toISOString())
         .lt("start_at", weekEnd.toISOString()),
       admin

@@ -6,6 +6,7 @@ import { sendPushToProfile } from "@/lib/push";
 import BookingReminder from "@/emails/booking_reminder";
 import IntakeReminder from "@/emails/intake_reminder";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { bookingTimes } from "@/lib/member/booking-times";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export async function GET(req: Request) {
 
   type Row = {
     id: string;
+    slot_start_at: string | null;
+    slot_end_at: string | null;
     session_id: string;
     profile_id: string;
     profile: {
@@ -72,7 +75,7 @@ export async function GET(req: Request) {
     .from("bookings")
     .select(
       `
-        id, session_id, profile_id,
+        id, session_id, profile_id, slot_start_at, slot_end_at,
         profile:profiles(first_name, email),
         session:class_sessions(
           start_at, end_at, status,
@@ -99,7 +102,9 @@ export async function GET(req: Request) {
     const s = Array.isArray(r.session) ? r.session[0] : r.session;
     if (!s) return false;
     if (s.status !== "scheduled") return false;
-    const startMs = new Date(s.start_at).getTime();
+    // Vrij trainen: het eigen slot bepaalt het herinneringsvenster
+    // (spec-vrij-trainen-slots.md).
+    const startMs = new Date(bookingTimes(r, s).startAt).getTime();
     return startMs >= windowStart.getTime() && startMs < windowEnd.getTime();
   });
 
@@ -143,8 +148,9 @@ export async function GET(req: Request) {
       ? session.trainer[0]
       : session.trainer) as { display_name: string | null } | null;
 
-    const start = new Date(session.start_at);
-    const end = new Date(session.end_at);
+    const times = bookingTimes(row, session);
+    const start = new Date(times.startAt);
+    const end = new Date(times.endAt);
     const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
 
     await sendEmail({

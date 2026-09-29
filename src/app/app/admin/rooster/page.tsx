@@ -176,6 +176,9 @@ export default async function AdminRoosterPage(props: {
       )
       .gte("start_at", weekStart.toISOString())
       .lt("start_at", weekEnd.toISOString())
+      // Vrij trainen (dagsessie 07:00-21:00 met eigen slots) zou het
+      // weekrooster de hele dag vullen (spec-vrij-trainen-slots.md).
+      .neq("pillar", "vrij_trainen")
       .order("start_at", { ascending: true })
       .returns<SessionRow[]>(),
     admin

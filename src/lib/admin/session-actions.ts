@@ -76,6 +76,9 @@ function overrideRefusal(reason: string | undefined): string {
     case "missing_date":
       // COPY: confirm met Marlon
       return "Kies een datum.";
+    case "vrij_trainen_not_reschedulable":
+      // COPY: confirm met Marlon
+      return "Vrij trainen kan niet verschuiven: leden hebben eigen tijdsloten op deze dag.";
     default:
       // COPY: confirm met Marlon
       return "Dat lukte niet. Probeer het opnieuw.";

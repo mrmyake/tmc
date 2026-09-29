@@ -6,8 +6,13 @@ export interface CanBookSession {
   status: string;
   pillar: string;
   age_category: string;
-  /** NULL betekent onbeperkt (alleen kettlebell). */
+  /** NULL betekent onbeperkt (kettlebell, vrij trainen). */
   capacity: number | null;
+  /**
+   * Alleen vrij trainen: begin van het gekozen slot. Venster en verleden
+   * rekenen dan vanaf het slot, zoals book_class_session.
+   */
+  slot_start_at?: string | null;
 }
 
 export interface CanBookMembership {
@@ -33,6 +38,7 @@ export interface CanBookUsage {
    * telt alleen leden en zou hier "open" tonen waar de RPC weigert.
    */
   takenCountThisSession: number;
+  /** Geboekte sessies op dezelfde dag, exclusief vrij trainen (telt niet mee). */
   bookingsSameDay: number;
   bookingsSamePillarThisWeek: number;
   /**
@@ -117,7 +123,7 @@ export function canBook(params: {
     return { allowed: false, reason: "age_mismatch" };
   }
 
-  const startAt = new Date(session.start_at);
+  const startAt = new Date(session.slot_start_at ?? session.start_at);
   const windowEnd = new Date(
     now.getTime() + settings.booking_window_days * 86400000,
   );
@@ -149,7 +155,12 @@ export function canBook(params: {
     return { allowed: false, reason: "strike_blocked" };
   }
 
-  if (usage.bookingsSameDay >= settings.fair_use_daily_max) {
+  // Vrij trainen telt niet mee voor de daglimiet en wordt er ook niet door
+  // geweigerd (spec-vrij-trainen-slots.md, parity met book_class_session).
+  if (
+    session.pillar !== "vrij_trainen" &&
+    usage.bookingsSameDay >= settings.fair_use_daily_max
+  ) {
     return { allowed: false, reason: "daily_cap_reached" };
   }
 
