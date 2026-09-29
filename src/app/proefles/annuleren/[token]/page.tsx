@@ -66,6 +66,16 @@ export default async function CancelTrialBookingPage(props: {
             )}
           </div>
         ) : summary.canCancel ? (
+          <>
+          {summary.freeAfterReschedule && (
+            <p className="text-text-muted text-sm mb-6">
+              {/* COPY: confirm met Marlon */}
+              Deze les heeft een nieuwe tijd. Tot de start annuleer je kosteloos
+              {summary.pricePaidCents > 0
+                ? " en krijg je het volledige bedrag terug."
+                : "."}
+            </p>
+          )}
           <CancelTrialBookingButton
             token={token}
             warning={lateCancelWarning({
@@ -74,6 +84,7 @@ export default async function CancelTrialBookingPage(props: {
               windowHours: summary.cancellationWindowHours,
             })}
           />
+          </>
         ) : (
           <p className="text-text-muted text-sm">
             {/* COPY: confirm met Marlon */}

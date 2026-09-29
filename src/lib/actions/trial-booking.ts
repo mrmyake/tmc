@@ -16,6 +16,7 @@ import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { processPaymentRefund } from "@/lib/refunds/process";
 import {
   isCancelTokenFormat,
+  isFreeAfterReschedule,
   isWithinCancelWindow,
   selfCancelMessage,
 } from "@/lib/trial-self-cancel";
@@ -417,8 +418,14 @@ interface TrialBookingSummary {
    * dan zonder terugbetaling; zie withinWindow.
    */
   canCancel: boolean;
-  /** Nu binnen de annuleringstermijn (inclusief de grens). Alleen weergave; de RPC beslist. */
+  /**
+   * Nu kosteloos te annuleren: binnen de annuleringstermijn (inclusief de
+   * grens), of de les is na de boeking verschoven en nog niet begonnen.
+   * Alleen weergave; de RPC beslist.
+   */
   withinWindow: boolean;
+  /** De les is na deze boeking eenmalig verschoven (kosteloos tot de start). */
+  freeAfterReschedule: boolean;
   /** 0 bij een codeboeking. */
   pricePaidCents: number;
   /**
@@ -441,8 +448,8 @@ export async function getTrialBookingByToken(
     .from("trial_bookings")
     .select(
       `
-        id, name, status, cancelled_at, price_paid_cents,
-        session:class_sessions(start_at, end_at, class_type:class_types(name)),
+        id, name, status, cancelled_at, price_paid_cents, booked_at,
+        session:class_sessions(start_at, end_at, rescheduled_at, class_type:class_types(name)),
         trial_code:trial_codes!trial_bookings_trial_code_id_fkey(revoked_at, max_uses, uses_count)
       `,
     )
@@ -461,6 +468,7 @@ export async function getTrialBookingByToken(
   type SessionRel = {
     start_at: string;
     end_at: string;
+    rescheduled_at: string | null;
     class_type: { name: string } | { name: string }[] | null;
   } | null;
   const session = trial.session as unknown as SessionRel;
@@ -472,7 +480,16 @@ export async function getTrialBookingByToken(
     : (classTypeRaw?.name ?? "Proefles");
 
   const now = new Date();
-  const withinWindow = isWithinCancelWindow(new Date(startAt), windowHours, now);
+  // Zelfde regel als visitor_cancel_trial_booking: binnen de termijn, of
+  // geboekt voor een verschuiving en de les is nog niet begonnen.
+  const freeAfterReschedule = isFreeAfterReschedule({
+    bookedAt: new Date(trial.booked_at),
+    rescheduledAt: session?.rescheduled_at ? new Date(session.rescheduled_at) : null,
+    startAt: new Date(startAt),
+    now,
+  });
+  const withinWindow =
+    isWithinCancelWindow(new Date(startAt), windowHours, now) || freeAfterReschedule;
   const notStarted = new Date(startAt).getTime() > now.getTime();
 
   type TrialCodeRow = {
@@ -502,6 +519,7 @@ export async function getTrialBookingByToken(
     cancellationWindowHours: windowHours,
     canCancel: trial.status === "paid" && !trial.cancelled_at && notStarted,
     withinWindow,
+    freeAfterReschedule,
     pricePaidCents: trial.price_paid_cents ?? 0,
     codeStillUsable,
   };

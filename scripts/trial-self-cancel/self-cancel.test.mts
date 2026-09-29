@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   isCancelTokenFormat,
+  isFreeAfterReschedule,
   isWithinCancelWindow,
   lateCancelWarning,
   selfCancelMessage,
@@ -57,4 +58,18 @@ test("waarschuwing vooraf alleen bij betaald na de termijn", () => {
   assert.equal(lateCancelWarning({ withinWindow: false, pricePaidCents: 0, windowHours: 6 }), null);
   const w = lateCancelWarning({ withinWindow: false, pricePaidCents: 1700, windowHours: 6 });
   assert.ok(w && /6 uur/.test(w) && /niet terug/.test(w));
+});
+
+test("kosteloos na verschuiving: alleen boekingen van voor de verschuiving, tot de start", () => {
+  const start = new Date("2026-10-01T12:00:00Z"); // binnen de termijn van 6 uur
+  const rescheduledAt = new Date("2026-10-01T08:00:00Z");
+  assert.equal(isWithinCancelWindow(start, 6, now), false);
+  // Geboekt voor de verschuiving: kosteloos.
+  assert.equal(isFreeAfterReschedule({ bookedAt: new Date("2026-09-30T10:00:00Z"), rescheduledAt, startAt: start, now }), true);
+  // Geboekt na de verschuiving: normaal venster.
+  assert.equal(isFreeAfterReschedule({ bookedAt: new Date("2026-10-01T09:00:00Z"), rescheduledAt, startAt: start, now }), false);
+  // Niet verschoven: normaal venster.
+  assert.equal(isFreeAfterReschedule({ bookedAt: new Date("2026-09-30T10:00:00Z"), rescheduledAt: null, startAt: start, now }), false);
+  // Les al begonnen: niet meer kosteloos.
+  assert.equal(isFreeAfterReschedule({ bookedAt: new Date("2026-09-30T10:00:00Z"), rescheduledAt, startAt: new Date("2026-10-01T09:59:00Z"), now }), false);
 });

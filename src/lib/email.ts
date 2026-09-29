@@ -8,6 +8,12 @@ interface SendArgs {
   toName?: string;
   subject: string;
   react: React.ReactElement;
+  /**
+   * Optioneel antwoordadres. Zonder replyTo gaat een antwoord naar het
+   * afzenderadres (MAILERSEND_FROM_EMAIL, een no-reply-adres). Mails waarop
+   * de ontvanger mag antwoorden zetten hier een inbox die Marlon leest.
+   */
+  replyTo?: { email: string; name?: string };
 }
 
 /**
@@ -33,6 +39,7 @@ export async function sendEmail({
   toName,
   subject,
   react,
+  replyTo,
 }: SendArgs): Promise<boolean> {
   const apiKey = process.env.MAILERSEND_API_KEY;
   const fromEmail = process.env.MAILERSEND_FROM_EMAIL;
@@ -57,6 +64,9 @@ export async function sendEmail({
       .setSubject(subject)
       .setHtml(html)
       .setText(text);
+    if (replyTo) {
+      params.setReplyTo(new Recipient(replyTo.email, replyTo.name));
+    }
 
     // Timeout (3a-bis, outbound-timeouts.ts): de SDK loopt via gaxios
     // zonder timeout-optie, dus een race; een timeout valt in de catch
