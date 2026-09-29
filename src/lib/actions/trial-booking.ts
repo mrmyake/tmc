@@ -13,6 +13,12 @@ import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
 import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
+import { processPaymentRefund } from "@/lib/refunds/process";
+import {
+  isCancelTokenFormat,
+  isWithinCancelWindow,
+  selfCancelMessage,
+} from "@/lib/trial-self-cancel";
 import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 
 export type StartTrialBookingResult =
@@ -405,7 +411,16 @@ interface TrialBookingSummary {
   sessionEndAt: string;
   sessionClassName: string;
   cancellationWindowHours: number;
+  /**
+   * De knop mag getoond worden: status 'paid' en de les is nog niet
+   * begonnen. Sinds de zelfservice-refund ook na de termijn (zoals leden),
+   * dan zonder terugbetaling; zie withinWindow.
+   */
   canCancel: boolean;
+  /** Nu binnen de annuleringstermijn (inclusief de grens). Alleen weergave; de RPC beslist. */
+  withinWindow: boolean;
+  /** 0 bij een codeboeking. */
+  pricePaidCents: number;
   /**
    * True wanneer deze boeking via een proefcode is ontstaan en die code na
    * de release-trigger weer bruikbaar is (niet ingetrokken en niet op).
@@ -426,7 +441,7 @@ export async function getTrialBookingByToken(
     .from("trial_bookings")
     .select(
       `
-        id, name, status, cancelled_at,
+        id, name, status, cancelled_at, price_paid_cents,
         session:class_sessions(start_at, end_at, class_type:class_types(name)),
         trial_code:trial_codes!trial_bookings_trial_code_id_fkey(revoked_at, max_uses, uses_count)
       `,
@@ -456,8 +471,9 @@ export async function getTrialBookingByToken(
     ? (classTypeRaw[0]?.name ?? "Proefles")
     : (classTypeRaw?.name ?? "Proefles");
 
-  const hoursUntil =
-    (new Date(startAt).getTime() - Date.now()) / (1000 * 60 * 60);
+  const now = new Date();
+  const withinWindow = isWithinCancelWindow(new Date(startAt), windowHours, now);
+  const notStarted = new Date(startAt).getTime() > now.getTime();
 
   type TrialCodeRow = {
     revoked_at: string | null;
@@ -484,10 +500,9 @@ export async function getTrialBookingByToken(
     sessionEndAt: endAt,
     sessionClassName: className,
     cancellationWindowHours: windowHours,
-    canCancel:
-      trial.status === "paid" &&
-      !trial.cancelled_at &&
-      hoursUntil >= windowHours,
+    canCancel: trial.status === "paid" && !trial.cancelled_at && notStarted,
+    withinWindow,
+    pricePaidCents: trial.price_paid_cents ?? 0,
     codeStillUsable,
   };
 }
@@ -497,59 +512,85 @@ export type CancelTrialBookingResult =
   | { ok: false; message: string };
 
 /**
- * Zelfde annuleringsbeleid als leden (spec-community-growth.md §1):
- * zelfde cancellation window, en een no-show verbeurt gewoon de al
- * betaalde prijs. Geen aparte handhaving nodig, alleen dit venster.
+ * Zelfservice-annulering via de annuleerlink, beleid identiek aan leden
+ * (spec-community-growth.md §1, cancel_class_booking): binnen de termijn
+ * uit booking_settings volledige terugbetaling, daarna annuleren zonder
+ * terugbetaling (reden 'late'). Een no-show verbeurt de betaalde prijs.
  */
 export async function cancelTrialBooking(
   token: string,
 ): Promise<CancelTrialBookingResult> {
-  const summary = await getTrialBookingByToken(token);
-  if (!summary) {
-    return { ok: false, message: "Boeking niet gevonden." };
-  }
-  if (summary.status !== "paid") {
-    return {
-      ok: false,
-      message: "Deze boeking staat niet (meer) open om te annuleren.",
-    };
-  }
-  if (!summary.canCancel) {
-    return {
-      ok: false,
-      message: `Annuleren kan tot ${summary.cancellationWindowHours} uur van tevoren. Neem contact op als er iets tussenkomt.`,
-    };
+  // COPY: confirm met Marlon
+  const NOT_FOUND = "Boeking niet gevonden.";
+  if (!isCancelTokenFormat(token)) {
+    return { ok: false, message: NOT_FOUND };
   }
 
+  // De database beslist: termijn uit booking_settings (inclusief de grens,
+  // zoals cancel_class_booking voor leden), annulering, reden en
+  // refund-intentie in een transactie (tmc.visitor_cancel_trial_booking,
+  // alleen service_role). Na de termijn annuleert hij zonder intentie.
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("trial_bookings")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-    .eq("id", summary.id)
-    .eq("status", "paid");
+  const { data, error } = await admin.rpc("visitor_cancel_trial_booking", {
+    p_token: token,
+  });
 
   if (error) {
-    console.error("[cancelTrialBooking] update failed", error);
+    console.error("[cancelTrialBooking] rpc failed", error);
+    // COPY: confirm met Marlon
     return { ok: false, message: "Annuleren lukte niet. Probeer opnieuw." };
   }
 
-  await emitEvent({
-    type: "trial_booking.cancelled",
-    actorType: "visitor",
-    actorId: null,
-    subjectType: "trial_booking",
-    subjectId: summary.id,
-    payload: {},
-  });
+  const result = data as {
+    ok: boolean;
+    reason?: string;
+    price_paid_cents?: number;
+    refund_id?: string | null;
+    refund_skipped?: string | null;
+    within_window?: boolean;
+    cancellation_window_hours?: number;
+  };
+
+  if (!result.ok) {
+    if (result.reason === "booking_not_open") {
+      return {
+        ok: false,
+        // COPY: confirm met Marlon
+        message: "Deze boeking staat niet (meer) open om te annuleren.",
+      };
+    }
+    if (result.reason === "booking_not_found") {
+      return { ok: false, message: NOT_FOUND };
+    }
+    console.error("[cancelTrialBooking] refused", result.reason);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Annuleren lukte niet. Probeer opnieuw." };
+  }
+
+  // Terugbetaling via het enige refund-pad. Een mislukking laat de
+  // intentie als failed staan met retry-knop voor de admin; de bezoeker
+  // krijgt de toezegging hoe dan ook, zonder termijn. Geen mail bij
+  // zelfservice (besluit spec-community-growth.md §1).
+  if (result.refund_id) {
+    const refund = await processPaymentRefund(result.refund_id);
+    if (!refund.ok) {
+      console.error("[cancelTrialBooking] refund niet ingediend", result.refund_id, refund.message);
+    }
+  }
 
   // Verse read na de update: de release-trigger heeft het gebruik intussen
   // al teruggegeven aan de code (released_at gezet, uses_count omlaag).
   const refreshed = await getTrialBookingByToken(token);
-  const message = refreshed?.codeStillUsable
-    ? // COPY: confirm met Marlon
-      "Je proefles is geannuleerd. Je code is weer te gebruiken voor een andere les."
-    : // COPY: confirm met Marlon
-      "Je proefles is geannuleerd.";
 
-  return { ok: true, message };
+  return {
+    ok: true,
+    message: selfCancelMessage({
+      withinWindow: Boolean(result.within_window),
+      pricePaidCents: result.price_paid_cents ?? 0,
+      refundRequested:
+        Boolean(result.refund_id) || result.refund_skipped === "refund_already_active",
+      codeStillUsable: Boolean(refreshed?.codeStillUsable),
+      windowHours: result.cancellation_window_hours ?? refreshed?.cancellationWindowHours ?? 6,
+    }),
+  };
 }

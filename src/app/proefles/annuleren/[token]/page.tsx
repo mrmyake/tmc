@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTrialBookingByToken } from "@/lib/actions/trial-booking";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
+import { lateCancelWarning } from "@/lib/trial-self-cancel";
 import { CancelTrialBookingButton } from "./CancelTrialBookingButton";
 
 export const metadata: Metadata = {
@@ -65,12 +66,19 @@ export default async function CancelTrialBookingPage(props: {
             )}
           </div>
         ) : summary.canCancel ? (
-          <CancelTrialBookingButton token={token} />
+          <CancelTrialBookingButton
+            token={token}
+            warning={lateCancelWarning({
+              withinWindow: summary.withinWindow,
+              pricePaidCents: summary.pricePaidCents,
+              windowHours: summary.cancellationWindowHours,
+            })}
+          />
         ) : (
           <p className="text-text-muted text-sm">
-            {/* COPY: confirm with Marlon */}
-            Annuleren kan tot {summary.cancellationWindowHours} uur van
-            tevoren. Neem contact op met de studio als er iets tussenkomt.
+            {/* COPY: confirm met Marlon */}
+            Deze proefles is al begonnen of niet meer te annuleren. Neem
+            contact op met de studio als er iets tussenkomt.
           </p>
         )}
       </div>
