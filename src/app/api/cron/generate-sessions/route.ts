@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { attempts, errors } = await materializeSessionsForTemplates(
+  const { attempts, errors, skippedExistingVrijTrainenDay } = await materializeSessionsForTemplates(
     admin,
     templates ?? [],
     { horizonDays: MATERIALIZATION_HORIZON_DAYS, fromDate: today },
@@ -58,5 +58,6 @@ export async function GET(req: Request) {
     templatesProcessed: templates?.length ?? 0,
     attempts,
     errors,
+    skippedExistingVrijTrainenDay,
   });
 }

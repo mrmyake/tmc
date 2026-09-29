@@ -9,6 +9,10 @@ import {
   MATERIALIZATION_HORIZON_DAYS,
   type TemplateForMaterialization,
 } from "@/lib/scheduling/materialize-sessions";
+import {
+  isVrijTrainenDayConflict,
+  isVrijTrainenPillarChangeRefused,
+} from "@/lib/scheduling/vrij-trainen-guards";
 import { toIsoDate } from "@/lib/scheduling/amsterdam-time";
 
 export type SeriesActionResult =
@@ -164,10 +168,11 @@ async function fetchTemplateForMaterialization(
 
 /**
  * Vindt toekomstige, geplande sessies van een template en splitst ze in
- * "zonder actieve boekingen of wachtlijst" (veilig aan te passen/
- * annuleren) en "bezet" (nooit stilzwijgend wijzigen, blijft ongemoeid,
- * gerapporteerd aan de admin). Een actieve wachtlijst-entry telt ook als
- * bezet, ook zonder bevestigde boeking.
+ * "zonder deelnemers" (veilig aan te passen/annuleren) en "bezet" (nooit
+ * stilzwijgend wijzigen, blijft ongemoeid, gerapporteerd aan de admin).
+ * "Bezet" komt uit tmc.sessions_with_participants, dezelfde definitie als de
+ * guard op pillar-wijzigingen in de database (spec-vrij-trainen-slots.md):
+ * actieve boekingen, proeflessen, gasten en een actieve wachtlijst-entry.
  *
  * Met `skipOverrides` vallen sessies met een eenmalige override (verschoven
  * of andere trainer, spec-session-overrides.md) ook buiten emptyIds: een
@@ -200,27 +205,18 @@ async function splitFutureSessionsByBookings(
     return { emptyIds: [], skippedCount: 0, overriddenCount: overriddenIds.size };
   }
 
-  const [bookedRes, waitlistRes] = await Promise.all([
-    admin
-      .from("bookings")
-      .select("session_id")
-      .in("session_id", sessionIds)
-      .eq("status", "booked"),
-    // Actieve wachtlijst = nog niet bevestigd en niet verlopen (zelfde
-    // definitie als de waitlist-promote cron); ook zonder boekingen telt
-    // een sessie met actieve wachtlijst niet als "leeg".
-    admin
-      .from("waitlist_entries")
-      .select("session_id")
-      .in("session_id", sessionIds)
-      .is("confirmed_at", null)
-      .is("expired_at", null),
-  ]);
-
-  const occupiedIds = new Set([
-    ...(bookedRes.data ?? []).map((b) => b.session_id),
-    ...(waitlistRes.data ?? []).map((w) => w.session_id),
-  ]);
+  const { data: occupiedRows, error: occupiedErr } = await admin.rpc(
+    "sessions_with_participants",
+    { p_session_ids: sessionIds },
+  );
+  if (occupiedErr) {
+    // Onzeker = bezet: liever niets aanpassen dan een sessie met deelnemers
+    // stilzwijgend wijzigen of annuleren.
+    console.error("[splitFutureSessionsByBookings] rpc failed", occupiedErr);
+  }
+  const occupiedIds = occupiedErr
+    ? new Set(sessionIds)
+    : new Set((occupiedRows as string[] | null) ?? []);
   const emptyIds = sessionIds.filter((id) => !occupiedIds.has(id));
 
   return {
@@ -269,11 +265,11 @@ export async function adminCreateSeries(
   }
 
   const template = await fetchTemplateForMaterialization(admin, data.id);
-  const { attempts, errors } = template
+  const { attempts, errors, skippedExistingVrijTrainenDay } = template
     ? await materializeSessionsForTemplates(admin, [template], {
         horizonDays: MATERIALIZATION_HORIZON_DAYS,
       })
-    : { attempts: 0, errors: 0 };
+    : { attempts: 0, errors: 0, skippedExistingVrijTrainenDay: 0 };
 
   await emitEvent({
     type: "series.created",
@@ -300,8 +296,12 @@ export async function adminCreateSeries(
 
   return {
     ok: true,
-    // COPY: confirm met Marlon
-    message: `Serie aangemaakt. ${attempts} sessie(s) ingepland voor de komende ${MATERIALIZATION_HORIZON_DAYS} dagen.`,
+    message:
+      skippedExistingVrijTrainenDay > 0
+        ? // COPY: confirm met Marlon
+          `Serie aangemaakt. ${attempts} sessie(s) ingepland voor de komende ${MATERIALIZATION_HORIZON_DAYS} dagen. ${skippedExistingVrijTrainenDay} dag(en) overgeslagen omdat daar al vrij trainen gepland staat.`
+        : // COPY: confirm met Marlon
+          `Serie aangemaakt. ${attempts} sessie(s) ingepland voor de komende ${MATERIALIZATION_HORIZON_DAYS} dagen.`,
     id: data.id,
     materializedCount: attempts,
   };
@@ -398,6 +398,7 @@ export async function adminUpdateSeries(
     await splitFutureSessionsByBookings(admin, input.templateId, {
       skipOverrides: true,
     });
+  let patchRefused = 0;
 
   if (emptyIds.length > 0) {
     if (timeChanged) {
@@ -428,6 +429,9 @@ export async function adminUpdateSeries(
       }
 
       for (const s of emptySessions ?? []) {
+        // patchRefused telt weigeringen van de database rond vrij trainen:
+        // een tweede vrij-trainen-sessie op die dag, of een pillar-wijziging
+        // op een sessie met deelnemers (spec-vrij-trainen-slots.md).
         const endAt = new Date(
           new Date(s.start_at).getTime() + f.durationMinutes * 60_000,
         ).toISOString();
@@ -443,7 +447,12 @@ export async function adminUpdateSeries(
             end_at: endAt,
           })
           .eq("id", s.id);
-        if (patchErr) {
+        if (
+          isVrijTrainenDayConflict(patchErr) ||
+          isVrijTrainenPillarChangeRefused(patchErr)
+        ) {
+          patchRefused++;
+        } else if (patchErr) {
           console.error(
             "[adminUpdateSeries] patch of existing occurrence failed",
             s.id,
@@ -455,11 +464,11 @@ export async function adminUpdateSeries(
   }
 
   const template = await fetchTemplateForMaterialization(admin, input.templateId);
-  const { attempts, errors } = template
+  const { attempts, errors, skippedExistingVrijTrainenDay } = template
     ? await materializeSessionsForTemplates(admin, [template], {
         horizonDays: MATERIALIZATION_HORIZON_DAYS,
       })
-    : { attempts: 0, errors: 0 };
+    : { attempts: 0, errors: 0, skippedExistingVrijTrainenDay: 0 };
 
   await emitEvent({
     type: "series.updated",
@@ -486,12 +495,24 @@ export async function adminUpdateSeries(
   const skippedParts: string[] = [];
   if (skippedCount > 0) {
     // COPY: confirm met Marlon
-    skippedParts.push(`${skippedCount} sessie(s) met boekingen of wachtlijst`);
+    skippedParts.push(`${skippedCount} sessie(s) met deelnemers (boekingen, proeflessen, gasten of wachtlijst)`);
   }
   if (overriddenCount > 0) {
     // COPY: confirm met Marlon
     skippedParts.push(
       `${overriddenCount} sessie(s) met een eenmalige wijziging (tijd of trainer)`,
+    );
+  }
+  if (patchRefused > 0) {
+    // COPY: confirm met Marlon
+    skippedParts.push(
+      `${patchRefused} sessie(s) waarvoor de wijziging van of naar vrij trainen niet kan (deelnemers, of al vrij trainen op die dag)`,
+    );
+  }
+  if (skippedExistingVrijTrainenDay > 0) {
+    // COPY: confirm met Marlon
+    skippedParts.push(
+      `${skippedExistingVrijTrainenDay} nieuwe sessie(s) op een dag waar al vrij trainen gepland staat`,
     );
   }
 
@@ -587,7 +608,7 @@ export async function adminCancelSeries(
     message:
       skippedCount > 0
         ? // COPY: confirm met Marlon
-          `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd, ${skippedCount} sessie(s) met boekingen of wachtlijst blijven staan.`
+          `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd, ${skippedCount} sessie(s) met deelnemers (boekingen, proeflessen, gasten of wachtlijst) blijven staan.`
         : // COPY: confirm met Marlon
           `Serie gestopt. ${emptyIds.length} sessie(s) geannuleerd.`,
     skippedWithBookings: skippedCount,

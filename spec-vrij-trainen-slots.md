@@ -4,7 +4,7 @@ Vrij trainen wordt boekbaar als eigen tijdslot binnen een dagsessie, met een har
 
 ## Besloten ontwerp
 
-- **Een dagsessie per openingsdag**, `capacity null`, gegenereerd via `schedule_templates` zoals andere sessies, met het bestaande class_type `vrij-trainen-dag` en Marlon als trainer. Tijden volgen `opening_hours`: maandag tot en met vrijdag 07:00-21:00, zaterdag 08:00-14:00, zondag geen sessie (Europe/Amsterdam).
+- **Een dagsessie per openingsdag**, afgedwongen: maximaal een geplande vrij-trainen-sessie per Amsterdamse kalenderdag. `capacity null`, gegenereerd via `schedule_templates` zoals andere sessies, met het bestaande class_type `vrij-trainen-dag` en Marlon als trainer. Tijden volgen `opening_hours`: maandag tot en met vrijdag 07:00-21:00, zaterdag 08:00-14:00, zondag geen sessie (Europe/Amsterdam).
 - **Een boeking op vrij trainen heeft een eigen slot**: `bookings.slot_start_at` en `bookings.slot_end_at`. Raster per kwartier, duur 30, 45, 60, 75 of 90 minuten, en het slot valt volledig binnen de sessie. Intervallen zijn half-open: 10:00-11:30 en 11:30-13:00 raken elkaar niet.
 - **Concurrency-regel:** voor elk kwartier binnen het gevraagde slot mag het aantal actieve vrij-trainen-boekingen (status `booked`) dat dat kwartier raakt niet op of boven `booking_settings.vrij_trainen_max_concurrent` (default 5) liggen, anders weigering met reason `slot_full`. De grens is een instelling, niet hardcoded.
 - **Blokkerende lessen:** een kwartier dat overlapt met een geplande sessie met `blocks_free_training = true` telt als vol (0 beschikbaar). Weigering met een eigen reason, `slot_blocked`, zodat de slotkiezer het verschil met "vol" kan tonen.
@@ -27,7 +27,9 @@ Vrij trainen wordt boekbaar als eigen tijdslot binnen een dagsessie, met een har
   - `bookings_enforce_vrij_trainen_slot`: harde backstop op pillar/slot, slot binnen de sessie, `slot_blocked` en `slot_full`, ook voor paden buiten de RPC.
   - `trial_bookings_reject_vrij_trainen` en `guest_bookings_reject_vrij_trainen`: weigeren proeflessen (code en betaald) en gasten op vrij trainen met `session_not_eligible`.
   - `no_show_strikes_reject_vrij_trainen`: weigert strikes op vrij-trainen-boekingen met `vrij_trainen_no_strike`.
-  - `class_sessions_vrij_trainen_bounds`: een vrij-trainen-sessie mag niet zo verschuiven of krimpen dat geboekte slots erbuiten vallen.
+  - `class_sessions_vrij_trainen_bounds` (op `start_at`, `end_at` en `pillar`): een vrij-trainen-sessie mag niet zo verschuiven of krimpen dat geboekte slots erbuiten vallen, en de pillar mag niet van of naar `vrij_trainen` wijzigen zolang de sessie deelnemers heeft (`vrij_trainen_pillar_change_not_empty`).
+- **Maximaal een vrij-trainen-sessie per dag:** partiele unique index `class_sessions_vrij_trainen_one_per_day` op `((start_at at time zone 'Europe/Amsterdam')::date) where pillar = 'vrij_trainen' and status = 'scheduled'`. `timezone(text, timestamptz)` is immutable, dus een gewone index volstaat; hij dekt ook heractiveren (status terug naar `scheduled`) en een pillar-wijziging naar vrij trainen. Zonder deze index zou een tweede dagsessie de grens per kwartier verdubbelen en een tweede boeking per lid per dag toestaan. De generate-sessions-cron en de materialisatie van series slaan zo'n dag over zonder fout (`skippedExistingVrijTrainenDay`); `adminCreateSession` en `adminUpdateSeries` tonen een melding (`src/lib/scheduling/vrij-trainen-guards.ts`).
+- **Definitie van "leeg":** `tmc.sessions_with_participants(uuid[])` geeft de sessies met actieve boekingen (booked, waitlisted), proeflessen (pending, paid, attended), gasten (booked, attended) of een actieve wachtlijst-entry. De pillar-guard en `adminUpdateSeries`/`adminCancelSeries` (via `splitFutureSessionsByBookings`) gebruiken deze ene definitie. Gevolg voor series: een sessie met alleen een proefles of gast telt nu ook als bezet en wordt niet meer stilzwijgend gewijzigd of geannuleerd. EXECUTE alleen voor service_role.
 - **RPC's (drop en recreate op basis van de live definitie, grants hersteld zoals ze live stonden):**
   - `book_class_session(p_session_id, p_rental_mat, p_rental_towel, p_slot_start_at, p_slot_minutes)`: slot verplicht op vrij trainen (`slot_required`, `slot_invalid`, `slot_outside_session`), verboden elders (`slot_not_allowed`); venster en verleden vanaf het slot; `slot_blocked` en `slot_full` onder de sessie-lock, zonder wachtlijstoptie; daglimiet zonder vrij trainen. EXECUTE: authenticated.
   - `cancel_class_booking`: termijn vanaf `coalesce(slot_start_at, sessiestart)`. EXECUTE: authenticated.
@@ -42,6 +44,15 @@ Vrij trainen wordt boekbaar als eigen tijdslot binnen een dagsessie, met een har
 
 ## Bewust naar de slotkiezer-PR
 
+Uit de review van PR #245 (Could, bewust niet in deze PR):
+
+- Theoretische lock-cyclus tussen een handmatige heractivering (boeking eerst, dan sessie) en `cancel_class_session_core` (sessie eerst, dan boekingen). Geen app-pad doet dit; Postgres breekt een deadlock af.
+- Een `waitlisted`-rij op vrij trainen buiten de sessie wordt toegelaten (de slot-trigger kijkt alleen naar `booked`); promotie naar `booked` wordt wel gecontroleerd.
+- De historietelling in `/app/boekingen` telt een vrij-trainen-slot van vandaag dat nog moet beginnen mee, terwijl de lijst het wegfiltert.
+- `cancel_class_session_core` weigert na 07:00 (`session_started`), dus een begonnen vrij-trainen-dag kan de studio niet meer annuleren.
+
+Verder:
+
 - De slotkiezer voor leden (eerst een HTML-mockup) en het omzetten van `/app/vrij-trainen` naar boekmodus met een eigen instelling. `DayPassStrip` roept `createBooking` nog zonder slot aan en krijgt daarom `slot_required`; de pagina staat live in check-in-modus, dus leden komen daar niet.
 - Een invoerveld voor `vrij_trainen_max_concurrent` in de admin-instellingen (nu alleen via SQL te wijzigen).
 - Presentatie van vrij trainen in mails en lijsten: "met Marlon" als trainer bij vrij trainen, en de check-in-hint op `/app/boekingen`.
@@ -50,4 +61,4 @@ Vrij trainen wordt boekbaar als eigen tijdslot binnen een dagsessie, met een har
 
 ## Ledger
 
-- **PR #245 (2026-09-29, feat/vrij-trainen-slots, migratie `20260930090000`):** vrij trainen boekbaar als eigen tijdslot binnen een dagsessie met een harde grens van `vrij_trainen_max_concurrent` (5) tegelijk per kwartier, blokkerende lessen op 0, unique-fix voor annuleren en opnieuw boeken (alle pillars), triggers als backstop, `vrij_trainen_availability`, templates volgens `opening_hours`, en de app-aanpassingen die nodig zijn om niets te breken (kiosk-, trainer- en adminfilters, geen no-shows of strikes op vrij trainen, termijn, herinneringen, mails en weergave vanaf het slot, lookups op (sessie, profiel) die de actieve boeking kiezen). Bewust niet aangeraakt: de slotkiezer en de boekmodus van `/app/vrij-trainen`, `booking_settings.check_in_pillars`, de kiosk-check-in via `/kiosk/paneel`, Akiles, `waitlist_entries`, de admin-instelling voor het maximum en `types/supabase.ts`.
+- **PR #245 (2026-09-29, feat/vrij-trainen-slots, migratie `20260930090000`):** vrij trainen boekbaar als eigen tijdslot binnen een dagsessie met een harde grens van `vrij_trainen_max_concurrent` (5) tegelijk per kwartier, blokkerende lessen op 0, unique-fix voor annuleren en opnieuw boeken (alle pillars), triggers als backstop, `vrij_trainen_availability`, templates volgens `opening_hours`, na de review maximaal een geplande vrij-trainen-sessie per Amsterdamse dag (partiele unique index, cron en admin-paden slaan over of melden) en een pillar-guard met een gedeelde definitie van "leeg" (`tmc.sessions_with_participants`, ook gebruikt door de series-acties), en de app-aanpassingen die nodig zijn om niets te breken (kiosk-, trainer- en adminfilters, geen no-shows of strikes op vrij trainen, termijn, herinneringen, mails en weergave vanaf het slot, lookups op (sessie, profiel) die de actieve boeking kiezen). Bewust niet aangeraakt: de slotkiezer en de boekmodus van `/app/vrij-trainen`, `booking_settings.check_in_pillars`, de kiosk-check-in via `/kiosk/paneel`, Akiles, `waitlist_entries`, de admin-instelling voor het maximum, `types/supabase.ts` en de vier Could-punten uit de review (zie hierboven). De review-fixes zitten in dezelfde migratie `20260930090000`, omdat die nog niet gepusht was.

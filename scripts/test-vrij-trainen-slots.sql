@@ -288,15 +288,14 @@ do $$ declare r record; begin
   raise notice 'PASS 8c: beschikbaarheid per kwartier klopt (lid 1 annuleerde 10:00, blokkade 15:00-16:00 op 0)';
 end $$;
 
+-- EXECUTE-rechten via has_function_privilege en niet via een echte aanroep:
+-- de lokale PG17-container crasht (signal 11) als anon een ingetrokken
+-- SECURITY DEFINER-functie aanroept en de weigering wordt gevangen.
 do $$ begin
-  set local role anon;
-  begin
-    perform * from tmc.vrij_trainen_availability(current_date + 3);
-    raise exception 'FAIL 8d: anon kon vrij_trainen_availability uitvoeren';
-  exception when insufficient_privilege then
-    raise notice 'PASS 8d: anon heeft geen EXECUTE op vrij_trainen_availability';
-  end;
-  reset role;
+  if has_function_privilege('anon', 'tmc.vrij_trainen_availability(date)', 'EXECUTE') then
+    raise exception 'FAIL 8d: anon heeft EXECUTE op vrij_trainen_availability';
+  end if;
+  raise notice 'PASS 8d: anon heeft geen EXECUTE op vrij_trainen_availability';
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -394,6 +393,123 @@ do $$ begin
     raise exception 'FAIL 12: partiele unique index ontbreekt';
   end if;
   raise notice 'PASS 12: partiele unique index vervangt de oude constraint';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 13. Review PR #245: pillar-guard en maximaal een vrij-trainen-sessie per dag
+--     (gaten R5a, R5b en R10 uit de review, nu dicht)
+-- ---------------------------------------------------------------------------
+-- Extra kettlebell-sessies op dag D+5 en D+6:
+--   d7..07 alleen een betaalde proefles, d7..08 alleen een gast,
+--   d7..09 leeg, d7..0a alleen een actieve wachtlijst-entry.
+create or replace function pg_temp.at_d(p_days int, p_hhmm text) returns timestamptz language sql as $$
+  select ((current_date + p_days)::text || ' ' || p_hhmm)::timestamp at time zone 'Europe/Amsterdam'
+$$;
+insert into tmc.class_sessions (id, class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status, blocks_free_training, occurrence_start_at)
+values
+  ('d7000000-0000-4000-8000-000000000007', 'c7000000-0000-4000-8000-000000000002', 'b7000000-0000-4000-8000-000000000001', 'kettlebell', 'adult', pg_temp.at_d(5, '09:00'), pg_temp.at_d(5, '10:00'), 6, 'scheduled', false, pg_temp.at_d(5, '09:00')),
+  ('d7000000-0000-4000-8000-000000000008', 'c7000000-0000-4000-8000-000000000002', 'b7000000-0000-4000-8000-000000000001', 'kettlebell', 'adult', pg_temp.at_d(5, '11:00'), pg_temp.at_d(5, '12:00'), 6, 'scheduled', false, pg_temp.at_d(5, '11:00')),
+  ('d7000000-0000-4000-8000-000000000009', 'c7000000-0000-4000-8000-000000000002', 'b7000000-0000-4000-8000-000000000001', 'kettlebell', 'adult', pg_temp.at_d(6, '07:00'), pg_temp.at_d(6, '21:00'), 6, 'scheduled', false, pg_temp.at_d(6, '07:00')),
+  ('d7000000-0000-4000-8000-00000000000a', 'c7000000-0000-4000-8000-000000000002', 'b7000000-0000-4000-8000-000000000001', 'kettlebell', 'adult', pg_temp.at_d(5, '13:00'), pg_temp.at_d(5, '14:00'), 6, 'scheduled', false, pg_temp.at_d(5, '13:00'));
+insert into tmc.trial_bookings (session_id, name, email, phone, price_paid_cents, status)
+values ('d7000000-0000-4000-8000-000000000007', 'Bezoeker', 'bez2@test.invalid', '0600000000', 1500, 'paid');
+insert into tmc.guest_bookings (guest_pass_id, session_id, booked_by, guest_name, guest_email, status)
+values ('e7000000-0000-4000-8000-000000000001', 'd7000000-0000-4000-8000-000000000008', 'a7000000-0000-4000-8000-000000000004', 'Gast', 'gast2@test.invalid', 'booked');
+insert into tmc.waitlist_entries (profile_id, session_id, position)
+values ('a7000000-0000-4000-8000-000000000005', 'd7000000-0000-4000-8000-00000000000a', 1);
+
+do $$ declare v_ids uuid[]; begin
+  select array_agg(x order by x) into v_ids from tmc.sessions_with_participants(array[
+    'd7000000-0000-4000-8000-000000000004', 'd7000000-0000-4000-8000-000000000007',
+    'd7000000-0000-4000-8000-000000000008', 'd7000000-0000-4000-8000-000000000009',
+    'd7000000-0000-4000-8000-00000000000a']::uuid[]) as t(x);
+  if v_ids is distinct from array[
+    'd7000000-0000-4000-8000-000000000004', 'd7000000-0000-4000-8000-000000000007',
+    'd7000000-0000-4000-8000-000000000008', 'd7000000-0000-4000-8000-00000000000a']::uuid[] then
+    raise exception 'FAIL 13a: sessions_with_participants gaf %', v_ids;
+  end if;
+  raise notice 'PASS 13a: sessions_with_participants telt boekingen, proeflessen, gasten en wachtlijst; lege sessie niet';
+end $$;
+
+do $$ begin
+  -- R5a: vrij trainen met geboekte slots naar kettlebell.
+  begin
+    update tmc.class_sessions set pillar = 'kettlebell' where id = 'd7000000-0000-4000-8000-000000000001';
+    raise exception 'FAIL 13b: pillar vrij_trainen naar kettlebell met geboekte slots toegelaten';
+  exception when raise_exception then
+    if sqlerrm <> 'vrij_trainen_pillar_change_not_empty' then raise; end if;
+    raise notice 'PASS 13b: pillar van vrij trainen af met geboekte slots geweigerd';
+  end;
+  -- R5b: les met ledenboekingen, met alleen een proefles, met alleen een gast
+  -- en met alleen een wachtlijst naar vrij trainen.
+  begin
+    update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-000000000004';
+    raise exception 'FAIL 13c: les met boekingen werd vrij trainen';
+  exception when raise_exception then
+    if sqlerrm <> 'vrij_trainen_pillar_change_not_empty' then raise; end if;
+    raise notice 'PASS 13c: les met ledenboekingen naar vrij trainen geweigerd';
+  end;
+  begin
+    update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-000000000007';
+    raise exception 'FAIL 13d: les met alleen een proefles werd vrij trainen';
+  exception when raise_exception then
+    if sqlerrm <> 'vrij_trainen_pillar_change_not_empty' then raise; end if;
+    raise notice 'PASS 13d: les met alleen een betaalde proefles naar vrij trainen geweigerd';
+  end;
+  begin
+    update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-000000000008';
+    raise exception 'FAIL 13e: les met alleen een gast werd vrij trainen';
+  exception when raise_exception then
+    if sqlerrm <> 'vrij_trainen_pillar_change_not_empty' then raise; end if;
+    raise notice 'PASS 13e: les met alleen een gast naar vrij trainen geweigerd';
+  end;
+  begin
+    update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-00000000000a';
+    raise exception 'FAIL 13f: les met alleen een wachtlijst werd vrij trainen';
+  exception when raise_exception then
+    if sqlerrm <> 'vrij_trainen_pillar_change_not_empty' then raise; end if;
+    raise notice 'PASS 13f: les met alleen een actieve wachtlijst naar vrij trainen geweigerd';
+  end;
+  -- Lege les mag wel vrij trainen worden (dag D+6 heeft nog geen vrij trainen).
+  update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-000000000009';
+  raise notice 'PASS 13g: lege les naar vrij trainen toegelaten';
+end $$;
+
+do $$ begin
+  -- R10: tweede geplande vrij-trainen-sessie op dag D.
+  begin
+    insert into tmc.class_sessions (id, class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status, blocks_free_training, occurrence_start_at)
+    values ('d7000000-0000-4000-8000-0000000000bb', 'c7000000-0000-4000-8000-000000000001', 'b7000000-0000-4000-8000-000000000001', 'vrij_trainen', 'adult', pg_temp.at('07:00'), pg_temp.at('21:00'), null, 'scheduled', false, pg_temp.at('07:01'));
+    raise exception 'FAIL 13h: tweede vrij-trainen-sessie op dezelfde dag toegelaten';
+  exception when unique_violation then
+    if sqlerrm not like '%class_sessions_vrij_trainen_one_per_day%' then raise; end if;
+    raise notice 'PASS 13h: tweede geplande vrij-trainen-sessie op dezelfde dag geweigerd door de index';
+  end;
+  -- Een geannuleerde tweede sessie mag bestaan, maar niet heractiveren.
+  insert into tmc.class_sessions (id, class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status, blocks_free_training, occurrence_start_at)
+  values ('d7000000-0000-4000-8000-0000000000bc', 'c7000000-0000-4000-8000-000000000001', 'b7000000-0000-4000-8000-000000000001', 'vrij_trainen', 'adult', pg_temp.at('08:00'), pg_temp.at('12:00'), null, 'cancelled', false, pg_temp.at('08:00'));
+  begin
+    update tmc.class_sessions set status = 'scheduled' where id = 'd7000000-0000-4000-8000-0000000000bc';
+    raise exception 'FAIL 13i: heractiveren van een tweede vrij-trainen-sessie toegelaten';
+  exception when unique_violation then
+    raise notice 'PASS 13i: heractiveren van een tweede vrij-trainen-sessie op dezelfde dag geweigerd';
+  end;
+  -- Een lege les op dag D naar vrij trainen: botst met de bestaande dagsessie.
+  begin
+    update tmc.class_sessions set pillar = 'vrij_trainen', capacity = null where id = 'd7000000-0000-4000-8000-000000000006';
+    raise exception 'FAIL 13j: lege les op dag D werd een tweede vrij-trainen-sessie';
+  exception when unique_violation then
+    raise notice 'PASS 13j: pillar-wijziging naar vrij trainen op een dag met vrij trainen geweigerd';
+  end;
+end $$;
+
+do $$ begin
+  if has_function_privilege('authenticated', 'tmc.sessions_with_participants(uuid[])', 'EXECUTE')
+     or has_function_privilege('anon', 'tmc.sessions_with_participants(uuid[])', 'EXECUTE')
+     or not has_function_privilege('service_role', 'tmc.sessions_with_participants(uuid[])', 'EXECUTE') then
+    raise exception 'FAIL 13k: rechten op sessions_with_participants kloppen niet';
+  end if;
+  raise notice 'PASS 13k: sessions_with_participants alleen voor service_role';
 end $$;
 
 do $$ begin raise notice 'ALLE TESTS GESLAAGD'; end $$;

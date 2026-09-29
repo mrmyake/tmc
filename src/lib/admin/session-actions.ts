@@ -14,6 +14,10 @@ import {
   type CancelledSessionResult,
   type RescheduledSessionResult,
 } from "./session-override-notify";
+import {
+  isVrijTrainenDayConflict,
+  VRIJ_TRAINEN_DAY_CONFLICT_MESSAGE,
+} from "@/lib/scheduling/vrij-trainen-guards";
 
 export type AdminActionResult =
   | { ok: true; message: string; id?: string }
@@ -636,6 +640,9 @@ export async function adminCreateSession(
     .select("id")
     .single();
 
+  if (isVrijTrainenDayConflict(error)) {
+    return { ok: false, message: VRIJ_TRAINEN_DAY_CONFLICT_MESSAGE };
+  }
   if (error || !data) {
     console.error("[adminCreateSession] insert failed", error);
     return { ok: false, message: "Aanmaken lukte niet." };

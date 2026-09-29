@@ -14,7 +14,11 @@
 --      beschikbaarheid), inclusief blokkerende lessen.
 --   4. Triggers: slot-backstop op bookings, weigering van proeflessen en
 --      gasten op vrij trainen, geen strikes op vrij trainen, en een guard
---      die een vrij-trainen-sessie niet laat krimpen buiten geboekte slots.
+--      die een vrij-trainen-sessie niet laat krimpen buiten geboekte slots
+--      en de pillar niet van of naar vrij trainen laat wijzigen zolang de
+--      sessie deelnemers heeft (tmc.sessions_with_participants). Plus een
+--      partiele unique index: maximaal een geplande vrij-trainen-sessie per
+--      Amsterdamse dag (fixes uit de review van PR #245).
 --   5. Drop en recreate van book_class_session, cancel_class_booking,
 --      book_guest_session en admin_reschedule_class_session op basis van de
 --      live definitie (pg_get_functiondef, 2026-09-29), grants expliciet
@@ -270,8 +274,39 @@ create trigger no_show_strikes_reject_vrij_trainen
   before insert or update of booking_id on tmc.no_show_strikes
   for each row execute function tmc.reject_vrij_trainen_strike();
 
--- Een vrij-trainen-sessie mag niet zo verschuiven of krimpen dat geboekte
--- slots erbuiten vallen (ook niet via een directe admin-update).
+-- Wanneer telt een sessie als "niet leeg"? Een definitie voor de guard
+-- hieronder en voor adminUpdateSeries/adminCancelSeries (TS, via de service
+-- role): actieve boekingen (booked, waitlisted), proeflessen (pending, paid,
+-- attended), gasten (booked, attended) en een actieve wachtlijst-entry.
+create function tmc.sessions_with_participants(p_session_ids uuid[])
+returns setof uuid
+language sql
+stable
+set search_path to 'tmc', 'extensions'
+as $function$
+  select b.session_id from tmc.bookings b
+  where b.session_id = any (p_session_ids) and b.status in ('booked', 'waitlisted')
+  union
+  select tb.session_id from tmc.trial_bookings tb
+  where tb.session_id = any (p_session_ids) and tb.status in ('pending', 'paid', 'attended')
+  union
+  select gb.session_id from tmc.guest_bookings gb
+  where gb.session_id = any (p_session_ids) and gb.status in ('booked', 'attended')
+  union
+  select w.session_id from tmc.waitlist_entries w
+  where w.session_id = any (p_session_ids) and w.confirmed_at is null and w.expired_at is null
+$function$;
+
+revoke execute on function tmc.sessions_with_participants(uuid[]) from public, anon, authenticated;
+grant execute on function tmc.sessions_with_participants(uuid[]) to service_role;
+
+-- Guard op class_sessions (ook directe admin-updates):
+--   * een vrij-trainen-sessie mag niet zo verschuiven of krimpen dat
+--     geboekte slots erbuiten vallen;
+--   * de pillar mag niet van of naar vrij_trainen wijzigen zolang de sessie
+--     deelnemers heeft (tmc.sessions_with_participants). Anders staan er
+--     slots op een gewone les zonder grens, of proeflessen en gasten op vrij
+--     trainen.
 create function tmc.guard_vrij_trainen_session_bounds()
 returns trigger
 language plpgsql
@@ -279,6 +314,13 @@ security definer
 set search_path to 'tmc', 'extensions'
 as $function$
 begin
+  if new.pillar is distinct from old.pillar
+     and 'vrij_trainen' in (old.pillar, new.pillar)
+     and exists (select 1 from tmc.sessions_with_participants(array[old.id])) then
+    raise exception 'vrij_trainen_pillar_change_not_empty' using errcode = 'P0001',
+      hint = 'De pillar kan niet van of naar vrij trainen wijzigen zolang de sessie deelnemers heeft.';
+  end if;
+
   if old.pillar = 'vrij_trainen'
      and (new.start_at is distinct from old.start_at or new.end_at is distinct from old.end_at)
      and exists (
@@ -297,8 +339,19 @@ $function$;
 revoke execute on function tmc.guard_vrij_trainen_session_bounds() from public, anon, authenticated, service_role;
 
 create trigger class_sessions_vrij_trainen_bounds
-  before update of start_at, end_at on tmc.class_sessions
+  before update of start_at, end_at, pillar on tmc.class_sessions
   for each row execute function tmc.guard_vrij_trainen_session_bounds();
+
+-- Maximaal een geplande vrij-trainen-sessie per Amsterdamse kalenderdag
+-- (review PR #245): de slotgrens telt per sessie, dus een tweede dagsessie
+-- zou de grens verdubbelen en een tweede boeking per lid per dag toestaan.
+-- timezone(text, timestamptz) is immutable, dus een gewone partiele unique
+-- index volstaat; hij dekt ook heractiveren (status terug naar scheduled)
+-- en pillar-wijzigingen. De generate-sessions-cron en de admin-paden
+-- herkennen de indexnaam (src/lib/scheduling/vrij-trainen-guards.ts).
+create unique index class_sessions_vrij_trainen_one_per_day
+  on tmc.class_sessions (((start_at at time zone 'Europe/Amsterdam')::date))
+  where pillar = 'vrij_trainen' and status = 'scheduled';
 
 -- 5a. book_class_session ------------------------------------------------------
 -- Live rechten voor de wijziging: postgres, authenticated.
@@ -1075,7 +1128,10 @@ begin
       ('tmc.enforce_vrij_trainen_slot()', 'authenticated', false),
       ('tmc.reject_vrij_trainen_visitor()', 'authenticated', false),
       ('tmc.reject_vrij_trainen_strike()', 'authenticated', false),
-      ('tmc.guard_vrij_trainen_session_bounds()', 'authenticated', false)
+      ('tmc.guard_vrij_trainen_session_bounds()', 'authenticated', false),
+      ('tmc.sessions_with_participants(uuid[])', 'service_role', true),
+      ('tmc.sessions_with_participants(uuid[])', 'authenticated', false),
+      ('tmc.sessions_with_participants(uuid[])', 'anon', false)
     ) as v(fn, role, allowed)
   loop
     if has_function_privilege(r.role, r.fn::regprocedure, 'EXECUTE') <> r.allowed then
@@ -1091,7 +1147,7 @@ begin
                         'admin_reschedule_class_session', 'vrij_trainen_availability',
                         'vrij_trainen_slot_peak', 'enforce_vrij_trainen_slot',
                         'reject_vrij_trainen_visitor', 'reject_vrij_trainen_strike',
-                        'guard_vrij_trainen_session_bounds')
+                        'guard_vrij_trainen_session_bounds', 'sessions_with_participants')
       and a.grantee = 0 and a.privilege_type = 'EXECUTE'
   ) then
     raise exception 'vrij_trainen_slots: PUBLIC heeft EXECUTE op een functie';
