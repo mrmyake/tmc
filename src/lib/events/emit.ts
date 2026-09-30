@@ -18,8 +18,13 @@ export type EventType =
   // Bookings
   | "booking.created"
   | "booking.cancelled"
+  // booking.waitlisted, waitlist.promoted, waitlist.expired en waitlist.left
+  // schrijven de wachtlijst-RPC's zelf (join_waitlist, promote_waitlist_entries,
+  // leave_waitlist; spec-community-growth.md). Hier voor het volledige domein.
   | "booking.waitlisted"
   | "waitlist.promoted"
+  | "waitlist.expired"
+  | "waitlist.left"
   // Attendance / check-in
   | "checkin.recorded"
   | "checkin.reverted"

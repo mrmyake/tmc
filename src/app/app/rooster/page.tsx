@@ -25,6 +25,10 @@ import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
 import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
 import { isStaffRole } from "@/lib/auth/staff-role";
 import { OfflineBanner } from "./_components/OfflineBanner";
+import {
+  memberSessionStatus,
+  type MyWaitlistEntry,
+} from "@/lib/member/waitlist";
 
 export const metadata = {
   title: "Rooster | The Movement Club",
@@ -264,11 +268,10 @@ export default async function RoosterPage(props: {
       .gte("session_date", fromIso)
       .lt("session_date", addDaysIsoAmsterdam(fromIso, WINDOW_DAYS))
       .in("status", ["booked", "cancelled"]),
-    supabase
-      .from("waitlist_entries")
-      .select("id, session_id")
-      .eq("profile_id", user.id)
-      .is("expired_at", null),
+    // Eigen open wachtlijstentries met rang en promotiestatus
+    // (SECURITY DEFINER: de rang telt over andermans rijen). Alleen
+    // geplande, toekomstige lessen; een verlopen promotie blijft weg.
+    supabase.rpc("my_waitlist_entries"),
     supabase
       .from("booking_settings")
       .select(
@@ -383,9 +386,13 @@ export default async function RoosterPage(props: {
       });
     }
   }
-  const waitlistedSessions = new Set(
-    (waitlistResult.data ?? []).map((w) => w.session_id),
-  );
+  if (waitlistResult.error) {
+    console.error("[/app/rooster] my_waitlist_entries failed", waitlistResult.error);
+  }
+  const waitlistBySession = new Map<string, MyWaitlistEntry>();
+  for (const w of (waitlistResult.data ?? []) as MyWaitlistEntry[]) {
+    waitlistBySession.set(w.session_id, w);
+  }
 
   const sessionIds = sessions.map((s) => s.id);
   const availabilityResult =
@@ -482,7 +489,7 @@ export default async function RoosterPage(props: {
 
   const enriched = sessions.map((s) => {
     const booking = bookingsBySession.get(s.id);
-    const waitlisted = waitlistedSessions.has(s.id);
+    const waitlist = waitlistBySession.get(s.id) ?? null;
     const availability = availabilityBySession.get(s.id);
     // Sessie zonder rij in v_session_availability (bv. een race, of een net
     // niet meer "scheduled" sessie buiten de view): terugvallen op 0 bezet
@@ -503,16 +510,20 @@ export default async function RoosterPage(props: {
     // van voor de annulering mocht de les niet als "Wachtlijst" tonen
     // (spec-session-overrides.md). Sinds de annuleer-RPC vervallen die
     // plekken ook zelf; deze volgorde dekt oude rijen.
+    // Daarna: boeking gaat voor open promotie ("Plek vrij"), die gaat voor
+    // wachtlijst (memberSessionStatus, src/lib/member/waitlist.ts).
+    const ownStatus = memberSessionStatus({
+      hasBooking: Boolean(booking),
+      waitlist,
+    });
     if (end.getTime() < now.getTime()) {
       status = "past";
     } else if (s.status !== "scheduled") {
       status = "cancelled";
     } else if (isOngoing(start, end, now)) {
       status = "ongoing";
-    } else if (booking) {
-      status = "booked";
-    } else if (waitlisted) {
-      status = "waitlisted";
+    } else if (ownStatus) {
+      status = ownStatus;
     } else {
       // Live kandidaat: canBook() beslist, wij tonen alleen. Zelfde functie,
       // zelfde volgorde en reason-codes als de RPC — geen eigen regels hier.
@@ -626,6 +637,9 @@ export default async function RoosterPage(props: {
       isoDate: sessionIso,
       checkInHint,
       checkedIn,
+      waitlistEntryId: waitlist?.entry_id ?? null,
+      waitlistDeadline: waitlist?.confirmation_deadline ?? null,
+      waitlistRank: waitlist?.rank ?? null,
     };
   });
 
@@ -760,6 +774,9 @@ export default async function RoosterPage(props: {
           reasonText: s.reasonText,
           rescheduledFrom: s.rescheduledFrom,
           freeCancel: s.freeCancel,
+          waitlistEntryId: s.waitlistEntryId,
+          waitlistDeadline: s.waitlistDeadline,
+          waitlistRank: s.waitlistRank,
         }))}
         cancellationWindowHours={cancellationWindowHours}
       />

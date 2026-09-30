@@ -4,6 +4,9 @@ import { Chip } from "./Chip";
 export type SessionStatus =
   | "booked"
   | "waitlisted"
+  // Open wachtlijstpromotie: plek gereserveerd tot de deadline
+  // (spec-community-growth.md, sectie Wachtlijst).
+  | "promoted"
   | "open"
   | "full"
   | "ongoing"
@@ -100,6 +103,14 @@ export function StatusBadge({
         />
         Wachtlijst
       </span>
+    );
+  }
+  if (status === "promoted") {
+    return (
+      <Chip tone="accent" title={reasonText ?? undefined}>
+        {/* COPY: confirm met Marlon */}
+        Plek vrij
+      </Chip>
     );
   }
   // Tijdelijk-tier: "nu even niet, later wel". Chip (tone="muted") + icoon,

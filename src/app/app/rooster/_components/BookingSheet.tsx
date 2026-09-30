@@ -6,8 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   createBooking,
   cancelBooking,
+  joinWaitlist,
+  leaveWaitlist,
   type BookingActionResult,
 } from "@/lib/member/booking-actions";
+import { confirmDeadlineLabel } from "@/lib/member/waitlist";
 import {
   bookGuest,
   getGuestPassStatus,
@@ -160,6 +163,53 @@ export function BookingSheet({
     });
   }
 
+  // Wachtlijst: inschrijven op een volle les, en een wachtlijstplek of open
+  // promotie opgeven. Zelfde offline-vangnet als runBook/doCancel. Na een
+  // geslaagde actie sluit de sheet; na een weigering blijft de staat staan,
+  // dus bij een gepromoveerde les blijft "Plek opgeven" beschikbaar naast
+  // de reden-melding (geen automatische vrijgave).
+  function doJoinWaitlist() {
+    if (!session) return;
+    const target = session;
+    startTransition(async () => {
+      let res: BookingActionResult;
+      try {
+        res = await joinWaitlist(target.id);
+      } catch {
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
+      setResult(res);
+      if (res.ok) {
+        window.setTimeout(onClose, 1200);
+      }
+    });
+  }
+
+  function doLeaveWaitlist() {
+    if (!session?.waitlistEntryId) return;
+    const entryId = session.waitlistEntryId;
+    startTransition(async () => {
+      let res: BookingActionResult;
+      try {
+        res = await leaveWaitlist(entryId);
+      } catch {
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
+      setResult(res);
+      if (res.ok) {
+        window.setTimeout(onClose, 1200);
+      }
+    });
+  }
+
   function doBookGuest() {
     if (!session) return;
     setGuestMsg(null);
@@ -193,6 +243,13 @@ export function BookingSheet({
 
   const isBooked = session?.status === "booked";
   const isWaitlisted = session?.status === "waitlisted";
+  // Open wachtlijstpromotie: plek gereserveerd tot de deadline. Bevestigen
+  // loopt via dezelfde createBooking als een gewone boeking.
+  const isPromoted = session?.status === "promoted";
+  const deadlineLabel =
+    isPromoted && session?.waitlistDeadline
+      ? confirmDeadlineLabel(new Date(session.waitlistDeadline))
+      : null;
   const isFull = session?.status === "full";
   // Verschoven les en geboekt van voor de verschuiving: kosteloos tot de
   // start, dus geen waarschuwing (zelfde regel als cancel_class_booking).
@@ -238,7 +295,10 @@ export function BookingSheet({
                   ? "Jouw sessie"
                   : isWaitlisted
                     ? "Wachtlijst"
-                    : "Sessie boeken"}
+                    : isPromoted
+                      ? // COPY: confirm met Marlon
+                        "Plek vrij"
+                      : "Sessie boeken"}
               </span>
               <button
                 type="button"
@@ -283,9 +343,13 @@ export function BookingSheet({
                     session.capacity === null
                       ? // COPY: confirm met Marlon
                         `${session.takenCount} aangemeld · onbeperkt aantal plekken`
-                      : isFull
-                        ? `Vol · ${session.takenCount} / ${session.capacity}`
-                        : `${Math.max(0, session.spotsAvailable ?? session.capacity)} plekken nog vrij · max ${session.capacity}`
+                      : isPromoted
+                        ? // Eigen reservering telt in de view als bezet.
+                          // COPY: confirm met Marlon
+                          `Plek voor jou gereserveerd · max ${session.capacity}`
+                        : isFull
+                          ? `Vol · ${session.takenCount} / ${session.capacity}`
+                          : `${Math.max(0, session.spotsAvailable ?? session.capacity)} plekken nog vrij · max ${session.capacity}`
                   }
                 />
               </dl>
@@ -463,7 +527,7 @@ export function BookingSheet({
                 </div>
               )}
 
-              {!isBooked && !isWaitlisted && !isFull && !needsConfirmation && (
+              {!isBooked && !isWaitlisted && !isPromoted && !isFull && !needsConfirmation && (
                 <>
                   <p className="text-xs text-text-muted leading-relaxed">
                     Annuleren kan tot {cancellationWindowHours} uur voor de
@@ -476,6 +540,35 @@ export function BookingSheet({
                     className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                   >
                     {pending ? "Bezig" : "Boek sessie"}
+                  </button>
+                </>
+              )}
+
+              {isPromoted && !needsConfirmation && (
+                <>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {/* COPY: confirm met Marlon */}
+                    Er is een plek voor je vrijgekomen. Bevestig{" "}
+                    {deadlineLabel ?? "op tijd"}, anders gaat de plek door
+                    naar de volgende.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={doBook}
+                    disabled={pending}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : "Bevestig plek"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={doLeaveWaitlist}
+                    disabled={pending || !session.waitlistEntryId}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : "Plek opgeven"}
                   </button>
                 </>
               )}
@@ -504,12 +597,14 @@ export function BookingSheet({
               {isFull && (
                 <>
                   <p className="text-xs text-text-muted leading-relaxed">
-                    Er is geen plek meer. Je kunt je op de wachtlijst zetten.
-                    Bij een cancellation schuif je automatisch door.
+                    {/* COPY: confirm met Marlon */}
+                    Er is geen plek meer. Zet je op de wachtlijst: komt er
+                    een plek vrij, dan wordt die voor je gereserveerd en krijg
+                    je bericht om te bevestigen.
                   </p>
                   <button
                     type="button"
-                    onClick={doBook}
+                    onClick={doJoinWaitlist}
                     disabled={pending}
                     className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                   >
@@ -518,7 +613,28 @@ export function BookingSheet({
                 </>
               )}
 
-              {(isBooked || isWaitlisted) && (
+              {isWaitlisted && (
+                <>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {/* COPY: confirm met Marlon */}
+                    Je staat op de wachtlijst
+                    {session.waitlistRank ? `, plek ${session.waitlistRank}` : ""}.
+                    Komt er een plek vrij, dan krijg je bericht om te
+                    bevestigen.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={doLeaveWaitlist}
+                    disabled={pending || !session.waitlistEntryId}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : "Wachtlijst verlaten"}
+                  </button>
+                </>
+              )}
+
+              {isBooked && (
                 <>
                   {freeCancel && (
                     <p className="text-xs text-text-muted leading-relaxed">

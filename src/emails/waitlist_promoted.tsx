@@ -6,7 +6,8 @@ export interface WaitlistPromotedProps {
   firstName: string;
   className: string;
   whenLabel: string;
-  deadlineLabel: string; // "binnen 30 minuten"
+  /** "voor 18:25" of "voor morgen 07:30" (confirmDeadlineLabel). */
+  deadlineLabel: string;
   siteUrl: string;
 }
 
@@ -42,11 +43,13 @@ export default function WaitlistPromoted({
           margin: "0 0 24px 0",
         }}
       >
+        {/* COPY: confirm met Marlon */}
         Hé {firstName || "daar"}, er is een plek vrij.
       </Heading>
 
       <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
-        {className}, {whenLabel}. Je staat boven aan de wachtlijst.
+        {/* COPY: confirm met Marlon */}
+        {className}, {whenLabel}. De plek is voor jou gereserveerd.
       </Text>
 
       <Text
@@ -56,11 +59,12 @@ export default function WaitlistPromoted({
           fontWeight: 500,
         }}
       >
+        {/* COPY: confirm met Marlon */}
         Bevestig {deadlineLabel}, anders gaat de plek door naar de volgende.
       </Text>
 
       <Button
-        href={`${siteUrl}/app/rooster`}
+        href={`${siteUrl}/app/boekingen`}
         style={{
           backgroundColor: emailTokens.CHAMPAGNE,
           color: emailTokens.INK_900,
@@ -72,6 +76,7 @@ export default function WaitlistPromoted({
           textDecoration: "none",
         }}
       >
+        {/* COPY: confirm met Marlon */}
         Bevestig de plek
       </Button>
     </EmailLayout>

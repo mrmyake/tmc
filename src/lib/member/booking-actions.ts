@@ -143,7 +143,11 @@ async function sendBookingCancelledEmail(args: {
 }
 
 export type BookingActionResult =
-  | { ok: true; action: "booked" | "waitlisted" | "cancelled"; message: string }
+  | {
+      ok: true;
+      action: "booked" | "waitlisted" | "cancelled" | "left_waitlist";
+      message: string;
+    }
   | {
       ok: false;
       message: string;
@@ -227,7 +231,19 @@ const BOOK_REASON_COPY: Record<string, string> = {
   slot_full: "Dit tijdslot zit vol. Kies een ander moment.",
   // COPY: confirm met Marlon
   slot_blocked: "Op dit moment is de studio bezet door een les. Kies een ander moment.",
+  // Wachtlijst (tmc.join_waitlist geeft dezelfde redenen als book_class_session,
+  // plus deze twee).
+  // COPY: confirm met Marlon
+  already_on_waitlist: "Je staat al op de wachtlijst voor deze les.",
+  // COPY: confirm met Marlon
+  spots_available: "Er is weer plek. Je kunt gewoon boeken.",
 };
+
+// Vol zonder wachtlijstoptie: het lid heeft al een open wachtlijstplek of
+// -promotie voor deze les en de gereserveerde plekken van anderen vullen de
+// rest.
+// COPY: confirm met Marlon
+const CAPACITY_FULL_NO_WAITLIST = "Deze les is vol.";
 
 type BookClassSessionResult = {
   ok: boolean;
@@ -402,8 +418,14 @@ export async function createBooking(
   const result = rpcResult.data as BookClassSessionResult;
 
   if (!result.ok) {
-    if (result.reason === "capacity_full" && result.can_join_waitlist) {
-      return await joinWaitlist(sessionId, user.id);
+    if (result.reason === "capacity_full") {
+      // Vol geworden tussen het laden van het rooster en de klik: meteen op
+      // de wachtlijst, zoals de sheet bij "Vol" ook zou doen. Zonder
+      // wachtlijstoptie (eigen open entry) alleen de melding.
+      if (result.can_join_waitlist) {
+        return await joinWaitlistCore(supabase, sessionId);
+      }
+      return { ok: false, reason: result.reason, message: CAPACITY_FULL_NO_WAITLIST };
     }
     return {
       ok: false,
@@ -451,63 +473,130 @@ export async function createBooking(
   };
 }
 
-async function joinWaitlist(
+type JoinWaitlistResult = {
+  ok: boolean;
+  reason?: string;
+  entry_id?: string;
+  position?: number;
+  /** Plek onder de wachtenden; dit is wat het lid te zien krijgt. */
+  rank?: number;
+};
+
+type LeaveWaitlistResult = {
+  ok: boolean;
+  reason?: string;
+  session_id?: string;
+  was_promoted?: boolean;
+};
+
+/**
+ * Inschrijven op de wachtlijst via tmc.join_waitlist (SECURITY DEFINER,
+ * spec-community-growth.md). De RPC doet dezelfde checks als
+ * book_class_session (booking_gate), bepaalt de positie onder de
+ * sessie-lock, schrijft het event en decrementeert niets: credits gaan pas
+ * af bij bevestigen via book_class_session. authenticated heeft geen
+ * schrijfrechten op waitlist_entries; de positie is nooit clientinvoer.
+ */
+async function joinWaitlistCore(
+  supabase: Awaited<ReturnType<typeof createClient>>,
   sessionId: string,
-  userId: string,
 ): Promise<BookingActionResult> {
-  // Service role (fix/profiles-self-update-lockdown): authenticated heeft
-  // geen schrijfrechten meer op waitlist_entries. Met de oude policy
-  // waitlist_self_all kon een lid zijn eigen positie op 0 zetten (de cron
-  // promoveert op position asc) en promoted_at of confirmed_at zelf zetten.
-  // De positie wordt hier server-side bepaald; userId komt uit de sessie van
-  // de aanroeper (createBooking), nooit uit clientinvoer. Vervolgpunt: twee
-  // gelijktijdige inschrijvingen kunnen dezelfde positie krijgen (dat was
-  // al zo); een RPC met rij-lock op de sessie lost dat op.
-  const admin = createAdminClient();
+  const rpcResult = await supabase.rpc("join_waitlist", {
+    p_session_id: sessionId,
+  });
 
-  const positionResult = await admin
-    .from("waitlist_entries")
-    .select("id", { count: "exact", head: true })
-    .eq("session_id", sessionId);
-
-  const position = (positionResult.count ?? 0) + 1;
-
-  const insertResult = await admin
-    .from("waitlist_entries")
-    .insert({
-      profile_id: userId,
-      session_id: sessionId,
-      position,
-    })
-    .select("id")
-    .single();
-
-  if (insertResult.error) {
-    if (insertResult.error.code === "23505") {
-      return { ok: false, message: "Je staat al op de wachtlijst." };
-    }
-    console.error("[joinWaitlist] insert failed", insertResult.error);
+  if (rpcResult.error) {
+    console.error("[joinWaitlist] rpc failed", rpcResult.error);
     return {
       ok: false,
       message: "Wachtlijst-inschrijving lukte niet. Probeer het opnieuw.",
     };
   }
 
-  await emitEvent({
-    type: "booking.waitlisted",
-    actorType: "member",
-    actorId: userId,
-    subjectType: "waitlist",
-    subjectId: insertResult.data.id,
-    payload: { profile_id: userId, session_id: sessionId, position },
-  });
+  const result = rpcResult.data as JoinWaitlistResult;
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: result.reason,
+      message:
+        BOOK_REASON_COPY[result.reason ?? ""] ??
+        "Wachtlijst-inschrijving lukte niet. Probeer het opnieuw.",
+    };
+  }
 
   revalidatePath("/app/rooster");
+  revalidatePath("/app/boekingen");
 
   return {
     ok: true,
     action: "waitlisted",
-    message: `Je staat op de wachtlijst, plek ${position}.`,
+    // COPY: confirm met Marlon
+    message: `Je staat op de wachtlijst, plek ${result.rank ?? result.position ?? 1}.`,
+  };
+}
+
+export async function joinWaitlist(
+  sessionId: string,
+): Promise<BookingActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Je bent uitgelogd." };
+  return joinWaitlistCore(supabase, sessionId);
+}
+
+/**
+ * Wachtlijstplek of open promotie opgeven via tmc.leave_waitlist. Een open
+ * promotie valt daarmee direct vrij; de cron promoveert de volgende binnen
+ * vijf minuten. Geen automatische vrijgave vanuit de app.
+ */
+export async function leaveWaitlist(
+  entryId: string,
+): Promise<BookingActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Je bent uitgelogd." };
+
+  const rpcResult = await supabase.rpc("leave_waitlist", {
+    p_entry_id: entryId,
+  });
+
+  if (rpcResult.error) {
+    console.error("[leaveWaitlist] rpc failed", rpcResult.error);
+    return { ok: false, message: "Opgeven lukte niet. Probeer het opnieuw." };
+  }
+
+  const result = rpcResult.data as LeaveWaitlistResult;
+
+  if (!result.ok) {
+    // COPY: confirm met Marlon
+    const copy: Record<string, string> = {
+      not_found: "Wachtlijstplek niet gevonden.",
+      already_confirmed: "Je hebt deze plek al bevestigd.",
+      not_open: "Deze wachtlijstplek is al vervallen.",
+    };
+    return {
+      ok: false,
+      reason: result.reason,
+      message:
+        copy[result.reason ?? ""] ?? "Opgeven lukte niet. Probeer het opnieuw.",
+    };
+  }
+
+  revalidatePath("/app/rooster");
+  revalidatePath("/app/boekingen");
+
+  return {
+    ok: true,
+    action: "left_waitlist",
+    // COPY: confirm met Marlon
+    message: result.was_promoted
+      ? "Je hebt de plek opgegeven. De volgende op de wachtlijst krijgt bericht."
+      : "Je staat niet meer op de wachtlijst.",
   };
 }
 
