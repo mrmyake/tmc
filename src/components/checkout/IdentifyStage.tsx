@@ -8,11 +8,30 @@ import { getStoredUtm } from "@/lib/utm";
 import { verifyLoginOtp } from "@/lib/actions/auth";
 import { saveIdentityDetails } from "@/lib/actions/profile";
 import { trackFormStart } from "@/lib/analytics";
+import {
+  PHONE_HINT,
+  validateProfileField,
+  type ProfileField,
+} from "@/lib/profile-validation";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;
 
 type Step = "email" | "code" | "details";
+
+const DETAILS_FIELDS: ProfileField[] = [
+  "first_name",
+  "last_name",
+  "phone",
+  "street_address",
+  "postal_code",
+  "city",
+];
+type FieldErrors = Partial<Record<ProfileField, string>>;
+
+function isDetailsField(name: string): name is ProfileField {
+  return (DETAILS_FIELDS as string[]).includes(name);
+}
 
 interface Props {
   onDone: () => void;
@@ -36,6 +55,7 @@ export function IdentifyStage({
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [cooldown, setCooldown] = useState(0);
   const detailsTracked = useRef(false);
 
@@ -133,17 +153,76 @@ export function IdentifyStage({
     }
   }
 
-  function handleDetailsSubmit(formData: FormData) {
+  function focusField(form: HTMLFormElement, name: ProfileField) {
+    (form.elements.namedItem(name) as HTMLInputElement | null)?.focus();
+  }
+
+  // Validatie bij blur, met dezelfde regels als de server action.
+  function handleDetailsBlur(e: React.FocusEvent<HTMLFormElement>) {
+    const { name, value } = e.target as unknown as HTMLInputElement;
+    if (!isDetailsField(name)) return;
+    const msg = validateProfileField(name, value, { required: true });
+    setFieldErrors((prev) => ({ ...prev, [name]: msg ?? undefined }));
+  }
+
+  // Een getoonde fout verdwijnt zodra het veld weer wordt aangepast.
+  function handleDetailsChange(e: React.ChangeEvent<HTMLFormElement>) {
+    const { name } = e.target as unknown as HTMLInputElement;
+    if (isDetailsField(name) && fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  }
+
+  // onSubmit i.p.v. form action={...}: een action-formulier wordt door
+  // React 19 na afloop teruggezet, waardoor alle ingevulde velden na een
+  // fout leeg zijn. Met preventDefault blijft de invoer staan.
+  function handleDetailsSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (busy) return;
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     setErrorMsg("");
+
+    const errors: FieldErrors = {};
+    for (const name of DETAILS_FIELDS) {
+      const msg = validateProfileField(name, String(formData.get(name) ?? ""), {
+        required: true,
+      });
+      if (msg) errors[name] = msg;
+    }
+    setFieldErrors(errors);
+    const firstInvalid = DETAILS_FIELDS.find((n) => errors[n]);
+    if (firstInvalid) {
+      setErrorMsg(errors[firstInvalid] as string);
+      focusField(form, firstInvalid);
+      return;
+    }
+
     setBusy(true);
     saveIdentityDetails(formData).then((res) => {
       setBusy(false);
       if (!res.ok) {
         setErrorMsg(res.error);
+        if (res.field) {
+          setFieldErrors({ [res.field]: res.error });
+          focusField(form, res.field);
+        }
         return;
       }
       onDone();
     });
+  }
+
+  function detailsFieldProps(name: ProfileField) {
+    const id = `identify-${name}-error`;
+    return {
+      field: { error: fieldErrors[name], errorId: id },
+      input: {
+        name,
+        "aria-invalid": fieldErrors[name] ? (true as const) : undefined,
+        "aria-describedby": fieldErrors[name] ? id : undefined,
+      },
+    };
   }
 
   if (step === "details") {
@@ -158,66 +237,75 @@ export function IdentifyStage({
         </h1>
         {/* COPY: confirm met Marlon */}
         <p className="text-text-muted mb-8 max-w-xl">
-          Nodig voor je facturering en de automatische incasso via Mollie.
+          Je naam en adres hebben we nodig voor je facturering en de
+          automatische incasso via Mollie.
         </p>
 
         <form
-          action={handleDetailsSubmit}
+          onSubmit={handleDetailsSubmit}
           onFocus={handleDetailsFocus}
+          onBlur={handleDetailsBlur}
+          onChange={handleDetailsChange}
+          noValidate
           className="flex flex-col gap-6"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <Field label="Voornaam">
+            <Field label="Voornaam" {...detailsFieldProps("first_name").field}>
               <input
                 type="text"
-                name="first_name"
+                {...detailsFieldProps("first_name").input}
                 required
                 autoComplete="given-name"
                 className={fieldInputClasses}
               />
             </Field>
-            <Field label="Achternaam">
+            <Field label="Achternaam" {...detailsFieldProps("last_name").field}>
               <input
                 type="text"
-                name="last_name"
+                {...detailsFieldProps("last_name").input}
                 required
                 autoComplete="family-name"
                 className={fieldInputClasses}
               />
             </Field>
           </div>
-          <Field label="Telefoon">
+          {/* COPY: confirm met Marlon (PHONE_HINT) */}
+          <Field
+            label="Telefoon"
+            hint={PHONE_HINT}
+            {...detailsFieldProps("phone").field}
+          >
             <input
               type="tel"
-              name="phone"
+              {...detailsFieldProps("phone").input}
               required
               autoComplete="tel"
               className={fieldInputClasses}
             />
           </Field>
-          <Field label="Straat + nummer">
+          <Field label="Straat + nummer" {...detailsFieldProps("street_address").field}>
             <input
               type="text"
-              name="street_address"
+              {...detailsFieldProps("street_address").input}
               required
               autoComplete="street-address"
               className={fieldInputClasses}
             />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6">
-            <Field label="Postcode">
+            <Field label="Postcode" {...detailsFieldProps("postal_code").field}>
               <input
                 type="text"
-                name="postal_code"
+                {...detailsFieldProps("postal_code").input}
                 required
                 autoComplete="postal-code"
                 className={fieldInputClasses}
               />
             </Field>
-            <Field label="Plaats">
+            <Field label="Plaats" {...detailsFieldProps("city").field}>
               <input
                 type="text"
-                name="city"
+                {...detailsFieldProps("city").input}
                 required
                 autoComplete="address-level2"
                 className={fieldInputClasses}

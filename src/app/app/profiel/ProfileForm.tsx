@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { updateProfile, type ActionResult } from "@/lib/actions/profile";
 import { formatDateLong } from "@/lib/format-date";
+import { validateProfileField, type ProfileField } from "@/lib/profile-validation";
+
+// Velden van dit formulier met een eigen validatie; telefoon is optioneel.
+const REQUIRED_FIELDS: Partial<Record<ProfileField, boolean>> = {
+  first_name: true,
+  last_name: true,
+  phone: false,
+};
+type FieldErrors = Partial<Record<ProfileField, string>>;
+
+function isValidatedField(name: string): name is ProfileField {
+  return name in REQUIRED_FIELDS;
+}
 
 interface Profile {
   first_name: string;
@@ -20,18 +33,75 @@ interface Profile {
 export function ProfileForm({ profile }: { profile: Profile }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
+
+  function focusField(form: HTMLFormElement, name: ProfileField) {
+    (form.elements.namedItem(name) as HTMLInputElement | null)?.focus();
+  }
+
+  function handleBlur(e: React.FocusEvent<HTMLFormElement>) {
+    const { name, value } = e.target as unknown as HTMLInputElement;
+    if (!isValidatedField(name)) return;
+    const msg = validateProfileField(name, value, {
+      required: REQUIRED_FIELDS[name] === true,
+    });
+    setFieldErrors((prev) => ({ ...prev, [name]: msg ?? undefined }));
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLFormElement>) {
+    const { name } = e.target as unknown as HTMLInputElement;
+    if (isValidatedField(name) && fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const errors: FieldErrors = {};
+    for (const name of Object.keys(REQUIRED_FIELDS) as ProfileField[]) {
+      const msg = validateProfileField(name, String(formData.get(name) ?? ""), {
+        required: REQUIRED_FIELDS[name] === true,
+      });
+      if (msg) errors[name] = msg;
+    }
+    setFieldErrors(errors);
+    const firstInvalid = (Object.keys(REQUIRED_FIELDS) as ProfileField[]).find(
+      (n) => errors[n],
+    );
+    if (firstInvalid) {
+      setError(errors[firstInvalid] as string);
+      focusField(form, firstInvalid);
+      return;
+    }
+
     startTransition(async () => {
       const res: ActionResult = await updateProfile(formData);
       if (res.ok) {
         setEditing(false);
-      } else setError(res.error);
+        return;
+      }
+      setError(res.error);
+      if (res.field) {
+        setFieldErrors({ [res.field]: res.error });
+        focusField(form, res.field);
+      }
     });
+  }
+
+  function fieldProps(name: ProfileField) {
+    const id = `profile-${name}-error`;
+    return {
+      field: { error: fieldErrors[name], errorId: id },
+      input: {
+        "aria-invalid": fieldErrors[name] ? (true as const) : undefined,
+        "aria-describedby": fieldErrors[name] ? id : undefined,
+      },
+    };
   }
 
   const addressLines = [
@@ -69,22 +139,30 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form
+      onSubmit={handleSubmit}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      noValidate
+      className="flex flex-col gap-6"
+    >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <Field label="Voornaam">
+        <Field label="Voornaam" {...fieldProps("first_name").field}>
           <input
             type="text"
             name="first_name"
+            {...fieldProps("first_name").input}
             defaultValue={profile.first_name}
             required
             autoComplete="given-name"
             className={fieldInputClasses}
           />
         </Field>
-        <Field label="Achternaam">
+        <Field label="Achternaam" {...fieldProps("last_name").field}>
           <input
             type="text"
             name="last_name"
+            {...fieldProps("last_name").input}
             defaultValue={profile.last_name}
             required
             autoComplete="family-name"
@@ -92,10 +170,11 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           />
         </Field>
       </div>
-      <Field label="Telefoon">
+      <Field label="Telefoon" {...fieldProps("phone").field}>
         <input
           type="tel"
           name="phone"
+            {...fieldProps("phone").input}
           defaultValue={profile.phone ?? ""}
           autoComplete="tel"
           className={fieldInputClasses}
@@ -160,6 +239,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           onClick={() => {
             setEditing(false);
             setError(null);
+            setFieldErrors({});
           }}
           className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text cursor-pointer"
         >
