@@ -10,9 +10,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * Sync-akiles-access cron (vercel.json "15 2 * * *", buiten het blok van
- * 03:00 tot 04:55 UTC waarin de lidmaatschapscrons draaien; de volgende
- * nacht neemt hij hun statuswijzigingen mee).
+ * Sync-akiles-access cron (vercel.json "30 4 * * *", na de drie
+ * lidmaatschapscrons process-change-requests 03:25, process-cancellations
+ * 03:30 en process-pauses 03:35 UTC, zodat hun statuswijzigingen dezelfde
+ * nacht meegaan; met het tijdsbudget van 240 s is de run klaar voor
+ * expire-orders om 04:45). Sinds feat/akiles-sync-on-lifecycle is dit het
+ * vangnet: elke lifecycle-mutatie synct het profiel direct via
+ * syncAfterLifecycle (src/lib/admin/membership-lifecycle.ts).
  *
  * Provisiont schedules en groepen (openingstijden komen zo door), zet per
  * profiel de gewenste toegang in Akiles en schuift het rollende venster

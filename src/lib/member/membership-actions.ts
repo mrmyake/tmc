@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/events/emit";
+import { syncAfterLifecycle } from "@/lib/admin/membership-lifecycle";
 
 export type PauseReason = "pregnancy" | "medical" | "other_approved";
 
@@ -156,6 +157,11 @@ export async function requestMembershipCancellation(
       effective_date: effectiveDate,
     },
   });
+
+  // Deur meteen mee (spec-akiles-access.md): vanuit paused geeft
+  // cancellation_requested weer toegang tot de einddatum, vanuit active
+  // krijgt de deur zijn harde einddatum.
+  await syncAfterLifecycle({ profileId: user.id });
 
   revalidatePath("/app/abonnement");
   revalidatePath("/app");

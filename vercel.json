@@ -58,7 +58,7 @@
     },
     {
       "path": "/api/cron/sync-akiles-access",
-      "schedule": "15 2 * * *"
+      "schedule": "30 4 * * *"
     },
     {
       "path": "/api/cron/process-account-deletions",

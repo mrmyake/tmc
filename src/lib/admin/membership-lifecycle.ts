@@ -12,6 +12,7 @@ import {
 } from "@/lib/mollie";
 import { mollieWebhookUrl } from "@/lib/site-url";
 import { sendNotification } from "@/lib/ntfy";
+import { syncMembershipAccess } from "@/lib/access/sync";
 
 /**
  * Gedeelde lifecycle-servicelaag (klantbeheer-workstream, fase 1: pauze en
@@ -47,6 +48,50 @@ export type LifecycleResult =
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+export type SyncAfterLifecycleTarget =
+  | { profileId: string }
+  | { membershipId: string };
+
+/**
+ * Deurtoegang direct na een geslaagde lifecycle-mutatie (spec-akiles-access.md,
+ * sectie Sync en aanroeppunten): dezelfde syncMembershipAccess als de
+ * nachtelijke cron, die daarmee alleen nog het vangnet is. Wordt uitsluitend
+ * aangeroepen nadat de RPC of update committed en geslaagd is; nooit op een
+ * geweigerd of mislukt pad. Throw-vrij en zonder invloed op de uitkomst van
+ * de mutatie: een falende sync wordt gelogd, de nachtelijke run herstelt hem.
+ * Met een membershipId wordt het profiel via de service-role-client opgezocht
+ * (undoMembershipCancellation heeft de rij zelf niet in handen).
+ */
+export async function syncAfterLifecycle(
+  target: SyncAfterLifecycleTarget,
+): Promise<void> {
+  try {
+    let profileId: string | null =
+      "profileId" in target ? target.profileId : null;
+    if (!profileId) {
+      const membershipId = "membershipId" in target ? target.membershipId : null;
+      if (!membershipId) return;
+      const { data, error } = await createAdminClient()
+        .from("memberships")
+        .select("profile_id")
+        .eq("id", membershipId)
+        .maybeSingle();
+      if (error) throw new Error(`profile_id opzoeken: ${error.message}`);
+      profileId = (data as { profile_id: string } | null)?.profile_id ?? null;
+      if (!profileId) {
+        console.error("[syncAfterLifecycle] membership zonder profiel", membershipId);
+        return;
+      }
+    }
+    const result = await syncMembershipAccess(profileId);
+    if (!result.ok) {
+      console.error("[syncAfterLifecycle] sync faalde", profileId, result.error);
+    }
+  } catch (err) {
+    console.error("[syncAfterLifecycle] threw", target, err);
+  }
 }
 
 /**
@@ -198,6 +243,10 @@ export async function pauseMembershipCore(
     };
   }
 
+  // Deur meteen mee: per direct gepauzeerd sluit nu, een geplande pauze
+  // krijgt zijn harde einddatum (desired-state rekent op pause_effective_date).
+  await syncAfterLifecycle({ profileId: m.profile_id });
+
   return {
     ok: true,
     // COPY: confirm met Marlon
@@ -345,6 +394,11 @@ export async function cancelMembershipCore(
       message: `De stopzetting is geweigerd (${result?.reason ?? "onbekende reden"}).`,
     };
   }
+
+  // Deur meteen mee: een harde stop sluit nu, een geplande stop houdt de
+  // deur tot de einddatum (de sync is dan een no-op met de juiste harde datum).
+  await syncAfterLifecycle({ profileId: m.profile_id });
+
   if (result.already_cancelled) {
     // COPY: confirm met Marlon
     return { ok: true, message: "Dit abonnement is al stopgezet." };
@@ -448,6 +502,10 @@ export async function undoMembershipCancellation(params: {
       message: `Het terugdraaien is geweigerd (${result?.reason ?? "onbekende reden"}).`,
     };
   }
+
+  // Deur meteen mee: de harde einddatum van de opzegging vervalt. Deze core
+  // heeft de membership-rij niet in handen; de helper zoekt het profiel op.
+  await syncAfterLifecycle({ membershipId: params.membershipId });
 
   if (result.already_active) {
     // COPY: confirm met Marlon
@@ -862,6 +920,11 @@ export async function resumeMembershipCore(params: {
         "Hervatten is niet doorgevoerd; de aangemaakte incasso is teruggedraaid. Probeer het opnieuw.",
     };
   }
+
+  // Deur meteen mee: hervatten was het grootste gat (het lid stond tot de
+  // volgende nacht voor een dichte deur). Ook bij already_active, goedkoop
+  // en idempotent.
+  await syncAfterLifecycle({ profileId: m.profile_id });
 
   if (result.already_active) {
     return {
