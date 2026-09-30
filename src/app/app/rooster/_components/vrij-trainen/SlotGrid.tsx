@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   amsterdamClock,
   quarterLabel,
@@ -15,8 +16,10 @@ interface Presence {
 }
 
 /**
- * Raster per uur: links het uur (plus de trainer als die het hele uur
- * aanwezig is), rechts vier kwartierknoppen. Alleen boekbare starts zijn
+ * Starttijden per uur: een kopregel over de volle rasterbreedte met het uur
+ * (en "Marlon aanwezig" als zij dat hele uur in de studio is), daaronder de
+ * kwartieren in een raster van 3 kolommen op mobiel, 4 op tablet en 6 op
+ * desktop (spec-rooster-vrij-trainen.md). Alleen boekbare starts zijn
  * aanklikbaar. De gekozen start is champagne gevuld, de rest van het slot
  * champagne omrand.
  */
@@ -36,32 +39,30 @@ export function SlotGrid({
   onSelect: (cell: QuarterCell) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="grid grid-cols-3 gap-1.5 md:grid-cols-4 lg:grid-cols-6">
       {rows.map((row, i) => (
-        <div key={`${row.hourLabel}-${i}`} className="grid grid-cols-[3.25rem_1fr] items-center gap-2">
-          <div className="flex flex-col">
-            <span className="text-sm text-text tabular-nums">{row.hourLabel}</span>
+        <Fragment key={`${row.hourLabel}-${i}`}>
+          <div className="col-span-full flex items-baseline justify-between pt-3 first:pt-0">
+            <span className="text-xs tabular-nums text-text-muted">{row.hourLabel}</span>
             {trainerPresentInHour(weekday, row.hour, presence) && (
-              // COPY: confirm met Marlon
-              <span className="text-[10px] uppercase tracking-[0.12em] text-accent">{presence.name}</span>
+              <span className="text-[10px] uppercase tracking-[0.12em] text-accent">
+                {/* COPY: confirm met Marlon */}
+                {presence.name} aanwezig
+              </span>
             )}
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {row.cells.map((cell, idx) =>
-              cell ? (
-                <QuarterButton
-                  key={cell.quarterStart}
-                  cell={cell}
-                  isStart={cell.startMs === selectedStartMs}
-                  inSlot={slotQuarterMs.has(cell.startMs)}
-                  onSelect={onSelect}
-                />
-              ) : (
-                <span key={`empty-${idx}`} aria-hidden />
-              ),
-            )}
-          </div>
-        </div>
+          {row.cells.map((cell) =>
+            cell ? (
+              <QuarterButton
+                key={cell.quarterStart}
+                cell={cell}
+                isStart={cell.startMs === selectedStartMs}
+                inSlot={slotQuarterMs.has(cell.startMs)}
+                onSelect={onSelect}
+              />
+            ) : null,
+          )}
+        </Fragment>
       ))}
     </div>
   );
@@ -107,7 +108,7 @@ function QuarterButton({
       aria-pressed={isStart}
       aria-label={`${time}, ${label}`}
       onClick={() => onSelect(cell)}
-      className={`flex flex-col items-center justify-center rounded border py-2 transition-colors duration-200 ${tone} ${
+      className={`flex flex-col items-center justify-center rounded border min-h-11 py-2 transition-colors duration-200 ${tone} ${
         cell.bookable ? "cursor-pointer" : "cursor-default"
       }`}
     >

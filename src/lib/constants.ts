@@ -112,7 +112,7 @@ export const PRESENCE_MARLON = {
   label: "Aanwezigheid Marlon",
   days: "Maandag t/m vrijdag",
   // Zelfde dagen als getallen (0 = zondag), voor het raster van de slotkiezer
-  // op /app/vrij-trainen.
+  // op /app/rooster (weergave Vrij trainen).
   weekdays: [1, 2, 3, 4, 5],
   // HH:MM, weergave via formatTime()
   windows: [

@@ -27,8 +27,10 @@ interface NavItem {
  * discovery-navigatie-structuur.md punt 9). Alle segment-/conditionele
  * items (Profiel, Account en instellingen, Schema, PT, Support, en een
  * link terug naar de marketingsite) zitten nu achter "Meer"
- * (MemberMoreMenu). "Vrij trainen" heeft bewust geen eigen tab meer — die
- * ingang loopt via de bestaande link op /app/rooster.
+ * (MemberMoreMenu). "Vrij trainen" heeft bewust geen eigen tab meer: leden
+ * met vrij trainen vinden het op /app/rooster, als schakelaar "Lessen | Vrij
+ * trainen" of, bij alleen vrij trainen, als hele pagina
+ * (spec-rooster-vrij-trainen.md). /app/vrij-trainen redirect daarheen.
  */
 const FIXED_ITEMS: NavItem[] = [
   {

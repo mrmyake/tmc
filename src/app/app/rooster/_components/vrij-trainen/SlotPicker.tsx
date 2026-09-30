@@ -12,6 +12,7 @@ import {
   DEFAULT_SLOT_DURATION,
   durationLabel,
   groupByHour,
+  amsterdamClock,
   isStartBookable,
   QUARTER_MS,
   quarterCells,
@@ -154,6 +155,11 @@ export function SlotPicker({
     });
   }
 
+  const footerSelection =
+    selectedStartMs !== null
+      ? { startMs: selectedStartMs, endMs: selectedStartMs + (duration / 15) * QUARTER_MS }
+      : null;
+
   return (
     <div>
       <div className="mb-6">
@@ -186,57 +192,84 @@ export function SlotPicker({
           onCancel={() => cancel(data.ownBooking!.id)}
         />
       ) : (
-        <>
-          <div className="mb-6">
-            <span className="tmc-eyebrow block mb-3">
-              {/* COPY: confirm met Marlon */}
-              Hoe lang?
-            </span>
-            <DurationPicker
-              value={duration}
-              onChange={(m) => {
-                setMessage(null);
-                setConfirmOverCapFor(null);
-                if (selected && !isStartBookable(data.quarters, selected, m, nowMs)) {
-                  setSelection(null);
-                }
-                setDuration(m);
-              }}
+        <div className="lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-10">
+          <aside className="mb-6 lg:mb-0 lg:sticky lg:top-24 lg:rounded-lg lg:border lg:border-[color:var(--ink-500)]/60 lg:bg-bg-elevated lg:p-6">
+            <div className="hidden lg:block mb-6">
+              <span className="tmc-eyebrow block mb-2">
+                {/* COPY: confirm met Marlon */}
+                Open studio
+              </span>
+              <p className="font-[family-name:var(--font-playfair)] text-2xl leading-tight text-text">
+                {formatWeekdayDate(dayDate)}
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                {/* COPY: confirm met Marlon */}
+                {amsterdamClock(Date.parse(data.session.startAt))} tot{" "}
+                {amsterdamClock(Date.parse(data.session.endAt))}
+              </p>
+            </div>
+
+            <div className="lg:mb-6">
+              <span className="tmc-eyebrow block mb-3">
+                {/* COPY: confirm met Marlon */}
+                Hoe lang?
+              </span>
+              <DurationPicker
+                value={duration}
+                onChange={(m) => {
+                  setMessage(null);
+                  setConfirmOverCapFor(null);
+                  if (selected && !isStartBookable(data.quarters, selected, m, nowMs)) {
+                    setSelection(null);
+                  }
+                  setDuration(m);
+                }}
+              />
+            </div>
+
+            <div className="hidden lg:block">
+              <SlotFooter
+                layout="panel"
+                summary={summary}
+                selection={footerSelection}
+                pending={pending}
+                onBook={() => book(false)}
+              />
+            </div>
+          </aside>
+
+          <div>
+            <SlotGrid
+              rows={rows}
+              weekday={weekday}
+              presence={presence}
+              selectedStartMs={selectedStartMs}
+              slotQuarterMs={slotQuarterMs}
+              onSelect={onSelect}
             />
+
+            {confirmOverCap && selected && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => book(true)}
+                className="mt-5 min-h-11 rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] border border-accent text-accent cursor-pointer disabled:opacity-40"
+              >
+                {/* COPY: confirm met Marlon */}
+                Toch boeken
+              </button>
+            )}
+
+            <div className="lg:hidden">
+              <SlotFooter
+                summary={summary}
+                selection={footerSelection}
+                pending={pending}
+                onBook={() => book(false)}
+              />
+            </div>
           </div>
-
-          <SlotGrid
-            rows={rows}
-            weekday={weekday}
-            presence={presence}
-            selectedStartMs={selectedStartMs}
-            slotQuarterMs={slotQuarterMs}
-            onSelect={onSelect}
-          />
-
-          {confirmOverCap && selected && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => book(true)}
-              className="mt-5 rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] border border-accent text-accent cursor-pointer disabled:opacity-40"
-            >
-              {/* COPY: confirm met Marlon */}
-              Toch boeken
-            </button>
-          )}
-
-          <SlotFooter
-            summary={summary}
-            selection={
-              selectedStartMs !== null
-                ? { startMs: selectedStartMs, endMs: selectedStartMs + (duration / 15) * QUARTER_MS }
-                : null
-            }
-            pending={pending}
-            onBook={() => book(false)}
-          />
-        </>
+        </div>
       )}
     </div>
   );

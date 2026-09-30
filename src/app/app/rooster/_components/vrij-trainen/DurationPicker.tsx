@@ -25,7 +25,7 @@ export function DurationPicker({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(m)}
-            className={`rounded px-1 py-2 text-[13px] whitespace-nowrap border transition-colors duration-300 cursor-pointer ${
+            className={`min-h-11 rounded px-1 py-2 text-[13px] whitespace-nowrap border transition-colors duration-300 cursor-pointer ${
               active
                 ? "border-accent bg-accent text-bg"
                 : "border-[color:var(--ink-500)]/60 text-text hover:border-text-muted"

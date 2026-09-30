@@ -9,7 +9,7 @@ import {
 import type { QuarterAvailability } from "./vrij-trainen-slots";
 
 /**
- * Data voor de slotkiezer op /app/vrij-trainen (spec-vrij-trainen-slots.md):
+ * Data voor de slotkiezer op /app/rooster?weergave=vrij (spec-vrij-trainen-slots.md):
  * dagstrip van 7 dagen, de beschikbaarheid per kwartier van de gekozen dag
  * (tmc.vrij_trainen_availability, zonder persoonsgegevens) en de eigen
  * boeking. Alles via de client van het lid; RLS laat alleen de eigen

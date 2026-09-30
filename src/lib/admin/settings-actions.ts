@@ -29,7 +29,7 @@ export interface BookingSettingsInput {
   noShowReleaseMinutes: number;
   /** Maximaal aantal vrij-trainen-boekingen tegelijk per kwartier. */
   vrijTrainenMaxConcurrent: number;
-  /** Aan: /app/vrij-trainen toont de slotkiezer; uit: de check-in-weergave. */
+  /** Aan: /app/rooster?weergave=vrij toont de slotkiezer; uit: de check-in-weergave. */
   vrijTrainenBookingEnabled: boolean;
 }
 
