@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TMC checkout, betalen voor account: schermen en mail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Tokens uit src/app/tokens.css, zelfde set als mockups/akiles-toegang.html. */
+  :root {
+    --ink-900: #0E0C0B;
+    --ink-800: #17140F;
+    --ink-700: #1F1A14;
+    --ink-600: #2A241C;
+    --ink-500: #3A342B;
+    --stone-100: #F4EFE6;
+    --stone-300: #D8D0C1;
+    --stone-400: #B3AC9E;
+    --stone-500: #8B8478;
+    --champagne: #B9986A;
+    --champagne-deep: #8A6E47;
+    --champagne-wash: rgba(185,152,106,0.12);
+    --danger: #C47A6E;
+    --success: #8A9577;
+    --warning: #CC9146;
+    --serif: Fraunces, Georgia, serif;
+    --sans: Inter, system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: #050403;
+    font-family: var(--sans);
+    color: var(--stone-100);
+    -webkit-font-smoothing: antialiased;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  /* Alleen voor de mockup: alle schermen als kaarten in een galerij. Op de
+     site is elk scherm een eigen stap op /abonnement of /kopen (max-w-2xl,
+     672px), de mail is 560px breed zoals src/emails/_layout.tsx. */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(680px, 1fr));
+    gap: 32px;
+    padding: 40px;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+  .gallery-title {
+    grid-column: 1 / -1;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 30px;
+    letter-spacing: -0.01em;
+  }
+  .gallery-title span { color: var(--champagne); }
+  .gallery-sub {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    color: var(--stone-400);
+    max-width: 900px;
+    margin-top: -12px;
+  }
+  .gallery-sub p + p { margin-top: 8px; }
+  .legend {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--stone-400);
+    margin-bottom: 8px;
+  }
+  .card-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--champagne);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .card-label small {
+    color: var(--stone-500);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    font-size: 12px;
+    text-align: right;
+  }
+  .note {
+    font-size: 12.5px;
+    color: var(--stone-400);
+    margin-top: 12px;
+    max-width: 640px;
+  }
+  .note b { color: var(--stone-300); font-weight: 500; }
+
+  /* Browserframe: het stukje /abonnement binnen de Container (max-w-2xl). */
+  .frame {
+    background: var(--ink-900);
+    border: 1px solid var(--ink-600);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--ink-800);
+    border-bottom: 1px solid var(--ink-600);
+    font-size: 12px;
+    color: var(--stone-500);
+  }
+  .browser-bar .dots { display: flex; gap: 5px; }
+  .browser-bar .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-500); display: block; }
+  .browser-bar .url { background: var(--ink-900); border-radius: 3px; padding: 4px 10px; flex: 1; color: var(--stone-400); }
+  .page { padding: 56px 48px 64px; max-width: 672px; }
+
+  /* Bouwstenen die de echte componenten spiegelen. */
+  .eyebrow {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--champagne);
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+  h1.display {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 34px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  p.lead { color: var(--stone-400); margin-bottom: 32px; max-width: 560px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid12 { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; }
+  .field { margin-bottom: 24px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stone-400);
+    margin-bottom: 6px;
+  }
+  .field .input {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(179,172,158,0.3);
+    padding: 12px 0;
+    color: var(--stone-100);
+    font: inherit;
+    font-size: 16px;
+  }
+  .field .input.placeholder { color: var(--stone-500); }
+  .field .input.invalid { border-bottom-color: var(--danger); }
+  .field .hint { font-size: 12px; color: var(--stone-500); margin-top: 6px; }
+  .field .error { font-size: 12.5px; color: var(--danger); margin-top: 6px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 28px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: var(--champagne);
+    color: var(--ink-900);
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn.ghost { background: transparent; color: var(--stone-400); padding-left: 0; padding-right: 0; }
+  .btn.outline { background: transparent; color: var(--stone-100); border: 1px solid var(--ink-500); }
+  .actions { display: flex; align-items: center; gap: 24px; margin-top: 8px; }
+  .panel {
+    border: 1px solid var(--ink-700);
+    background: var(--ink-800);
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .panel .k {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stone-400);
+    margin-bottom: 12px;
+  }
+  .panel .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .panel .row .big { font-family: var(--serif); font-weight: 300; font-size: 26px; }
+  .panel .row .big small { font-family: var(--sans); font-size: 14px; color: var(--stone-400); margin-left: 4px; }
+  .panel .meta { font-size: 12.5px; color: var(--stone-400); margin-bottom: 4px; }
+  .panel.accent { border-color: rgba(185,152,106,0.35); }
+  .panel .email { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--stone-100); word-break: break-all; }
+  .alert {
+    border: 1px solid rgba(196,122,110,0.3);
+    background: rgba(196,122,110,0.10);
+    color: var(--danger);
+    padding: 12px 16px;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .alert a { color: inherit; }
+  .info {
+    border: 1px solid rgba(185,152,106,0.3);
+    background: var(--ink-800);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .info .k { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--champagne); margin-bottom: 12px; font-weight: 500; }
+  .info p { color: var(--stone-400); font-size: 14px; }
+  .info p b { color: var(--stone-100); font-weight: 500; }
+  .otp {
+    text-align: center;
+    letter-spacing: 0.4em;
+    font-weight: 500;
+    font-size: 20px;
+  }
+  .textlinks { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--stone-400); margin-top: 20px; }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--ink-500); border-top-color: var(--champagne);
+    display: inline-block; vertical-align: middle; margin-right: 10px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { font-size: 13px; color: var(--stone-400); display: flex; align-items: center; }
+  .status.ok { color: var(--success); }
+  .checklist { list-style: none; margin: 20px 0 28px; }
+  .checklist li { display: flex; gap: 12px; margin-bottom: 12px; color: var(--stone-300); font-size: 14px; }
+  .checklist li i { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ink-500); flex: none; display: grid; place-items: center; font-style: normal; font-size: 11px; color: var(--champagne); }
+  .checklist li.done i { background: var(--champagne-wash); border-color: rgba(185,152,106,0.5); }
+  .small { font-size: 13px; color: var(--stone-400); }
+  .small a, .lead a, .note a { color: var(--champagne); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Nieuwe of gewijzigde tekst: alleen in de mockup zichtbaar. */
+  .copy { position: relative; }
+  .copy::after {
+    content: "COPY";
+    position: absolute;
+    top: -9px; right: -6px;
+    font-size: 9px; letter-spacing: 0.15em;
+    background: var(--warning); color: var(--ink-900);
+    padding: 1px 5px; border-radius: 2px;
+    font-family: var(--sans); font-weight: 600;
+  }
+  .copy.block::after { top: -9px; right: 8px; }
+
+  /* E-mail, spiegel van src/emails/_layout.tsx (inline styles daar). */
+  .mail {
+    background: var(--ink-900);
+    border: 1px solid var(--ink-600);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .mail-meta { background: var(--ink-800); border-bottom: 1px solid var(--ink-600); padding: 14px 18px; font-size: 12.5px; color: var(--stone-400); }
+  .mail-meta b { color: var(--stone-100); font-weight: 500; }
+  .mail-body { max-width: 560px; margin: 0 auto; padding: 40px 24px; font-size: 15px; line-height: 1.6; }
+  .mail-brand { font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.01em; }
+  .mail-rule { width: 48px; border-top: 1px solid var(--champagne); margin: 10px 0 32px; }
+  .mail-eyebrow { color: var(--champagne); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px; }
+  .mail h1 { font-family: var(--serif); font-weight: 300; font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 24px; }
+  .mail p { margin-bottom: 20px; }
+  .mail p.muted { color: var(--stone-500); font-size: 13px; margin-bottom: 12px; }
+  .mail hr { border: 0; border-top: 1px solid var(--ink-700); margin: 24px 0; }
+  .mail .rl { color: var(--stone-500); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+  .mail .rv { margin-bottom: 14px; }
+  .mail .cta { display: inline-block; background: var(--champagne); color: var(--ink-900); font-size: 12px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; padding: 14px 28px; text-decoration: none; }
+  .mail .foot { border-top: 1px solid var(--ink-700); margin-top: 48px; padding-top: 24px; color: var(--stone-500); }
+  .mail .foot .a { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .mail .foot .b { font-size: 12px; margin-top: 8px; }
+  .mail .linkbox { background: var(--ink-800); border: 1px solid var(--ink-700); padding: 20px 24px; margin: 8px 0 24px; }
+  .mail .linkbox .k { color: var(--champagne); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 10px; }
+
+  .variants { display: grid; gap: 14px; margin-top: 14px; }
+  .variant { border: 1px dashed var(--ink-500); padding: 14px 18px; font-size: 13px; color: var(--stone-400); }
+  .variant b { color: var(--stone-300); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="gallery">
+  <h1 class="gallery-title">Checkout, <span>betalen voor account</span></h1>
+  <div class="gallery-sub">
+    <p>Nieuwe volgorde op /abonnement en /kopen: plan kiezen, gegevens, bevestigen, Mollie, en pas na de betaling maken wij het account en sturen een inloglink. Stap 1 (plan kiezen) verandert niet en staat hier niet. Alle bedragen zijn voorbeelden uit de huidige catalogus; op de site komen ze uitsluitend uit tmc.catalogue.</p>
+    <p>Ingelogd met compleet profiel: stap 2 wordt overgeslagen. Ingelogd met onvolledig profiel: stap 2 voorgevuld zonder e-mailveld (gebouwd in PR #251, niet opnieuw getekend).</p>
+  </div>
+  <div class="legend">
+    <span><span style="display:inline-block;width:10px;height:10px;background:var(--warning);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Nieuwe of gewijzigde tekst, te bevestigen met Marlon</span>
+    <span>Breedte schermen 672px (max-w-2xl), mail 560px</span>
+  </div>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">1 · Stap 02 Gegevens, nieuw adres <small>/abonnement, anoniem</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement</span></div>
+      <div class="page">
+        <span class="eyebrow">Stap 02 · Jouw gegevens</span>
+        <h1 class="display copy">Wie mogen we verwelkomen?</h1>
+        <p class="lead copy block">Vul je gegevens in en betaal. Daarna maken wij je account aan en sturen we je inloglink per mail.</p>
+
+        <div class="field">
+          <label>E-mailadres</label>
+          <div class="input">marlon@voorbeeld.nl</div>
+          <div class="hint copy">Hier sturen we na je betaling je inloglink naartoe.</div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Voornaam</label><div class="input">Marlon</div></div>
+          <div class="field"><label>Achternaam</label><div class="input">de Vries</div></div>
+        </div>
+        <div class="field">
+          <label>Telefoon</label>
+          <div class="input">06 12 34 56 78</div>
+          <div class="hint">Zodat we je kunnen bereiken over je lessen en lidmaatschap.</div>
+        </div>
+        <div class="field"><label>Straat + nummer</label><div class="input">Industrieweg 14P</div></div>
+        <div class="grid12">
+          <div class="field"><label>Postcode</label><div class="input">1231 MX</div></div>
+          <div class="field"><label>Plaats</label><div class="input">Loosdrecht</div></div>
+        </div>
+
+        <div class="actions">
+          <span class="btn ghost">Terug</span>
+          <span class="btn copy">Ga verder naar bevestigen</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Zelfde zes velden en dezelfde validatie als nu (parsePhone, veldfouten bij blur en submit). Het e-mailveld staat bovenaan, met de hint waarom we het vragen. Server-side bij "Ga verder": e-mailcheck, dan telefooncheck, dan wordt de intent aangemaakt en gaat de bezoeker naar stap 03. Geen inlogcode, geen account.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">2 · Stap 02, e-mailadres bestaat al <small>zelfde scherm, na "Ga verder"</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement</span></div>
+      <div class="page">
+        <span class="eyebrow copy">Stap 02 · Je hebt al een account</span>
+        <h1 class="display copy">Welkom terug.</h1>
+        <p class="lead copy block">Dit e-mailadres kennen we al. We hebben een inlogcode gestuurd naar <b style="color:var(--stone-100);font-weight:500">marlon@voorbeeld.nl</b>. Vul hem hieronder in, dan gaan we verder met je aanmelding.</p>
+
+        <div class="info">
+          <div class="k">Check je mail</div>
+          <p>De code bestaat uit 6 cijfers en is 10 minuten geldig.</p>
+        </div>
+
+        <div class="field">
+          <label>Inlogcode</label>
+          <div class="input otp placeholder">000000</div>
+        </div>
+
+        <span class="btn" style="width:100%">Bevestigen</span>
+        <div class="textlinks">
+          <span>Ander e-mailadres</span>
+          <span>Nieuwe code (58s)</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">De e-mailcheck is gekoppeld aan het direct versturen van de code (besluit 3): de bezoeker ziet alleen deze melding als er ook een mail is verstuurd, en de melding kost dus altijd een rate-gelimiteerde e-mail. Na een geldige code is de bezoeker ingelogd en loopt de flow verder als ingelogd lid: compleet profiel naar stap 03, onvolledig profiel naar de voorgevulde gegevensstap uit PR #251. De eerder ingevulde velden gaan mee als voorvulling. Bestaand lid met actief abonnement krijgt op /abonnement de bestaande melding "Je hebt al een actief abonnement."</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">3 · Stap 02, telefoonnummer al in gebruik <small>veldfout, bestaande melding</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement</span></div>
+      <div class="page">
+        <span class="eyebrow">Stap 02 · Jouw gegevens</span>
+        <h1 class="display">Wie mogen we verwelkomen?</h1>
+        <p class="lead">Vul je gegevens in en betaal. Daarna maken wij je account aan en sturen we je inloglink per mail.</p>
+
+        <div class="field">
+          <label>E-mailadres</label>
+          <div class="input">nieuw@voorbeeld.nl</div>
+          <div class="hint">Hier sturen we na je betaling je inloglink naartoe.</div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Voornaam</label><div class="input">Marlon</div></div>
+          <div class="field"><label>Achternaam</label><div class="input">de Vries</div></div>
+        </div>
+        <div class="field">
+          <label>Telefoon</label>
+          <div class="input invalid">06 12 34 56 78</div>
+          <div class="error">Dit telefoonnummer hoort al bij een account. Log in met dat account of gebruik een ander nummer.</div>
+        </div>
+        <div class="field"><label>Straat + nummer</label><div class="input">Industrieweg 14P</div></div>
+        <div class="grid12">
+          <div class="field"><label>Postcode</label><div class="input">1231 MX</div></div>
+          <div class="field"><label>Plaats</label><div class="input">Loosdrecht</div></div>
+        </div>
+        <div class="alert">Dit telefoonnummer hoort al bij een account. Log in met dat account of gebruik een ander nummer.</div>
+        <div class="actions">
+          <span class="btn ghost">Terug</span>
+          <span class="btn">Ga verder naar bevestigen</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Ongewijzigde melding uit src/lib/profile-validation.ts. De telefooncheck draait pas nadat de e-mailcheck "nieuw adres" gaf (besluit 3). "Log in met dat account" verwijst naar /login; de bezoeker kan ook een ander nummer invullen.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">4 · Stap 03 Bevestigen, met e-mailadres prominent <small>/abonnement</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement</span></div>
+      <div class="page">
+        <span class="eyebrow">Stap 03 · Bevestigen</span>
+        <h1 class="display">Controleer je keuze.</h1>
+        <p class="lead">Na betaling (iDEAL of creditcard) machtig je Mollie voor automatische SEPA-incasso elke 4 weken. Opzegtermijn: 4 weken, in acht genomen na je commitment-periode.</p>
+
+        <div class="panel">
+          <div class="k">Jouw plan</div>
+          <div class="row"><span class="big">Groepslessen 2x</span><span class="big">€ 89<small>/4wk</small></span></div>
+          <div class="meta">Geen inschrijfkosten</div>
+          <div class="meta">Geen commitment, per 4 weken opzegbaar</div>
+        </div>
+
+        <div class="panel accent copy block">
+          <div class="k">Je inloglink</div>
+          <div class="email">marlon@voorbeeld.nl</div>
+          <div class="meta" style="margin-top:10px">Na je betaling maken we je account aan en sturen we je inloglink naar dit adres. Klopt het niet? <a href="#" style="color:var(--champagne)">Pas je gegevens aan</a>.</div>
+        </div>
+
+        <div class="actions">
+          <span class="btn ghost">Terug</span>
+          <span class="btn">Betaal nu</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Het plan-blok is het bestaande blok uit PayStage. Nieuw is het tweede blok met het e-mailadres in de display-letter, zodat een typefout opvalt voordat er geld overgaat. "Pas je gegevens aan" gaat terug naar stap 02 met alles voorgevuld. Op /kopen hetzelfde blok onder de productkaart; daar luidt de intro zoals nu ("eenmalige betaling, geen machtiging").</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">5 · Bedankpagina, publiek: betaling verwerkt <small>/abonnement/bedankt?t=&lt;token&gt;</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
+      <div class="page">
+        <span class="eyebrow copy">Welkom bij The Movement Club</span>
+        <h1 class="display copy">Check je mail.</h1>
+        <p class="lead copy block">Je betaling is gelukt en je account staat klaar. We hebben je inloglink gestuurd naar <b style="color:var(--stone-100);font-weight:500">marlon@voorbeeld.nl</b>. Klik op de link in die mail om in te loggen; hij is 7 dagen geldig.</p>
+
+        <ul class="checklist copy block">
+          <li class="done"><i>✓</i><span>Betaling ontvangen</span></li>
+          <li class="done"><i>✓</i><span>Account aangemaakt</span></li>
+          <li class="done"><i>✓</i><span>Inloglink verstuurd</span></li>
+        </ul>
+
+        <div class="info copy block">
+          <div class="k">Geen mail gekregen?</div>
+          <p>Kijk in je spam. Verkeerd adres ingevuld? Stuur een berichtje naar <b>info@themovementclub.nl</b> of via WhatsApp, dan zetten we het recht. Je betaling is veilig gekoppeld aan je aanmelding.</p>
+        </div>
+
+        <span class="btn outline copy">Naar de homepage</span>
+      </div>
+    </div>
+    <p class="note">Publieke pagina, geen sessie nodig; leest de status van de intent via het token in de URL (zelfde poller-patroon als StatusPoller, elke 3 seconden, 90 seconden). Voor /kopen dezelfde pagina onder /kopen/bedankt met "je rittenkaart staat klaar in je account". Ingelogde leden houden de bestaande /app/abonnement/bedankt.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">6 · Bedankpagina: nog bezig, en mislukt <small>twee tussenstanden van hetzelfde scherm</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
+      <div class="page">
+        <span class="eyebrow copy">Bijna klaar</span>
+        <h1 class="display copy">We verwerken je betaling.</h1>
+        <p class="lead copy block">Dit duurt meestal een paar seconden. Zodra het klaar is, sturen we je inloglink naar <b style="color:var(--stone-100);font-weight:500">marlon@voorbeeld.nl</b>. Je kunt deze pagina open laten.</p>
+        <ul class="checklist copy block">
+          <li class="done"><i>✓</i><span>Betaling ontvangen</span></li>
+          <li><i><span class="spinner" style="margin:0;width:12px;height:12px;border-width:1.5px"></span></i><span>Account aanmaken</span></li>
+          <li><i></i><span>Inloglink versturen</span></li>
+        </ul>
+        <div class="status"><span class="spinner"></span>Bezig met verwerken…</div>
+      </div>
+    </div>
+    <div class="frame" style="margin-top:20px">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
+      <div class="page">
+        <span class="eyebrow copy">Betaling niet gelukt</span>
+        <h1 class="display copy">Er is niets afgeschreven.</h1>
+        <p class="lead copy block">De betaling is afgebroken of geweigerd. Er is geen account aangemaakt. Je kunt het opnieuw proberen; je gegevens staan nog klaar.</p>
+        <div class="actions">
+          <span class="btn copy">Opnieuw proberen</span>
+          <span class="btn ghost copy">Terug naar het aanbod</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">"Opnieuw proberen" maakt een nieuwe Mollie-betaling op dezelfde intent (zelfde patroon als /betaal/[token]: hergebruik van een open betaling, anders een nieuwe met een deterministische idempotency key). Na 90 seconden zonder uitslag toont de pagina de tekst van scherm 5 zonder de vinkjes, met "Nog geen mail? Het kan een paar minuten duren", plus de contactoptie.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">7 · Inloglink verlopen of al gebruikt <small>/welkom/&lt;token&gt;</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/welkom/…</span></div>
+      <div class="page" style="max-width:520px;margin:0 auto">
+        <span class="eyebrow copy">Inloggen</span>
+        <h1 class="display copy">Deze link werkt niet meer.</h1>
+        <p class="lead copy block">Je inloglink is verlopen of al gebruikt. Geen probleem: vraag hieronder een inlogcode aan, die sturen we direct naar je mail.</p>
+
+        <div class="field">
+          <label>E-mailadres</label>
+          <div class="input">marlon@voorbeeld.nl</div>
+        </div>
+        <span class="btn" style="width:100%">Stuur inlogcode</span>
+        <p class="small" style="margin-top:20px">Je account en je abonnement zijn er gewoon; alleen de link is op. Lukt het niet? <a href="#">Neem contact op</a>.</p>
+      </div>
+    </div>
+    <p class="note">Bij een geldige link: server-side een verse Supabase-magiclink genereren en direct verifiëren, sessie zetten, door naar /app (geen scherm). Bij verlopen of gebruikt: dit scherm, met het e-mailadres van de intent voorgevuld als het token nog herkend wordt, anders leeg. Het formulier is het bestaande OTP-loginformulier (shouldCreateUser false). Zelfde stijl als /login, maar met een eigen kop in plaats van de generieke foutbalk.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">8 · Welkomstmail, abonnement <small>vervangt order_confirmation voor nieuwe accounts</small></div>
+    <div class="mail">
+      <div class="mail-meta">
+        <div>Van: <b>The Movement Club</b> &lt;no-reply@…&gt;</div>
+        <div>Aan: marlon@voorbeeld.nl</div>
+        <div class="copy" style="display:inline-block;margin-top:6px">Onderwerp: <b>Welkom bij The Movement Club, je inloglink staat klaar</b></div>
+      </div>
+      <div class="mail-body">
+        <div class="mail-brand">The Movement Club</div>
+        <div class="mail-rule"></div>
+
+        <div class="mail-eyebrow copy" style="display:inline-block">Welkom</div>
+        <h1 class="copy">Hé Marlon, je bent lid.</h1>
+        <p class="copy block">Je betaling is binnen en je abonnement Groepslessen 2x is actief. We hebben een account voor je aangemaakt op dit e-mailadres. Log in met de knop hieronder; daarna zie je je rooster, boekingen en abonnement.</p>
+
+        <div class="linkbox copy block">
+          <div class="k">Je inloglink</div>
+          <a class="cta" href="#">Log in en boek je eerste les</a>
+          <p class="muted" style="margin:16px 0 0">Deze link is 7 dagen geldig en werkt één keer. Daarna log je in op themovementclub.nl/login met dit e-mailadres; je krijgt dan een inlogcode per mail.</p>
+        </div>
+
+        <hr>
+        <div class="rl">Terugkerend bedrag</div>
+        <div class="rv">€ 89,00 per 4 weken (waarvan € 7,35 btw)</div>
+        <div class="rl">Eerstvolgende incasso</div>
+        <div class="rv">28 oktober 2026</div>
+        <div class="rl">Inschrijfkosten</div>
+        <div class="rv">Niet in rekening gebracht (Early Member)</div>
+        <div class="rl">Opzegtermijn</div>
+        <div class="rv">4 weken</div>
+        <p class="muted">De incasso loopt automatisch via Mollie op de machtiging die je bij deze betaling hebt gegeven. Opzeggen of pauzeren regel je in je account.</p>
+        <hr>
+        <div class="rl">Betaald</div>
+        <div class="rv">€ 89,00 (waarvan € 7,35 btw, 9%)</div>
+        <div class="rl">Product</div>
+        <div class="rv">Groepslessen 2x</div>
+        <p class="muted" style="margin-top:28px">Dit is een bevestiging van je betaling, geen factuur.</p>
+
+        <div class="foot">
+          <div class="a">The Movement Club · Industrieweg 14P · Loosdrecht</div>
+          <div class="b">themovementclub.nl</div>
+        </div>
+      </div>
+    </div>
+    <div class="variants">
+      <div class="variant"><b>Productvariant (/kopen):</b> zelfde kop en linkblok; onder de streep de bestaande producttekst ("Je 10-rittenkaart staat klaar in je account (10 ritten, 6 maanden geldig)." en "Dit was een eenmalige betaling. Er loopt geen doorlopende incasso en er is geen machtiging afgegeven."). Knoptekst dan: "Log in en bekijk je tegoed".</div>
+      <div class="variant"><b>Wat blijft:</b> chrome, tokens, regels en de btw-regels komen woordelijk uit src/emails/_layout.tsx en order_confirmation.tsx. Alleen kop, intro, onderwerp en het linkblok zijn nieuw; de knop "Naar je account" van de bestaande mail wordt hier de inloglink. Eenmalig verzonden via het event-patroon van order.confirmation_sent (besluit 2). Ingelogde leden houden de bestaande mail.</div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
