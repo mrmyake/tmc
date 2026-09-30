@@ -12,6 +12,8 @@ import { UpcomingRow } from "./_components/UpcomingRow";
 import { bookingTimes, cancelWindowMinutes } from "@/lib/member/booking-times";
 import { HistoryRow, type HistoryRowData } from "./_components/HistoryRow";
 import { PtUpcomingRow, type PtUpcomingRowData } from "./_components/PtUpcomingRow";
+import { WaitlistRow, type WaitlistRowData } from "./_components/WaitlistRow";
+import type { MyWaitlistEntry } from "@/lib/member/waitlist";
 
 export const metadata = {
   title: "Boekingen | The Movement Club",
@@ -149,6 +151,7 @@ export default async function BoekingenPage(props: {
     ptUpcomingResult,
     ptHistoryResult,
     ptPendingCancellationsResult,
+    waitlistResult,
   ] = await Promise.all([
       supabase
         .from("booking_settings")
@@ -285,6 +288,13 @@ export default async function BoekingenPage(props: {
             .eq("profile_id", user.id)
             .eq("status", "pending")
         : Promise.resolve({ data: null, error: null }),
+      // Eigen open wachtlijstentries (wachtend of open promotie) als eigen
+      // rijen bij Aankomend (spec-community-growth.md, sectie Wachtlijst).
+      // De oude afleiding uit bookings.status = 'waitlisted' hieronder blijft
+      // staan; niets schrijft die status nog.
+      view === "komend"
+        ? supabase.rpc("my_waitlist_entries")
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   logIfError("settings", settingsResult.error);
@@ -295,6 +305,53 @@ export default async function BoekingenPage(props: {
   logIfError("pt upcoming", ptUpcomingResult.error);
   logIfError("pt history", ptHistoryResult.error);
   logIfError("pt pending cancellations", ptPendingCancellationsResult.error);
+  logIfError("waitlist", waitlistResult.error);
+
+  // Lesgegevens voor de wachtlijstrijen: authenticated leest class_sessions
+  // per kolomgrant (zelfde kolommen als het rooster).
+  const waitlistEntries = (waitlistResult.data ?? []) as MyWaitlistEntry[];
+  const waitlistSessionIds = waitlistEntries.map((w) => w.session_id);
+  const waitlistSessionsResult = waitlistSessionIds.length
+    ? await supabase
+        .from("class_sessions")
+        .select(
+          `id, start_at, end_at,
+           class_type:class_types(name),
+           trainer:trainers(display_name)`,
+        )
+        .in("id", waitlistSessionIds)
+        .returns<
+          Array<{
+            id: string;
+            start_at: string;
+            end_at: string;
+            class_type: { name: string } | null;
+            trainer: { display_name: string } | null;
+          }>
+        >()
+    : { data: null, error: null };
+  logIfError("waitlist sessions", waitlistSessionsResult.error);
+  const waitlistSessionById = new Map(
+    (waitlistSessionsResult.data ?? []).map((s) => [s.id, s]),
+  );
+
+  const waitlistRows: WaitlistRowData[] = waitlistEntries.flatMap((w) => {
+    const s = waitlistSessionById.get(w.session_id);
+    if (!s) return [];
+    return [
+      {
+        entryId: w.entry_id,
+        sessionId: w.session_id,
+        startAt: s.start_at,
+        endAt: s.end_at,
+        className: s.class_type?.name ?? "Sessie",
+        trainerName: s.trainer?.display_name ?? "coach",
+        state: w.state,
+        rank: w.rank,
+        confirmationDeadline: w.confirmation_deadline,
+      },
+    ];
+  });
 
   const cancelSettings = {
     cancellationWindowHours: settingsResult.data?.cancellation_window_hours ?? 6,
@@ -365,6 +422,12 @@ export default async function BoekingenPage(props: {
           freeCancel,
         };
       });
+
+  // Boekingen en wachtlijstrijen door elkaar op starttijd.
+  const komendRows = [
+    ...upcomingRows.map((row) => ({ kind: "booking" as const, startAt: row.startAt, row })),
+    ...waitlistRows.map((row) => ({ kind: "waitlist" as const, startAt: row.startAt, row })),
+  ].sort((x, y) => Date.parse(x.startAt) - Date.parse(y.startAt));
 
   // History: attended/no_show afleiden uit check_ins presence + no_show_at
   // omdat bookings.status alleen nog {booked, cancelled, waitlisted} bevat
@@ -518,20 +581,24 @@ export default async function BoekingenPage(props: {
           aria-label="Komende boekingen"
           className="animate-tab-in"
         >
-          {upcomingRows.length === 0 && ptUpcomingRows.length === 0 ? (
+          {komendRows.length === 0 && ptUpcomingRows.length === 0 ? (
             <EmptyUpcoming />
           ) : (
             <>
-              {upcomingRows.length > 0 && (
+              {komendRows.length > 0 && (
                 <div>
-                  {upcomingRows.map((row) => (
-                    <UpcomingRow key={row.bookingId} row={row} />
-                  ))}
+                  {komendRows.map((item) =>
+                    item.kind === "booking" ? (
+                      <UpcomingRow key={item.row.bookingId} row={item.row} />
+                    ) : (
+                      <WaitlistRow key={item.row.entryId} row={item.row} />
+                    ),
+                  )}
                 </div>
               )}
 
               {ptUpcomingRows.length > 0 && (
-                <div className={upcomingRows.length > 0 ? "mt-12" : undefined}>
+                <div className={komendRows.length > 0 ? "mt-12" : undefined}>
                   <span className="tmc-eyebrow block mb-6">PT-sessies</span>
                   <p className="text-text-muted text-sm mb-6 max-w-md">
                     {/* COPY: confirm met Marlon */}

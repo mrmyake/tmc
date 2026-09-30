@@ -32,6 +32,12 @@ export interface SessionRowData {
   rescheduledFrom?: string | null;
   /** Geboekt voor de verschuiving: kosteloos annuleren tot de start. */
   freeCancel?: boolean;
+  /** Eigen open wachtlijstentry (status waitlisted of promoted). */
+  waitlistEntryId?: string | null;
+  /** Bevestigingsdeadline (ISO) bij status promoted. */
+  waitlistDeadline?: string | null;
+  /** Plek onder de wachtenden bij status waitlisted, 1 = eerste. */
+  waitlistRank?: number | null;
 }
 
 interface SessionRowProps {
@@ -83,7 +89,12 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
   // Ink-800 kaartvulling (bestaande Cards-conventie, zie DashboardNextClass
   // e.a.) zodat ze het oog trekken zonder dat er een schreeuwende kleur bij
   // komt. De rest blijft een vlakke rij met alleen de bestaande divider.
-  const lit = session.status === "booked" || session.status === "open";
+  // Een open promotie licht ook op: er ligt een plek klaar, de sheet biedt
+  // "Bevestig plek" en "Plek opgeven".
+  const lit =
+    session.status === "booked" ||
+    session.status === "open" ||
+    session.status === "promoted";
 
   const sharedClassName = `w-full grid grid-cols-[72px_1fr_auto_auto] items-center gap-6 text-left transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
     lit

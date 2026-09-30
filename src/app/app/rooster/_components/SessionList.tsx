@@ -25,6 +25,9 @@ interface SerializedSession {
   reasonText: string | null;
   rescheduledFrom: string | null;
   freeCancel: boolean;
+  waitlistEntryId: string | null;
+  waitlistDeadline: string | null;
+  waitlistRank: number | null;
 }
 
 interface SessionListProps {
@@ -64,6 +67,9 @@ export function SessionList({
         bookingId: openSerialized.bookingId,
         rescheduledFrom: openSerialized.rescheduledFrom,
         freeCancel: openSerialized.freeCancel,
+        waitlistEntryId: openSerialized.waitlistEntryId,
+        waitlistDeadline: openSerialized.waitlistDeadline,
+        waitlistRank: openSerialized.waitlistRank,
       }
     : null;
 
@@ -102,6 +108,9 @@ export function SessionList({
               reasonText: s.reasonText,
               rescheduledFrom: s.rescheduledFrom,
               freeCancel: s.freeCancel,
+              waitlistEntryId: s.waitlistEntryId,
+              waitlistDeadline: s.waitlistDeadline,
+              waitlistRank: s.waitlistRank,
             }}
             onOpen={(session) => setOpenSessionId(session.id)}
           />

@@ -174,7 +174,7 @@ Dit scherm bepaalt het hele boekings‑ en betalingsbeleid. **Wijzig hier allé�
 | `fair_use_daily_max` | Max aantal boekingen per lid per dag |
 | `no_show_strike_threshold` + `no_show_strike_window_days` | Na X no‑shows in Y dagen krijgt het lid een tijdelijke blok |
 | `no_show_block_days` | Hoe lang die blok duurt |
-| `no_show_release_minutes` | Hoeveel minuten na startdatum de plek automatisch vrijkomt bij geen check‑in |
+| `no_show_release_minutes` | Op dit moment niet actief: de taak die plekken vrijgeeft bij geen check‑in staat uit. De instelling doet nu niets |
 | `registration_fee_cents` | Eenmalige inschrijfkosten |
 | `drop_in_*_cents` | Drop‑in prijzen per pijler |
 | `ten_ride_card_*_cents` | 10‑rittenkaart prijzen |

@@ -48,9 +48,11 @@ test("recordAcquisitionOnLogin krijgt de service-role-client", () => {
   assert.match(src, /recordAcquisitionOnLogin\(\s*createAdminClient\(\)/);
 });
 
-test("joinWaitlist schrijft via de service-role-client", () => {
+test("joinWaitlist en leaveWaitlist lopen via de RPC's, niet rechtstreeks op waitlist_entries", () => {
   const src = readFileSync("src/lib/member/booking-actions.ts", "utf8");
-  const fn = src.slice(src.indexOf("async function joinWaitlist"), src.indexOf("export async function cancelBooking"));
-  assert.match(fn, /createAdminClient\(\)/);
-  assert.doesNotMatch(fn, /await createClient\(\)/);
+  const fn = src.slice(src.indexOf("async function joinWaitlistCore"), src.indexOf("export async function cancelBooking"));
+  assert.match(fn, /rpc\("join_waitlist"/);
+  assert.match(fn, /rpc\("leave_waitlist"/);
+  assert.doesNotMatch(fn, /from\("waitlist_entries"\)/);
+  assert.doesNotMatch(fn, /createAdminClient\(\)/);
 });

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { emitEvent } from "@/lib/events/emit";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import WaitlistPromoted from "@/emails/waitlist_promoted";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { confirmDeadlineLabel } from "@/lib/member/waitlist";
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
@@ -13,18 +13,17 @@ function siteUrl(): string {
 
 export const dynamic = "force-dynamic";
 
-const CONFIRMATION_MINUTES_FALLBACK = 30;
-
 /**
- * Two jobs per run:
- *   1. Expire promotions whose confirmation_deadline is in the past
- *      (member never confirmed). Sets expired_at.
- *   2. For each scheduled future session with free spots and a waitlist,
- *      promote the top entry — set promoted_at + confirmation_deadline.
+ * Dunne wrapper om tmc.promote_waitlist_entries (spec-community-growth.md,
+ * sectie Wachtlijst). De RPC sluit verlopen promoties, promoveert per les
+ * onder de sessie-lock zoveel wachtenden als er plekken vrij zijn (grens:
+ * start meer dan 15 minuten weg), zet de deadline met rustvenster en
+ * schrijft de events, alles in een transactie. Overlappende runs zijn
+ * daardoor veilig: de tweede wacht op de lock en ziet niets meer te doen.
  *
- * Idempotent: a second run sees nothing to do.
- *
- * Email-sending for promoted entries is wired from Phase 2 (email infra).
+ * Hier alleen mail en push per gepromoveerde rij, met "bevestig voor HH:MM"
+ * in Amsterdamse tijd (de deadline kan door de start geplafonneerd zijn).
+ * Draait elke vijf minuten (vercel.json).
  */
 export async function GET(req: Request) {
   const denied = verifyCronAuth(req);
@@ -32,171 +31,103 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
 
-  // -- 1. Expire stale promotions ------------------------------------------
-  const nowIso = new Date().toISOString();
-  const { data: expiredRows } = await admin
-    .from("waitlist_entries")
-    .update({ expired_at: nowIso })
-    .lt("confirmation_deadline", nowIso)
-    .is("confirmed_at", null)
-    .is("expired_at", null)
-    .not("promoted_at", "is", null)
-    .select("id");
-
-  const expired = expiredRows?.length ?? 0;
-
-  // -- 2. Promote top of waitlist for sessions with spots ------------------
-  // Fetch settings for the confirmation window.
-  const { data: settings } = await admin
-    .from("booking_settings")
-    .select("waitlist_confirmation_minutes")
-    .limit(1)
-    .maybeSingle();
-  const confirmMinutes =
-    settings?.waitlist_confirmation_minutes ?? CONFIRMATION_MINUTES_FALLBACK;
-
-  // All future scheduled sessions. (Filter in the app rather than a joined
-  // view so we can correlate with waitlist entries cleanly.)
-  const { data: sessions } = await admin
-    .from("v_session_availability")
-    .select("id, spots_available, waitlist_count, start_at")
-    .gt("start_at", nowIso)
-    .eq("status", "scheduled");
-
-  const promoted: string[] = [];
-
-  for (const s of sessions ?? []) {
-    const spots = s.spots_available ?? 0;
-    const wl = s.waitlist_count ?? 0;
-    if (spots <= 0 || wl <= 0) continue;
-
-    // Is there already an active (not-yet-expired, not-confirmed) promotion?
-    const { count: activePromos } = await admin
-      .from("waitlist_entries")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", s.id)
-      .not("promoted_at", "is", null)
-      .is("confirmed_at", null)
-      .is("expired_at", null);
-
-    if ((activePromos ?? 0) > 0) continue;
-
-    // Find the top-of-queue unpromoted entry.
-    const { data: candidate } = await admin
-      .from("waitlist_entries")
-      .select("id")
-      .eq("session_id", s.id)
-      .is("promoted_at", null)
-      .is("expired_at", null)
-      .order("position", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (!candidate) continue;
-
-    const deadline = new Date(
-      Date.now() + confirmMinutes * 60_000,
-    ).toISOString();
-
-    const { error } = await admin
-      .from("waitlist_entries")
-      .update({
-        promoted_at: new Date().toISOString(),
-        confirmation_deadline: deadline,
-      })
-      .eq("id", candidate.id);
-
-    if (error) {
-      console.error("[cron/waitlist-promote] promote failed", candidate.id, error);
-      continue;
-    }
-
-    promoted.push(candidate.id);
-
-    await emitEvent({
-      type: "waitlist.promoted",
-      actorType: "system",
-      subjectType: "waitlist",
-      subjectId: candidate.id,
-      payload: {
-        waitlist_entry_id: candidate.id,
-        session_id: s.id,
-        confirmation_deadline: deadline,
-      },
-    });
-
-    // Fire-and-forget email. Don't let a send error drop the cron run.
-    void sendPromotedEmail(candidate.id, confirmMinutes);
+  const { data, error } = await admin.rpc("promote_waitlist_entries");
+  if (error) {
+    console.error("[cron/waitlist-promote] rpc failed", error);
+    return NextResponse.json(
+      { ok: false, error: "promote_waitlist_entries mislukt" },
+      { status: 500 },
+    );
   }
+
+  const result = data as PromoteResult;
+  const promoted = result.promoted ?? [];
+
+  // Bewust awaited, geen fire-and-forget: de functie mag niet eindigen
+  // voordat de berichten de deur uit zijn. Elke notify vangt zijn eigen
+  // fouten; een mislukte mail breekt de run niet.
+  await Promise.all(promoted.map((row) => notifyPromoted(row)));
 
   return NextResponse.json({
     ok: true,
-    expired,
+    expired: result.expired ?? 0,
     promoted: promoted.length,
-    promotedIds: promoted,
+    promotedIds: promoted.map((row) => row.entry_id),
   });
 }
 
-/** Resolve the waitlist entry + profile + session, send the email. */
-async function sendPromotedEmail(
-  entryId: string,
-  confirmMinutes: number,
-): Promise<void> {
+type PromotedRow = {
+  entry_id: string;
+  profile_id: string;
+  session_id: string;
+  position: number;
+  start_at: string;
+  confirmation_deadline: string;
+};
+
+type PromoteResult = {
+  ok: boolean;
+  expired?: number;
+  promoted?: PromotedRow[];
+};
+
+/** Profiel en les ophalen, mail en push sturen. Throwt nooit. */
+async function notifyPromoted(row: PromotedRow): Promise<void> {
   try {
     const admin = createAdminClient();
-    const { data: row } = await admin
-      .from("waitlist_entries")
-      .select(
-        `id, profile_id,
-         profile:profiles(first_name, email),
-         session:class_sessions(
-           start_at, end_at,
-           class_type:class_types(name)
-         )`,
-      )
-      .eq("id", entryId)
-      .maybeSingle();
-    if (!row) return;
-
-    type P = { first_name: string | null; email: string | null } | null;
-    type S = {
-      start_at: string;
-      end_at: string;
-      class_type: { name: string | null } | { name: string | null }[] | null;
-    } | null;
-    const profile = (Array.isArray(row.profile) ? row.profile[0] : row.profile) as P;
-    const session = (Array.isArray(row.session) ? row.session[0] : row.session) as S;
-    if (!profile?.email || !session) return;
+    const [profileRes, sessionRes] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("first_name, email")
+        .eq("id", row.profile_id)
+        .maybeSingle(),
+      admin
+        .from("class_sessions")
+        .select("start_at, end_at, class_type:class_types(name)")
+        .eq("id", row.session_id)
+        .maybeSingle(),
+    ]);
+    const profile = profileRes.data;
+    const session = sessionRes.data;
+    if (!session) return;
 
     const ct = (Array.isArray(session.class_type)
       ? session.class_type[0]
       : session.class_type) as { name: string | null } | null;
+    const className = ct?.name ?? "Sessie";
     const start = new Date(session.start_at);
     const end = new Date(session.end_at);
     const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
+    const deadlineLabel = confirmDeadlineLabel(
+      new Date(row.confirmation_deadline),
+    );
 
-    await sendEmail({
-      to: profile.email,
-      toName: profile.first_name ?? undefined,
-      subject: `Plek vrij: ${ct?.name ?? "Sessie"} ${whenLabel}`,
-      react: WaitlistPromoted({
-        firstName: profile.first_name ?? "",
-        className: ct?.name ?? "Sessie",
-        whenLabel,
-        deadlineLabel: `binnen ${confirmMinutes} minuten`,
-        siteUrl: siteUrl(),
-      }),
-    });
+    if (profile?.email) {
+      await sendEmail({
+        to: profile.email,
+        toName: profile.first_name ?? undefined,
+        // COPY: confirm met Marlon
+        subject: `Plek vrij: ${className} ${whenLabel}`,
+        react: WaitlistPromoted({
+          firstName: profile.first_name ?? "",
+          className,
+          whenLabel,
+          deadlineLabel,
+          siteUrl: siteUrl(),
+        }),
+      });
+    }
 
-    // Los kanaal naast de e-mail — wachtlijst-promotie is tijdsgevoelig
-    // (confirmMinutes-deadline), een directe push is hier extra waardevol
-    // t.o.v. wachten tot iemand zijn mail checkt.
-    void sendPushToProfile(row.profile_id, {
-      title: `Plek vrij: ${ct?.name ?? "Sessie"}`,
-      body: `${whenLabel} — bevestig binnen ${confirmMinutes} minuten`,
-      data: { type: "waitlist_promoted", waitlistEntryId: entryId },
+    // Los kanaal naast de e-mail: de deadline is kort, een directe push is
+    // hier meer waard dan wachten tot iemand zijn mail leest.
+    await sendPushToProfile(row.profile_id, {
+      // COPY: confirm met Marlon
+      title: `Plek vrij: ${className}`,
+      // COPY: confirm met Marlon
+      body: `${whenLabel}. Bevestig ${deadlineLabel}.`,
+      data: { type: "waitlist_promoted", waitlistEntryId: row.entry_id },
     });
   } catch (err) {
-    console.error("[cron/waitlist-promote email] skipped", err);
+    console.error("[cron/waitlist-promote notify] skipped", row.entry_id, err);
   }
 }

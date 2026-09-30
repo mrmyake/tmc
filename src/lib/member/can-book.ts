@@ -140,12 +140,19 @@ export function canBook(params: {
 
   // Capaciteit NULL betekent onbeperkt (alleen kettlebell): nooit vol,
   // geen waitlist-pad. Zelfde overslag-tak als in de book_class_session RPC.
-  if (
+  // Een volle les is pas "vol, wachtlijst" als de overige checks slagen:
+  // tmc.join_waitlist doet dezelfde checks als book_class_session (via
+  // booking_gate) en weigert bijvoorbeeld zonder dekking met no_coverage.
+  // Daarom onthouden we "vol" hier en beslissen we onderaan, zodat de
+  // prefilter dezelfde reden toont als de RPC zou geven.
+  const full =
     session.capacity !== null &&
-    usage.takenCountThisSession >= session.capacity
-  ) {
-    return { allowed: false, reason: "capacity_full", canJoinWaitlist: true };
-  }
+    usage.takenCountThisSession >= session.capacity;
+  const capacityFull = {
+    allowed: false,
+    reason: "capacity_full",
+    canJoinWaitlist: true,
+  } as const;
 
   if (
     profile.active_strikes >= settings.no_show_strike_threshold &&
@@ -174,10 +181,12 @@ export function canBook(params: {
         // Soft check: bookings + check-ins dit week. Over-cap = bevestigen, niet
         // weigeren. Zo kan het lid expliciet kiezen om een extra sessie te
         // boeken (bv. trial-week, inhalen) zonder dat de cap in de weg zit.
+        // Op een volle les is de nudge niet aan de orde: inschrijven op de
+        // wachtlijst kent geen weekcap-dialoog (de harde cap hieronder wel).
         const combined =
           usage.bookingsSamePillarThisWeek +
           usage.checkInsSamePillarThisWeek;
-        if (combined >= covering.frequency_cap && !acknowledgeOverCap) {
+        if (combined >= covering.frequency_cap && !acknowledgeOverCap && !full) {
           return {
             allowed: true,
             coveringMembership: covering,
@@ -196,6 +205,7 @@ export function canBook(params: {
         return { allowed: false, reason: "weekly_cap_reached" };
       }
     }
+    if (full) return capacityFull;
     return {
       allowed: true,
       coveringMembership: covering,
@@ -215,6 +225,7 @@ export function canBook(params: {
       planCovers("ten_ride_card", session.pillar),
   );
   if (tenRideCard) {
+    if (full) return capacityFull;
     return {
       allowed: true,
       coveringMembership: tenRideCard,
