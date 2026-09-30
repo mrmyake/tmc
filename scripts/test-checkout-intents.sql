@@ -594,6 +594,274 @@ select pg_temp.verwacht_fout('13d e-mail met hoofdletters geweigerd', 'postgres'
 select pg_temp.verwacht_fout('13e PII wissen op draft geweigerd', 'postgres',
   $$update tmc.checkout_intents set phone = null where id = '$$ || pg_temp.krijg('i_live') || $$'$$, '23514');
 
+-- ===========================================================================
+-- PR 1b (migratie 20261002100000_checkout_intents_lifecycle.sql)
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 14. Grants en guards van de nieuwe RPC's
+-- ---------------------------------------------------------------------------
+select pg_temp.verwacht_fout('14a authenticated mag replace niet uitvoeren', 'authenticated',
+  $$select tmc.replace_checkout_intent_payment(gen_random_uuid(), 'a', 'b')$$, '42501', pg_temp.p(1));
+select pg_temp.verwacht_fout('14b anon mag cancel niet uitvoeren', 'anon',
+  $$select tmc.cancel_checkout_intent(gen_random_uuid(), 'a')$$, '42501');
+select pg_temp.verwacht_fout('14c authenticated mag expire niet uitvoeren', 'authenticated',
+  $$select tmc.expire_checkout_intents()$$, '42501', pg_temp.p(1));
+select pg_temp.verwacht_fout('14d authenticated mag wipe niet uitvoeren', 'authenticated',
+  $$select tmc.wipe_stale_checkout_intent_pii()$$, '42501', pg_temp.p(1));
+select pg_temp.verwacht_fout('14e anon mag list_stale niet uitvoeren', 'anon',
+  $$select * from tmc.list_stale_pending_checkout_intents()$$, '42501');
+select pg_temp.verwacht_fout('14f authenticated mag for_retry niet uitvoeren', 'authenticated',
+  $$select tmc.checkout_intent_for_retry(repeat('a', 64))$$, '42501', pg_temp.p(1));
+select pg_temp.verwacht_fout('14g guard: service_role met auth.uid() geweigerd op expire', 'service_role',
+  $$select tmc.expire_checkout_intents()$$, '42501', pg_temp.p(1));
+select pg_temp.verwacht_fout('14h wipe met interval korter dan een dag geweigerd', 'service_role',
+  $$select tmc.wipe_stale_checkout_intent_pii(interval '1 hour')$$, '22023');
+
+create or replace function pg_temp.replace_pay(p_intent uuid, p_old text, p_new text) returns jsonb language plpgsql as $$
+declare r jsonb;
+begin
+  perform pg_temp.als('service_role');
+  r := tmc.replace_checkout_intent_payment(p_intent, p_old, p_new);
+  reset role;
+  return r;
+end $$;
+create or replace function pg_temp.cancel(p_intent uuid, p_payment text) returns jsonb language plpgsql as $$
+declare r jsonb;
+begin
+  perform pg_temp.als('service_role');
+  r := tmc.cancel_checkout_intent(p_intent, p_payment);
+  reset role;
+  return r;
+end $$;
+create or replace function pg_temp.for_retry(p_token text) returns jsonb language plpgsql as $$
+declare r jsonb;
+begin
+  perform pg_temp.als('service_role');
+  r := tmc.checkout_intent_for_retry(p_token);
+  reset role;
+  return r;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 15. replace_checkout_intent_payment (Opnieuw proberen)
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; a uuid; v_row tmc.checkout_intents%rowtype;
+begin
+  r := pg_temp.maak('retry@voorbeeld.nl', '+31677777771');
+  a := (r ->> 'intent_id')::uuid;
+  perform pg_temp.zet('iA', a::text); perform pg_temp.zet('tA', r ->> 'status_token');
+  perform pg_temp.pending(a, 'tr_r1');
+
+  r := pg_temp.replace_pay(a, 'tr_wrong', 'tr_r2');
+  perform pg_temp.verwacht('15a oude betaling klopt niet: payment_mismatch', r, false, 'payment_mismatch');
+  r := pg_temp.replace_pay(a, 'tr_r1', '');
+  perform pg_temp.verwacht('15b lege nieuwe betaling geweigerd', r, false, 'payment_id_required');
+  r := pg_temp.replace_pay(a, 'tr_r1', 'tr_r2');
+  perform pg_temp.verwacht('15c vervangen op pending', r, true);
+  if (r ->> 'already_replaced')::boolean or r ->> 'previous_status' <> 'pending' then raise exception 'FAIL 15c: %', r; end if;
+  select * into v_row from tmc.checkout_intents where id = a;
+  if v_row.status <> 'pending' or v_row.mollie_payment_id <> 'tr_r2' or v_row.mollie_customer_id <> 'cst_test_tr_r1' then
+    raise exception 'FAIL 15c: rij %', to_jsonb(v_row);
+  end if;
+  raise notice 'PASS 15c rij: pending, nieuwe betaling, customer ongewijzigd';
+  r := pg_temp.replace_pay(a, 'tr_r1', 'tr_r2');
+  perform pg_temp.verwacht('15d zelfde vervanging nogmaals: already_replaced', r, true);
+  if not (r ->> 'already_replaced')::boolean then raise exception 'FAIL 15d: %', r; end if;
+  -- Twee gelijktijdige retries zien dezelfde oude id; de tweede verliest.
+  r := pg_temp.replace_pay(a, 'tr_r1', 'tr_r3');
+  perform pg_temp.verwacht('15e tweede retry met de al vervangen oude id: payment_mismatch', r, false, 'payment_mismatch');
+  -- Nieuwe id hangt al aan een andere intent (i1 heeft tr_test_1).
+  r := pg_temp.replace_pay(a, 'tr_r2', 'tr_test_1');
+  perform pg_temp.verwacht('15f betaling van een andere intent: payment_in_use', r, false, 'payment_in_use');
+  r := pg_temp.replace_pay(pg_temp.krijg('i1')::uuid, 'tr_test_1', 'tr_r9');
+  perform pg_temp.verwacht('15g replace op converted: invalid_status', r, false, 'invalid_status');
+  r := pg_temp.replace_pay(gen_random_uuid(), 'x', 'y');
+  perform pg_temp.verwacht('15h onbekende intent', r, false, 'intent_not_found');
+  update tmc.checkout_intents set expires_at = now() - interval '1 minute' where id = a;
+  r := pg_temp.replace_pay(a, 'tr_r2', 'tr_r4');
+  perform pg_temp.verwacht('15i verlopen intent: expired', r, false, 'expired');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 16. cancel_checkout_intent en cancelled terug naar pending
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; b uuid; c uuid; v_row tmc.checkout_intents%rowtype;
+begin
+  r := pg_temp.maak('cancel@voorbeeld.nl', '+31677777772');
+  b := (r ->> 'intent_id')::uuid;
+  perform pg_temp.zet('iB', b::text); perform pg_temp.zet('tB', r ->> 'status_token');
+  perform pg_temp.pending(b, 'tr_c1');
+
+  r := pg_temp.cancel(b, 'tr_wrong');
+  perform pg_temp.verwacht('16a cancel met verkeerde betaling: payment_mismatch', r, false, 'payment_mismatch');
+  r := pg_temp.cancel(b, 'tr_c1');
+  perform pg_temp.verwacht('16b cancel op pending', r, true);
+  if (r ->> 'already_cancelled')::boolean or r ->> 'status' <> 'cancelled' then raise exception 'FAIL 16b: %', r; end if;
+  if (select status from tmc.checkout_intents where id = b) <> 'cancelled' then raise exception 'FAIL 16b: status niet cancelled'; end if;
+  r := pg_temp.cancel(b, 'tr_c1');
+  perform pg_temp.verwacht('16c nogmaals: already_cancelled', r, true);
+  if not (r ->> 'already_cancelled')::boolean then raise exception 'FAIL 16c: %', r; end if;
+  -- Opnieuw proberen na annulering: cancelled gaat terug naar pending.
+  r := pg_temp.replace_pay(b, 'tr_c1', 'tr_c2');
+  perform pg_temp.verwacht('16d replace op cancelled: terug naar pending', r, true);
+  select * into v_row from tmc.checkout_intents where id = b;
+  if v_row.status <> 'pending' or v_row.mollie_payment_id <> 'tr_c2' or r ->> 'previous_status' <> 'cancelled' then
+    raise exception 'FAIL 16d: %, rij %', r, to_jsonb(v_row);
+  end if;
+  raise notice 'PASS 16d rij weer pending met de nieuwe betaling';
+  -- Draft (geen betaling) en converted kunnen niet geannuleerd worden.
+  r := pg_temp.maak('draftcancel@voorbeeld.nl', '+31677777773');
+  c := (r ->> 'intent_id')::uuid;
+  r := pg_temp.cancel(c, null);
+  perform pg_temp.verwacht('16e cancel op draft: invalid_status', r, false, 'invalid_status');
+  r := pg_temp.cancel(pg_temp.krijg('i1')::uuid, 'tr_test_1');
+  perform pg_temp.verwacht('16f cancel op converted: invalid_status', r, false, 'invalid_status');
+  -- Door de cron verlopen intent: cancel is idempotent en laat expired staan.
+  update tmc.checkout_intents set status = 'expired' where id = c;
+  r := pg_temp.cancel(c, null);
+  perform pg_temp.verwacht('16g cancel op expired: already_cancelled met status expired', r, true);
+  if r ->> 'status' <> 'expired' then raise exception 'FAIL 16g: %', r; end if;
+  r := pg_temp.cancel(gen_random_uuid(), 'x');
+  perform pg_temp.verwacht('16h onbekende intent', r, false, 'intent_not_found');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 17. expire_checkout_intents
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; d uuid; e uuid; f uuid; v_expected int; v_got int;
+begin
+  r := pg_temp.maak('exp-draft@voorbeeld.nl', '+31677777774'); d := (r ->> 'intent_id')::uuid;
+  r := pg_temp.maak('exp-pending@voorbeeld.nl', '+31677777775'); e := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(e, 'tr_e1');
+  r := pg_temp.maak('exp-fresh@voorbeeld.nl', '+31677777776'); f := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(f, 'tr_f1');
+  update tmc.checkout_intents set expires_at = now() - interval '1 minute' where id in (d, e);
+
+  select count(*) into v_expected from tmc.checkout_intents where status in ('draft', 'pending') and expires_at < now();
+  perform pg_temp.als('service_role');
+  v_got := tmc.expire_checkout_intents();
+  reset role;
+  if v_got <> v_expected or v_got < 2 then raise exception 'FAIL 17a: verwacht % verlopen, kreeg %', v_expected, v_got; end if;
+  if (select status from tmc.checkout_intents where id = d) <> 'expired'
+     or (select status from tmc.checkout_intents where id = e) <> 'expired'
+     or (select status from tmc.checkout_intents where id = f) <> 'pending'
+     or (select status from tmc.checkout_intents where id = pg_temp.krijg('i1')::uuid) <> 'converted' then
+    raise exception 'FAIL 17a: statussen kloppen niet';
+  end if;
+  raise notice 'PASS 17a % intents verlopen, verse pending en converted ongemoeid', v_got;
+  perform pg_temp.als('service_role');
+  v_got := tmc.expire_checkout_intents();
+  reset role;
+  if v_got <> 0 then raise exception 'FAIL 17b: tweede aanroep gaf %', v_got; end if;
+  raise notice 'PASS 17b tweede aanroep: 0';
+  -- Late betaling op de verlopen pending intent wordt nog steeds gehonoreerd.
+  r := pg_temp.convert(e, pg_temp.p(15), 'tr_e1', true);
+  perform pg_temp.verwacht('17c convert na cron-expiry slaagt', r, false, 'order_conflict');
+  -- (p15 heeft al een pending order uit 10b: order_conflict is hier het
+  -- bewijs dat expired de conversie zelf niet blokkeert.)
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 18. wipe_stale_checkout_intent_pii
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; g uuid; h uuid; i uuid; j uuid; k uuid; v_got int;
+begin
+  r := pg_temp.maak('oud-cancelled@voorbeeld.nl', '+31688888881'); g := (r ->> 'intent_id')::uuid;
+  perform pg_temp.zet('tG', r ->> 'status_token');
+  perform pg_temp.pending(g, 'tr_g1'); perform pg_temp.cancel(g, 'tr_g1');
+  r := pg_temp.maak('oud-expired@voorbeeld.nl', '+31688888882'); h := (r ->> 'intent_id')::uuid;
+  update tmc.checkout_intents set status = 'expired' where id = h;
+  r := pg_temp.maak('oud-failed@voorbeeld.nl', '+31688888883'); i := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(i, 'tr_i1');
+  perform pg_temp.als('service_role'); perform tmc.fail_checkout_intent(i, 'createuser_failed', now()); reset role;
+  r := pg_temp.maak('jong-failed@voorbeeld.nl', '+31688888884'); j := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(j, 'tr_j1');
+  perform pg_temp.als('service_role'); perform tmc.fail_checkout_intent(j, 'createuser_failed', now()); reset role;
+  r := pg_temp.maak('oud-pending@voorbeeld.nl', '+31688888885'); k := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(k, 'tr_k1');
+  update tmc.checkout_intents set created_at = now() - interval '40 days' where id in (g, h, i, k);
+  update tmc.checkout_intents set created_at = now() - interval '10 days' where id = j;
+
+  perform pg_temp.als('service_role');
+  v_got := tmc.wipe_stale_checkout_intent_pii();
+  reset role;
+  if v_got <> 3 then raise exception 'FAIL 18a: verwacht 3 gewist, kreeg %', v_got; end if;
+  if exists (select 1 from tmc.checkout_intents where id in (g, h, i)
+             and (email is not null or first_name is not null or last_name is not null or phone is not null
+                  or street_address is not null or postal_code is not null or city is not null)) then
+    raise exception 'FAIL 18a: PII niet volledig gewist';
+  end if;
+  if (select email from tmc.checkout_intents where id = j) is null or (select email from tmc.checkout_intents where id = k) is null then
+    raise exception 'FAIL 18a: jonge failed of oude pending is aangeraakt';
+  end if;
+  if (select count(*) from tmc.checkout_intents where id in (g, h, i)) <> 3 then raise exception 'FAIL 18a: rijen verdwenen'; end if;
+  raise notice 'PASS 18a drie oude intents gewist, rijen blijven, jonge failed en pending ongemoeid';
+  perform pg_temp.als('service_role');
+  v_got := tmc.wipe_stale_checkout_intent_pii();
+  reset role;
+  if v_got <> 0 then raise exception 'FAIL 18b: tweede aanroep gaf %', v_got; end if;
+  raise notice 'PASS 18b tweede aanroep: 0';
+  perform pg_temp.als('service_role');
+  v_got := tmc.wipe_stale_checkout_intent_pii(interval '5 days');
+  reset role;
+  if v_got <> 1 or (select email from tmc.checkout_intents where id = j) is not null then
+    raise exception 'FAIL 18c: kortere termijn gaf %', v_got;
+  end if;
+  raise notice 'PASS 18c kortere termijn wist de jonge failed';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 19. list_stale_pending_checkout_intents en checkout_intent_for_retry
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; l uuid; m uuid; n uuid; v_cnt int;
+begin
+  r := pg_temp.maak('stale@voorbeeld.nl', '+31699999991', 'live'); l := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(l, 'tr_l1');
+  r := pg_temp.maak('fresh@voorbeeld.nl', '+31699999992'); m := (r ->> 'intent_id')::uuid;
+  perform pg_temp.pending(m, 'tr_m1');
+  r := pg_temp.maak('draft@voorbeeld.nl', '+31699999993'); n := (r ->> 'intent_id')::uuid;
+  -- updated_at terugzetten kan alleen met de touch-trigger uit.
+  alter table tmc.checkout_intents disable trigger checkout_intents_touch_updated_at;
+  update tmc.checkout_intents set updated_at = now() - interval '3 hours' where id in (l, n);
+  alter table tmc.checkout_intents enable trigger checkout_intents_touch_updated_at;
+
+  perform pg_temp.als('service_role');
+  select count(*) into v_cnt from tmc.list_stale_pending_checkout_intents() s where s.id = l and s.mode = 'live' and s.mollie_payment_id = 'tr_l1';
+  if v_cnt <> 1 then raise exception 'FAIL 19a: verouderde pending ontbreekt'; end if;
+  select count(*) into v_cnt from tmc.list_stale_pending_checkout_intents() s where s.id in (m, n);
+  if v_cnt <> 0 then raise exception 'FAIL 19a: verse pending of draft komt mee'; end if;
+  select count(*) into v_cnt from tmc.list_stale_pending_checkout_intents(interval '2 hours', 1);
+  if v_cnt <> 1 then raise exception 'FAIL 19a: limiet genegeerd, kreeg %', v_cnt; end if;
+  reset role;
+  raise notice 'PASS 19a alleen verouderde pending, met mode en betaling, limiet werkt';
+
+  r := pg_temp.for_retry(pg_temp.krijg('tB'));
+  perform pg_temp.verwacht('19b for_retry met geldig status-token', r, true);
+  if r ->> 'intent_id' <> pg_temp.krijg('iB') or r ->> 'status' <> 'pending' or r ->> 'mode' <> 'test'
+     or r ->> 'kind' <> 'subscription' or r ->> 'catalogue_slug' <> 'groepslessen_2x'
+     or r ->> 'mollie_payment_id' <> 'tr_c2' or r ->> 'mollie_customer_id' <> 'cst_test_tr_c1'
+     or (r ->> 'expired')::boolean or (r ->> 'first_charge_cents')::int <= 0 then
+    raise exception 'FAIL 19b: %', r;
+  end if;
+  if r ? 'email' or r ? 'first_name' or r ? 'phone' or r ? 'login_token' or r ? 'status_token' or r ? 'login_token_hash' then
+    raise exception 'FAIL 19c: for_retry lekt PII of tokens: %', r;
+  end if;
+  raise notice 'PASS 19c for_retry: geen PII, geen tokens';
+  r := pg_temp.for_retry(pg_temp.krijg('tA'));
+  if not (r ->> 'ok')::boolean or not (r ->> 'expired')::boolean then raise exception 'FAIL 19d: verlopen intent %', r; end if;
+  raise notice 'PASS 19d for_retry markeert een verlopen intent';
+  r := pg_temp.for_retry(repeat('0', 64));
+  perform pg_temp.verwacht('19e onbekend token', r, false, 'not_found');
+  r := pg_temp.for_retry(pg_temp.krijg('tG'));
+  perform pg_temp.verwacht('19f token van intent ouder dan 7 dagen: not_found', r, false, 'not_found');
+end $$;
+
 do $$ begin raise notice 'ALLE TESTS GESLAAGD'; end $$;
 
 rollback;
