@@ -5,6 +5,7 @@ import { mollieModeForProfile } from "@/lib/mollie-mode";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { syncAfterLifecycle } from "@/lib/admin/membership-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,9 @@ export async function GET(req: Request) {
         subscription_cancelled: Boolean(m.mollie_subscription_id),
       },
     });
+    // Deur meteen dicht (spec-akiles-access.md); de nachtelijke sync om
+    // 04:30 UTC blijft het vangnet.
+    await syncAfterLifecycle({ profileId: m.profile_id });
     processed++;
   }
 

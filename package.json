@@ -39,7 +39,8 @@
     "test:vrij-trainen": "node --import ./scripts/ts-loader.mjs --test scripts/vrij-trainen/*.test.mts",
     "test:session-overrides": "node --import tsx --import ./scripts/session-overrides/hooks.mjs --test scripts/session-overrides/*.test.mts",
     "test:waitlist": "node --import ./scripts/ts-loader.mjs --test scripts/waitlist/waitlist.test.mts",
-    "test:waitlist-db": "node --import tsx --import ./scripts/waitlist/hooks.mjs --test scripts/waitlist/waitlist.db.test.mts"
+    "test:waitlist-db": "node --import tsx --import ./scripts/waitlist/hooks.mjs --test scripts/waitlist/waitlist.db.test.mts",
+    "test:lifecycle-sync": "node --import ./scripts/lifecycle-sync/hooks.mjs --test scripts/lifecycle-sync/*.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

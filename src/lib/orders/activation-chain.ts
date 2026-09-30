@@ -345,6 +345,17 @@ export async function runActivationChain(
           );
         }
         followTimer.mark("confirmation_mail_retry");
+
+        // Deurtoegang ook op de retry (spec-akiles-access.md): is de sync
+        // in de eerste levering mislukt of overgeslagen, dan pakt de
+        // herhaling hem op. Idempotent en throw-vrij, zelfde guard als
+        // hierboven (pt_order heeft geen membership).
+        if (activation.membership_id) {
+          const accessProfileId =
+            profileId ?? (await profileIdForMembership(supabase, activation.membership_id));
+          if (accessProfileId) await syncMembershipAccess(accessProfileId);
+        }
+        followTimer.mark("akiles_sync_retry");
       }
     } catch (err) {
       console.error("[activation-chain] naloop threw", { source, orderId }, err);
