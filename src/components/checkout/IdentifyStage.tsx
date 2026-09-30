@@ -13,20 +13,19 @@ import {
   validateProfileField,
   type ProfileField,
 } from "@/lib/profile-validation";
+import {
+  CHECKOUT_PROFILE_FIELDS,
+  type CheckoutProfilePrefill,
+} from "@/lib/checkout/profile-complete-core";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;
 
 type Step = "email" | "code" | "details";
 
-const DETAILS_FIELDS: ProfileField[] = [
-  "first_name",
-  "last_name",
-  "phone",
-  "street_address",
-  "postal_code",
-  "city",
-];
+// Dezelfde lijst als profileCompleteForCheckout() server-side hanteert:
+// wat hier verplicht is, is daar verplicht, en andersom.
+const DETAILS_FIELDS: readonly ProfileField[] = CHECKOUT_PROFILE_FIELDS;
 type FieldErrors = Partial<Record<ProfileField, string>>;
 
 function isDetailsField(name: string): name is ProfileField {
@@ -43,14 +42,22 @@ interface Props {
    * eventregister form_start).
    */
   formName?: string;
+  /**
+   * Gezet als de bezoeker al ingelogd is maar zijn profiel niet compleet
+   * is (profileCompleteForCheckout() gaf "incomplete"). Dan slaat de stap
+   * e-mail en code over en toont hij alleen de gegevens, voorgevuld met
+   * wat er al staat; het e-mailadres wordt getoond, niet opnieuw gevraagd.
+   */
+  account?: { email: string; prefill: CheckoutProfilePrefill };
 }
 
 export function IdentifyStage({
   onDone,
   onBack,
   formName = "abonnement_identify",
+  account,
 }: Props) {
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<Step>(account ? "details" : "email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -219,6 +226,7 @@ export function IdentifyStage({
       field: { error: fieldErrors[name], errorId: id },
       input: {
         name,
+        defaultValue: account?.prefill[name] ?? "",
         "aria-invalid": fieldErrors[name] ? (true as const) : undefined,
         "aria-describedby": fieldErrors[name] ? id : undefined,
       },
@@ -233,13 +241,20 @@ export function IdentifyStage({
         </span>
         {/* COPY: confirm met Marlon */}
         <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text mb-3">
-          Wie mogen we verwelkomen?
+          {account ? "Maak je gegevens compleet." : "Wie mogen we verwelkomen?"}
         </h1>
         {/* COPY: confirm met Marlon */}
         <p className="text-text-muted mb-8 max-w-xl">
-          Je naam en adres hebben we nodig voor je facturering en de
-          automatische incasso via Mollie.
+          {account
+            ? "Je bent ingelogd, maar we missen nog een paar gegevens voor je facturering en de automatische incasso via Mollie."
+            : "Je naam en adres hebben we nodig voor je facturering en de automatische incasso via Mollie."}
         </p>
+        {account && (
+          <p className="text-text-muted text-sm mb-6">
+            {/* COPY: confirm met Marlon */}
+            Ingelogd als <span className="text-text">{account.email}</span>
+          </p>
+        )}
 
         <form
           onSubmit={handleDetailsSubmit}

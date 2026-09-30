@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
 import { PRODUCT_SLUGS } from "@/lib/product-groups";
-import { createClient } from "@/lib/supabase/server";
+import {
+  clientCheckoutIdentity,
+  profileCompleteForCheckout,
+} from "@/lib/checkout/profile-complete";
 import { KopenCheckout } from "./KopenCheckout";
 
 export const metadata: Metadata = {
@@ -17,20 +20,18 @@ export const metadata: Metadata = {
  * /abonnement (kies, identificeer, betaal), maar zonder families of
  * frequenties: de vijf slugs uit PRODUCT_SLUGS, prijzen live uit
  * tmc.catalogue, nooit client-side berekend. De identificatiestap is de
- * signup; wie al ingelogd is slaat die over.
+ * signup; wie al ingelogd is met een compleet profiel slaat die over, wie
+ * ingelogd is met een onvolledig profiel ziet alleen de gegevens.
  *
  * Geen eigen revalidate: auth.getUser() maakt deze route sowieso
  * dynamisch, en de catalogus-fetch is los getagd + 1u gecached, zelfde
  * opzet als /abonnement.
  */
 export default async function KopenPage() {
-  const supabase = await createClient();
-  const [
-    {
-      data: { user },
-    },
-    catalogue,
-  ] = await Promise.all([supabase.auth.getUser(), getCatalogue()]);
+  const [identity, catalogue] = await Promise.all([
+    profileCompleteForCheckout(),
+    getCatalogue(),
+  ]);
 
   const products: Record<string, CatalogueRow> = {};
   for (const slug of PRODUCT_SLUGS) {
@@ -40,5 +41,10 @@ export default async function KopenPage() {
     if (row && row.purchasable) products[slug] = row;
   }
 
-  return <KopenCheckout products={products} loggedIn={Boolean(user)} />;
+  return (
+    <KopenCheckout
+      products={products}
+      identity={clientCheckoutIdentity(identity)}
+    />
+  );
 }
