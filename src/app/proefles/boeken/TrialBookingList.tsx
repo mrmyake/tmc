@@ -12,28 +12,28 @@ import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
-export interface TrialSessionOption {
-  id: string;
-  startAt: string;
-  endAt: string;
-  pillarLabel: string;
-  className: string;
-  trainerName: string;
-  /** NULL betekent onbeperkt (alleen kettlebell). */
-  spotsAvailable: number | null;
-  priceCents: number;
-}
+import type { TrialSessionOption } from "@/lib/trial-sessions";
 
 interface Props {
   options: TrialSessionOption[];
+  /**
+   * "paid": drop-in-prijs betalen via Mollie. "code": gratis via een
+   * proefcode uit /proefles/code (geen prijzen, geen Mollie); de code zelf
+   * zit in het httpOnly-cookie en wordt server-side gelezen.
+   */
+  mode: "paid" | "code";
+  /** Code-modus: de code bleek bij het boeken niet (meer) geldig. */
+  onCodeInvalid?: (message: string) => void;
 }
 
-export function TrialBookingList({ options }: Props) {
+export function TrialBookingList({ options: initialOptions, mode, onCodeInvalid }: Props) {
+  const isCode = mode === "code";
+  const [options, setOptions] = useState(initialOptions);
+  const [notice, setNotice] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [formStarted, setFormStarted] = useState(false);
@@ -51,12 +51,26 @@ export function TrialBookingList({ options }: Props) {
       name,
       email,
       phone,
-      code,
+      mode,
       returnTarget: returnTargetForThisClient(),
     });
 
     if (!result.ok) {
       setBusy(false);
+      if (isCode && result.step === "code") {
+        // Het cookie is server-side gewist; terug naar de codestap.
+        onCodeInvalid?.(result.error);
+        return;
+      }
+      if (isCode && result.step === "session") {
+        // De net gekozen sessie is niet (meer) bruikbaar; de code blijft
+        // geldig. Lokaal uit de lijst halen voorkomt dat 'm meteen weer
+        // wordt gekozen zonder nieuwe paginalaad.
+        setOptions((prev) => prev.filter((o) => o.id !== selected.id));
+        setSelectedId(null);
+        setNotice(result.error);
+        return;
+      }
       setError(result.error);
       return;
     }
@@ -73,15 +87,14 @@ export function TrialBookingList({ options }: Props) {
     await openCheckout(result.checkoutUrl);
   }
 
-  const hasCode = code.trim().length > 0;
-
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh]">
       <Container className="max-w-3xl">
         <ScrollReveal>
           <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
             <span aria-hidden className="w-12 h-px bg-accent" />
-            Direct een plek
+            {/* COPY: confirm met Marlon */}
+            {isCode ? "Gratis · Met proefcode" : "Direct een plek"}
             <span aria-hidden className="w-12 h-px bg-accent" />
           </span>
           <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
@@ -89,6 +102,12 @@ export function TrialBookingList({ options }: Props) {
             Kies je sessie
           </h1>
         </ScrollReveal>
+
+        {notice && !selected && (
+          <div className="mb-6 text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-3">
+            {notice}
+          </div>
+        )}
 
         {options.length === 0 && (
           <ScrollReveal delay={0.05}>
@@ -134,9 +153,11 @@ export function TrialBookingList({ options }: Props) {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-text text-sm font-medium tabular-nums">
-                        {formatEuro(Math.round(o.priceCents / 100))}
-                      </p>
+                      {!isCode && (
+                        <p className="text-text text-sm font-medium tabular-nums">
+                          {formatEuro(Math.round(o.priceCents / 100))}
+                        </p>
+                      )}
                       <p className="text-text-muted text-xs">
                         {o.spotsAvailable === null
                           ? // COPY: confirm met Marlon
@@ -173,8 +194,10 @@ export function TrialBookingList({ options }: Props) {
                 {formatTimeRange(
                   new Date(selected.startAt),
                   new Date(selected.endAt),
-                )}{" "}
-                &middot; {formatEuro(Math.round(selected.priceCents / 100))}
+                )}
+                {!isCode && (
+                  <> &middot; {formatEuro(Math.round(selected.priceCents / 100))}</>
+                )}
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -214,23 +237,6 @@ export function TrialBookingList({ options }: Props) {
                     className={fieldInputClasses}
                   />
                 </Field>
-                <Field
-                  // COPY: confirm met Marlon
-                  label="Proefcode (optioneel)"
-                  // COPY: confirm met Marlon
-                  hint="Heb je een proefcode gekregen? Dan is deze les gratis."
-                >
-                  <input
-                    type="text"
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    spellCheck={false}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className={`${fieldInputClasses} font-mono uppercase`}
-                  />
-                </Field>
-
                 {error && (
                   <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-3">
                     {error}
@@ -241,17 +247,17 @@ export function TrialBookingList({ options }: Props) {
                   type="submit"
                   className={`w-full text-center ${busy ? "opacity-50 pointer-events-none" : ""}`}
                 >
-                  {/* COPY: confirm with Marlon */}
+                  {/* COPY: confirm met Marlon */}
                   {busy
                     ? "Bezig..."
-                    : hasCode
-                      ? "Boek met proefcode"
+                    : isCode
+                      ? "Gratis boeken"
                       : `Betaal ${formatEuro(Math.round(selected.priceCents / 100))} en boek`}
                 </Button>
                 <p className="text-text-muted text-xs text-center">
-                  {/* COPY: confirm with Marlon */}
-                  {hasCode
-                    ? "Is je code geldig, dan is de les gratis en staat je plek direct vast."
+                  {/* COPY: confirm met Marlon */}
+                  {isCode
+                    ? "Met je proefcode is de les gratis en staat je plek direct vast."
                     : "Je wordt doorgestuurd naar Mollie om veilig te betalen."}
                 </p>
               </form>

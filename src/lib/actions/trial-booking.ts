@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
@@ -12,7 +11,12 @@ import { sendNotification } from "@/lib/ntfy";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
-import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
+import {
+  clearTrialCodeCookie,
+  clientIp,
+  readTrialCodeCookie,
+} from "@/lib/trial-codes/server";
+import { CODE_INVALID_MESSAGE, CODE_RATE_LIMITED_MESSAGE } from "@/lib/trial-codes/messages";
 import { processPaymentRefund } from "@/lib/refunds/process";
 import {
   isCancelTokenFormat,
@@ -26,7 +30,12 @@ export type StartTrialBookingResult =
   | { ok: true; free: false; checkoutUrl: string }
   /** Gratis via een geldige proefcode: geen Mollie, direct bevestigd. */
   | { ok: true; free: true; redirectUrl: string }
-  | { ok: false; error: string };
+  /**
+   * step: waar de code-modus naartoe terug moet. "code" = de code is niet
+   * (meer) geldig, terug naar de codestap; "session" = de sessie is vol of
+   * niet meer boekbaar, terug naar de sessiekiezer (code blijft geldig).
+   */
+  | { ok: false; error: string; step?: "code" | "session" };
 
 /**
  * Catalogusslug per pillar (geen apart proefles-tarief, besluit
@@ -62,22 +71,18 @@ interface StartTrialBookingInput {
   /** Terugkeerdoel na Mollie (workstream A): "app" of "web"; alleen een enum. */
   returnTarget?: ReturnTarget;
   /**
-   * Optionele proefcode (spec-community-growth.md §1 "Proefcodes"). Leeg:
-   * de betaalde flow, byte-voor-byte ongewijzigd. Gevuld: de server
-   * beslist via tmc.redeem_trial_code of de les gratis is; de prijs wordt
-   * nooit client-side bepaald.
+   * "paid" (standaard): de betaalde flow, negeert een aanwezig codecookie
+   * volledig. "code": de gratis flow van /proefles/code; de code komt
+   * uitsluitend uit het ondertekende httpOnly-cookie (nooit uit de input) en
+   * tmc.redeem_trial_code beslist bij het boeken of de les gratis is. De
+   * prijs en het overslaan van Mollie worden nooit client-side bepaald.
    */
-  code?: string;
+  mode?: "paid" | "code";
 }
 
 // COPY: confirm met Marlon
-const CODE_INVALID_MESSAGE = "Deze proefcode is niet geldig.";
-// COPY: confirm met Marlon
 const CODE_EMAIL_ALREADY_BOOKED_MESSAGE =
   "Dit e-mailadres staat al ingeschreven voor deze les.";
-// COPY: confirm met Marlon
-const CODE_RATE_LIMITED_MESSAGE = "Te veel pogingen. Probeer het later opnieuw.";
-
 // Weigeringen van tmc.redeem_trial_code (jsonb-reason, conventie
 // book_class_session). Bestaat-niet, ingetrokken en op komen alle drie als
 // code_invalid terug: de bezoeker mag niet kunnen afleiden welke codes
@@ -95,9 +100,19 @@ const REDEEM_REASON_MESSAGE: Record<string, string> = {
   session_not_trial_eligible: "Deze discipline is niet beschikbaar als proefles.",
 };
 
-async function clientIp(): Promise<string> {
-  const h = await headers();
-  return (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+/** Terug naar de codestap of de sessiekiezer, per weigering van de RPC. */
+function stepForReason(reason: string | undefined): "code" | "session" | undefined {
+  if (reason === "code_invalid") return "code";
+  if (
+    reason === "capacity_full" ||
+    reason === "session_not_found" ||
+    reason === "session_not_scheduled" ||
+    reason === "session_in_past" ||
+    reason === "session_not_trial_eligible"
+  ) {
+    return "session";
+  }
+  return undefined;
 }
 
 interface RedeemArgs {
@@ -161,14 +176,23 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
   };
 
   if (!result.ok) {
+    const step = stepForReason(result.reason);
+    // Code niet (meer) geldig: cookie weg, de bezoeker begint bij de
+    // codestap. Bij capacity_full en session_* blijft het cookie staan.
+    if (step === "code") await clearTrialCodeCookie();
     return {
       ok: false,
       error:
         REDEEM_REASON_MESSAGE[result.reason ?? ""] ??
         // COPY: confirm met Marlon
         "Boeken lukte niet. Probeer het opnieuw.",
+      step,
     };
   }
+
+  // Geslaagd: het cookie is verbruikt (een volgende boeking vraagt weer
+  // om een codestap).
+  await clearTrialCodeCookie();
 
   // Geslaagd: de teller van dit IP mag weg (zelfde patroon als de kiosk).
   const { error: clearErr } = await admin.from("trial_code_attempts").delete().eq("ip", ip);
@@ -247,6 +271,17 @@ export async function startTrialBooking(
     return { ok: false, error: "Vul alle velden in." };
   }
 
+  // Code-modus: de code komt alleen uit het ondertekende cookie. Zonder
+  // geldig cookie is er geen gratis pad, dan terug naar de codestap.
+  const codeMode = input.mode === "code";
+  let code: string | null = null;
+  if (codeMode) {
+    code = await readTrialCodeCookie();
+    if (!code) {
+      return { ok: false, error: CODE_INVALID_MESSAGE, step: "code" };
+    }
+  }
+
   const admin = createAdminClient();
 
   const { data: session, error: sessionErr } = await admin
@@ -256,13 +291,13 @@ export async function startTrialBooking(
     .maybeSingle();
 
   if (sessionErr || !session) {
-    return { ok: false, error: "Deze sessie bestaat niet (meer)." };
+    return { ok: false, error: "Deze sessie bestaat niet (meer).", step: "session" };
   }
   if (session.status !== "scheduled") {
-    return { ok: false, error: "Deze sessie is niet meer beschikbaar." };
+    return { ok: false, error: "Deze sessie is niet meer beschikbaar.", step: "session" };
   }
   if (new Date(session.start_at) <= new Date()) {
-    return { ok: false, error: "Deze sessie is al voorbij." };
+    return { ok: false, error: "Deze sessie is al voorbij.", step: "session" };
   }
 
   const catalogue = await getCatalogue();
@@ -272,6 +307,7 @@ export async function startTrialBooking(
     return {
       ok: false,
       error: "Deze discipline is niet beschikbaar als proefles.",
+      step: "session",
     };
   }
 
@@ -286,17 +322,17 @@ export async function startTrialBooking(
     availability === null ? 0 : availability.spots_available;
   if (trialSpots !== null && trialSpots <= 0) {
     // COPY: confirm met Marlon
-    return { ok: false, error: "Deze sessie is helaas vol." };
+    return { ok: false, error: "Deze sessie is helaas vol.", step: "session" };
   }
 
   // Publieke route: de deployment bepaalt de modus (mollie-mode.ts).
   const mode = trialBookingMode();
 
-  // Proefcode ingevuld: het gratis pad. Alle checks hierboven (sessie,
-  // discipline, capaciteits-voorcheck) gelden ook hier; de RPC herhaalt ze
-  // onder de rijlocks en beslist als enige of de les gratis is.
-  const code = normalizeTrialCode(input.code ?? "");
-  if (code) {
+  // Code-modus: het gratis pad. Alle checks hierboven (sessie, discipline,
+  // capaciteits-voorcheck) gelden ook hier; de RPC herhaalt ze onder de
+  // rijlocks en beslist als enige of de les gratis is. De betaalde modus
+  // komt hier nooit, ook niet met een codecookie.
+  if (codeMode && code) {
     return redeemTrialCodeBooking({
       code,
       sessionId: session.id,
