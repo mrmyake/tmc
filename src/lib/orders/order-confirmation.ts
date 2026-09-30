@@ -17,7 +17,7 @@ import {
 } from "./order-confirmation-core";
 
 const ORDER_COLUMNS =
-  "id, profile_id, kind, catalogue_slug, first_charge_cents, recurring_cents, signup_fee_cents, signup_fee_waiver, billing_cycle_weeks, vat_amount_cents, pricing_snapshot, profile:profiles!orders_profile_id_fkey(email, first_name)";
+  "id, profile_id, kind, catalogue_slug, first_charge_cents, recurring_cents, signup_fee_cents, signup_fee_waiver, billing_cycle_weeks, vat_amount_cents, pricing_snapshot, profile:profiles!orders_profile_id_fkey(email, first_name, is_test)";
 
 function longDateNl(date: Date): string {
   return new Intl.DateTimeFormat("nl-NL", {
@@ -28,7 +28,18 @@ function longDateNl(date: Date): string {
   }).format(date);
 }
 
-function buildDeps(): SendOnceDeps {
+/** Onderwerp-prefix voor testprofielen, ook op de welkomstmail. */
+export const TEST_SUBJECT_PREFIX = "[TEST] ";
+
+/**
+ * De echte afhankelijkheden van het exact-één-keer-pad. `send` is
+ * vervangbaar zodat de welkomstmail van de gastcheckout
+ * (src/lib/checkout/welcome-email.ts) dezelfde poort, order-lezer en
+ * catalogus gebruikt met alleen een andere mail.
+ */
+export function buildOrderConfirmationDeps(
+  overrides: Partial<Pick<SendOnceDeps, "send">> = {},
+): SendOnceDeps {
   const admin = createAdminClient();
   return {
     hasConfirmationEvent: async (orderId) => {
@@ -78,17 +89,20 @@ function buildDeps(): SendOnceDeps {
       };
     },
     cancellationNoticeDays: () => getCancellationNoticeDays(),
-    send: ({ to, toName, props }) =>
-      sendEmail({
-        to,
-        toName,
-        // COPY: confirm met Marlon
-        subject:
-          props.kind === "subscription"
-            ? "Je abonnement bij The Movement Club is actief"
-            : "Je betaling bij The Movement Club is ontvangen",
-        react: React.createElement(OrderConfirmation, props),
-      }),
+    send:
+      overrides.send ??
+      (({ to, toName, props, isTest }) =>
+        sendEmail({
+          to,
+          toName,
+          // COPY: confirm met Marlon
+          subject:
+            (isTest ? TEST_SUBJECT_PREFIX : "") +
+            (props.kind === "subscription"
+              ? "Je abonnement bij The Movement Club is actief"
+              : "Je betaling bij The Movement Club is ontvangen"),
+          react: React.createElement(OrderConfirmation, props),
+        })),
     emitSent: async (orderId, payload) => {
       await emitEvent({
         type: CONFIRMATION_EVENT_TYPE,
@@ -113,5 +127,5 @@ function buildDeps(): SendOnceDeps {
  * (poort: tmc.events, type order.confirmation_sent). Throwt nooit.
  */
 export function sendOrderConfirmation(orderId: string): Promise<SendOnceResult> {
-  return sendOrderConfirmationOnce(buildDeps(), orderId);
+  return sendOrderConfirmationOnce(buildOrderConfirmationDeps(), orderId);
 }

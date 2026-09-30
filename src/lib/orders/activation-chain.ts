@@ -6,6 +6,7 @@ import { mollieWebhookUrl } from "@/lib/site-url";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendOrderConfirmation } from "@/lib/orders/order-confirmation";
+import type { SendOnceResult } from "@/lib/orders/order-confirmation-core";
 import { sendPurchaseToGa4 } from "@/lib/orders/ga-purchase";
 import { syncMembershipAccess } from "@/lib/access/sync";
 import {
@@ -62,6 +63,13 @@ export interface ActivationInput {
   payment: { id: string; amountCents: number };
   /** Uit de Mollie-metadata (webhook) of uit de order-rij (cron); null als onbekend. */
   profileId: string | null;
+  /**
+   * Testprofiel of testmodus (PR 2 gastcheckout): de ntfy "Nieuw abonnement"
+   * en het GA4-purchase worden overgeslagen, de mail krijgt via de
+   * mailhelper een TEST-prefix. activate_order, events en Akiles lopen
+   * gewoon door (Akiles weigert testprofielen zelf in resolveDesiredAccess).
+   */
+  isTest?: boolean;
 }
 
 export interface ActivationOptions {
@@ -70,6 +78,12 @@ export interface ActivationOptions {
    * De webhook geeft after() mee; een cron laat dit weg.
    */
   defer?: (work: () => Promise<void>) => void;
+  /**
+   * Vervangt de standaard bevestigingsmail (sendOrderConfirmation). De
+   * gastcheckout stuurt hiermee de welkomstmail met inloglink, achter
+   * dezelfde poort order.confirmation_sent, zodat nooit beide mails gaan.
+   */
+  sendConfirmation?: (orderId: string) => Promise<SendOnceResult>;
 }
 
 export type ActivationResult =
@@ -155,6 +169,8 @@ export async function runActivationChain(
   options: ActivationOptions = {},
 ): Promise<ActivationResult> {
   const { supabase, mollie, mode, orderId, payment, profileId } = input;
+  const isTest = Boolean(input.isTest);
+  const sendConfirmation = options.sendConfirmation ?? sendOrderConfirmation;
   const { source } = caller;
   const amountCents = payment.amountCents;
   const timer = stepTimer();
@@ -255,17 +271,20 @@ export async function runActivationChain(
         //
         // pt_order (PT-agenda C1): losse-sessie- of programma-betaling;
         // er hoort geen membership bij, de sessies staan al geboekt.
-        await sendNotification(
-          activation.needs_subscription
-            ? "Nieuw abonnement!"
-            : activation.pt_order
-              ? "PT betaald!"
-              : "Product verkocht!",
-          activation.pt_order
-            ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
-            : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
-          "tada,moneybag"
-        );
+        // Testprofiel: geen verkoopmelding (is_test, PR 2 gastcheckout).
+        if (!isTest) {
+          await sendNotification(
+            activation.needs_subscription
+              ? "Nieuw abonnement!"
+              : activation.pt_order
+                ? "PT betaald!"
+                : "Product verkocht!",
+            activation.pt_order
+              ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
+              : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
+            "tada,moneybag"
+          );
+        }
         followTimer.mark("ntfy_activated");
         await emitEvent({
           type: "order.activated",
@@ -287,7 +306,7 @@ export async function runActivationChain(
         // event geschreven is voor de aanroeper eindigt, maar de helper
         // throwt nooit en een mislukte mail verandert niets aan de
         // activatie of aan de uitkomst; alleen een ntfy zodat iemand het ziet.
-        const confirmation = await sendOrderConfirmation(orderId);
+        const confirmation = await sendConfirmation(orderId);
         if (confirmation.outcome === "failed") {
           await sendNotification(
             "Bevestigingsmail niet verstuurd",
@@ -308,9 +327,12 @@ export async function runActivationChain(
         // eigen dedupe aan toe. Geen await — een GA4-storing mag de
         // betaalverwerking nooit blokkeren. De helper throwt zelf nooit;
         // de .catch is de laatste vangrail.
-        void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
-          console.error("[activation-chain] sendPurchaseToGa4", e),
-        );
+        // Testprofiel: geen purchase naar GA4 (is_test, PR 2 gastcheckout).
+        if (!isTest) {
+          void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
+            console.error("[activation-chain] sendPurchaseToGa4", e),
+          );
+        }
 
         // Deurtoegang (spec-akiles-access.md): zelfde functie als de
         // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet
@@ -330,7 +352,7 @@ export async function runActivationChain(
         // verstuurd, dan doet de helper niets (already_sent); is hij eerder
         // mislukt (bijvoorbeeld een geweigerde MailerSend-key, gezien op
         // 2026-09-08), dan vertrekt hij nu alsnog exact één keer.
-        const retry = await sendOrderConfirmation(orderId);
+        const retry = await sendConfirmation(orderId);
         if (retry.outcome === "sent") {
           await sendNotification(
             "Bevestigingsmail alsnog verstuurd",

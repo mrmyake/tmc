@@ -352,7 +352,9 @@ function profile(
     first_name: "Test",
     last_name: id,
     role,
-    is_test: true,
+    // Een gewoon lid: sinds PR 2 gastcheckout krijgt een is_test-profiel geen
+    // lidmaatschapstoegang meer (resolveDesiredAccess), dus de fixture is live.
+    is_test: false,
     memberships,
   };
 }

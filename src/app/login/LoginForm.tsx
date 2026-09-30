@@ -28,13 +28,20 @@ interface Props {
   initialError?: string;
   /** Waar na succesvol inloggen heen, bijv. terug naar de flow die inloggen vereiste. */
   next?: string;
+  /**
+   * Voorgevuld e-mailadres, alleen vanuit een server component (nooit uit
+   * de URL): /welkom/[token] zet hier het adres van de intent als de
+   * inloglink verlopen is, zodat het lid alleen op "Stuur inlogcode" hoeft
+   * te drukken.
+   */
+  initialEmail?: string;
 }
 
 type Step = "email" | "code";
 
-export function LoginForm({ initialError, next }: Props) {
+export function LoginForm({ initialError, next, initialEmail }: Props) {
   const [step, setStep] = useState<Step>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string>(initialError ?? "");

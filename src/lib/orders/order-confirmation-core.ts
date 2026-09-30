@@ -29,7 +29,12 @@ export interface ConfirmationOrderRow {
   vat_amount_cents: number | null;
   pricing_snapshot: Record<string, unknown> | null;
   /** Ingesloten profiel (orders_profile_id_fkey). */
-  profile: { email: string | null; first_name: string | null } | null;
+  profile: {
+    email: string | null;
+    first_name: string | null;
+    /** profiles.is_test: TEST-prefix op het onderwerp (PR 2 gastcheckout). */
+    is_test?: boolean | null;
+  } | null;
 }
 
 export interface ConfirmationCatalogueRow {
@@ -170,6 +175,8 @@ export interface SendOnceDeps {
     to: string;
     toName: string | undefined;
     props: OrderConfirmationProps;
+    /** Testprofiel: de verzender zet een TEST-prefix op het onderwerp. */
+    isTest: boolean;
   }) => Promise<boolean>;
   /** Schrijft order.confirmation_sent naar tmc.events. */
   emitSent: (orderId: string, payload: Record<string, unknown>) => Promise<void>;
@@ -219,7 +226,7 @@ export async function sendOrderConfirmationOnce(
         reason: order.profile?.email ? "unsupported_kind" : "no_recipient",
       };
     }
-    const ok = await deps.send(built);
+    const ok = await deps.send({ ...built, isTest: Boolean(order.profile?.is_test) });
     if (!ok) return { outcome: "failed" };
     await deps.emitSent(orderId, {
       order_id: orderId,

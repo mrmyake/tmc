@@ -74,3 +74,27 @@ export async function getTrialBookingStatus(trialId: string): Promise<PollOutcom
   if (status === "pending") return "pending";
   return "failed";
 }
+
+const STATUS_TOKEN_RE = /^[0-9a-f]{64}$/;
+
+/**
+ * Gastcheckout (PR 2): status van een intent achter het status-token uit de
+ * Mollie-redirect (?t=). De RPC checkout_intent_status geeft alleen status,
+ * paid, paid_but_failed en e-mail terug; hier reduceren we dat verder tot de
+ * drie poller-uitkomsten. Een converted intent is "done" (de order staat
+ * dan minstens in pending en de webhook draait de keten); "failed" dekt
+ * zowel afgebroken betalingen als betaald-maar-niet-afgerond, de pagina
+ * maakt dat onderscheid zelf op paid_but_failed.
+ */
+export async function getCheckoutIntentStatus(statusToken: string): Promise<PollOutcome> {
+  if (!STATUS_TOKEN_RE.test(statusToken) || !isAdminConfigured()) return "failed";
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("checkout_intent_status", {
+    p_status_token: statusToken,
+  });
+  if (error) return "pending";
+  const status = (data as { status?: string } | null)?.status;
+  if (status === "converted") return "done";
+  if (status === "draft" || status === "pending") return "pending";
+  return "failed";
+}

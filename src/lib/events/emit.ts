@@ -33,6 +33,11 @@ export type EventType =
   // Bevestigingsmail na activatie, exact één keer per order (de poort is
   // het bestaan van dit event; zie src/lib/orders/order-confirmation-core.ts)
   | "order.confirmation_sent"
+  // Gastcheckout vóór account (tmc.checkout_intents, PR 2 van "betalen voor
+  // account"): intent aangemaakt in de server action, geconverteerd in de
+  // Mollie-webhook (auth-user, profiel en order in één stap).
+  | "checkout_intent.created"
+  | "checkout_intent.converted"
   // Membership lifecycle
   | "membership.signup_started"
   | "membership.activated"
@@ -168,6 +173,8 @@ export type SubjectType =
   | "trial_booking"
   | "trial_code"
   | "payment_refund"
+  // Gastcheckout-intent (tmc.checkout_intents.id)
+  | "checkout_intent"
   // Zaalbediening: zalen hebben geen eigen rij/uuid, dus subject_id blijft
   // null bij dit subject_type.
   | "room"
