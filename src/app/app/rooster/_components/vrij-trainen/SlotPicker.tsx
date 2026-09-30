@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   amsterdamParts,
@@ -11,20 +11,19 @@ import { cancelBooking, createBooking } from "@/lib/member/booking-actions";
 import {
   DEFAULT_SLOT_DURATION,
   durationLabel,
-  groupByHour,
   amsterdamClock,
   isStartBookable,
   QUARTER_MS,
-  quarterCells,
-  slotQuarterStarts,
   type QuarterCell,
 } from "@/lib/member/vrij-trainen-slots";
+import { presenceForWeekday, type PresenceWindow } from "@/lib/presence";
 import type { VrijTrainenPickerData } from "@/lib/member/vrij-trainen-query";
 import { SlotDayStrip } from "./SlotDayStrip";
 import { DurationPicker } from "./DurationPicker";
 import { SlotGrid } from "./SlotGrid";
 import { SlotFooter } from "./SlotFooter";
 import { BookedSlotCard } from "./BookedSlotCard";
+import { useSlotSelection } from "./useSlotSelection";
 
 type Message = { tone: "success" | "error"; text: string } | null;
 
@@ -40,7 +39,8 @@ export function SlotPicker({
   presence,
 }: {
   data: VrijTrainenPickerData;
-  presence: { name: string; weekdays: readonly number[]; windows: ReadonlyArray<{ from: string; to: string }> };
+  /** De vensters komen uit tmc.trainer_presence_windows (enige bron). */
+  presence: { name: string; rows: readonly PresenceWindow[] };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -52,39 +52,17 @@ export function SlotPicker({
   const [confirmOverCapFor, setConfirmOverCapFor] = useState<string | null>(null);
   // Direct na boeken toont de kaart "Geboekt" in plaats van "Je traint".
   const [justBookedDate, setJustBookedDate] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-
-  // "Voorbij" loopt mee met de klok.
-  useEffect(() => {
-    const t = setInterval(() => setNowMs(Date.now()), 30_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const cells = useMemo(
-    () => quarterCells(data.quarters, duration, nowMs),
-    [data.quarters, duration, nowMs],
-  );
-  const rows = useMemo(() => groupByHour(cells), [cells]);
-
-  // Past de gekozen start niet meer (tijd verstreken, nieuwe data na een
-  // refresh), dan telt de keuze niet. Een andere duur ruimt hem ook echt op,
-  // in de handler van DurationPicker hieronder.
-  const selected =
-    selection &&
-    selection.date === data.selectedDate &&
-    isStartBookable(data.quarters, selection.start, duration, nowMs)
-      ? selection.start
-      : null;
+  const { nowMs, rows, selected, selectedStartMs, slotQuarterMs } = useSlotSelection({
+    quarters: data.quarters,
+    duration,
+    selectedDate: data.selectedDate,
+    selection,
+  });
   const confirmOverCap = selected !== null && confirmOverCapFor === selected;
-
-  const selectedStartMs = selected ? Date.parse(selected) : null;
-  const slotQuarterMs = useMemo(
-    () => new Set(selected ? slotQuarterStarts(selected, duration) : []),
-    [selected, duration],
-  );
 
   const dayDate = parseIsoDateToAmsterdamMidnight(data.selectedDate)!;
   const weekday = amsterdamParts(dayDate).weekday;
+  const dayPresence = { name: presence.name, ...presenceForWeekday(presence.rows, weekday) };
   const summary = `${formatWeekdayDate(dayDate)} · ${durationLabel(duration)}`;
 
   function onSelect(cell: QuarterCell) {
@@ -242,7 +220,7 @@ export function SlotPicker({
             <SlotGrid
               rows={rows}
               weekday={weekday}
-              presence={presence}
+              presence={dayPresence}
               selectedStartMs={selectedStartMs}
               slotQuarterMs={slotQuarterMs}
               onSelect={onSelect}

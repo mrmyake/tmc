@@ -30,7 +30,7 @@ const KIND_OPTIONS: Array<{ value: TrialCodeKind; label: string }> = [
 
 const MAX_BATCH = 50;
 
-export function CreateCodeDialog() {
+export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -281,7 +281,7 @@ export function CreateCodeDialog() {
 
             {/* COPY: confirm met Marlon */}
             <AdminField label="Geldig voor">
-              <div role="radiogroup" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div role="radiogroup" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {SELECTABLE_TRIAL_CODE_SCOPES.map((s) => (
                   <button
                     key={s}
@@ -301,7 +301,10 @@ export function CreateCodeDialog() {
                       {SCOPE_LABEL[s]}
                     </span>
                     <span className="text-xs leading-snug text-text-muted">
-                      {SCOPE_DESCRIPTION[s]}
+                      {/* De vensters komen uit tmc.trainer_presence_windows, niet hardcoded. */}
+                      {s === "vrij_trainen" && presenceText
+                        ? `${SCOPE_DESCRIPTION[s]}: ${presenceText}`
+                        : SCOPE_DESCRIPTION[s]}
                     </span>
                   </button>
                 ))}

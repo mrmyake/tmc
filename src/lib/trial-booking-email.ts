@@ -1,3 +1,4 @@
+import { bookingTimes } from "@/lib/member/booking-times";
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
@@ -70,8 +71,20 @@ export async function sendTrialBookingConfirmationEmail(trial: {
       ? (trainerRaw[0]?.display_name ?? "coach")
       : (trainerRaw?.display_name ?? "coach");
 
-    const startAt = new Date(session.start_at);
-    const endAt = new Date(session.end_at);
+    // Een proefuur vrij trainen toont het slot (bv. 18:00 tot 19:00), niet de
+    // dagsessie van 07:00 tot 21:00.
+    const { data: slotRow } = await admin
+      .from("trial_bookings")
+      .select("slot_start_at, slot_end_at")
+      .eq("id", trial.id)
+      .maybeSingle();
+    const isSlot = Boolean(slotRow?.slot_start_at);
+    const times = bookingTimes(
+      { slot_start_at: slotRow?.slot_start_at, slot_end_at: slotRow?.slot_end_at },
+      { start_at: session.start_at, end_at: session.end_at },
+    );
+    const startAt = new Date(times.startAt);
+    const endAt = new Date(times.endAt);
     const whenLabel = `${formatWeekdayDate(startAt)} · ${formatTimeRange(startAt, endAt)}`;
 
     const { data: settings } = await admin
@@ -87,11 +100,14 @@ export async function sendTrialBookingConfirmationEmail(trial: {
     await sendEmail({
       to: trial.email,
       toName: firstName,
-      subject: `Je proefles staat vast: ${className} · ${whenLabel}`,
+      // COPY: confirm met Marlon
+      subject: `Je proefles staat vast: ${isSlot ? "Vrij trainen" : className} · ${whenLabel}`,
       react: TrialCodeConfirmation({
         firstName,
-        className,
-        trainerName,
+        // COPY: confirm met Marlon
+        className: isSlot ? "Vrij trainen" : className,
+        // Bij vrij trainen is Marlon er altijd bij (aanwezigheidsvenster).
+        trainerName: isSlot ? "Marlon" : trainerName,
         whenLabel,
         cancelUrl,
         cancellationWindowHours,

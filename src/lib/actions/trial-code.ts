@@ -7,7 +7,6 @@ import { isValidTrialCodeFormat, normalizeTrialCode } from "@/lib/trial-codes/no
 import { clientIp, setTrialCodeCookie } from "@/lib/trial-codes/server";
 import {
   CODE_INVALID_MESSAGE,
-  CODE_NOT_AVAILABLE_MESSAGE,
   CODE_RATE_LIMITED_MESSAGE,
 } from "@/lib/trial-codes/messages";
 
@@ -51,11 +50,6 @@ export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeRes
   if (!scope) {
     return { ok: false, message: CODE_INVALID_MESSAGE };
   }
-  if (scope === "vrij_trainen") {
-    // Bestaat, maar vrij trainen via een code is nog niet te boeken.
-    return { ok: false, message: CODE_NOT_AVAILABLE_MESSAGE };
-  }
-
   if (!(await setTrialCodeCookie(code))) {
     console.error("[checkTrialCode] cookie niet gezet (geen signeersleutel)");
     // COPY: confirm met Marlon

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { ContactContent } from "./ContactContent";
+import { getTrainerPresenceWindows } from "@/lib/trainer-presence";
+
+// De aanwezigheid van Marlon komt uit de database; ISR houdt hem vers.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -13,6 +17,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ContactPage() {
-  return <ContactContent />;
+export default async function ContactPage() {
+  const presence = await getTrainerPresenceWindows();
+  return <ContactContent presence={presence} />;
 }

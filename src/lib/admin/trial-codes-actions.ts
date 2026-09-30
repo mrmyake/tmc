@@ -67,8 +67,7 @@ function resolveMaxUses(
   return { ok: true, maxUses: maxUses as number };
 }
 
-// Vrij trainen bestaat in de database maar is pas na PR 2 inwisselbaar; de
-// action weigert hem, zodat er geen codes ontstaan die nergens werken.
+// Alleen bekende scopes; de RPC valideert ze opnieuw.
 function validScope(scope: unknown): scope is TrialCodeScope {
   return isTrialCodeScope(scope) && SELECTABLE_TRIAL_CODE_SCOPES.includes(scope);
 }

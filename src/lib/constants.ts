@@ -107,18 +107,13 @@ export const OPENING_HOURS_FALLBACK = [
 ] as const;
 
 // Aanwezigheid van Marlon in de studio. Staat los van de openingstijden.
+// Alleen copy; de vensters komen uit de database.
 // COPY: confirm met Marlon
 export const PRESENCE_MARLON = {
   label: "Aanwezigheid Marlon",
   days: "Maandag t/m vrijdag",
-  // Zelfde dagen als getallen (0 = zondag), voor het raster van de slotkiezer
-  // op /app/rooster (weergave Vrij trainen).
-  weekdays: [1, 2, 3, 4, 5],
-  // HH:MM, weergave via formatTime()
-  windows: [
-    { from: "07:00", to: "12:00" },
-    { from: "17:00", to: "21:00" },
-  ],
+  // De tijden zelf staan niet hier: enige bron is tmc.trainer_presence_windows
+  // (src/lib/trainer-presence.ts, src/lib/presence.ts). Hier alleen de copy.
   // COPY: confirm met Marlon
   note: "Lid met vrij trainen? Dan train je altijd tijdens de openingstijden, ook als Marlon er niet is.",
 } as const;

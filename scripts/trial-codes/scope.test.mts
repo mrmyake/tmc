@@ -23,9 +23,9 @@ test("pillarsForScope: vrij trainen heeft geen sessielijst en group nooit vrij t
   assert.ok(!pillarsForScope("group").includes("vrij_trainen"));
 });
 
-test("scopes: vier in de database, vrij trainen niet kiesbaar in PR 1", () => {
+test("scopes: vier in de database en alle vier kiesbaar (vrij trainen sinds PR 2)", () => {
   assert.equal(TRIAL_CODE_SCOPES.length, 4);
-  assert.deepEqual([...SELECTABLE_TRIAL_CODE_SCOPES], ["yoga_mobility", "kettlebell", "group"]);
+  assert.deepEqual([...SELECTABLE_TRIAL_CODE_SCOPES], ["yoga_mobility", "kettlebell", "group", "vrij_trainen"]);
   for (const s of TRIAL_CODE_SCOPES) assert.ok(SCOPE_LABEL[s].length > 0);
 });
 

@@ -46,6 +46,8 @@ export interface TrialCodeRedemptionRow {
   className: string | null;
   /** Aantal gratis proeflessen van dit e-mailadres over alle codes heen. */
   emailFreeCount: number;
+  /** Proefuur vrij trainen: sessionStartAt/EndAt zijn dan het slot, niet de dagsessie. */
+  isSlot: boolean;
   /** Boeking staat op 'paid' en de les is nog niet begonnen: admin mag annuleren. */
   canCancel: boolean;
 }
@@ -241,7 +243,14 @@ type RawSession = {
   class_type: { name: string } | { name: string }[] | null;
 };
 
-type RawBooking = { name: string; email: string; phone: string; status: string };
+type RawBooking = {
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  slot_start_at: string | null;
+  slot_end_at: string | null;
+};
 
 type RawRedemptionRow = {
   id: string;
@@ -274,7 +283,7 @@ export async function getTrialCodeDetail(id: string): Promise<TrialCodeDetail | 
     .select(
       `
         id, trial_booking_id, session_id, email_normalized, redeemed_at, released_at,
-        booking:trial_bookings(name, email, phone, status),
+        booking:trial_bookings(name, email, phone, status, slot_start_at, slot_end_at),
         session:class_sessions(start_at, end_at, class_type:class_types(name))
       `,
     )
@@ -307,7 +316,9 @@ export async function getTrialCodeDetail(id: string): Promise<TrialCodeDetail | 
     const booking = firstOf(r.booking);
     const session = firstOf(r.session);
     const classType = session ? firstOf(session.class_type) : null;
-    const startAt = session?.start_at ?? null;
+    // Een proefuur vrij trainen toont en rekent het slot, niet de dagsessie.
+    const isSlot = Boolean(booking?.slot_start_at);
+    const startAt = booking?.slot_start_at ?? session?.start_at ?? null;
     const bookingStatus = booking?.status ?? "unknown";
     return {
       id: r.id,
@@ -320,8 +331,10 @@ export async function getTrialCodeDetail(id: string): Promise<TrialCodeDetail | 
       releasedAt: r.released_at,
       sessionId: r.session_id,
       sessionStartAt: startAt,
-      sessionEndAt: session?.end_at ?? null,
-      className: classType?.name ?? null,
+      sessionEndAt: booking?.slot_end_at ?? session?.end_at ?? null,
+      // COPY: confirm met Marlon
+      className: isSlot ? "Vrij trainen" : (classType?.name ?? null),
+      isSlot,
       emailFreeCount: emailCounts.get(r.email_normalized) ?? 1,
       canCancel:
         bookingStatus === "paid" &&

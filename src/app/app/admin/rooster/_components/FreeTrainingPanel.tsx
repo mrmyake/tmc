@@ -2,15 +2,24 @@ import { getFreeTrainingAvailability } from "@/lib/scheduling/opening-hours";
 import { getTodayCheckIns } from "@/lib/check-in/actions";
 import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
 import { Chip } from "@/components/ui/Chip";
-import { formatTime } from "@/lib/format-date";
+import { formatTime, formatWeekdayDate, isoDateAmsterdam, todayIsoAmsterdam } from "@/lib/format-date";
+import { getUpcomingTrialHours } from "@/lib/admin/trial-hours";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 
 export async function FreeTrainingPanel() {
   const now = new Date();
-  const [days, checkIns] = await Promise.all([
+  const [days, checkIns, trialHours] = await Promise.all([
     getFreeTrainingAvailability({ from: now, to: now }),
     getTodayCheckIns(),
+    getUpcomingTrialHours(now),
   ]);
+  const todayIso = todayIsoAmsterdam(now);
+  // Gegroepeerd per Amsterdamse dag; vandaag eerst, dan de komende dagen.
+  const trialByDay = new Map<string, typeof trialHours>();
+  for (const t of trialHours) {
+    const key = isoDateAmsterdam(new Date(t.slotStartAt));
+    trialByDay.set(key, [...(trialByDay.get(key) ?? []), t]);
+  }
   const today = days[0];
 
   // Combineer vrije en geblokkeerde segmenten chronologisch voor de tijdlijn.
@@ -115,6 +124,50 @@ export async function FreeTrainingPanel() {
             </ul>
           )}
         </div>
+      </div>
+
+      <div className="mt-12">
+        <span className="tmc-eyebrow block mb-4">
+          {/* COPY: confirm met Marlon */}
+          Proefuren vrij trainen ({trialHours.length})
+        </span>
+        {trialHours.length === 0 ? (
+          <p className="text-text-muted text-sm">
+            {/* COPY: confirm met Marlon */}
+            Geen proefuren geboekt de komende twee weken.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {[...trialByDay.entries()].map(([iso, rows]) => (
+              <div key={iso}>
+                <span className="text-text-muted text-xs uppercase tracking-[0.14em] block mb-2">
+                  {/* COPY: confirm met Marlon */}
+                  {iso === todayIso ? "Vandaag" : formatWeekdayDate(new Date(rows[0].slotStartAt))}
+                </span>
+                <ul className="flex flex-col">
+                  {rows.map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 border-b border-[color:var(--ink-500)]/40"
+                    >
+                      <span className="text-text text-sm tabular-nums">
+                        {formatTime(new Date(t.slotStartAt))} – {formatTime(new Date(t.slotEndAt))}
+                      </span>
+                      <span className="text-text text-sm">{t.name}</span>
+                      <span className="text-text-muted text-xs">{t.phone}</span>
+                      {t.isTest && (
+                        <Chip tone="muted">
+                          {/* COPY: confirm met Marlon */}
+                          Test
+                        </Chip>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

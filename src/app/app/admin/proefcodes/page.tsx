@@ -5,6 +5,8 @@ import {
   type TrialCodeStatusFilter,
 } from "@/lib/admin/trial-codes-query";
 import { isTrialCodeScope } from "@/lib/trial-codes/scope";
+import { getTrainerPresenceWindows } from "@/lib/trainer-presence";
+import { formatPresenceWindows } from "@/lib/presence";
 import { KpiCard } from "../_components/KpiCard";
 import { CreateCodeDialog } from "./_components/CreateCodeDialog";
 import { ProefcodesToolbar } from "./_components/ProefcodesToolbar";
@@ -40,9 +42,10 @@ export default async function AdminProefcodesPage(props: {
   const searchParams = await props.searchParams;
   const parsed = parseSearchParams(searchParams);
 
-  const [kpis, rows] = await Promise.all([
+  const [kpis, rows, presence] = await Promise.all([
     getTrialCodeKpis(),
     listTrialCodes({ status: parsed.status, scope: parsed.scope, q: parsed.q }),
+    getTrainerPresenceWindows(),
   ]);
 
   return (
@@ -64,7 +67,7 @@ export default async function AdminProefcodesPage(props: {
             de code in op /proefles/code.
           </p>
         </div>
-        <CreateCodeDialog />
+        <CreateCodeDialog presenceText={formatPresenceWindows(presence)} />
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-10">

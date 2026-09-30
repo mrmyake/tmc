@@ -11,9 +11,10 @@ import { QuietLink } from "@/components/ui/QuietLink";
 import { SITE, OPENING_HOURS_FALLBACK } from "@/lib/constants";
 import { formatOpeningSchedule } from "@/lib/opening-hours-format";
 import { MarlonPresence } from "@/components/blocks/MarlonPresence";
+import type { PresenceWindow } from "@/lib/presence";
 import { toTelHref } from "@/lib/phone";
 
-export function ContactContent() {
+export function ContactContent({ presence }: { presence: readonly PresenceWindow[] }) {
   return (
     <>
       {/* Header */}
@@ -82,7 +83,7 @@ export function ContactContent() {
                   </div>
                 </div>
 
-                <MarlonPresence />
+                <MarlonPresence windows={presence} />
 
                 <div>
                   <span className="tmc-eyebrow block mb-3">WhatsApp</span>
