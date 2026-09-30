@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
 import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
 import { getCancellationNoticeDays } from "@/lib/cancellation-notice";
-import { createClient } from "@/lib/supabase/server";
+import {
+  clientCheckoutIdentity,
+  profileCompleteForCheckout,
+} from "@/lib/checkout/profile-complete";
 import { AbonnementConfigurator } from "./AbonnementConfigurator";
 import { FAMILIES, FREQUENCIES, planSlug } from "./lib";
 
@@ -23,16 +26,10 @@ interface AbonnementPageProps {
 export default async function AbonnementPage({
   searchParams,
 }: AbonnementPageProps) {
-  const supabase = await createClient();
-  const [
-    {
-      data: { user },
-    },
-    catalogue,
-    campaignWindow,
-    { devEm },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
+  // Ingelogd met een compleet profiel slaat stap 2 over; ingelogd met een
+  // onvolledig profiel ziet stap 2 voorgevuld; anoniem ziet de OTP-stap.
+  const [identity, catalogue, campaignWindow, { devEm }] = await Promise.all([
+    profileCompleteForCheckout(),
     getCatalogue(),
     getCampaignWindow(),
     searchParams,
@@ -75,7 +72,7 @@ export default async function AbonnementPage({
       extendedAccessAddon={extendedAccessAddon}
       signupFee={signupFee}
       emActive={emActive}
-      loggedIn={Boolean(user)}
+      identity={clientCheckoutIdentity(identity)}
       cancellationNoticeDays={cancellationNoticeDays}
     />
   );
