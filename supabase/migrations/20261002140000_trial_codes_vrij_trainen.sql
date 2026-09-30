@@ -711,183 +711,18 @@ revoke all on function tmc.vrij_trainen_visitor_availability(date, date) from pu
 grant execute on function tmc.vrij_trainen_visitor_availability(date, date) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 10. Zelfcontrole binnen een savepoint
+-- 10. Geen data-zelfcontrole in de migratie
 --
--- Speelt de kern na zonder bestaande app-data te eisen: is er geen
--- class_types-, trainers- of profiles-rij (verse shadow-database), dan slaat de
--- controle zichzelf over met een notice (migrations/README.md, regel 6). De
--- testsessies liggen in 2027 (ver voorbij de gegenereerde dagen, vanwege de
--- unieke index class_sessions_vrij_trainen_one_per_day) en rond het einde van
--- de zomertijd op 2027-10-31. Na de laatste assert rolt ROLLBACK TO SAVEPOINT
--- alle testrijen terug, zonder DELETE, zodat de append-only trigger op
--- tmc.events ongemoeid blijft.
+-- De gedragscontroles (aanwezigheid rond de zomertijdwissel, scope, slotregels,
+-- maximum van 5, is_test, betaalde proef, beschikbaarheid) staan in
+-- scripts/test-trial-vrij-trainen-db.sh en de races in
+-- scripts/test-trial-vrij-trainen-race.sh en draaien alleen tegen een lokale
+-- database. Testinserts op productie kunnen via triggers effecten buiten de
+-- transactie hebben; de migratie bevat daarom alleen structurele asserts.
 -- ---------------------------------------------------------------------------
 
-savepoint trial_codes_vt_selftest;
-
-do $$
-declare
-  v_ct uuid;
-  v_tr uuid;
-  v_pr uuid;
-  v_fri uuid;
-  v_mon uuid;
-  v_sat uuid;
-  v_yoga uuid;
-  v_vt uuid;
-  v_grp uuid;
-  v_res jsonb;
-  v_ts timestamptz;
-  i int;
-begin
-  select id into v_ct from tmc.class_types limit 1;
-  select id into v_tr from tmc.trainers limit 1;
-  select id into v_pr from tmc.profiles limit 1;
-  if v_ct is null or v_tr is null or v_pr is null then
-    raise notice 'trial_codes_vrij_trainen: zelfcontrole overgeslagen, geen class_types/trainers/profiles-rij (lege database)';
-    return;
-  end if;
-
-  -- Vrijdag 2027-10-29 (zomertijd, UTC+2), maandag 2027-11-01 (wintertijd,
-  -- UTC+1) en zaterdag 2027-10-30: dagsessies 07:00 tot 21:00 lokaal.
-  insert into tmc.class_sessions (class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status)
-  values (v_ct, v_tr, 'vrij_trainen', 'adult',
-          timestamp '2027-10-29 07:00' at time zone 'Europe/Amsterdam',
-          timestamp '2027-10-29 21:00' at time zone 'Europe/Amsterdam', null, 'scheduled')
-  returning id into v_fri;
-  insert into tmc.class_sessions (class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status)
-  values (v_ct, v_tr, 'vrij_trainen', 'adult',
-          timestamp '2027-11-01 07:00' at time zone 'Europe/Amsterdam',
-          timestamp '2027-11-01 21:00' at time zone 'Europe/Amsterdam', null, 'scheduled')
-  returning id into v_mon;
-  insert into tmc.class_sessions (class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status)
-  values (v_ct, v_tr, 'vrij_trainen', 'adult',
-          timestamp '2027-10-30 08:00' at time zone 'Europe/Amsterdam',
-          timestamp '2027-10-30 14:00' at time zone 'Europe/Amsterdam', null, 'scheduled')
-  returning id into v_sat;
-  insert into tmc.class_sessions (class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status)
-  values (v_ct, v_tr, 'yoga_mobility', 'adult', now() + interval '500 days', now() + interval '500 days 1 hour', null, 'scheduled')
-  returning id into v_yoga;
-
-  insert into tmc.trial_codes (code, label, max_uses, scope, created_by) values
-    ('VTCONTROLE1', 'zelfcontrole vrij trainen', null, 'vrij_trainen', v_pr),
-    ('VTCONTROLE2', 'zelfcontrole group', null, 'group', v_pr);
-
-  -- Presence (DST): laatste starts 11:00 en 20:00, ook na de wisseling.
-  foreach v_grp in array array[v_fri, v_mon] loop
-    v_vt := v_grp;
-    foreach v_ts in array array[
-      (case when v_grp = v_fri then timestamp '2027-10-29 11:00' else timestamp '2027-11-01 11:00' end) at time zone 'Europe/Amsterdam',
-      (case when v_grp = v_fri then timestamp '2027-10-29 20:00' else timestamp '2027-11-01 20:00' end) at time zone 'Europe/Amsterdam'] loop
-      if not tmc.vrij_trainen_trainer_present(v_ts, v_ts + interval '60 minutes') then
-        raise exception 'trial_codes_vrij_trainen: % hoort binnen de aanwezigheid te vallen', v_ts;
-      end if;
-    end loop;
-    foreach v_ts in array array[
-      (case when v_grp = v_fri then timestamp '2027-10-29 11:15' else timestamp '2027-11-01 11:15' end) at time zone 'Europe/Amsterdam',
-      (case when v_grp = v_fri then timestamp '2027-10-29 12:00' else timestamp '2027-11-01 12:00' end) at time zone 'Europe/Amsterdam',
-      (case when v_grp = v_fri then timestamp '2027-10-29 16:45' else timestamp '2027-11-01 16:45' end) at time zone 'Europe/Amsterdam',
-      (case when v_grp = v_fri then timestamp '2027-10-29 20:15' else timestamp '2027-11-01 20:15' end) at time zone 'Europe/Amsterdam'] loop
-      if tmc.vrij_trainen_trainer_present(v_ts, v_ts + interval '60 minutes') then
-        raise exception 'trial_codes_vrij_trainen: % hoort buiten de aanwezigheid te vallen', v_ts;
-      end if;
-    end loop;
-  end loop;
-
-  -- Weekend: nooit aanwezig.
-  v_ts := timestamp '2027-10-30 09:00' at time zone 'Europe/Amsterdam';
-  if tmc.vrij_trainen_trainer_present(v_ts, v_ts + interval '60 minutes') then
-    raise exception 'trial_codes_vrij_trainen: zaterdag hoort nooit aanwezig te zijn';
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_sat, 'Vt Controle', 'vt0@test.invalid', '0600000000', true, v_ts);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'outside_presence' then
-    raise exception 'trial_codes_vrij_trainen: zaterdag hoort outside_presence te geven: %', v_res;
-  end if;
-
-  -- Scope: vrij-trainen-code op een yogales en groepscode op vrij trainen.
-  v_ts := timestamp '2027-10-29 18:00' at time zone 'Europe/Amsterdam';
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_yoga, 'Vt Controle', 'vt1@test.invalid', '0600000000', true);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'scope_mismatch' then
-    raise exception 'trial_codes_vrij_trainen: vrij-trainen-code op yoga hoort scope_mismatch te geven: %', v_res;
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE2', v_fri, 'Vt Controle', 'vt2@test.invalid', '0600000000', true, v_ts);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'slot_not_allowed' then
-    raise exception 'trial_codes_vrij_trainen: groepscode met slot hoort slot_not_allowed te geven: %', v_res;
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE2', v_fri, 'Vt Controle', 'vt2@test.invalid', '0600000000', true);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'scope_mismatch' then
-    raise exception 'trial_codes_vrij_trainen: groepscode op vrij trainen hoort scope_mismatch te geven: %', v_res;
-  end if;
-
-  -- Slot: verplicht, kwartier, binnen presence.
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vt3@test.invalid', '0600000000', true);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'slot_required' then
-    raise exception 'trial_codes_vrij_trainen: zonder slot hoort slot_required te geven: %', v_res;
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vt3@test.invalid', '0600000000', true, v_ts + interval '7 minutes');
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'slot_invalid' then
-    raise exception 'trial_codes_vrij_trainen: niet op een kwartier hoort slot_invalid te geven: %', v_res;
-  end if;
-  -- 11:15 loopt over het einde van het ochtendvenster (12:15), 20:15 voorbij
-  -- het einde van de dagsessie (21:15): beide geweigerd.
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vt3@test.invalid', '0600000000', true,
-    timestamp '2027-10-29 11:15' at time zone 'Europe/Amsterdam');
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'outside_presence' then
-    raise exception 'trial_codes_vrij_trainen: 11:15 hoort outside_presence te geven: %', v_res;
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vt3@test.invalid', '0600000000', true,
-    timestamp '2027-10-29 20:15' at time zone 'Europe/Amsterdam');
-  if (v_res->>'ok')::boolean or v_res->>'reason' not in ('outside_presence', 'slot_outside_session') then
-    raise exception 'trial_codes_vrij_trainen: 20:15 hoort geweigerd te worden: %', v_res;
-  end if;
-
-  -- Maximum van 5: vijf niet-test boekingen, de zesde wordt geweigerd, een
-  -- testboeking telt niet mee en wordt niet geweigerd.
-  for i in 1..5 loop
-    v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vtmax' || i || '@test.invalid', '0600000000', false, v_ts);
-    if not (v_res->>'ok')::boolean then
-      raise exception 'trial_codes_vrij_trainen: boeking % van 5 hoort te slagen: %', i, v_res;
-    end if;
-    if (v_res->>'slot_end_at')::timestamptz <> v_ts + interval '60 minutes' then
-      raise exception 'trial_codes_vrij_trainen: duur hoort exact 60 minuten te zijn';
-    end if;
-  end loop;
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vtmax6@test.invalid', '0600000000', false, v_ts);
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'slot_full' then
-    raise exception 'trial_codes_vrij_trainen: zesde boeking hoort slot_full te geven: %', v_res;
-  end if;
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vttest@test.invalid', '0600000000', true, v_ts);
-  if not (v_res->>'ok')::boolean then
-    raise exception 'trial_codes_vrij_trainen: testboeking hoort niet op het maximum te stuiten: %', v_res;
-  end if;
-  -- Hetzelfde e-mailadres, een ander slot op dezelfde dag: geweigerd.
-  v_res := tmc.redeem_trial_code('VTCONTROLE1', v_fri, 'Vt Controle', 'vtmax1@test.invalid', '0600000000', false,
-    timestamp '2027-10-29 09:00' at time zone 'Europe/Amsterdam');
-  if (v_res->>'ok')::boolean or v_res->>'reason' <> 'email_already_booked' then
-    raise exception 'trial_codes_vrij_trainen: hetzelfde adres hoort email_already_booked te geven: %', v_res;
-  end if;
-  -- De proefbezoeker telt mee in de telling die de ledenbeschikbaarheid gebruikt.
-  if (select p.peak from tmc.vrij_trainen_slot_peak(v_fri, v_ts, v_ts + interval '15 minutes') p) <> 5 then
-    raise exception 'trial_codes_vrij_trainen: vrij_trainen_slot_peak hoort 5 proefbezoekers te tellen';
-  end if;
-
-  -- Een betaalde proefboeking op vrij trainen blijft onmogelijk (trigger).
-  begin
-    insert into tmc.trial_bookings (session_id, name, email, phone, price_paid_cents, status, is_test)
-    values (v_mon, 'Betaald', 'vtbetaald@test.invalid', '0600000000', 1700, 'pending', true);
-    raise exception 'trial_codes_vrij_trainen: betaalde proefboeking op vrij trainen hoort te falen';
-  exception when raise_exception then
-    if sqlerrm <> 'session_not_eligible' then
-      raise;
-    end if;
-  end;
-end $$;
-
-rollback to savepoint trial_codes_vt_selftest;
-release savepoint trial_codes_vt_selftest;
-
 -- ---------------------------------------------------------------------------
--- 11. Grants en definities asserteren (buiten het savepoint)
+-- 11. Grants en definities asserteren
 -- ---------------------------------------------------------------------------
 
 do $$
@@ -970,8 +805,11 @@ begin
   end if;
 
   -- Seed en rechten van de aanwezigheidstabel.
-  if (select count(*) from tmc.trainer_presence_windows where weekday between 1 and 5) < 10 then
-    raise exception 'trial_codes_vrij_trainen: seed van trainer_presence_windows ontbreekt';
+  if (select count(*) from tmc.trainer_presence_windows
+      where weekday between 1 and 5
+        and ((from_time = time '07:00' and to_time = time '12:00')
+          or (from_time = time '17:00' and to_time = time '21:00'))) <> 10 then
+    raise exception 'trial_codes_vrij_trainen: seed van trainer_presence_windows (ma-vr 07:00-12:00 en 17:00-21:00) klopt niet';
   end if;
   if has_table_privilege('anon', 'tmc.trainer_presence_windows', 'select')
      or has_table_privilege('authenticated', 'tmc.trainer_presence_windows', 'select')

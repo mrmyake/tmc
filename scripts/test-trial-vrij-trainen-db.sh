@@ -44,6 +44,11 @@ select v.id::uuid, 'c9000000-0000-4000-8000-000000000001', 'b9000000-0000-4000-8
        (v.d || ' 07:00')::timestamp at time zone 'Europe/Amsterdam', (v.d || ' 21:00')::timestamp at time zone 'Europe/Amsterdam', null, 'scheduled',
        (v.d || ' 07:00')::timestamp at time zone 'Europe/Amsterdam'
 from (values ('d9000000-0000-4000-8000-000000000001', '2026-10-23'), ('d9000000-0000-4000-8000-000000000002', '2026-10-26')) v(id, d);
+-- Zaterdag 24 oktober 2026: dagsessie 08:00 tot 14:00 lokaal (weekend, nooit aanwezig).
+insert into tmc.class_sessions (id, class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status, occurrence_start_at)
+values ('d9000000-0000-4000-8000-000000000005', 'c9000000-0000-4000-8000-000000000001', 'b9000000-0000-4000-8000-000000000001', 'vrij_trainen', 'adult',
+        (timestamp '2026-10-24 08:00') at time zone 'Europe/Amsterdam', (timestamp '2026-10-24 14:00') at time zone 'Europe/Amsterdam', null, 'scheduled',
+        (timestamp '2026-10-24 08:00') at time zone 'Europe/Amsterdam');
 -- Een maandag dichtbij (binnen het boekvenster van leden) voor de mix van leden en proefbezoekers.
 create function pg_temp.nm() returns text language sql as
 $$ select ((current_date + 2) + ((8 - extract(isodow from (current_date + 2))::int) % 7))::text $$;
@@ -112,8 +117,8 @@ select pg_temp.check_('11:15 geeft outside_presence',
   tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000002', 'N', 'a1@test.invalid', '06', true, pg_temp.slot('2026-10-26', '11:15')) ->> 'reason' = 'outside_presence');
 select pg_temp.check_('20:15 wordt geweigerd',
   tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000002', 'N', 'a1@test.invalid', '06', true, pg_temp.slot('2026-10-26', '20:15')) ->> 'reason' in ('outside_presence', 'slot_outside_session'));
-select pg_temp.check_('weekend geeft outside_presence of geen sessie',
-  coalesce(tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000002', 'N', 'a1@test.invalid', '06', true, pg_temp.slot('2026-10-24', '09:00')) ->> 'reason', '') <> '');
+select pg_temp.check_('zaterdag 09:00 geeft outside_presence',
+  tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000005', 'N', 'a1@test.invalid', '06', true, pg_temp.slot('2026-10-24', '09:00')) ->> 'reason' = 'outside_presence');
 select pg_temp.check_('vrij-trainen-code op yogales geeft scope_mismatch',
   tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000003', 'N', 'a2@test.invalid', '06', true) ->> 'reason' = 'scope_mismatch');
 select pg_temp.check_('groepscode op vrij trainen geeft scope_mismatch',
