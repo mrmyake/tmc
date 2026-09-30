@@ -298,6 +298,8 @@
   <div class="gallery-sub">
     <p>Nieuwe volgorde op /abonnement en /kopen: plan kiezen, gegevens, bevestigen, Mollie, en pas na de betaling maken wij het account en sturen een inloglink. Stap 1 (plan kiezen) verandert niet en staat hier niet. Alle bedragen zijn voorbeelden uit de huidige catalogus; op de site komen ze uitsluitend uit tmc.catalogue.</p>
     <p>Ingelogd met compleet profiel: stap 2 wordt overgeslagen. Ingelogd met onvolledig profiel: stap 2 voorgevuld zonder e-mailveld (gebouwd in PR #251, niet opnieuw getekend).</p>
+    <p><b style="color:var(--stone-300);font-weight:500">Twee tokens, beide alleen gehasht opgeslagen.</b> Het <b style="color:var(--stone-300);font-weight:500">status-token</b> (<code>?t=</code>) staat in de Mollie-redirect-URL en dus in de browsergeschiedenis; de bedankpagina leest ermee alleen status en e-mailadres en het levert nooit een sessie op. Het <b style="color:var(--stone-300);font-weight:500">inlogtoken</b> (<code>/welkom/&lt;token&gt;</code>) staat alleen in de welkomstmail, is 7 dagen geldig, eenmalig, gebonden aan intent en e-mailadres, en wordt pas verbruikt door de POST van de knop "Inloggen" (schermen 8 en 9). Een GET verbruikt nooit iets, zodat mailscanners de link niet opmaken.</p>
+    <p><b style="color:var(--stone-300);font-weight:500">Voorbeeldbedrag.</b> Overal dezelfde live catalogusrij <code>groepslessen_2x</code> ("Groepslessen 2×/wk", <code>price_cents</code> 7900, <code>vat_rate_bp</code> 900, <code>billing_cycle_weeks</code> 4) in de Early Member-variant via <code>_compute_order_price('groepslessen_2x', false, false, true)</code> op 2026-09-30: eerste afschrijving € 79,00 waarvan € 6,52 btw (9%), inschrijfkosten € 0 (waiver <code>early_member</code>, rij <code>signup_fee</code>), commitment 0 maanden, opzegtermijn 28 dagen uit <code>booking_settings</code>. Betaaldatum in het voorbeeld 1 oktober 2026, eerstvolgende incasso 28 dagen later: 29 oktober 2026.</p>
   </div>
   <div class="legend">
     <span><span style="display:inline-block;width:10px;height:10px;background:var(--warning);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Nieuwe of gewijzigde tekst, te bevestigen met Marlon</span>
@@ -402,14 +404,14 @@
           <div class="field"><label>Postcode</label><div class="input">1231 MX</div></div>
           <div class="field"><label>Plaats</label><div class="input">Loosdrecht</div></div>
         </div>
-        <div class="alert">Dit telefoonnummer hoort al bij een account. Log in met dat account of gebruik een ander nummer.</div>
+        <div class="alert copy block">Controleer je telefoonnummer.</div>
         <div class="actions">
           <span class="btn ghost">Terug</span>
           <span class="btn">Ga verder naar bevestigen</span>
         </div>
       </div>
     </div>
-    <p class="note">Ongewijzigde melding uit src/lib/profile-validation.ts. De telefooncheck draait pas nadat de e-mailcheck "nieuw adres" gaf (besluit 3). "Log in met dat account" verwijst naar /login; de bezoeker kan ook een ander nummer invullen.</p>
+    <p class="note">De volledige melding onder het veld is ongewijzigd uit src/lib/profile-validation.ts; de alert onderaan is een korte verwijzing daarnaar (nieuw). De telefooncheck draait pas nadat de e-mailcheck "nieuw adres" gaf (besluit 3). "Log in met dat account" verwijst naar /login; de bezoeker kan ook een ander nummer invullen.</p>
   </section>
 
   <!-- ================================================================ -->
@@ -424,7 +426,7 @@
 
         <div class="panel">
           <div class="k">Jouw plan</div>
-          <div class="row"><span class="big">Groepslessen 2x</span><span class="big">€ 89<small>/4wk</small></span></div>
+          <div class="row"><span class="big">Groepslessen 2×/wk</span><span class="big">€ 79<small>/4wk</small></span></div>
           <div class="meta">Geen inschrijfkosten</div>
           <div class="meta">Geen commitment, per 4 weken opzegbaar</div>
         </div>
@@ -441,12 +443,12 @@
         </div>
       </div>
     </div>
-    <p class="note">Het plan-blok is het bestaande blok uit PayStage. Nieuw is het tweede blok met het e-mailadres in de display-letter, zodat een typefout opvalt voordat er geld overgaat. "Pas je gegevens aan" gaat terug naar stap 02 met alles voorgevuld. Op /kopen hetzelfde blok onder de productkaart; daar luidt de intro zoals nu ("eenmalige betaling, geen machtiging").</p>
+    <p class="note">Het plan-blok is het bestaande blok uit PayStage, met de live rij <code>groepslessen_2x</code> in de Early Member-variant (zie boven). Nieuw is het tweede blok met het e-mailadres in de display-letter, zodat een typefout opvalt voordat er geld overgaat. "Pas je gegevens aan" gaat terug naar stap 02 met alles voorgevuld. Op /kopen hetzelfde blok onder de productkaart; daar luidt de intro zoals nu ("eenmalige betaling, geen machtiging").</p>
   </section>
 
   <!-- ================================================================ -->
   <section>
-    <div class="card-label">5 · Bedankpagina, publiek: betaling verwerkt <small>/abonnement/bedankt?t=&lt;token&gt;</small></div>
+    <div class="card-label">5 · Bedankpagina, publiek: betaling verwerkt <small>/abonnement/bedankt?t=&lt;status-token&gt;</small></div>
     <div class="frame">
       <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
       <div class="page">
@@ -468,12 +470,12 @@
         <span class="btn outline copy">Naar de homepage</span>
       </div>
     </div>
-    <p class="note">Publieke pagina, geen sessie nodig; leest de status van de intent via het token in de URL (zelfde poller-patroon als StatusPoller, elke 3 seconden, 90 seconden). Voor /kopen dezelfde pagina onder /kopen/bedankt met "je rittenkaart staat klaar in je account". Ingelogde leden houden de bestaande /app/abonnement/bedankt.</p>
+    <p class="note">Publieke pagina, geen sessie nodig. <b>Status-token</b> in <code>?t=</code>: komt uit de Mollie-redirect-URL, staat in de browsergeschiedenis, en geeft uitsluitend status en e-mailadres van de intent terug (zelfde poller-patroon als StatusPoller, elke 3 seconden, 90 seconden). Het levert nooit een sessie op en is een ander token dan het inlogtoken in de mail. Beide worden alleen gehasht opgeslagen. Voor /kopen dezelfde pagina onder /kopen/bedankt met "je rittenkaart staat klaar in je account". Ingelogde leden houden de bestaande /app/abonnement/bedankt.</p>
   </section>
 
   <!-- ================================================================ -->
   <section>
-    <div class="card-label">6 · Bedankpagina: nog bezig, en mislukt <small>twee tussenstanden van hetzelfde scherm</small></div>
+    <div class="card-label">6 · Bedankpagina: nog bezig, en betaling afgebroken of geweigerd <small>twee tussenstanden van hetzelfde scherm</small></div>
     <div class="frame">
       <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
       <div class="page">
@@ -491,21 +493,62 @@
     <div class="frame" style="margin-top:20px">
       <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
       <div class="page">
-        <span class="eyebrow copy">Betaling niet gelukt</span>
+        <span class="eyebrow copy">Betaling afgebroken of geweigerd</span>
         <h1 class="display copy">Er is niets afgeschreven.</h1>
-        <p class="lead copy block">De betaling is afgebroken of geweigerd. Er is geen account aangemaakt. Je kunt het opnieuw proberen; je gegevens staan nog klaar.</p>
+        <p class="lead copy block">Je hebt de betaling afgebroken, of je bank heeft hem geweigerd. Er is geen account aangemaakt. Je kunt het opnieuw proberen; je gegevens staan nog klaar.</p>
         <div class="actions">
           <span class="btn copy">Opnieuw proberen</span>
           <span class="btn ghost copy">Terug naar het aanbod</span>
         </div>
       </div>
     </div>
-    <p class="note">"Opnieuw proberen" maakt een nieuwe Mollie-betaling op dezelfde intent (zelfde patroon als /betaal/[token]: hergebruik van een open betaling, anders een nieuwe met een deterministische idempotency key). Na 90 seconden zonder uitslag toont de pagina de tekst van scherm 5 zonder de vinkjes, met "Nog geen mail? Het kan een paar minuten duren", plus de contactoptie.</p>
+    <p class="note">De onderste toestand geldt <b>uitsluitend</b> als Mollie de betaling meldt als <code>canceled</code>, <code>failed</code> of <code>expired</code>: dan is er echt niets afgeschreven. Is de betaling wel binnen maar loopt het daarna vast, dan komt scherm 7 en nooit deze tekst. "Opnieuw proberen" maakt een nieuwe Mollie-betaling op dezelfde intent (zelfde patroon als /betaal/[token]: hergebruik van een open betaling, anders een nieuwe met een deterministische idempotency key). Na 90 seconden zonder uitslag toont de pagina de tekst van scherm 5 zonder de vinkjes, met "Nog geen mail? Het kan een paar minuten duren", plus de contactoptie.</p>
   </section>
 
   <!-- ================================================================ -->
   <section>
-    <div class="card-label">7 · Inloglink verlopen of al gebruikt <small>/welkom/&lt;token&gt;</small></div>
+    <div class="card-label">7 · Bedankpagina: betaald, maar aanmelding niet afgerond <small>status failed na paid</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/abonnement/bedankt?t=…</span></div>
+      <div class="page">
+        <span class="eyebrow copy">Je betaling is binnen</span>
+        <h1 class="display copy">We ronden je aanmelding persoonlijk af.</h1>
+        <p class="lead copy block">Je betaling van € 79,00 is ontvangen, maar het aanmaken van je account is bij ons niet automatisch gelukt. Dat lossen we voor je op: we nemen vandaag contact met je op via <b style="color:var(--stone-100);font-weight:500">marlon@voorbeeld.nl</b>.</p>
+
+        <ul class="checklist copy block">
+          <li class="done"><i>✓</i><span>Betaling ontvangen</span></li>
+          <li><i>!</i><span>Account aanmaken: dit doen we handmatig voor je</span></li>
+          <li><i></i><span>Inloglink volgt per mail</span></li>
+        </ul>
+
+        <div class="info copy block">
+          <div class="k">Liever zelf even bellen of appen?</div>
+          <p>Mail naar <b>info@themovementclub.nl</b> of stuur een WhatsApp. Je hoeft niets opnieuw te betalen.</p>
+        </div>
+      </div>
+    </div>
+    <p class="note">Vierde toestand van dezelfde pagina: Mollie meldt <code>paid</code>, maar de conversie (auth-user, profiel, order) is mislukt en de intent staat op <code>failed</code> na <code>paid</code>. Nooit "Er is niets afgeschreven" hier. Deze overgang triggert een staf-alert via het bestaande ntfy-patroon (<code>registerFailure</code>, zelfde als bij <code>webhook.failed</code>), zonder PII: alleen intent-id en foutcode. De webhook blijft daarna idempotent opnieuw te draaien zodra de oorzaak weg is; lukt de conversie alsnog, dan springt de pagina naar scherm 5.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">8 · Inloglink geldig: welkom en één knop <small>/welkom/&lt;inlogtoken&gt;, GET</small></div>
+    <div class="frame">
+      <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/welkom/…</span></div>
+      <div class="page" style="max-width:520px;margin:0 auto">
+        <span class="eyebrow copy">Welkom bij The Movement Club</span>
+        <h1 class="display copy">Hé Marlon, je account staat klaar.</h1>
+        <p class="lead copy block">Druk op de knop om in te loggen. Je komt dan direct in je ledenomgeving, waar je rooster, boekingen en abonnement staan.</p>
+        <span class="btn copy" style="width:100%">Inloggen</span>
+        <p class="small copy block" style="margin-top:20px">Ingelogd als marlon@voorbeeld.nl. Niet jouw adres? <a href="#">Neem contact op</a>.</p>
+      </div>
+    </div>
+    <p class="note">De GET van de link toont alleen dit scherm en verbruikt niets; zo overleeft het inlogtoken de GET van mailscanners (Outlook Safe Links en dergelijke). Pas de <b>POST</b> van "Inloggen" verbruikt het token (eenmalig, gebonden aan intent en e-mailadres, alleen gehasht opgeslagen), genereert server-side een verse Supabase-magiclink, verifieert die meteen en zet de sessie; daarna redirect naar /app. Geen e-mailveld: het adres komt uit de intent.</p>
+  </section>
+
+  <!-- ================================================================ -->
+  <section>
+    <div class="card-label">9 · Inloglink verlopen of al gebruikt <small>/welkom/&lt;inlogtoken&gt;</small></div>
     <div class="frame">
       <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">themovementclub.nl/welkom/…</span></div>
       <div class="page" style="max-width:520px;margin:0 auto">
@@ -521,12 +564,12 @@
         <p class="small" style="margin-top:20px">Je account en je abonnement zijn er gewoon; alleen de link is op. Lukt het niet? <a href="#">Neem contact op</a>.</p>
       </div>
     </div>
-    <p class="note">Bij een geldige link: server-side een verse Supabase-magiclink genereren en direct verifiëren, sessie zetten, door naar /app (geen scherm). Bij verlopen of gebruikt: dit scherm, met het e-mailadres van de intent voorgevuld als het token nog herkend wordt, anders leeg. Het formulier is het bestaande OTP-loginformulier (shouldCreateUser false). Zelfde stijl als /login, maar met een eigen kop in plaats van de generieke foutbalk.</p>
+    <p class="note">Dit scherm komt als het inlogtoken verlopen is (ouder dan 7 dagen), al verbruikt is door een eerdere POST op scherm 8, of niet herkend wordt. Het e-mailadres staat voorgevuld als het token nog herkend wordt, anders leeg. Het formulier is het bestaande OTP-loginformulier (shouldCreateUser false). Zelfde stijl als /login, maar met een eigen kop in plaats van de generieke foutbalk. Een GET op een geldig token komt hier nooit terecht (zie scherm 8).</p>
   </section>
 
   <!-- ================================================================ -->
   <section>
-    <div class="card-label">8 · Welkomstmail, abonnement <small>vervangt order_confirmation voor nieuwe accounts</small></div>
+    <div class="card-label">10 · Welkomstmail, abonnement <small>vervangt order_confirmation voor nieuwe accounts</small></div>
     <div class="mail">
       <div class="mail-meta">
         <div>Van: <b>The Movement Club</b> &lt;no-reply@…&gt;</div>
@@ -539,19 +582,19 @@
 
         <div class="mail-eyebrow copy" style="display:inline-block">Welkom</div>
         <h1 class="copy">Hé Marlon, je bent lid.</h1>
-        <p class="copy block">Je betaling is binnen en je abonnement Groepslessen 2x is actief. We hebben een account voor je aangemaakt op dit e-mailadres. Log in met de knop hieronder; daarna zie je je rooster, boekingen en abonnement.</p>
+        <p class="copy block">Je betaling is binnen en je abonnement Groepslessen 2×/wk is actief. We hebben een account voor je aangemaakt op dit e-mailadres. Log in met de knop hieronder; daarna zie je je rooster, boekingen en abonnement.</p>
 
         <div class="linkbox copy block">
           <div class="k">Je inloglink</div>
           <a class="cta" href="#">Log in en boek je eerste les</a>
-          <p class="muted" style="margin:16px 0 0">Deze link is 7 dagen geldig en werkt één keer. Daarna log je in op themovementclub.nl/login met dit e-mailadres; je krijgt dan een inlogcode per mail.</p>
+          <p class="muted" style="margin:16px 0 0">Deze link is 7 dagen geldig. Op de pagina die opent druk je op Inloggen; daarna is de link gebruikt en log je voortaan in op themovementclub.nl/login met dit e-mailadres, met een inlogcode per mail.</p>
         </div>
 
         <hr>
         <div class="rl">Terugkerend bedrag</div>
-        <div class="rv">€ 89,00 per 4 weken (waarvan € 7,35 btw)</div>
+        <div class="rv">€ 79,00 per 4 weken (waarvan € 6,52 btw)</div>
         <div class="rl">Eerstvolgende incasso</div>
-        <div class="rv">28 oktober 2026</div>
+        <div class="rv">29 oktober 2026</div>
         <div class="rl">Inschrijfkosten</div>
         <div class="rv">Niet in rekening gebracht (Early Member)</div>
         <div class="rl">Opzegtermijn</div>
@@ -559,9 +602,9 @@
         <p class="muted">De incasso loopt automatisch via Mollie op de machtiging die je bij deze betaling hebt gegeven. Opzeggen of pauzeren regel je in je account.</p>
         <hr>
         <div class="rl">Betaald</div>
-        <div class="rv">€ 89,00 (waarvan € 7,35 btw, 9%)</div>
+        <div class="rv">€ 79,00 (waarvan € 6,52 btw, 9%)</div>
         <div class="rl">Product</div>
-        <div class="rv">Groepslessen 2x</div>
+        <div class="rv">Groepslessen 2×/wk</div>
         <p class="muted" style="margin-top:28px">Dit is een bevestiging van je betaling, geen factuur.</p>
 
         <div class="foot">
@@ -572,7 +615,7 @@
     </div>
     <div class="variants">
       <div class="variant"><b>Productvariant (/kopen):</b> zelfde kop en linkblok; onder de streep de bestaande producttekst ("Je 10-rittenkaart staat klaar in je account (10 ritten, 6 maanden geldig)." en "Dit was een eenmalige betaling. Er loopt geen doorlopende incasso en er is geen machtiging afgegeven."). Knoptekst dan: "Log in en bekijk je tegoed".</div>
-      <div class="variant"><b>Wat blijft:</b> chrome, tokens, regels en de btw-regels komen woordelijk uit src/emails/_layout.tsx en order_confirmation.tsx. Alleen kop, intro, onderwerp en het linkblok zijn nieuw; de knop "Naar je account" van de bestaande mail wordt hier de inloglink. Eenmalig verzonden via het event-patroon van order.confirmation_sent (besluit 2). Ingelogde leden houden de bestaande mail.</div>
+      <div class="variant"><b>Wat blijft:</b> chrome, tokens, regels en de btw-regels komen woordelijk uit src/emails/_layout.tsx en order_confirmation.tsx; de bedragen zijn de live rij <code>groepslessen_2x</code> Early Member (zie boven). De link in de knop draagt het inlogtoken, niet het status-token van de bedankpagina. Alleen kop, intro, onderwerp en het linkblok zijn nieuw; de knop "Naar je account" van de bestaande mail wordt hier de inloglink. Eenmalig verzonden via het event-patroon van order.confirmation_sent (besluit 2). Ingelogde leden houden de bestaande mail.</div>
     </div>
   </section>
 </div>
