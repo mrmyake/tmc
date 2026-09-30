@@ -1,8 +1,10 @@
 import {
   getTrialCodeKpis,
   listTrialCodes,
+  type TrialCodeScopeFilter,
   type TrialCodeStatusFilter,
 } from "@/lib/admin/trial-codes-query";
+import { isTrialCodeScope } from "@/lib/trial-codes/scope";
 import { KpiCard } from "../_components/KpiCard";
 import { CreateCodeDialog } from "./_components/CreateCodeDialog";
 import { ProefcodesToolbar } from "./_components/ProefcodesToolbar";
@@ -26,8 +28,10 @@ function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
   const status = (VALID_STATUSES as string[]).includes(statusRaw)
     ? (statusRaw as TrialCodeStatusFilter)
     : "active";
+  const scopeRaw = get("scope");
+  const scope: TrialCodeScopeFilter = isTrialCodeScope(scopeRaw) ? scopeRaw : "all";
   const q = get("q")?.trim() ?? "";
-  return { status, q };
+  return { status, scope, q };
 }
 
 export default async function AdminProefcodesPage(props: {
@@ -38,7 +42,7 @@ export default async function AdminProefcodesPage(props: {
 
   const [kpis, rows] = await Promise.all([
     getTrialCodeKpis(),
-    listTrialCodes({ status: parsed.status, q: parsed.q }),
+    listTrialCodes({ status: parsed.status, scope: parsed.scope, q: parsed.q }),
   ]);
 
   return (
@@ -56,8 +60,8 @@ export default async function AdminProefcodesPage(props: {
           <p className="text-text-muted text-sm mt-4 max-w-xl">
             {/* COPY: confirm met Marlon */}
             Een code maakt een proefles gratis en blijft geldig tot je hem
-            intrekt. Bezoekers vullen de code in bij het boeken op
-            /proefles/boeken.
+            intrekt. Per code bepaal je waarvoor hij geldt. Bezoekers vullen
+            de code in op /proefles/code.
           </p>
         </div>
         <CreateCodeDialog />
@@ -75,7 +79,7 @@ export default async function AdminProefcodesPage(props: {
         />
       </div>
 
-      <ProefcodesToolbar status={parsed.status} q={parsed.q} />
+      <ProefcodesToolbar status={parsed.status} scope={parsed.scope} q={parsed.q} />
 
       <ProefcodesTable rows={rows} />
     </div>

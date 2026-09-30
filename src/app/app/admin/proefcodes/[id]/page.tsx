@@ -4,7 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { getTrialCodeDetail } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear } from "@/lib/format-date";
 import { RevokeCodeButton } from "../_components/RevokeCodeButton";
-import { StatusChip, kindLabel, usageLabel } from "../_components/status";
+import { ScopeChip, StatusChip, batchLabel, kindLabel, usageLabel } from "../_components/status";
 import { RedemptionsTable } from "./_components/RedemptionsTable";
 
 export const metadata = {
@@ -48,7 +48,14 @@ export default async function TrialCodeDetailPage(props: {
           <p className="text-text text-lg">{detail.label}</p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-muted">
             <StatusChip status={detail.status} />
+            <ScopeChip scope={detail.scope} />
             <span>{kindLabel(detail.maxUses)}</span>
+            {batchLabel(detail.batchSize) && (
+              <>
+                <span>·</span>
+                <span>{batchLabel(detail.batchSize)}</span>
+              </>
+            )}
             <span>·</span>
             {/* COPY: confirm met Marlon */}
             <span>Gebruikt {usageLabel(detail)}</span>

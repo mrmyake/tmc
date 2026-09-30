@@ -6,3 +6,6 @@
 export const CODE_INVALID_MESSAGE = "Deze proefcode is niet geldig.";
 // COPY: confirm met Marlon
 export const CODE_RATE_LIMITED_MESSAGE = "Te veel pogingen. Probeer het later opnieuw.";
+// COPY: confirm met Marlon
+export const CODE_NOT_AVAILABLE_MESSAGE =
+  "Deze code is nog niet te gebruiken via de website. Neem contact met ons op.";

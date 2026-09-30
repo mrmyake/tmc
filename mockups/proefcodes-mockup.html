@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proefcodes mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /*
+    Mockup proefcodes: scope + batch (admin) en de codeflow voor bezoekers.
+    Schermen: 1. Admin codes genereren  2. Admin batch gegenereerd
+              3. Bezoeker code Vrij trainen (vast 1 uur, alleen als Marlon er is)
+              4. Bezoeker code Yoga & mobility (gefilterde lessen)
+    De balk onderaan is alleen voor de mockup.
+  */
+  :root {
+    --warm-black: #0E0C0B;
+    --surface: #171412;
+    --surface-lift: #1F1B18;
+    --stone: #F4EFE6;
+    --stone-muted: rgba(244, 239, 230, 0.56);
+    --stone-faint: rgba(244, 239, 230, 0.16);
+    --champagne: #B9986A;
+    --card-radius: 8px;
+    --button-radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--warm-black); color: var(--stone); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding-bottom: 72px; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+  svg { display: block; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .serif { font-family: Fraunces, Georgia, serif; }
+  .muted { color: var(--stone-muted); }
+  .eyebrow { font-size: 13px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--champagne); }
+
+  /* ---------- Admin shell ---------- */
+  .admin { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .side { border-right: 1px solid var(--stone-faint); padding: 28px 20px; }
+  .side .wm { font-family: Fraunces, Georgia, serif; font-size: 20px; margin-bottom: 32px; }
+  .side .wm span { color: var(--champagne); }
+  .side a { display: block; padding: 10px 12px; border-radius: var(--button-radius); color: var(--stone-muted); text-decoration: none; font-size: 15px; }
+  .side a.on { background: var(--surface); color: var(--stone); }
+  .main { padding: 36px 44px 56px; max-width: 1180px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; }
+  .page-head h1 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 40px; }
+
+  .card { background: var(--surface); border-radius: var(--card-radius); padding: 28px; }
+  .card + .card { margin-top: 24px; }
+  .card h2 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 26px; margin-bottom: 4px; }
+  .card .sub { font-size: 15px; color: var(--stone-muted); margin-bottom: 24px; }
+
+  .form-grid { display: grid; grid-template-columns: 180px 1fr; gap: 20px; margin-bottom: 22px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label, .lbl { font-size: 14px; font-weight: 500; color: var(--stone-muted); }
+  .input {
+    height: 48px; padding: 0 14px; background: var(--warm-black); color: var(--stone);
+    border: 1px solid var(--stone-faint); border-radius: var(--button-radius); font: inherit; font-size: 16px; outline: none; width: 100%;
+  }
+  .input::placeholder { color: rgba(244,239,230,0.3); }
+  .stepper { display: grid; grid-template-columns: 44px 1fr 44px; height: 48px; border: 1px solid var(--stone-faint); border-radius: var(--button-radius); overflow: hidden; }
+  .stepper button { background: var(--surface-lift); font-size: 20px; }
+  .stepper input { background: var(--warm-black); border: none; color: var(--stone); text-align: center; font: inherit; font-size: 18px; font-variant-numeric: tabular-nums; outline: none; width: 100%; }
+
+  .block { margin-bottom: 22px; }
+  .block .lbl { display: block; margin-bottom: 10px; }
+
+  .seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--warm-black); border: 1px solid var(--stone-faint); border-radius: var(--button-radius); }
+  .seg button { height: 40px; padding: 0 18px; border-radius: 3px; font-size: 15px; color: var(--stone-muted); }
+  .seg button.on { background: var(--surface-lift); color: var(--stone); box-shadow: inset 0 0 0 1px var(--champagne); }
+  .times { display: none; align-items: center; gap: 10px; margin-left: 14px; font-size: 15px; color: var(--stone-muted); }
+  .times.show { display: inline-flex; }
+  .times input { width: 72px; text-align: center; }
+
+  .scopes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .scope {
+    text-align: left; padding: 16px 16px 14px; background: var(--warm-black); border: 1px solid var(--stone-faint);
+    border-radius: var(--card-radius); display: flex; flex-direction: column; gap: 6px; min-height: 104px;
+  }
+  .scope .sn { font-size: 16px; font-weight: 500; }
+  .scope .sd { font-size: 13px; line-height: 1.4; color: var(--stone-muted); }
+  .scope.on { border-color: var(--champagne); background: var(--surface-lift); }
+  .scope.on .sn { color: var(--champagne); }
+
+  .actions { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
+  .btn-pri { height: 52px; padding: 0 28px; border-radius: var(--button-radius); background: var(--champagne); color: var(--warm-black); font-weight: 600; font-size: 16px; }
+  .btn-sec { height: 52px; padding: 0 22px; border-radius: var(--button-radius); border: 1px solid var(--stone-faint); font-weight: 500; font-size: 15px; display: inline-flex; align-items: center; gap: 10px; }
+  .btn-sec svg { width: 18px; height: 18px; }
+  .link { font-size: 15px; color: var(--stone-muted); text-decoration: underline; text-underline-offset: 3px; }
+
+  .own-code { display: none; }
+  .own-mode .own-code { display: flex; }
+  .own-mode .amount-field { display: none; }
+
+  /* Overzicht */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--stone-faint); font-size: 14px; color: var(--stone-muted); }
+  .chip.on { border-color: var(--champagne); color: var(--champagne); }
+  .fsep { width: 1px; background: var(--stone-faint); margin: 4px 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-weight: 500; font-size: 13px; color: var(--stone-muted); padding: 10px 12px; border-bottom: 1px solid var(--stone-faint); }
+  td { padding: 14px 12px; border-bottom: 1px solid var(--stone-faint); vertical-align: middle; }
+  td.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; letter-spacing: 0.06em; }
+  .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--surface-lift); font-size: 13px; }
+  .pill.vt { box-shadow: inset 0 0 0 1px var(--champagne); color: var(--champagne); }
+  .st-on { color: var(--stone); }
+  .st-off { color: var(--stone-muted); }
+  .batch { font-size: 12px; color: var(--stone-muted); display: block; margin-top: 3px; }
+
+  /* Gegenereerd */
+  .done-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 22px; }
+  .meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .codes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 24px; }
+  .codes div {
+    height: 56px; display: grid; place-items: center; background: var(--warm-black); border: 1px solid var(--stone-faint);
+    border-radius: var(--button-radius); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 17px; letter-spacing: 0.1em;
+  }
+
+  /* ---------- Publieke site ---------- */
+  .site-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 40px; border-bottom: 1px solid var(--stone-faint); }
+  .site-head .wm { font-family: Fraunces, Georgia, serif; font-size: 22px; }
+  .site-head .wm span { color: var(--champagne); }
+  .site-head nav { display: flex; gap: 28px; font-size: 15px; color: var(--stone-muted); }
+  .site { max-width: 960px; margin: 0 auto; padding: 48px 24px 72px; }
+  .site h1 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.05; margin: 10px 0 12px; }
+  .site .lead { font-size: 18px; color: var(--stone-muted); max-width: 620px; }
+
+  .steps { display: flex; gap: 8px; margin: 32px 0 28px; }
+  .steps div { flex: 1; padding-top: 12px; border-top: 2px solid var(--stone-faint); font-size: 14px; color: var(--stone-muted); }
+  .steps div.done { border-color: var(--champagne); color: var(--stone); }
+  .steps div.cur { border-color: var(--champagne); color: var(--champagne); font-weight: 500; }
+
+  .code-ok { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: var(--surface); border-radius: var(--card-radius); margin-bottom: 28px; }
+  .code-ok .tick { width: 32px; height: 32px; border-radius: 50%; background: var(--champagne); color: var(--warm-black); display: grid; place-items: center; flex: none; }
+  .code-ok .tick svg { width: 18px; height: 18px; }
+  .code-ok .c { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; }
+  .code-ok .change { margin-left: auto; }
+
+  .presence { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-left: 3px solid var(--champagne); background: var(--surface-lift); border-radius: var(--button-radius); font-size: 15px; line-height: 1.5; margin-bottom: 28px; }
+
+  .days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 24px; }
+  .day { flex: none; width: 92px; padding: 12px 0; border-radius: var(--card-radius); background: var(--surface); text-align: center; border: 1px solid transparent; }
+  .day .dn { font-size: 13px; color: var(--stone-muted); }
+  .day .dd { font-family: Fraunces, Georgia, serif; font-size: 26px; margin-top: 2px; }
+  .day.on { border-color: var(--champagne); background: var(--surface-lift); }
+  .day.on .dn { color: var(--champagne); }
+
+  .blockhead { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 12px; }
+  .blockhead h3 { font-size: 16px; font-weight: 500; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; margin-bottom: 26px; }
+  .slot { text-align: left; padding: 14px 16px; background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); }
+  .slot .t { font-family: Fraunces, Georgia, serif; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .slot .a { font-size: 13px; color: var(--stone-muted); margin-top: 4px; }
+  .slot.on { border-color: var(--champagne); background: var(--surface-lift); }
+  .slot.on .a { color: var(--champagne); }
+  .slot:disabled { opacity: 0.4; cursor: default; }
+
+  .sessions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .session { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; padding: 18px 22px; background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); text-align: left; width: 100%; }
+  .session .n { font-size: 18px; font-weight: 500; }
+  .session .d { font-size: 14px; color: var(--stone-muted); margin-top: 4px; }
+  .session .p { font-size: 14px; color: var(--stone-muted); }
+  .session.on { border-color: var(--champagne); background: var(--surface-lift); }
+
+  .details { background: var(--surface); border-radius: var(--card-radius); padding: 26px; }
+  .details h2 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 24px; margin-bottom: 18px; }
+  .details .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .summary { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 20px; border-top: 1px solid var(--stone-faint); font-size: 15px; }
+  .summary strong { font-weight: 500; }
+  .free { color: var(--champagne); font-weight: 500; }
+  .details .btn-pri { width: 100%; height: 56px; }
+
+  /* ---------- Mockup-balk ---------- */
+  .mock-bar { position: fixed; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #050505; border-top: 1px solid #222; font: 13px/1 system-ui, sans-serif; color: #888; z-index: 10; flex-wrap: wrap; }
+  .mock-bar button { padding: 8px 12px; border: 1px solid #333; border-radius: 4px; color: #bbb; font: 13px/1 system-ui, sans-serif; }
+  .mock-bar button.on { border-color: #888; color: #fff; }
+  .mock-bar .tag { text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-right: 6px; }
+
+  @media (max-width: 760px) {
+    .admin { grid-template-columns: 1fr; }
+    .side { display: none; }
+    .main { padding: 24px 16px 48px; }
+    .scopes { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .codes { grid-template-columns: repeat(2, 1fr); }
+    .site-head { padding: 18px 16px; }
+    .site-head nav { display: none; }
+    .site { padding: 32px 16px 56px; }
+    .site h1 { font-size: 36px; }
+    .details .grid3 { grid-template-columns: 1fr; }
+    table { font-size: 14px; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 1. Admin: codes genereren ================= -->
+<section class="screen active" id="s-admin">
+  <div class="admin">
+    <aside class="side">
+      <div class="wm">The Movement <span>Club</span></div>
+      <a href="#">Overzicht</a>
+      <a href="#">Leden</a>
+      <a href="#">Rooster</a>
+      <a href="#" class="on">Proefcodes</a>
+      <a href="#">Proeflessen</a>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <!-- COPY: confirm met Marlon -->
+        <h1>Proefcodes</h1>
+      </div>
+
+      <div class="card" id="genCard">
+        <!-- COPY: confirm met Marlon -->
+        <h2>Codes maken</h2>
+        <div class="sub">Elke code geeft één gratis proefles of proeftraining. Een code blijft geldig tot je hem intrekt.</div>
+
+        <div class="form-grid">
+          <div class="field amount-field">
+            <!-- COPY: confirm met Marlon -->
+            <label>Aantal codes</label>
+            <div class="stepper">
+              <button id="amtDown" aria-label="Minder">−</button>
+              <input id="amt" value="10" inputmode="numeric" aria-label="Aantal codes">
+              <button id="amtUp" aria-label="Meer">+</button>
+            </div>
+          </div>
+          <div class="field own-code">
+            <!-- COPY: confirm met Marlon -->
+            <label>Eigen code</label>
+            <input class="input" value="ZOMERYOGA" style="font-family: ui-monospace, Menlo, monospace; letter-spacing: 0.08em">
+          </div>
+          <div class="field">
+            <!-- COPY: confirm met Marlon -->
+            <label>Label (alleen voor jou zichtbaar)</label>
+            <input class="input" id="label" value="Flyers bakkerij Oud-Loosdrecht" placeholder="Bijvoorbeeld: Via Sanne, buurvrouw">
+          </div>
+        </div>
+
+        <div class="block">
+          <!-- COPY: confirm met Marlon -->
+          <span class="lbl">Hoe vaak mag elke code gebruikt worden</span>
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+            <div class="seg" id="kind">
+              <!-- COPY: confirm met Marlon -->
+              <button class="on" data-kind="once">Eenmalig</button>
+              <button data-kind="times">Aantal keer</button>
+              <button data-kind="unl">Onbeperkt</button>
+            </div>
+            <span class="times" id="timesField"><input class="input" value="5"> keer</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <!-- COPY: confirm met Marlon -->
+          <span class="lbl">Geldig voor</span>
+          <div class="scopes" id="scopes">
+            <!-- COPY: confirm met Marlon (alle vier) -->
+            <button class="scope" data-scope="Yoga &amp; mobility"><span class="sn">Yoga &amp; mobility</span><span class="sd">Alle yoga- en mobilitylessen</span></button>
+            <button class="scope" data-scope="Kettlebell"><span class="sn">Kettlebell</span><span class="sd">Alle kettlebelllessen</span></button>
+            <button class="scope on" data-scope="Alle groepslessen"><span class="sn">Alle groepslessen</span><span class="sd">Yoga, mobility en kettlebell</span></button>
+            <button class="scope" data-scope="Vrij trainen"><span class="sn">Vrij trainen</span><span class="sd">Vast 1 uur, alleen als Marlon er is: ma t/m vr 07:00 tot 12:00 en 17:00 tot 21:00</span></button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <!-- COPY: confirm met Marlon -->
+          <button class="btn-pri" id="btnGen">Maak 10 codes</button>
+          <!-- COPY: confirm met Marlon -->
+          <button class="link" id="btnOwn">Liever zelf een code intypen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <!-- COPY: confirm met Marlon -->
+        <h2>Alle codes</h2>
+        <div class="sub" style="margin-bottom:16px">37 codes, waarvan 29 actief</div>
+        <div class="filters">
+          <!-- COPY: confirm met Marlon (filters) -->
+          <button class="chip on">Actief</button>
+          <button class="chip">Op</button>
+          <button class="chip">Ingetrokken</button>
+          <span class="fsep"></span>
+          <button class="chip on">Alles</button>
+          <button class="chip">Yoga &amp; mobility</button>
+          <button class="chip">Kettlebell</button>
+          <button class="chip">Alle groepslessen</button>
+          <button class="chip">Vrij trainen</button>
+        </div>
+        <table>
+          <thead>
+            <!-- COPY: confirm met Marlon (kolomkoppen) -->
+            <tr><th>Code</th><th>Label</th><th>Soort</th><th>Geldig voor</th><th>Gebruikt</th><th>Status</th><th class="hide-sm">Aangemaakt</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="code">K7RM4TQA</td><td>Flyers bakkerij<span class="batch">Batch van 10</span></td><td>Eenmalig</td><td><span class="pill">Alle groepslessen</span></td><td>0 van 1</td><td class="st-on">Actief</td><td class="muted hide-sm">30 sep, Marlon</td></tr>
+            <tr><td class="code">VT9P2HXN</td><td>Open dag vrij trainen<span class="batch">Batch van 5</span></td><td>Eenmalig</td><td><span class="pill vt">Vrij trainen</span></td><td>1 van 1</td><td class="st-off">Op</td><td class="muted hide-sm">28 sep, Marlon</td></tr>
+            <tr><td class="code">ZOMERYOGA</td><td>Instagram actie</td><td>Onbeperkt</td><td><span class="pill">Yoga &amp; mobility</span></td><td>14</td><td class="st-on">Actief</td><td class="muted hide-sm">25 sep, Ilja</td></tr>
+            <tr><td class="code">5ZYJN825</td><td>Proefles Ilja test</td><td>Eenmalig</td><td><span class="pill">Alle groepslessen</span></td><td>0 van 1</td><td class="st-on">Actief</td><td class="muted hide-sm">29 sep, Ilja</td></tr>
+            <tr><td class="code">KB3WQ7ED</td><td>Bedrijfsuitje Van Dijk</td><td>Aantal keer</td><td><span class="pill">Kettlebell</span></td><td>3 van 8</td><td class="st-on">Actief</td><td class="muted hide-sm">22 sep, Marlon</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ================= 2. Admin: batch gegenereerd ================= -->
+<section class="screen" id="s-done">
+  <div class="admin">
+    <aside class="side">
+      <div class="wm">The Movement <span>Club</span></div>
+      <a href="#">Overzicht</a>
+      <a href="#">Leden</a>
+      <a href="#">Rooster</a>
+      <a href="#" class="on">Proefcodes</a>
+      <a href="#">Proeflessen</a>
+    </aside>
+    <main class="main">
+      <div class="page-head"><h1>Proefcodes</h1></div>
+      <div class="card">
+        <div class="done-head">
+          <div>
+            <!-- COPY: confirm met Marlon -->
+            <h2 id="doneTitle">10 codes gemaakt</h2>
+            <div class="meta">
+              <span class="pill" id="doneLabel">Flyers bakkerij Oud-Loosdrecht</span>
+              <span class="pill" id="doneKind">Eenmalig</span>
+              <span class="pill" id="doneScope">Alle groepslessen</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <!-- COPY: confirm met Marlon -->
+            <button class="btn-sec" id="btnCopy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>
+              Alles kopiëren
+            </button>
+            <!-- COPY: confirm met Marlon -->
+            <button class="btn-sec">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+              CSV downloaden
+            </button>
+          </div>
+        </div>
+        <div class="codes" id="codes"></div>
+        <div class="actions">
+          <!-- COPY: confirm met Marlon -->
+          <button class="btn-pri" data-go="admin">Klaar</button>
+          <span class="muted" style="font-size:14px">De codes staan ook in het overzicht, met dit label.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ================= 3. Bezoeker: code Vrij trainen ================= -->
+<section class="screen" id="s-vt">
+  <header class="site-head">
+    <div class="wm">The Movement <span>Club</span></div>
+    <nav><span>Rooster</span><span>Prijzen</span><span>Over ons</span></nav>
+  </header>
+  <div class="site">
+    <!-- COPY: confirm met Marlon -->
+    <div class="eyebrow">Proefcode</div>
+    <h1>Kies je moment</h1>
+    <!-- COPY: confirm met Marlon -->
+    <p class="lead">Je code is geldig voor een gratis uur vrij trainen. Marlon is er tijdens je training en helpt je op weg.</p>
+
+    <div class="steps">
+      <!-- COPY: confirm met Marlon -->
+      <div class="done">1. Code</div>
+      <div class="cur">2. Moment</div>
+      <div>3. Gegevens</div>
+    </div>
+
+    <div class="code-ok">
+      <span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <div>
+        <div class="c">VT9P2HXN</div>
+        <!-- COPY: confirm met Marlon -->
+        <div class="muted" style="font-size:14px;margin-top:2px">Vrij trainen, 1 uur, gratis</div>
+      </div>
+      <!-- COPY: confirm met Marlon -->
+      <button class="link change">Andere code</button>
+    </div>
+
+    <div class="days" id="days"></div>
+
+    <div id="slotBlocks"></div>
+
+    <div class="details">
+      <!-- COPY: confirm met Marlon -->
+      <h2>Je gegevens</h2>
+      <div class="grid3">
+        <!-- COPY: confirm met Marlon (labels) -->
+        <div class="field"><label>Naam</label><input class="input" placeholder="Voor- en achternaam"></div>
+        <div class="field"><label>E-mailadres</label><input class="input" placeholder="naam@voorbeeld.nl"></div>
+        <div class="field"><label>Telefoonnummer</label><input class="input" placeholder="+31 6 12345678"></div>
+      </div>
+      <div class="summary">
+        <span id="vtSummary"><strong>Donderdag 1 oktober</strong>, 18:00 tot 19:00, vrij trainen</span>
+        <!-- COPY: confirm met Marlon -->
+        <span class="free">Gratis</span>
+      </div>
+      <!-- COPY: confirm met Marlon -->
+      <button class="btn-pri">Gratis boeken</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4. Bezoeker: code Yoga & mobility ================= -->
+<section class="screen" id="s-yoga">
+  <header class="site-head">
+    <div class="wm">The Movement <span>Club</span></div>
+    <nav><span>Rooster</span><span>Prijzen</span><span>Over ons</span></nav>
+  </header>
+  <div class="site">
+    <div class="eyebrow">Proefcode</div>
+    <!-- COPY: confirm met Marlon -->
+    <h1>Kies je les</h1>
+    <!-- COPY: confirm met Marlon -->
+    <p class="lead">Je code is geldig voor een gratis yoga- of mobilityles.</p>
+
+    <div class="steps">
+      <div class="done">1. Code</div>
+      <div class="cur">2. Les</div>
+      <div>3. Gegevens</div>
+    </div>
+
+    <div class="code-ok">
+      <span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <div>
+        <div class="c">ZOMERYOGA</div>
+        <!-- COPY: confirm met Marlon -->
+        <div class="muted" style="font-size:14px;margin-top:2px">Yoga &amp; mobility, gratis</div>
+      </div>
+      <button class="link change">Andere code</button>
+    </div>
+
+    <div class="sessions" id="sessions"></div>
+
+    <div class="details">
+      <h2>Je gegevens</h2>
+      <div class="grid3">
+        <div class="field"><label>Naam</label><input class="input" placeholder="Voor- en achternaam"></div>
+        <div class="field"><label>E-mailadres</label><input class="input" placeholder="naam@voorbeeld.nl"></div>
+        <div class="field"><label>Telefoonnummer</label><input class="input" placeholder="+31 6 12345678"></div>
+      </div>
+      <div class="summary">
+        <span id="ySummary"><strong>Yin Movement</strong>, donderdag 1 oktober, 19:30 tot 20:30</span>
+        <span class="free">Gratis</span>
+      </div>
+      <button class="btn-pri">Gratis boeken</button>
+    </div>
+  </div>
+</section>
+
+<!-- Alleen voor de mockup -->
+<div class="mock-bar">
+  <span class="tag">Mockup</span>
+  <button data-go="admin" class="on">Admin: codes maken</button>
+  <button data-go="done">Admin: gemaakt</button>
+  <button data-go="vt">Bezoeker: vrij trainen</button>
+  <button data-go="yoga">Bezoeker: yoga-code</button>
+</div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  var state = { amt: 10, kind: 'Eenmalig', scope: 'Alle groepslessen', own: false };
+
+  function go(name) {
+    $$('.screen').forEach(function (s) { s.classList.remove('active'); });
+    $('#s-' + name).classList.add('active');
+    $$('.mock-bar [data-go]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-go') === name); });
+    window.scrollTo(0, 0);
+  }
+
+  function genBtnText() {
+    // COPY: confirm met Marlon
+    $('#btnGen').textContent = state.own ? 'Code opslaan' : (state.amt === 1 ? 'Maak 1 code' : 'Maak ' + state.amt + ' codes');
+  }
+
+  function setAmt(n) {
+    state.amt = Math.max(1, Math.min(50, n || 1));
+    $('#amt').value = state.amt;
+    genBtnText();
+  }
+
+  $('#amtDown').onclick = function () { setAmt(state.amt - 1); };
+  $('#amtUp').onclick = function () { setAmt(state.amt + 1); };
+  $('#amt').oninput = function (e) { setAmt(parseInt(e.target.value, 10)); };
+
+  $$('#kind button').forEach(function (b) {
+    b.onclick = function () {
+      $$('#kind button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      state.kind = b.textContent;
+      $('#timesField').classList.toggle('show', b.getAttribute('data-kind') === 'times');
+    };
+  });
+
+  $$('#scopes .scope').forEach(function (b) {
+    b.onclick = function () {
+      $$('#scopes .scope').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      state.scope = b.getAttribute('data-scope');
+    };
+  });
+
+  $('#btnOwn').onclick = function () {
+    state.own = !state.own;
+    $('#genCard').classList.toggle('own-mode', state.own);
+    // COPY: confirm met Marlon
+    $('#btnOwn').textContent = state.own ? 'Liever codes laten maken' : 'Liever zelf een code intypen';
+    genBtnText();
+  };
+
+  function code() {
+    var s = '';
+    for (var i = 0; i < 8; i++) s += ALPHA.charAt(Math.floor(Math.random() * ALPHA.length));
+    return s;
+  }
+
+  $('#btnGen').onclick = function () {
+    var n = state.own ? 1 : state.amt;
+    var list = [];
+    for (var i = 0; i < n; i++) list.push(state.own ? 'ZOMERYOGA' : code());
+    $('#codes').innerHTML = list.map(function (c) { return '<div>' + c + '</div>'; }).join('');
+    // COPY: confirm met Marlon
+    $('#doneTitle').textContent = n === 1 ? '1 code gemaakt' : n + ' codes gemaakt';
+    $('#doneLabel').textContent = $('#label').value || 'Zonder label';
+    $('#doneKind').textContent = state.kind;
+    $('#doneScope').textContent = state.scope;
+    $('#doneScope').classList.toggle('vt', state.scope === 'Vrij trainen');
+    go('done');
+  };
+
+  $('#btnCopy').onclick = function () {
+    // COPY: confirm met Marlon
+    var b = $('#btnCopy');
+    var old = b.innerHTML;
+    b.textContent = 'Gekopieerd';
+    setTimeout(function () { b.innerHTML = old; }, 1500);
+  };
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go]');
+    if (t) go(t.getAttribute('data-go'));
+  });
+
+  /* ---------- Vrij trainen: vaste slots van 1 uur binnen Marlons aanwezigheid ---------- */
+  // Alleen ma t/m vr. Ochtend 07:00 tot 12:00, avond 17:00 tot 21:00. Max 5 tegelijk, proefbezoeker telt mee.
+  var DAYS = [
+    { dn: 'do', dd: '1', full: 'Donderdag 1 oktober' },
+    { dn: 'vr', dd: '2', full: 'Vrijdag 2 oktober' },
+    { dn: 'ma', dd: '5', full: 'Maandag 5 oktober' },
+    { dn: 'di', dd: '6', full: 'Dinsdag 6 oktober' },
+    { dn: 'wo', dd: '7', full: 'Woensdag 7 oktober' },
+    { dn: 'do', dd: '8', full: 'Donderdag 8 oktober' },
+    { dn: 'vr', dd: '9', full: 'Vrijdag 9 oktober' }
+  ];
+  var MORNING = ['07:00', '08:00', '09:00', '10:00', '11:00'];
+  var EVENING = ['17:00', '18:00', '19:00', '20:00'];
+  var vt = { day: 0, slot: '18:00' };
+
+  function end(t) { var h = parseInt(t, 10) + 1; return (h < 10 ? '0' : '') + h + ':00'; }
+  function taken(d, t) { return (d * 3 + parseInt(t, 10)) % 6; } // 0 t/m 5, voorbeelddata
+
+  function renderDays() {
+    $('#days').innerHTML = DAYS.map(function (d, i) {
+      return '<button class="day' + (i === vt.day ? ' on' : '') + '" data-day="' + i + '"><div class="dn">' + d.dn + '</div><div class="dd">' + d.dd + '</div></button>';
+    }).join('');
+  }
+
+  function slotHtml(t) {
+    var free = 5 - taken(vt.day, t);
+    // COPY: confirm met Marlon ("Vol", "plek(ken) vrij")
+    var label = free <= 0 ? 'Vol' : (free === 1 ? 'Nog 1 plek' : 'Nog ' + free + ' plekken');
+    return '<button class="slot' + (t === vt.slot && free > 0 ? ' on' : '') + '" data-slot="' + t + '"' + (free <= 0 ? ' disabled' : '') + '>' +
+      '<div class="t">' + t + ' tot ' + end(t) + '</div><div class="a">' + label + '</div></button>';
+  }
+
+  function renderSlots() {
+    // COPY: confirm met Marlon ("Ochtend", "Avond")
+    $('#slotBlocks').innerHTML =
+      '<div class="blockhead"><h3>Ochtend</h3><span class="muted" style="font-size:14px">07:00 tot 12:00</span></div>' +
+      '<div class="slots">' + MORNING.map(slotHtml).join('') + '</div>' +
+      '<div class="blockhead"><h3>Avond</h3><span class="muted" style="font-size:14px">17:00 tot 21:00</span></div>' +
+      '<div class="slots">' + EVENING.map(slotHtml).join('') + '</div>';
+    $('#vtSummary').innerHTML = '<strong>' + DAYS[vt.day].full + '</strong>, ' + vt.slot + ' tot ' + end(vt.slot) + ', vrij trainen';
+  }
+
+  document.addEventListener('click', function (e) {
+    var d = e.target.closest('[data-day]');
+    if (d) { vt.day = +d.getAttribute('data-day'); renderDays(); renderSlots(); return; }
+    var s = e.target.closest('[data-slot]');
+    if (s && !s.disabled) { vt.slot = s.getAttribute('data-slot'); renderSlots(); }
+  });
+
+  renderDays();
+  renderSlots();
+
+  /* ---------- Yoga-code: alleen yoga & mobility, geen prijzen ---------- */
+  var SESSIONS = [
+    { n: 'Yin Movement', d: 'Donderdag 1 oktober, 19:30 tot 20:30, Patricia Lommers', p: 'Nog 10 plekken' },
+    { n: 'Vinyasa Flow', d: 'Vrijdag 2 oktober, 09:00 tot 10:00, Kim Pfaff', p: 'Nog 8 plekken' },
+    { n: 'Pilates', d: 'Zaterdag 3 oktober, 09:00 tot 10:00, Patricia Lommers', p: 'Nog 9 plekken' },
+    { n: 'Yin', d: 'Zaterdag 3 oktober, 10:15 tot 11:15, Patricia Lommers', p: 'Nog 10 plekken' },
+    { n: 'Vinyasa Flow', d: 'Maandag 5 oktober, 10:30 tot 11:30, Kim Pfaff', p: 'Nog 10 plekken' },
+    { n: 'Nidra', d: 'Dinsdag 6 oktober, 19:30 tot 20:30, Constanze Fluhme', p: 'Nog 10 plekken' }
+  ];
+  var ySel = 0;
+  function renderSessions() {
+    $('#sessions').innerHTML = SESSIONS.map(function (s, i) {
+      return '<button class="session' + (i === ySel ? ' on' : '') + '" data-sess="' + i + '"><div><div class="n">' + s.n + '</div><div class="d">' + s.d + '</div></div><div class="p">' + s.p + '</div></button>';
+    }).join('');
+    var s = SESSIONS[ySel];
+    $('#ySummary').innerHTML = '<strong>' + s.n + '</strong>, ' + s.d.split(', ').slice(0, 2).join(', ').toLowerCase();
+  }
+  document.addEventListener('click', function (e) {
+    var s = e.target.closest('[data-sess]');
+    if (s) { ySel = +s.getAttribute('data-sess'); renderSessions(); }
+  });
+  renderSessions();
+})();
+</script>
+</body>
+</html>
