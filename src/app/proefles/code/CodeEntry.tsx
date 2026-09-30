@@ -12,6 +12,8 @@ import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 interface Props {
   /** Melding uit een eerdere stap (bv. de code bleek bij het boeken ongeldig). */
   initialMessage?: string;
+  /** De pagina wordt opnieuw opgehaald na een geldige code: knop blijft bezig. */
+  finishing?: boolean;
   onValid: () => void;
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * geldig is (checkTrialCode) en zet dan het httpOnly-cookie; deze
  * component onthoudt zelf niets over de geldigheid.
  */
-export function CodeEntry({ initialMessage = "", onValid }: Props) {
+export function CodeEntry({ initialMessage = "", finishing = false, onValid }: Props) {
   const [code, setCode] = useState("");
   const [error, setError] = useState(initialMessage);
   const [busy, setBusy] = useState(false);
@@ -30,11 +32,12 @@ export function CodeEntry({ initialMessage = "", onValid }: Props) {
     setBusy(true);
     setError("");
     const result = await checkTrialCode(code);
-    setBusy(false);
     if (!result.ok) {
+      setBusy(false);
       setError(result.message);
       return;
     }
+    // Bij succes blijft de knop bezig tot de pagina de sessiekiezer toont.
     onValid();
   }
 
@@ -83,10 +86,10 @@ export function CodeEntry({ initialMessage = "", onValid }: Props) {
 
             <Button
               type="submit"
-              className={`w-full text-center ${busy ? "opacity-50 pointer-events-none" : ""}`}
+              className={`w-full text-center ${busy || finishing ? "opacity-50 pointer-events-none" : ""}`}
             >
               {/* COPY: confirm met Marlon */}
-              {busy ? "Bezig..." : "Code controleren"}
+              {busy || finishing ? "Bezig..." : "Code controleren"}
             </Button>
           </form>
         </ScrollReveal>

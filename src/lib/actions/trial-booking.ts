@@ -16,7 +16,11 @@ import {
   clientIp,
   readTrialCodeCookie,
 } from "@/lib/trial-codes/server";
-import { CODE_INVALID_MESSAGE, CODE_RATE_LIMITED_MESSAGE } from "@/lib/trial-codes/messages";
+import {
+  CODE_INVALID_MESSAGE,
+  CODE_NOT_AVAILABLE_MESSAGE,
+  CODE_RATE_LIMITED_MESSAGE,
+} from "@/lib/trial-codes/messages";
 import { processPaymentRefund } from "@/lib/refunds/process";
 import {
   isCancelTokenFormat,
@@ -98,17 +102,21 @@ const REDEEM_REASON_MESSAGE: Record<string, string> = {
   session_not_scheduled: "Deze sessie is niet meer beschikbaar.",
   session_in_past: "Deze sessie is al voorbij.",
   session_not_trial_eligible: "Deze discipline is niet beschikbaar als proefles.",
+  // COPY: confirm met Marlon
+  scope_mismatch: "Je code is niet geldig voor deze les. Kies een les uit de lijst.",
+  scope_not_available: CODE_NOT_AVAILABLE_MESSAGE,
 };
 
 /** Terug naar de codestap of de sessiekiezer, per weigering van de RPC. */
 function stepForReason(reason: string | undefined): "code" | "session" | undefined {
-  if (reason === "code_invalid") return "code";
+  if (reason === "code_invalid" || reason === "scope_not_available") return "code";
   if (
     reason === "capacity_full" ||
     reason === "session_not_found" ||
     reason === "session_not_scheduled" ||
     reason === "session_in_past" ||
-    reason === "session_not_trial_eligible"
+    reason === "session_not_trial_eligible" ||
+    reason === "scope_mismatch"
   ) {
     return "session";
   }

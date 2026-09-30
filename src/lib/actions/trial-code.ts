@@ -1,11 +1,19 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { lookupUsableTrialCodeScope } from "@/lib/trial-codes/lookup";
+import type { TrialCodeScope } from "@/lib/trial-codes/scope";
 import { isValidTrialCodeFormat, normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { clientIp, setTrialCodeCookie } from "@/lib/trial-codes/server";
-import { CODE_INVALID_MESSAGE, CODE_RATE_LIMITED_MESSAGE } from "@/lib/trial-codes/messages";
+import {
+  CODE_INVALID_MESSAGE,
+  CODE_NOT_AVAILABLE_MESSAGE,
+  CODE_RATE_LIMITED_MESSAGE,
+} from "@/lib/trial-codes/messages";
 
-export type CheckTrialCodeResult = { ok: true } | { ok: false; message: string };
+export type CheckTrialCodeResult =
+  | { ok: true; scope: TrialCodeScope }
+  | { ok: false; message: string };
 
 /**
  * Codestap op /proefles/code. Alleen lezen: telt als poging op de IP-teller
@@ -15,6 +23,8 @@ export type CheckTrialCodeResult = { ok: true } | { ok: false; message: string }
  * raden. De voorwaarden spiegelen de live tmc.redeem_trial_code: bestaat,
  * niet ingetrokken en (max_uses IS NULL OR uses_count < max_uses). De
  * uitkomst is een momentopname; bij het boeken beslist de RPC opnieuw.
+ * De scope komt uit deze server-side opzoeking van de code en gaat nooit
+ * mee in het cookie; de pagina zoekt hem bij elke render opnieuw op.
  */
 export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeResult> {
   const admin = createAdminClient();
@@ -37,22 +47,13 @@ export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeRes
     return { ok: false, message: CODE_INVALID_MESSAGE };
   }
 
-  const { data: row, error } = await admin
-    .from("trial_codes")
-    .select("revoked_at, max_uses, uses_count")
-    .eq("code", code)
-    .maybeSingle();
-  if (error) {
-    console.error("[checkTrialCode] query failed", error);
+  const scope = await lookupUsableTrialCodeScope(code);
+  if (!scope) {
     return { ok: false, message: CODE_INVALID_MESSAGE };
   }
-
-  const usable =
-    row !== null &&
-    row.revoked_at === null &&
-    (row.max_uses === null || row.uses_count < row.max_uses);
-  if (!usable) {
-    return { ok: false, message: CODE_INVALID_MESSAGE };
+  if (scope === "vrij_trainen") {
+    // Bestaat, maar vrij trainen via een code is nog niet te boeken.
+    return { ok: false, message: CODE_NOT_AVAILABLE_MESSAGE };
   }
 
   if (!(await setTrialCodeCookie(code))) {
@@ -60,5 +61,5 @@ export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeRes
     // COPY: confirm met Marlon
     return { ok: false, message: "Er ging iets mis. Probeer het opnieuw." };
   }
-  return { ok: true };
+  return { ok: true, scope };
 }

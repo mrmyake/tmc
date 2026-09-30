@@ -2,11 +2,13 @@ import "server-only";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import { getCatalogue } from "@/lib/catalogue";
+import { pillarsForScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
 
 export interface TrialSessionOption {
   id: string;
   startAt: string;
   endAt: string;
+  pillar: string;
   pillarLabel: string;
   className: string;
   trainerName: string;
@@ -35,9 +37,14 @@ type SessionRow = {
  * betaalde flow (/proefles/boeken) en de codeflow (/proefles/code): dezelfde
  * lijst. Prijzen komen alleen uit tmc.catalogue (display-equals-charge);
  * de codeflow vraagt ze niet op (withPrices false) en toont ze nergens.
+ *
+ * `scope` (alleen de codeflow) beperkt de lijst tot de pillars van de code.
+ * Dat is weergave: tmc.redeem_trial_code controleert de scope bij het boeken
+ * opnieuw. Zonder scope de volledige lijst (de betaalde flow). Een scope
+ * zonder pillars (vrij trainen) geeft een lege lijst.
  */
 export async function getTrialSessionOptions(
-  opts: { withPrices: boolean },
+  opts: { withPrices: boolean; scope?: TrialCodeScope },
 ): Promise<TrialSessionOption[]> {
   const admin = isAdminConfigured() ? createAdminClient() : null;
   if (!admin) return [];
@@ -55,6 +62,9 @@ export async function getTrialSessionOptions(
     senior: catalogue?.get("drop_in_senior")?.price_cents ?? 0,
   };
 
+  const pillars = opts.scope ? pillarsForScope(opts.scope) : TRIAL_ELIGIBLE_PILLARS;
+  if (pillars.length === 0) return [];
+
   const { data: sessions, error } = await admin
     .from("class_sessions")
     .select(
@@ -65,7 +75,7 @@ export async function getTrialSessionOptions(
       `,
     )
     .eq("status", "scheduled")
-    .in("pillar", TRIAL_ELIGIBLE_PILLARS)
+    .in("pillar", pillars)
     .gte("start_at", now.toISOString())
     .lt("start_at", horizonEnd.toISOString())
     .order("start_at", { ascending: true })
@@ -101,6 +111,7 @@ export async function getTrialSessionOptions(
         id: s.id,
         startAt: s.start_at,
         endAt: s.end_at,
+        pillar: s.pillar,
         pillarLabel: PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar,
         className: s.class_type?.name ?? "Sessie",
         trainerName: s.trainer?.display_name ?? "coach",

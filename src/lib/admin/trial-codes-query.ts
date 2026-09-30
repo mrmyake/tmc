@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isTrialCodeScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
 
 /**
  * Leesqueries voor de admin-pagina proefcodes (spec-community-growth.md §1
@@ -9,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type TrialCodeStatus = "active" | "exhausted" | "revoked";
 export type TrialCodeStatusFilter = TrialCodeStatus | "all";
+export type TrialCodeScopeFilter = TrialCodeScope | "all";
 
 export interface TrialCodeRow {
   id: string;
@@ -17,6 +19,9 @@ export interface TrialCodeRow {
   /** null = onbeperkt, 1 = eenmalig, >1 = X keer. */
   maxUses: number | null;
   usesCount: number;
+  scope: TrialCodeScope;
+  /** Aantal codes in de batch waar deze code uit komt; null voor losse codes. */
+  batchSize: number | null;
   status: TrialCodeStatus;
   createdAt: string;
   createdByName: string | null;
@@ -79,6 +84,8 @@ type RawTrialCodeRow = {
   label: string;
   max_uses: number | null;
   uses_count: number;
+  scope: string;
+  batch_id: string | null;
   created_at: string;
   revoked_at: string | null;
   created_by_profile: RawProfile;
@@ -88,7 +95,7 @@ type RawTrialCodeRow = {
 // Twee FK's van trial_codes naar profiles (created_by en revoked_by):
 // PostgREST kan de relatie niet raden zonder de expliciete FK-naam.
 const TRIAL_CODE_SELECT = `
-  id, code, label, max_uses, uses_count, created_at, revoked_at,
+  id, code, label, max_uses, uses_count, scope, batch_id, created_at, revoked_at,
   created_by_profile:profiles!trial_codes_created_by_fkey(first_name),
   revoked_by_profile:profiles!trial_codes_revoked_by_fkey(first_name)
 `;
@@ -111,13 +118,40 @@ async function redemptionTotals(codeIds: string[]): Promise<Map<string, number>>
   return totals;
 }
 
-function mapRow(r: RawTrialCodeRow, redemptionsTotal: number): TrialCodeRow {
+/** Aantal codes per batch_id, over de volledige tabel (niet per filter). */
+async function batchSizes(batchIds: string[]): Promise<Map<string, number>> {
+  const sizes = new Map<string, number>();
+  if (batchIds.length === 0) return sizes;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("trial_codes")
+    .select("batch_id")
+    .in("batch_id", batchIds);
+  if (error) {
+    console.error("[trial-codes-query] batch sizes failed", error);
+    return sizes;
+  }
+  for (const r of data ?? []) {
+    if (r.batch_id) sizes.set(r.batch_id, (sizes.get(r.batch_id) ?? 0) + 1);
+  }
+  return sizes;
+}
+
+function mapRow(
+  r: RawTrialCodeRow,
+  redemptionsTotal: number,
+  sizes: Map<string, number>,
+): TrialCodeRow {
   return {
     id: r.id,
     code: r.code,
     label: r.label,
     maxUses: r.max_uses,
     usesCount: r.uses_count,
+    // Onbekende waarde (kan niet door de check-constraint) valt terug op de
+    // default, zodat de weergave nooit breekt.
+    scope: isTrialCodeScope(r.scope) ? r.scope : "group",
+    batchSize: r.batch_id ? (sizes.get(r.batch_id) ?? null) : null,
     status: deriveStatus(r),
     createdAt: r.created_at,
     createdByName: firstOf(r.created_by_profile)?.first_name ?? null,
@@ -155,6 +189,7 @@ export async function getTrialCodeKpis(): Promise<TrialCodeKpis> {
 
 export async function listTrialCodes(params: {
   status: TrialCodeStatusFilter;
+  scope?: TrialCodeScopeFilter;
   q?: string;
 }): Promise<TrialCodeRow[]> {
   const admin = createAdminClient();
@@ -170,12 +205,21 @@ export async function listTrialCodes(params: {
   }
 
   const rows = data ?? [];
-  const totals = await redemptionTotals(rows.map((r) => r.id));
+  const batchIds = Array.from(
+    new Set(rows.map((r) => r.batch_id).filter((b): b is string => b !== null)),
+  );
+  const [totals, sizes] = await Promise.all([
+    redemptionTotals(rows.map((r) => r.id)),
+    batchSizes(batchIds),
+  ]);
 
-  let mapped = rows.map((r) => mapRow(r, totals.get(r.id) ?? 0));
+  let mapped = rows.map((r) => mapRow(r, totals.get(r.id) ?? 0, sizes));
 
   if (params.status !== "all") {
     mapped = mapped.filter((r) => r.status === params.status);
+  }
+  if (params.scope && params.scope !== "all") {
+    mapped = mapped.filter((r) => r.scope === params.scope);
   }
 
   const q = params.q?.trim().toLowerCase();
@@ -287,8 +331,10 @@ export async function getTrialCodeDetail(id: string): Promise<TrialCodeDetail | 
     };
   });
 
+  const sizes = await batchSizes(code.batch_id ? [code.batch_id] : []);
+
   return {
-    ...mapRow(code, rows.length),
+    ...mapRow(code, rows.length, sizes),
     redemptions: mappedRedemptions,
   };
 }

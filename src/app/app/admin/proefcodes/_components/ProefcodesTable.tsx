@@ -6,7 +6,7 @@ import { Copy } from "lucide-react";
 import type { TrialCodeRow } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear } from "@/lib/format-date";
 import { RevokeCodeButton } from "./RevokeCodeButton";
-import { StatusChip, kindLabel, usageLabel } from "./status";
+import { ScopeChip, StatusChip, batchLabel, kindLabel, usageLabel } from "./status";
 
 function CopyCodeButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
@@ -87,6 +87,9 @@ export function ProefcodesTable({ rows }: { rows: TrialCodeRow[] }) {
                 <span className="tmc-eyebrow">Soort</span>
               </th>
               <th scope="col" className="py-3 px-4 text-left">
+                <span className="tmc-eyebrow">Geldig voor</span>
+              </th>
+              <th scope="col" className="py-3 px-4 text-left">
                 <span className="tmc-eyebrow">Gebruikt</span>
               </th>
               <th scope="col" className="py-3 px-4 text-left">
@@ -118,9 +121,17 @@ export function ProefcodesTable({ rows }: { rows: TrialCodeRow[] }) {
                   >
                     {row.label}
                   </Link>
+                  {batchLabel(row.batchSize) && (
+                    <span className="block mt-0.5 text-xs text-text-muted">
+                      {batchLabel(row.batchSize)}
+                    </span>
+                  )}
                 </td>
                 <td className="py-4 px-4 align-middle text-sm text-text-muted">
                   {kindLabel(row.maxUses)}
+                </td>
+                <td className="py-4 px-4 align-middle">
+                  <ScopeChip scope={row.scope} />
                 </td>
                 <td className="py-4 px-4 align-middle text-sm text-text">
                   {usageLabel(row)}
@@ -169,7 +180,11 @@ export function ProefcodesTable({ rows }: { rows: TrialCodeRow[] }) {
             >
               {row.label}
             </Link>
+            {batchLabel(row.batchSize) && (
+              <span className="-mt-2 text-xs text-text-muted">{batchLabel(row.batchSize)}</span>
+            )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+              <ScopeChip scope={row.scope} />
               <span>{kindLabel(row.maxUses)}</span>
               <span>·</span>
               {/* COPY: confirm met Marlon */}
