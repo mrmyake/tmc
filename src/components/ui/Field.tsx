@@ -4,9 +4,11 @@ interface FieldProps {
   error?: string;
   hint?: string;
   htmlFor?: string;
+  /** id voor de foutmelding, zodat het invoerveld ernaar kan verwijzen (aria-describedby). */
+  errorId?: string;
 }
 
-export function Field({ label, children, error, hint, htmlFor }: FieldProps) {
+export function Field({ label, children, error, hint, htmlFor, errorId }: FieldProps) {
   return (
     <label className="block" htmlFor={htmlFor}>
       <span className="tmc-eyebrow block mb-2">{label}</span>
@@ -15,7 +17,10 @@ export function Field({ label, children, error, hint, htmlFor }: FieldProps) {
         <span className="text-text-muted text-xs mt-2 block">{hint}</span>
       )}
       {error && (
-        <span className="text-[color:var(--danger)] text-xs mt-2 block">
+        <span
+          id={errorId}
+          className="text-[color:var(--danger)] text-xs mt-2 block"
+        >
           {error}
         </span>
       )}

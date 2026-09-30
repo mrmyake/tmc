@@ -9,11 +9,31 @@ import {
   setSubscriberUnsubscribed,
   GROUPS,
 } from "@/lib/mailerlite";
-import { toE164 } from "@/lib/phone";
+import { parsePhone } from "@/lib/phone-parse";
+import {
+  PHONE_INVALID_MESSAGE,
+  describeWriteError,
+  mapProfileWriteError,
+  validateProfileField,
+  type ProfileField,
+} from "@/lib/profile-validation";
 
 export type ActionResult =
   | { ok: true }
-  | { ok: false; error: string; reason?: string };
+  | { ok: false; error: string; reason?: string; field?: ProfileField };
+
+/**
+ * Logt alleen code en constraint-naam van een schrijffout, nooit het
+ * error-object (details bevat bij 23505 het volledige telefoonnummer).
+ */
+function logWriteError(tag: string, error: { code?: string | null; message?: string | null }) {
+  console.error(tag, describeWriteError(error));
+}
+
+/** Thrown errors: alleen de soort, nooit de inhoud. */
+function logThrown(tag: string, e: unknown) {
+  console.error(tag, { thrown: e instanceof Error ? e.name : "unknown" });
+}
 
 async function getUserIdOrThrow(): Promise<{
   userId: string;
@@ -47,8 +67,12 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
 
     const first = String(data.get("first_name") ?? "").trim();
     const last = String(data.get("last_name") ?? "").trim();
-    if (!first || !last) {
-      return { ok: false, error: "Voor- en achternaam zijn verplicht." };
+    for (const [field, value] of [
+      ["first_name", first],
+      ["last_name", last],
+    ] as const) {
+      const msg = validateProfileField(field, value, { required: true });
+      if (msg) return { ok: false, error: msg, field };
     }
 
     const phoneRaw = String(data.get("phone") ?? "").trim();
@@ -57,10 +81,22 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
     const postalRaw = String(data.get("postal_code") ?? "").trim();
     const cityRaw = String(data.get("city") ?? "").trim();
 
+    // Telefoon is hier optioneel (leeg wordt null), maar als hij is ingevuld
+    // moet hij profiles_phone_e164 kunnen passeren: zelfde helper als
+    // /abonnement.
+    let phone: string | null = null;
+    if (phoneRaw) {
+      const parsed = parsePhone(phoneRaw);
+      if (!parsed.ok) {
+        return { ok: false, error: PHONE_INVALID_MESSAGE, field: "phone" };
+      }
+      phone = parsed.e164;
+    }
+
     const payload: ProfileUpdate = {
       first_name: first,
       last_name: last,
-      phone: phoneRaw || null,
+      phone,
       date_of_birth: dobRaw || null,
       street_address: streetRaw || null,
       postal_code: postalRaw || null,
@@ -73,8 +109,8 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
       .eq("id", userId);
 
     if (error) {
-      console.error("[updateProfile]", error);
-      return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
+      logWriteError("[updateProfile]", error);
+      return { ok: false, ...mapProfileWriteError(error) };
     }
 
     // Keep auth.users.raw_user_meta_data in sync with the profile, so
@@ -92,7 +128,7 @@ export async function updateProfile(data: FormData): Promise<ActionResult> {
     revalidatePath("/app");
     return { ok: true };
   } catch (e) {
-    console.error("[updateProfile]", e);
+    logThrown("[updateProfile]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }
@@ -114,23 +150,34 @@ export async function saveIdentityDetails(data: FormData): Promise<ActionResult>
     const postal = String(data.get("postal_code") ?? "").trim();
     const city = String(data.get("city") ?? "").trim();
 
-    if (!first || !last || !phone || !street || !postal || !city) {
-      return {
-        ok: false,
-        error: "Vul je naam, telefoon en adres in om door te gaan.",
-      };
+    // Volgorde van het formulier: de eerste ontbrekende of foute waarde
+    // komt terug met zijn veld, zodat de UI de melding bij het veld toont.
+    for (const [field, value] of [
+      ["first_name", first],
+      ["last_name", last],
+      ["phone", phone],
+      ["street_address", street],
+      ["postal_code", postal],
+      ["city", city],
+    ] as const) {
+      const msg = validateProfileField(field, value, { required: true });
+      if (msg) return { ok: false, error: msg, field };
     }
 
-    // profiles_phone_e164_nl eist +31 plus negen cijfers. Zonder
-    // normalisatie strandt een gewoon "06 12345678" hier op een opaak
-    // "Opslaan mislukt" (gezien in de /kopen-browsertest, PR #175); dezelfde
-    // helper als de tel:-links en het JSON-LD-veld gebruiken.
+    // profiles_phone_e164 eist E.164. parsePhone valideert en normaliseert
+    // (vroeger toE164, dat niets valideert en een opaak "Opslaan mislukt"
+    // gaf, zie PR #175); de validatie hierboven garandeert dat dit slaagt.
+    const parsed = parsePhone(phone);
+    if (!parsed.ok) {
+      return { ok: false, error: PHONE_INVALID_MESSAGE, field: "phone" };
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
         first_name: first,
         last_name: last,
-        phone: toE164(phone),
+        phone: parsed.e164,
         street_address: street,
         postal_code: postal,
         city,
@@ -138,14 +185,14 @@ export async function saveIdentityDetails(data: FormData): Promise<ActionResult>
       .eq("id", userId);
 
     if (error) {
-      console.error("[saveIdentityDetails]", error);
-      return { ok: false, error: "Opslaan mislukt. Probeer opnieuw." };
+      logWriteError("[saveIdentityDetails]", error);
+      return { ok: false, ...mapProfileWriteError(error) };
     }
 
     revalidatePath("/app/profiel");
     return { ok: true };
   } catch (e) {
-    console.error("[saveIdentityDetails]", e);
+    logThrown("[saveIdentityDetails]", e);
     return { ok: false, error: "Er ging iets mis." };
   }
 }

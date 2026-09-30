@@ -1,12 +1,12 @@
 /**
- * NL-mobiel normalisatie naar E.164 (+31...). Accepteert gangbare input-
- * varianten van de tablet en het signup-form, gooit op zichtbaar fout
- * input. Houdt bewust smal — geen volledige libphonenumber, we
- * ondersteunen alleen NL-mobiel (begint met 6 na landcode) en drop-in-
- * friendly format-tolerantie (spaties, streepjes, leading zero).
+ * Telefoon-normalisatie naar E.164 voor de tablet en het signup-form. De
+ * regels staan op een plek, parsePhone in src/lib/phone-parse.ts (ook
+ * gebruikt door /abonnement, /kopen en de profielpagina); deze wrapper houdt
+ * alleen het gooi-contract (InvalidPhoneError) voor de bestaande
+ * kiosk-aanroepers.
  */
 
-const E164_NL_MOBILE = /^\+31[0-9]{9}$/;
+import { parsePhone } from "../phone-parse";
 
 export class InvalidPhoneError extends Error {
   constructor(message: string) {
@@ -16,38 +16,21 @@ export class InvalidPhoneError extends Error {
 }
 
 /**
- * Accepted input formats:
- *   06-12345678, 06 12345678, 0612345678      → +31612345678
- *   +31 6 12345678, +316 12 34 56 78           → +31612345678
- *   +31612345678                                → +31612345678
+ * Accepted input formats (default land NL, buitenland met + of 00):
+ *   06-12345678, 06 12345678, 0612345678       -> +31612345678
+ *   +31 6 12345678, +31 (0)6 12345678          -> +31612345678
+ *   0031612345678                               -> +31612345678
+ *   +44 7911 123456                             -> +447911123456
  *
- * Throws InvalidPhoneError op alles anders (vaste lijn, buitenlands,
- * onvolledig). Caller vangt en toont inline validation error.
+ * Throws InvalidPhoneError op alles wat geen geldig nummer is. Caller vangt
+ * en toont inline validation error.
  */
 export function normalizePhone(raw: string): string {
-  const trimmed = raw.replace(/[\s\-().]/g, "").trim();
-  if (!trimmed) {
-    throw new InvalidPhoneError("Nummer is leeg.");
-  }
-
-  let normalized: string;
-  if (trimmed.startsWith("+31")) {
-    normalized = trimmed;
-  } else if (trimmed.startsWith("0031")) {
-    normalized = "+31" + trimmed.slice(4);
-  } else if (trimmed.startsWith("06")) {
-    normalized = "+316" + trimmed.slice(2);
-  } else if (trimmed.startsWith("6") && trimmed.length === 9) {
-    // iemand die alleen "612345678" typt
-    normalized = "+31" + trimmed;
-  } else {
-    throw new InvalidPhoneError("Ongeldig NL-mobiel nummer.");
-  }
-
-  if (!E164_NL_MOBILE.test(normalized)) {
-    throw new InvalidPhoneError("Voer een geldig NL-mobiel nummer in.");
-  }
-  return normalized;
+  const r = parsePhone(raw);
+  if (r.ok) return r.e164;
+  throw new InvalidPhoneError(
+    r.reason === "empty" ? "Nummer is leeg." : "Ongeldig telefoonnummer.",
+  );
 }
 
 /**
