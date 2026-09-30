@@ -14,7 +14,12 @@ import {
   yogaTeacherBySlugQuery,
   yogaTeacherSlugsQuery,
 } from "./queries";
-import { SITE, PILLARS, OFFERINGS } from "@/lib/constants";
+import {
+  SITE,
+  PILLARS,
+  OFFERINGS,
+  OPENING_HOURS_FALLBACK,
+} from "@/lib/constants";
 
 // Types
 export interface SanitySettings {
@@ -108,17 +113,7 @@ export async function getSiteSettings(): Promise<SanitySettings> {
 export async function getOpeningHours(): Promise<SanityOpeningHours> {
   const data = await safeFetch<SanityOpeningHours>(openingHoursQuery);
   if (data) return data;
-  return {
-    schedule: [
-      { day: "Maandag", open: "07:00", close: "21:00", closed: false },
-      { day: "Dinsdag", open: "07:00", close: "21:00", closed: false },
-      { day: "Woensdag", open: "07:00", close: "21:00", closed: false },
-      { day: "Donderdag", open: "07:00", close: "21:00", closed: false },
-      { day: "Vrijdag", open: "07:00", close: "21:00", closed: false },
-      { day: "Zaterdag", open: "08:00", close: "14:00", closed: false },
-      { day: "Zondag", open: "", close: "", closed: true },
-    ],
-  };
+  return { schedule: OPENING_HOURS_FALLBACK.map((d) => ({ ...d })) };
 }
 
 export async function getTrainers(): Promise<SanityTrainer[]> {

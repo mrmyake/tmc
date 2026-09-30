@@ -29,11 +29,11 @@ export function getLocalBusinessSchema() {
         "@type": "OpeningHoursSpecification",
         dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
         opens: "07:00",
-        closes: "21:00",
+        closes: "22:00",
       },
       {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: "Saturday",
+        dayOfWeek: ["Saturday", "Sunday"],
         opens: "08:00",
         closes: "14:00",
       },

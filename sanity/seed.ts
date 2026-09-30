@@ -43,13 +43,13 @@ async function seed() {
     _id: "openingHours",
     _type: "openingHours",
     schedule: [
-      { _key: "mon", day: "Maandag", open: "07:00", close: "21:00", closed: false },
-      { _key: "tue", day: "Dinsdag", open: "07:00", close: "21:00", closed: false },
-      { _key: "wed", day: "Woensdag", open: "07:00", close: "21:00", closed: false },
-      { _key: "thu", day: "Donderdag", open: "07:00", close: "21:00", closed: false },
-      { _key: "fri", day: "Vrijdag", open: "07:00", close: "21:00", closed: false },
+      { _key: "mon", day: "Maandag", open: "07:00", close: "22:00", closed: false },
+      { _key: "tue", day: "Dinsdag", open: "07:00", close: "22:00", closed: false },
+      { _key: "wed", day: "Woensdag", open: "07:00", close: "22:00", closed: false },
+      { _key: "thu", day: "Donderdag", open: "07:00", close: "22:00", closed: false },
+      { _key: "fri", day: "Vrijdag", open: "07:00", close: "22:00", closed: false },
       { _key: "sat", day: "Zaterdag", open: "08:00", close: "14:00", closed: false },
-      { _key: "sun", day: "Zondag", open: "", close: "", closed: true },
+      { _key: "sun", day: "Zondag", open: "08:00", close: "14:00", closed: false },
     ],
   });
   console.log("✓ openingHours");

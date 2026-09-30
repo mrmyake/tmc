@@ -6,6 +6,8 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
+import { formatOpeningSchedule } from "@/lib/opening-hours-format";
+import { MarlonPresence } from "@/components/blocks/MarlonPresence";
 import type { SanitySettings, SanityOpeningHours } from "../../../sanity/lib/fetch";
 
 interface ContactSectionProps {
@@ -55,9 +57,9 @@ export function ContactSection({ settings, hours }: ContactSectionProps) {
               <div>
                 <span className="tmc-eyebrow block mb-3">Openingstijden</span>
                 <div className="text-text-muted text-sm space-y-1">
-                  {hours.schedule.map((s) => (
-                    <p key={s.day}>
-                      {s.day}: {s.closed ? "Gesloten" : `${s.open} – ${s.close}`}
+                  {formatOpeningSchedule(hours.schedule).map((g) => (
+                    <p key={g.key}>
+                      {g.label}: {g.value}
                     </p>
                   ))}
                 </div>
@@ -65,6 +67,8 @@ export function ContactSection({ settings, hours }: ContactSectionProps) {
                   <p className="text-text-muted text-xs mt-3">{hours.note}</p>
                 )}
               </div>
+
+              <MarlonPresence />
 
               <div>
                 <span className="tmc-eyebrow block mb-3">Direct contact</span>
