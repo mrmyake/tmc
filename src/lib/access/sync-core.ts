@@ -405,6 +405,7 @@ export async function syncProfileCore(
             role: profile.role,
             memberships: profile.memberships,
             deletion_requested: profile.deletion_requested,
+            is_test: profile.is_test,
           },
           now,
         )

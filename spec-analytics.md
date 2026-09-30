@@ -91,7 +91,7 @@ Twee bestaande gevallen vallen hieronder:
 | Call-site | Event | Status |
 |---|---|---|
 | `src/app/abonnement/AbonnementConfigurator.tsx:51` | `configurator_stage_view` | ✅ Voldoet. `useEffect` op `[stage]`; de component mount alleen op `/abonnement` en een stage-wissel *is* de gebeurtenis. Geen refocus-haak, geen bedrag. |
-| `src/app/app/abonnement/bedankt/PaymentTracker.tsx` | `payment_return_view` | ✅ Voldoet aan alle drie. Aankomst op de bedankpagina, gededupliceerd per `transactionId` via `sessionStorage`, geen bedrag; `order_status` als dimensie houdt de webhook-race zichtbaar. Verving in PR C de oude `payment_success`/`payment_failed`, die `value`/`currency` droegen en de laatste uitzondering op voorwaarde 3 waren. |
+| `src/components/checkout/PaymentTracker.tsx` (was `src/app/app/abonnement/bedankt/`) | `payment_return_view` | ✅ Voldoet aan alle drie. Aankomst op de bedankpagina, gededupliceerd per `transactionId` via `sessionStorage`, geen bedrag; `order_status` als dimensie houdt de webhook-race zichtbaar. Verving in PR C de oude `payment_success`/`payment_failed`, die `value`/`currency` droegen en de laatste uitzondering op voorwaarde 3 waren. |
 
 Alles daarbuiten hangt aan `onSubmit`, `onClick` of `onFocus` — geverifieerd, inclusief de controle dat geen van die `onFocus`-velden `autoFocus` draagt of programmatisch gefocust wordt.
 
@@ -189,7 +189,7 @@ Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uit
 | `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | `/login` | Levend |
 | `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` (`context: first_membership`), `/kopen` (`context: ten_ride_card` of `pt_package`, zelfde call-site) | ⚠️ **Uitzondering, zie hieronder** |
 | `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/app/producten` | ⚠️ **Uitzondering, zie hieronder** |
-| `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | `/app/abonnement/bedankt` | Levend, arrival-event. Verving `payment_success` en `payment_failed` in #139 |
+| `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | `/app/abonnement/bedankt` (ingelogd, `transactionId` = order-id), en sinds de gastcheckout (PR 2, achter `CHECKOUT_GUEST_ENABLED`) de publieke `/abonnement/bedankt` en `/kopen/bedankt` (`transactionId` = sha256 van het status-token, `order_status` draagt daar de intent-status: pending, converted, cancelled, expired, failed) | Levend, arrival-event. Verving `payment_success` en `payment_failed` in #139 |
 | `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0].item_id` | Server-side (Measurement Protocol) | Levend. Enige plek met een bedrag; zie "De conversiebrug" |
 
 Daarnaast levert GA4 Enhanced Measurement automatisch `page_view`, scroll, outbound clicks en file downloads. Die staan niet in dit register: ze zijn een admin-instelling, niet iets dat in deze repo geschreven of gewijzigd wordt.

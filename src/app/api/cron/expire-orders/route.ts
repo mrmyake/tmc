@@ -6,6 +6,7 @@ import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
+import { sendWelcomeEmail } from "@/lib/checkout/welcome-email";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,16 @@ const TRIAL_ORPHAN_HOURS = 1;
  * een mens (Marlon) die moet weten dat de betaallink verlopen is en
  * opnieuw moet versturen. Zelfservice-orders die verlopen zijn normaal
  * volume (afgehaakte checkouts), niet actionable.
+ *
+ * Stap 3 tot en met 5 (PR 2 gastcheckout, tmc.checkout_intents): draft en
+ * pending intents voorbij expires_at naar expired (expire_checkout_intents),
+ * PII op null voor expired, cancelled en failed ouder dan 30 dagen met
+ * behoud van de rij (wipe_stale_checkout_intent_pii), en de herkansing van
+ * welkomstmails voor converted intents van de laatste 7 dagen waarvan de
+ * order nog geen order.confirmation_sent heeft (sendWelcomeEmail draait dan
+ * rotate_checkout_login_token en verstuurt achter dezelfde poort). De
+ * uurlijkse reconciliatie van pending intents tegen Mollie staat apart in
+ * /api/cron/reconcile-checkout-intents.
  *
  * Stap 2 is de backstop voor de trial-webhook (capacity-integrity,
  * 2026-07-23): een pending trial_booking telt mee in de sessiecapaciteit
@@ -212,6 +223,75 @@ export async function GET(req: Request) {
     }
   }
 
+  // -- 3. Verlopen checkout-intents (gastcheckout) --------------------------
+
+  let intentsExpired = 0;
+  {
+    const { data, error: expErr } = await admin.rpc("expire_checkout_intents");
+    if (expErr) console.error("[cron/expire-orders] expire_checkout_intents failed", expErr.code);
+    else intentsExpired = Number(data ?? 0);
+  }
+
+  // -- 4. PII-wis na 30 dagen, rij blijft -----------------------------------
+
+  let intentsWiped = 0;
+  {
+    const { data, error: wipeErr } = await admin.rpc("wipe_stale_checkout_intent_pii", {
+      p_older_than: "30 days",
+    });
+    if (wipeErr) console.error("[cron/expire-orders] wipe_stale_checkout_intent_pii failed", wipeErr.code);
+    else intentsWiped = Number(data ?? 0);
+  }
+
+  // -- 5. Welkomstmail-herkansing -------------------------------------------
+  // Converted intents van de laatste 7 dagen waarvan de order nog geen
+  // order.confirmation_sent heeft. sendWelcomeEmail controleert die poort
+  // zelf en maakt pas bij het verzenden een nieuw inlogtoken.
+
+  let welcomeSent = 0;
+  let welcomeFailed = 0;
+  {
+    const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const { data: recent, error: recentErr } = await admin
+      .from("checkout_intents")
+      .select("id, order_id, mode")
+      .eq("status", "converted")
+      .gte("converted_at", since)
+      .not("order_id", "is", null)
+      .limit(100);
+    if (recentErr) {
+      console.error("[cron/expire-orders] recent intents query failed", recentErr.code);
+    } else {
+      const orderIds = (recent ?? []).map((r) => r.order_id as string);
+      const { data: sentEvents } = orderIds.length
+        ? await admin
+            .from("events")
+            .select("subject_id")
+            .eq("type", "order.confirmation_sent")
+            .eq("subject_type", "order")
+            .in("subject_id", orderIds)
+        : { data: [] as { subject_id: string }[] };
+      const alreadySent = new Set((sentEvents ?? []).map((e) => e.subject_id as string));
+      for (const intent of recent ?? []) {
+        if (alreadySent.has(intent.order_id as string)) continue;
+        const result = await sendWelcomeEmail({
+          orderId: intent.order_id as string,
+          intentId: intent.id as string,
+          isTest: intent.mode === "test",
+        });
+        if (result.outcome === "sent") welcomeSent += 1;
+        else if (result.outcome === "failed") welcomeFailed += 1;
+      }
+      if (welcomeSent > 0) {
+        await sendNotification(
+          "Welkomstmail alsnog verstuurd",
+          `${welcomeSent} welkomstmail(s) van de gastcheckout zijn bij de dagelijkse herkansing alsnog verstuurd.`,
+          "envelope",
+        );
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     expired: expired?.length ?? 0,
@@ -219,5 +299,9 @@ export async function GET(req: Request) {
     trialsCancelled,
     trialsPaid,
     trialsSkipped,
+    intentsExpired,
+    intentsWiped,
+    welcomeSent,
+    welcomeFailed,
   });
 }

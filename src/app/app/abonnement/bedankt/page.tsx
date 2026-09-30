@@ -5,7 +5,7 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { PaymentTracker } from "./PaymentTracker";
+import { PaymentTracker } from "@/components/checkout/PaymentTracker";
 import { StatusPoller } from "@/components/checkout/StatusPoller";
 import { getOwnOrderStatus } from "@/lib/orders/status-actions";
 

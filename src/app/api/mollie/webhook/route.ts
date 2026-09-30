@@ -16,6 +16,8 @@ import {
   registerFailure,
   type ActivationSource,
 } from "@/lib/orders/activation-failure";
+import { processCheckoutIntentPayment } from "@/lib/checkout/intent-webhook";
+import { buildPaymentUpsertRow } from "@/lib/orders/payment-upsert-row";
 
 /** Fire-and-forget payment-failed email. Never throws. */
 async function notifyMemberPaymentFailed(args: {
@@ -191,6 +193,8 @@ export async function POST(request: Request) {
     const profileId =
       typeof meta.profileId === "string" ? meta.profileId : undefined;
     const type = typeof meta.type === "string" ? meta.type : undefined;
+    const intentId =
+      type === "checkout_intent" && typeof meta.intentId === "string" ? meta.intentId : undefined;
 
     // Upsert payment-regel — idempotent, log van wat Mollie heeft.
     // is_test is het snapshot uit de modus van deze webhook-aanroep
@@ -199,23 +203,30 @@ export async function POST(request: Request) {
     // amountRefunded boven het bedrag stuurt (methode die wij niet
     // gebruiken, 7.4); vang dat hier expliciet zodat het een leesbare
     // log wordt in plaats van een stilte in de buitenste catch.
-    const { error: upsertErr } = await supabase.from("payments").upsert(
-      {
-        mollie_payment_id: payment.id,
-        is_test: mode === "test",
-        membership_id: membershipId ?? null,
-        pt_booking_id: ptBookingId ?? null,
-        order_id: orderId ?? null,
-        profile_id: profileId ?? null,
-        amount_cents: Math.round(parseFloat(payment.amount.value) * 100),
+    // Gastcheckout (type checkout_intent, PR 2): de metadata draagt geen
+    // order of profiel; convert_checkout_intent koppelt die later op deze
+    // rij. Die twee sleutels blijven hier daarom weg, anders zou elke
+    // volgende webhook voor dezelfde betaling de koppeling weer wissen.
+    const paymentRow = buildPaymentUpsertRow({
+      payment: {
+        id: payment.id,
         status: payment.status,
+        amountValue: payment.amount.value,
         method: payment.method ?? null,
         description: payment.description ?? null,
-        paid_at: payment.paidAt ?? null,
-        mollie_subscription_id: payment.subscriptionId ?? null,
+        paidAt: payment.paidAt ?? null,
+        subscriptionId: payment.subscriptionId ?? null,
       },
-      { onConflict: "mollie_payment_id" }
-    );
+      mode,
+      membershipId,
+      ptBookingId,
+      orderId,
+      profileId,
+      intentId,
+    });
+    const { error: upsertErr } = await supabase
+      .from("payments")
+      .upsert(paymentRow, { onConflict: "mollie_payment_id" });
     if (upsertErr) {
       console.error(
         `[mollie/webhook] payments upsert failed (id=${paymentId}, mode=${mode})`,
@@ -362,6 +373,28 @@ export async function POST(request: Request) {
         });
       }
       return NextResponse.json({ ok: true });
+    }
+
+    // Gastcheckout (PR 2, "betalen voor account"): de betaling hoort bij een
+    // tmc.checkout_intents-rij, niet bij een order. Bij paid ontstaan hier
+    // auth-user, profiel en order (src/lib/checkout/intent-webhook-core.ts),
+    // daarna de bestaande activatieketen met de welkomstmail. Alleen een
+    // transiënte fout wordt een 500; alles wat vastgelegd is (ook een
+    // mislukte conversie, met staf-alert) is 200. Vóór het orderpad, met
+    // een eigen return.
+    if (intentId) {
+      const intentResult = await processCheckoutIntentPayment({
+        admin: supabase,
+        mollie,
+        mode,
+        intentId,
+        payment: { id: payment.id, status: payment.status, paidAt: payment.paidAt ?? null, amountCents },
+        caller: WEBHOOK_CALLER,
+        defer: (work) => after(work),
+      });
+      if (intentResult.outcome.kind === "retry") return retryLater(intentResult.outcome.reason);
+      if (intentResult.activation?.outcome === "retry") return retryLater(intentResult.activation.reason);
+      return NextResponse.json({ ok: true, intent: intentResult.outcome.kind });
     }
 
     // Order pipeline: first payment (subscription, sequenceType=first) of

@@ -107,7 +107,7 @@ const divider: React.CSSProperties = {
   margin: "24px 0",
 };
 
-function Row({ label, value }: { label: string; value: string }) {
+export function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
       <Text style={rowLabel}>{label}</Text>
@@ -170,7 +170,7 @@ export default function OrderConfirmation(props: OrderConfirmationProps) {
   );
 }
 
-function SubscriptionBody({
+export function SubscriptionBody({
   productName,
   recurringEuro,
   recurringVatEuro,
@@ -216,7 +216,7 @@ function SubscriptionBody({
   );
 }
 
-function ProductBody({ productName, credits, validityMonths }: ProductConfirmationProps) {
+export function ProductBody({ productName, credits, validityMonths }: ProductConfirmationProps) {
   const details = [
     // COPY: confirm met Marlon
     credits !== null ? (credits === 1 ? "1 rit" : `${credits} ritten`) : null,
@@ -240,3 +240,6 @@ function ProductBody({ productName, credits, validityMonths }: ProductConfirmati
     </>
   );
 }
+
+/** Gedeelde stijlen, zodat de welkomstmail van de gastcheckout dezelfde opmaak houdt. */
+export const confirmationStyles = { eyebrow, heading, body, muted, rowLabel, rowValue, divider };

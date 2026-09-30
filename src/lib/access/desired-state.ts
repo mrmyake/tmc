@@ -63,6 +63,12 @@ export interface ProfileAccessInput {
   memberships: readonly AccessMembershipRow[];
   /** Open accountverwijdering: toegang uit, voor elke rol (src/lib/account-deletion/). */
   deletion_requested?: boolean;
+  /**
+   * Testprofiel (profiles.is_test): geen lidmaatschapstoegang, ook niet met
+   * een actieve membership uit een testbetaling. Staf houdt toegang op rol;
+   * de guard zit daarom ná de staf-tak (besluit PR 2 gastcheckout).
+   */
+  is_test?: boolean;
 }
 
 export interface DesiredAccess {
@@ -181,6 +187,20 @@ export function resolveDesiredAccess(
       endsAt: rollingWindowEnd(now),
       endsAtKind: "rolling",
       reason: `role:${input.role}`,
+    };
+  }
+
+  // Testprofielen krijgen nooit lidmaatschapstoegang: een testbetaling op
+  // productie (gastcheckout in testmodus, of een is_test-profiel dat koopt)
+  // mag geen echte deur-PIN opleveren. Bewust na de staf-tak, zodat een
+  // trainer met is_test wel binnen kan op rol.
+  if (input.is_test) {
+    return {
+      enabled: false,
+      group: null,
+      endsAt: null,
+      endsAtKind: null,
+      reason: "test_profile",
     };
   }
 

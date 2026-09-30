@@ -9,9 +9,12 @@ interface Props {
 }
 
 /**
- * Aankomst-event op /app/abonnement/bedankt. Vuurt per unieke
- * transactionId één keer (sessionStorage-dedupe), zodat een refresh niet
- * opnieuw meet; de eerste aankomst-status is wat geteld wordt.
+ * Aankomst-event op de bedankpagina's: /app/abonnement/bedankt (ingelogd,
+ * transactionId = order-id) en de publieke /abonnement/bedankt en
+ * /kopen/bedankt (gastcheckout, transactionId = sha256 van het status-token,
+ * nooit het token zelf). Vuurt per unieke transactionId één keer
+ * (sessionStorage-dedupe), zodat een refresh niet opnieuw meet; de eerste
+ * aankomst-status is wat geteld wordt.
  *
  * Gedegradeerd van payment_success/payment_failed naar één
  * payment_return_view zónder value/currency (spec-analytics.md,

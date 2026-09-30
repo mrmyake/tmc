@@ -226,3 +226,28 @@ test("meerdere rijen: maximum van de einddatums, een rij zonder harde datum telt
 test("rollend venster is nu plus zeven dagen", () => {
   assert.equal(rollingWindowEnd(NOW).toISOString(), "2026-09-15T10:00:00.000Z");
 });
+
+// --- is_test (PR 2 gastcheckout): geen lidmaatschapstoegang, staf op rol blijft ---
+
+test("is_test lid met actieve membership krijgt geen toegang", () => {
+  const out = resolveDesiredAccess(
+    { role: "member", memberships: [row({ status: "active" })], is_test: true },
+    NOW,
+  );
+  assert.equal(out.enabled, false);
+  assert.equal(out.reason, "test_profile");
+});
+
+test("is_test trainer houdt staf-toegang op rol", () => {
+  const out = resolveDesiredAccess({ role: "trainer", memberships: [], is_test: true }, NOW);
+  assert.equal(out.enabled, true);
+  assert.equal(out.group, "staff");
+});
+
+test("open verwijderverzoek gaat ook bij is_test voor", () => {
+  const out = resolveDesiredAccess(
+    { role: "member", memberships: [row({ status: "active" })], is_test: true, deletion_requested: true },
+    NOW,
+  );
+  assert.equal(out.reason, "account_deletion");
+});

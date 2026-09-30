@@ -44,7 +44,13 @@ import type { MollieMode } from "@/lib/mollie";
  * actor_type. Zelfde patroon als `via: "cron_reconcile"` op de
  * trial-reconciliatie in expire-orders.
  */
-export type ActivationSource = "mollie_webhook" | "expire_orders_cron";
+export type ActivationSource =
+  | "mollie_webhook"
+  | "expire_orders_cron"
+  // Uurlijkse reconciliatie van pending checkout-intents (PR 2 gastcheckout).
+  | "reconcile_checkout_intents_cron"
+  // Staf-herkansing van een intent-conversie (scripts/checkout/retry-intent.ts).
+  | "retry_intent_script";
 
 export type FailurePath =
   | "malformed_body"
@@ -52,6 +58,10 @@ export type FailurePath =
   | "activate_order"
   | "subscription_create"
   | "subscription_link_write"
+  // Gastcheckout (PR 2): intent lezen, auth-user aanmaken, conversie-RPC.
+  | "checkout_intent_lookup"
+  | "auth_create_user"
+  | "checkout_intent_convert"
   | "unhandled";
 
 export type FailureClass = "transient" | "permanent";
