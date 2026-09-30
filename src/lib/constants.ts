@@ -111,6 +111,9 @@ export const OPENING_HOURS_FALLBACK = [
 export const PRESENCE_MARLON = {
   label: "Aanwezigheid Marlon",
   days: "Maandag t/m vrijdag",
+  // Zelfde dagen als getallen (0 = zondag), voor het raster van de slotkiezer
+  // op /app/vrij-trainen.
+  weekdays: [1, 2, 3, 4, 5],
   // HH:MM, weergave via formatTime()
   windows: [
     { from: "07:00", to: "12:00" },

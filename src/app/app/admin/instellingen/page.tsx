@@ -38,7 +38,8 @@ export default async function AdminSettingsPage() {
            booking_window_days, waitlist_confirmation_minutes,
            fair_use_daily_max, no_show_strike_window_days,
            no_show_strike_threshold, no_show_block_days,
-           check_in_enabled, check_in_pillars, no_show_release_minutes`,
+           check_in_enabled, check_in_pillars, no_show_release_minutes,
+           vrij_trainen_max_concurrent, vrij_trainen_booking_enabled`,
         )
         .eq("id", "singleton")
         .maybeSingle(),
@@ -126,6 +127,8 @@ export default async function AdminSettingsPage() {
               (CHECK_IN_PILLAR_OPTIONS as readonly string[]).includes(p),
           ),
           noShowReleaseMinutes: row.no_show_release_minutes ?? 10,
+          vrijTrainenMaxConcurrent: row.vrij_trainen_max_concurrent ?? 5,
+          vrijTrainenBookingEnabled: row.vrij_trainen_booking_enabled ?? false,
         }}
       />
 

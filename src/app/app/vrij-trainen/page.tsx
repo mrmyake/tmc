@@ -2,13 +2,9 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
-import {
-  addDaysIsoAmsterdam,
-  isoDateAmsterdam,
-  parseIsoDateToAmsterdamMidnight,
-  todayIsoAmsterdam,
-} from "@/lib/format-date";
-import { DayPassStrip, type DayPassDay } from "./_components/DayPassStrip";
+import { PRESENCE_MARLON } from "@/lib/constants";
+import { loadVrijTrainenPicker } from "@/lib/member/vrij-trainen-query";
+import { SlotPicker } from "./_components/SlotPicker";
 import { CheckInHistory } from "./_components/CheckInHistory";
 
 export const metadata = {
@@ -18,21 +14,7 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-const WINDOW_DAYS = 7;
 const VRIJ_TRAINEN = "vrij_trainen";
-
-function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
-  const target = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil(
-    ((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
-  );
-  return { isoWeek, isoYear: target.getUTCFullYear() };
-}
 
 /** Monday 00:00 UTC van de ISO-week waarin `ref` valt. */
 function weekStartUtc(ref: Date): Date {
@@ -42,13 +24,6 @@ function weekStartUtc(ref: Date): Date {
   d.setUTCDate(d.getUTCDate() - (day - 1));
   return d;
 }
-
-type SessionRow = {
-  id: string;
-  start_at: string;
-  end_at: string;
-  status: string;
-};
 
 type MembershipRow = {
   plan_variant: string;
@@ -62,24 +37,27 @@ type CheckInRow = {
   checked_in_at: string;
 };
 
-export default async function VrijTrainenPage() {
+export default async function VrijTrainenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dag?: string }>;
+}) {
+  const { dag } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Bepaal of check-in-modus aan staat voor vrij trainen. Zo ja → pure
-  // check-in UI (geen boeking). Zo nee → fase-1 boeking-based strip.
-  const { data: checkInSettings } = await supabase
+  // Alleen booking_settings.vrij_trainen_booking_enabled beslist: aan is de
+  // slotkiezer, uit de check-in-weergave. check_in_pillars speelt hier geen
+  // rol (spec-vrij-trainen-slots.md).
+  const { data: modeSettings } = await supabase
     .from("booking_settings")
-    .select("check_in_enabled, check_in_pillars")
+    .select("vrij_trainen_booking_enabled")
     .eq("id", "singleton")
     .maybeSingle();
-
-  const checkInMode =
-    (checkInSettings?.check_in_enabled ?? true) &&
-    (checkInSettings?.check_in_pillars ?? []).includes(VRIJ_TRAINEN);
+  const bookingMode = modeSettings?.vrij_trainen_booking_enabled ?? false;
 
   // Membership bepaalt eligibility in beide modi.
   const { data: membership } = await supabase
@@ -99,7 +77,7 @@ export default async function VrijTrainenPage() {
   const isPaused = membership?.status === "paused";
   const cap = membership?.frequency_cap ?? null;
 
-  if (checkInMode) {
+  if (!bookingMode) {
     return (
       <CheckInView
         userId={user.id}
@@ -110,11 +88,7 @@ export default async function VrijTrainenPage() {
   }
 
   return (
-    <BookingView
-      userId={user.id}
-      cap={cap}
-      isPaused={isPaused}
-    />
+    <SlotBookingView userId={user.id} isPaused={isPaused} requestedDate={dag} />
   );
 }
 
@@ -208,146 +182,38 @@ async function CheckInView({
 }
 
 // ---------------------------------------------------------------------------
-// Booking modus (fase-1 gedrag, wanneer check_in_pillars 'vrij_trainen' niet
-// bevat). Laten staan voor graceful fallback of toggle-off.
+// Boekmodus: slotkiezer (spec-vrij-trainen-slots.md)
 // ---------------------------------------------------------------------------
 
-async function BookingView({
+async function SlotBookingView({
   userId,
-  cap,
   isPaused,
+  requestedDate,
 }: {
   userId: string;
-  cap: number | null;
   isPaused: boolean;
+  requestedDate: string | undefined;
 }) {
   const supabase = await createClient();
-  const now = new Date();
-  const todayIso = todayIsoAmsterdam(now);
-  const windowStart = parseIsoDateToAmsterdamMidnight(todayIso)!;
-  const windowEnd = parseIsoDateToAmsterdamMidnight(
-    addDaysIsoAmsterdam(todayIso, WINDOW_DAYS),
-  )!;
-  const { isoWeek, isoYear } = getIsoWeekYear(now);
-
-  const [
-    sessionsResult,
-    bookingsResult,
-    weekCountResult,
-    settingsResult,
-  ] = await Promise.all([
-    supabase
-      .from("class_sessions")
-      .select("id, start_at, end_at, status")
-      .eq("pillar", VRIJ_TRAINEN)
-      .gte("start_at", windowStart.toISOString())
-      .lt("start_at", windowEnd.toISOString())
-      .order("start_at", { ascending: true })
-      .returns<SessionRow[]>(),
-    supabase
-      .from("bookings")
-      .select("id, session_id, status")
-      .eq("profile_id", userId)
-      .eq("pillar", VRIJ_TRAINEN)
-      .eq("status", "booked")
-      .gte("session_date", todayIso)
-      .lt("session_date", addDaysIsoAmsterdam(todayIso, WINDOW_DAYS)),
-    supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", userId)
-      .eq("status", "booked")
-      .eq("pillar", VRIJ_TRAINEN)
-      .eq("iso_week", isoWeek)
-      .eq("iso_year", isoYear),
-    supabase
-      .from("booking_settings")
-      .select("vrij_trainen_cancel_window_minutes")
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  const weekUsed = weekCountResult.count ?? 0;
-  const capReached = cap !== null && weekUsed >= cap;
-  const cancelWindowMinutes =
-    settingsResult.data?.vrij_trainen_cancel_window_minutes ?? 5;
-
-  const bookingsBySession = new Map<string, string>();
-  for (const b of bookingsResult.data ?? []) {
-    bookingsBySession.set(b.session_id, b.id);
-  }
-  const sessionsByDate = new Map<string, SessionRow>();
-  for (const s of sessionsResult.data ?? []) {
-    const iso = isoDateAmsterdam(new Date(s.start_at));
-    sessionsByDate.set(iso, s);
-  }
-
-  const days: DayPassDay[] = Array.from({ length: WINDOW_DAYS }, (_, i) => {
-    const iso = addDaysIsoAmsterdam(todayIso, i);
-    const session = sessionsByDate.get(iso);
-    if (!session) {
-      const d = parseIsoDateToAmsterdamMidnight(iso)!;
-      return {
-        isoDate: iso,
-        sessionId: "",
-        startAt: d.toISOString(),
-        state: "past",
-        bookingId: null,
-      } satisfies DayPassDay;
-    }
-    const end = new Date(session.end_at);
-    const bookingId = bookingsBySession.get(session.id) ?? null;
-
-    let state: DayPassDay["state"];
-    if (end.getTime() < now.getTime()) state = "past";
-    else if (bookingId) state = "booked";
-    else if (isPaused) state = "paused";
-    else if (capReached) state = "capped";
-    else state = "open";
-
-    return {
-      isoDate: iso,
-      sessionId: session.id,
-      startAt: session.start_at,
-      state,
-      bookingId,
-    } satisfies DayPassDay;
-  }).filter((day) => day.sessionId !== "");
+  const data = await loadVrijTrainenPicker(supabase, userId, requestedDate);
 
   return (
-    <Container className="py-16 md:py-20 max-w-3xl">
-      <header className="mb-12">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Open studio
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em] mb-6">
-          Vrij trainen.
+    <Container className="py-12 md:py-20 max-w-3xl">
+      <header className="mb-8">
+        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em] mb-4">
+          {/* COPY: confirm met Marlon */}
+          Vrij trainen
         </h1>
         <p className="text-text-muted text-lg leading-relaxed max-w-xl">
           {/* COPY: confirm met Marlon */}
-          Kom wanneer je wil tussen 06:00 en 23:00. Boek een dag van tevoren,
-          cancel kan tot {cancelWindowMinutes} minuten voor sluiting.
+          Boek je eigen tijd. Maximaal {data.maxConcurrent} mensen tegelijk.
         </p>
       </header>
 
-      {cap !== null && !isPaused && (
-        <div className="mb-10 pb-6 border-b border-[color:var(--ink-500)]/60">
-          <span className="tmc-eyebrow block mb-2">Deze week</span>
-          <p className="font-[family-name:var(--font-playfair)] text-3xl text-text leading-none tracking-[-0.02em]">
-            {weekUsed} <span className="text-text-muted">van {cap}</span>
-          </p>
-          {capReached && (
-            <p className="mt-3 text-[color:var(--warning)] text-sm">
-              Je weekcap is bereikt. Volgende week weer.
-            </p>
-          )}
-        </div>
-      )}
-
-      {isPaused && (
+      {isPaused ? (
         <div
           role="status"
-          className="mb-10 p-5 border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/5"
+          className="p-5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/5"
         >
           <span className="tmc-eyebrow block mb-2">Abonnement gepauzeerd</span>
           <p className="text-text-muted text-sm leading-relaxed">
@@ -355,14 +221,16 @@ async function BookingView({
             hervat staat je plek weer open.
           </p>
         </div>
-      )}
-
-      {days.length === 0 ? (
-        <p className="text-text-muted text-sm py-8">
-          Nog geen open studio-dagen gepubliceerd. Probeer het later opnieuw.
-        </p>
       ) : (
-        <DayPassStrip days={days} />
+        <SlotPicker
+          data={data}
+          presence={{
+            // COPY: confirm met Marlon
+            name: "Marlon",
+            weekdays: PRESENCE_MARLON.weekdays,
+            windows: PRESENCE_MARLON.windows,
+          }}
+        />
       )}
     </Container>
   );

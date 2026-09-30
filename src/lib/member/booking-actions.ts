@@ -148,6 +148,11 @@ export type BookingActionResult =
       ok: false;
       message: string;
       /**
+       * Weigerreden uit tmc.book_class_session (bv. slot_full, slot_blocked).
+       * De slotkiezer laadt bij slot_full en slot_blocked het raster opnieuw.
+       */
+      reason?: string;
+      /**
        * Gezet wanneer de user over de weekly cap zou gaan op een pillar met
        * check-in aan. Client kan dit als "soft warning" gebruiken: dialoog
        * tonen met combined/cap + knop "Toch boeken" die createBooking
@@ -182,6 +187,11 @@ export interface CreateBookingOptions {
    * we direct.
    */
   acknowledgeOverCap?: boolean;
+  /**
+   * Alleen vrij trainen: het gekozen slot (spec-vrij-trainen-slots.md).
+   * Zonder slot geeft de RPC op vrij trainen slot_required.
+   */
+  slot?: { startAt: string; minutes: number };
 }
 
 /**
@@ -264,7 +274,7 @@ async function softWeeklyCapCheck(
         .maybeSingle(),
       supabase
         .from("booking_settings")
-        .select("check_in_enabled, check_in_pillars")
+        .select("check_in_enabled, check_in_pillars, vrij_trainen_booking_enabled")
         .limit(1)
         .maybeSingle(),
       supabase
@@ -282,7 +292,15 @@ async function softWeeklyCapCheck(
   const settings = settingsResult.data ?? {
     check_in_enabled: true,
     check_in_pillars: ["yoga_mobility", "kettlebell", "vrij_trainen"],
+    vrij_trainen_booking_enabled: false,
   };
+  // Vrij trainen in boekmodus: elke training is een boeking, en de
+  // kiosk-check-in bij binnenkomst hoort bij diezelfde training. Alleen
+  // boekingen tellen, anders telt een training dubbel
+  // (spec-vrij-trainen-slots.md).
+  const countCheckIns = !(
+    session.pillar === "vrij_trainen" && settings.vrij_trainen_booking_enabled
+  );
   const checkInEnabledForPillar =
     Boolean(settings.check_in_enabled) &&
     Array.isArray(settings.check_in_pillars) &&
@@ -321,13 +339,15 @@ async function softWeeklyCapCheck(
       .eq("pillar", session.pillar)
       .eq("iso_week", sessionIso.isoWeek)
       .eq("iso_year", sessionIso.isoYear),
-    supabase
-      .from("check_ins")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", userId)
-      .eq("pillar", session.pillar)
-      .gte("checked_in_at", weekStart.toISOString())
-      .lt("checked_in_at", weekEnd.toISOString()),
+    countCheckIns
+      ? supabase
+          .from("check_ins")
+          .select("id", { count: "exact", head: true })
+          .eq("profile_id", userId)
+          .eq("pillar", session.pillar)
+          .gte("checked_in_at", weekStart.toISOString())
+          .lt("checked_in_at", weekEnd.toISOString())
+      : Promise.resolve({ count: 0 }),
   ]);
 
   const combined =
@@ -363,10 +383,15 @@ export async function createBooking(
 
   // Alle harde regels (capaciteit, caps, dekking, credits) + de insert en
   // credit-aftrek zitten atomair in de SECURITY DEFINER RPC (audit-fix #3).
+  // Slotparameters alleen meesturen als er een slot is gekozen, zodat de
+  // aanroep voor gewone lessen gelijk blijft.
   const rpcResult = await supabase.rpc("book_class_session", {
     p_session_id: sessionId,
     p_rental_mat: Boolean(options.rentals?.mat),
     p_rental_towel: Boolean(options.rentals?.towel),
+    ...(options.slot
+      ? { p_slot_start_at: options.slot.startAt, p_slot_minutes: options.slot.minutes }
+      : {}),
   });
 
   if (rpcResult.error) {
@@ -382,6 +407,7 @@ export async function createBooking(
     }
     return {
       ok: false,
+      reason: result.reason,
       message:
         BOOK_REASON_COPY[result.reason ?? ""] ??
         "Boeken lukte niet. Probeer het opnieuw.",
@@ -407,6 +433,7 @@ export async function createBooking(
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
+  revalidatePath("/app/vrij-trainen");
 
   // Fire-and-forget confirmation email. Catch inside helper so this can
   // never crash the action.
@@ -550,6 +577,7 @@ export async function cancelBooking(
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
+  revalidatePath("/app/vrij-trainen");
 
   // De vrij-trainen-termijn is instelbaar en rekent vanaf het eigen slot
   // (spec-vrij-trainen-slots.md), dus geen vast aantal minuten in de tekst.

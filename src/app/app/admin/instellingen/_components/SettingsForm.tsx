@@ -91,6 +91,42 @@ export function SettingsForm({ initial }: SettingsFormProps) {
         />
       </Section>
 
+      {/* COPY: confirm met Marlon */}
+      <Section title="Vrij trainen">
+        <IntField
+          // COPY: confirm met Marlon
+          label="Maximaal tegelijk"
+          // COPY: confirm met Marlon
+          hint="Aantal leden dat tegelijk vrij traint, per kwartier."
+          value={values.vrijTrainenMaxConcurrent}
+          onChange={(v) => setField("vrijTrainenMaxConcurrent", v)}
+          min={1}
+          max={50}
+        />
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={values.vrijTrainenBookingEnabled}
+            onChange={(e) =>
+              setField("vrijTrainenBookingEnabled", e.target.checked)
+            }
+            className="mt-1 w-4 h-4 accent-accent cursor-pointer"
+          />
+          <span className="flex flex-col">
+            <span className="text-text text-sm font-medium">
+              {/* COPY: confirm met Marlon */}
+              Boekmodus aan
+            </span>
+            <span className="text-text-muted text-xs mt-0.5">
+              {/* COPY: confirm met Marlon */}
+              Aan: leden boeken een tijdslot op /app/vrij-trainen. Uit: leden
+              zien alleen hun check-ins. Inchecken op de tablet werkt in
+              beide gevallen.
+            </span>
+          </span>
+        </label>
+      </Section>
+
       <Section title="No-show beleid">
         <IntField
           label="Strike-venster (dagen)"

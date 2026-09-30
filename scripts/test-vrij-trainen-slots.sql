@@ -512,6 +512,74 @@ do $$ begin
   raise notice 'PASS 13k: sessions_with_participants alleen voor service_role';
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 14. Slotkiezer-PR: waitlisted-rijen op vrij trainen krijgen dezelfde vorm-
+--     en grenscontrole als booked; de grens per kwartier alleen bij booked
+-- ---------------------------------------------------------------------------
+-- Lid 10 (a7..10) heeft nog geen boeking op de dagsessie d7..01.
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values ('a7000000-0000-4000-8000-000000000010', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'vts-10@test.invalid', '{"provider":"email","providers":["email"]}', '{"first_name":"Lid10","last_name":"Test"}', now(), now());
+do $$ declare v_id uuid; begin
+  -- Buiten de sessie (dagsessie d7..01 loopt nu tot 20:45).
+  begin
+    insert into tmc.bookings (profile_id, session_id, status, iso_year, iso_week, session_date, pillar, slot_start_at, slot_end_at)
+    values (pg_temp.lid(10), 'd7000000-0000-4000-8000-000000000001', 'waitlisted', 2026, 1, current_date + 3, 'vrij_trainen', pg_temp.at('06:30'), pg_temp.at('07:30'));
+    raise exception 'FAIL 14a: waitlisted-rij buiten de sessie toegelaten';
+  exception when raise_exception then
+    if sqlerrm <> 'slot_outside_session' then raise; end if;
+    raise notice 'PASS 14a: waitlisted-rij buiten de sessie geweigerd met slot_outside_session';
+  end;
+  -- Zonder slot op vrij trainen.
+  begin
+    insert into tmc.bookings (profile_id, session_id, status, iso_year, iso_week, session_date, pillar)
+    values (pg_temp.lid(10), 'd7000000-0000-4000-8000-000000000001', 'waitlisted', 2026, 1, current_date + 3, 'vrij_trainen');
+    raise exception 'FAIL 14b: waitlisted-rij zonder slot toegelaten';
+  exception when raise_exception then
+    if sqlerrm <> 'slot_required' then raise; end if;
+    raise notice 'PASS 14b: waitlisted-rij zonder slot geweigerd met slot_required';
+  end;
+  -- Binnen de sessie in een vol kwartier (10:00: vier booked, lid 1 heeft
+  -- geannuleerd; de admin-fixture vult aan tot vijf): waitlisted mag, de
+  -- grens per kwartier telt alleen booked.
+  if (select peak from tmc.vrij_trainen_slot_peak('d7000000-0000-4000-8000-000000000001', pg_temp.at('10:00'), pg_temp.at('10:15'))) <> 4 then
+    raise exception 'FAIL 14c: verwacht 4 geboekt op 10:00';
+  end if;
+  insert into tmc.bookings (profile_id, session_id, status, iso_year, iso_week, session_date, pillar, slot_start_at, slot_end_at)
+  values ('a7000000-0000-4000-8000-000000000099', 'd7000000-0000-4000-8000-000000000001', 'booked', 2026, 1, current_date + 3, 'vrij_trainen', pg_temp.at('10:00'), pg_temp.at('10:30'));
+  insert into tmc.bookings (id, profile_id, session_id, status, iso_year, iso_week, session_date, pillar, slot_start_at, slot_end_at)
+  values ('e7000000-0000-4000-8000-0000000000aa', pg_temp.lid(10), 'd7000000-0000-4000-8000-000000000001', 'waitlisted', 2026, 1, current_date + 3, 'vrij_trainen', pg_temp.at('10:00'), pg_temp.at('10:30'));
+  raise notice 'PASS 14c: waitlisted-rij binnen de sessie in een vol kwartier toegelaten (grens alleen voor booked)';
+  -- Promotie naar booked in dat volle kwartier: slot_full.
+  begin
+    update tmc.bookings set status = 'booked' where id = 'e7000000-0000-4000-8000-0000000000aa';
+    raise exception 'FAIL 14d: promotie naar booked in een vol kwartier toegelaten';
+  exception when raise_exception then
+    if sqlerrm <> 'slot_full' then raise; end if;
+    raise notice 'PASS 14d: waitlisted naar booked in een vol kwartier geweigerd met slot_full';
+  end;
+  -- Een waitlisted-rij verschuiven naar buiten de sessie: geweigerd.
+  begin
+    update tmc.bookings set slot_start_at = pg_temp.at('20:30'), slot_end_at = pg_temp.at('21:00') where id = 'e7000000-0000-4000-8000-0000000000aa';
+    raise exception 'FAIL 14e: waitlisted-rij naar buiten de sessie verschoven';
+  exception when raise_exception then
+    if sqlerrm <> 'slot_outside_session' then raise; end if;
+    raise notice 'PASS 14e: waitlisted-rij verschuiven buiten de sessie geweigerd';
+  end;
+end $$;
+
+do $$ begin
+  if (select vrij_trainen_booking_enabled from tmc.booking_settings limit 1) is distinct from false then
+    raise exception 'FAIL 14f: vrij_trainen_booking_enabled staat niet standaard uit';
+  end if;
+  if has_function_privilege('anon', 'tmc.enforce_vrij_trainen_slot()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'tmc.enforce_vrij_trainen_slot()', 'EXECUTE')
+     or has_function_privilege('service_role', 'tmc.enforce_vrij_trainen_slot()', 'EXECUTE') then
+    raise exception 'FAIL 14g: rechten op enforce_vrij_trainen_slot kloppen niet';
+  end if;
+  raise notice 'PASS 14f/g: boekmodus standaard uit, triggerfunctie alleen voor postgres';
+end $$;
+
 do $$ begin raise notice 'ALLE TESTS GESLAAGD'; end $$;
 
 rollback;
