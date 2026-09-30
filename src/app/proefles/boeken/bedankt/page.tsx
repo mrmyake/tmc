@@ -1,3 +1,4 @@
+import { bookingTimes } from "@/lib/member/booking-times";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/layout/Container";
@@ -51,7 +52,7 @@ export default async function TrialBookingThanksPage(props: {
           .from("trial_bookings")
           .select(
             `
-            status, cancel_token,
+            status, cancel_token, slot_start_at, slot_end_at,
             session:class_sessions(start_at, end_at, class_type:class_types(name))
           `,
           )
@@ -66,9 +67,19 @@ export default async function TrialBookingThanksPage(props: {
   } | null;
   const session = trial?.session as unknown as SessionRel;
   const classTypeRaw = session?.class_type;
-  const className = Array.isArray(classTypeRaw)
-    ? (classTypeRaw[0]?.name ?? "Proefles")
-    : (classTypeRaw?.name ?? "Proefles");
+  // Een proefuur vrij trainen toont het slot, niet de dagsessie.
+  const times = session
+    ? bookingTimes(
+        { slot_start_at: trial?.slot_start_at, slot_end_at: trial?.slot_end_at },
+        session,
+      )
+    : null;
+  const className = trial?.slot_start_at
+    ? // COPY: confirm met Marlon
+      "Vrij trainen"
+    : Array.isArray(classTypeRaw)
+      ? (classTypeRaw[0]?.name ?? "Proefles")
+      : (classTypeRaw?.name ?? "Proefles");
 
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh] flex items-center">
@@ -89,11 +100,11 @@ export default async function TrialBookingThanksPage(props: {
         {trial?.status === "paid" && session && (
           <p className="text-text-muted text-lg mb-3">
             {/* COPY: confirm met Marlon */}
-            {className} op {formatWeekdayDate(new Date(session.start_at))}{" "}
+            {className} op {formatWeekdayDate(new Date(times?.startAt ?? session.start_at))}{" "}
             &middot;{" "}
             {formatTimeRange(
-              new Date(session.start_at),
-              new Date(session.end_at),
+              new Date(times?.startAt ?? session.start_at),
+              new Date(times?.endAt ?? session.end_at),
             )}
           </p>
         )}

@@ -13,7 +13,8 @@ import { trackLead, trackFormStart } from "@/lib/analytics";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 import type { TrialSessionOption } from "@/lib/trial-sessions";
-import { SCOPE_LABEL, scopeValidityText, type TrialCodeScope } from "@/lib/trial-codes/scope";
+import type { TrialCodeScope } from "@/lib/trial-codes/scope";
+import { CodeInfoBanner } from "../_components/CodeInfoBanner";
 
 interface Props {
   options: TrialSessionOption[];
@@ -110,37 +111,11 @@ export function TrialBookingList({
             Kies je sessie
           </h1>
           {isCode && codeInfo && (
-            <>
-              {/* COPY: confirm met Marlon */}
-              <p className="text-text-muted text-lg leading-relaxed mb-6 max-w-xl">
-                {scopeValidityText(codeInfo.scope)}
-              </p>
-              <div className="flex items-center gap-4 bg-bg-elevated px-5 py-4 mb-8">
-                <span
-                  aria-hidden
-                  className="w-8 h-8 shrink-0 rounded-full bg-accent text-bg grid place-items-center text-sm"
-                >
-                  ✓
-                </span>
-                <div className="min-w-0">
-                  <div className="font-mono tracking-[0.08em] text-text break-all">
-                    {codeInfo.code}
-                  </div>
-                  {/* COPY: confirm met Marlon */}
-                  <div className="text-sm text-text-muted">
-                    {SCOPE_LABEL[codeInfo.scope]}, gratis
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={codeInfo.onChangeCode}
-                  className="ml-auto shrink-0 text-sm text-text-muted underline underline-offset-4 hover:text-text transition-colors cursor-pointer"
-                >
-                  {/* COPY: confirm met Marlon */}
-                  Andere code
-                </button>
-              </div>
-            </>
+            <CodeInfoBanner
+              code={codeInfo.code}
+              scope={codeInfo.scope}
+              onChangeCode={codeInfo.onChangeCode}
+            />
           )}
         </ScrollReveal>
 

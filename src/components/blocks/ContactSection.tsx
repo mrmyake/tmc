@@ -8,14 +8,17 @@ import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { formatOpeningSchedule } from "@/lib/opening-hours-format";
 import { MarlonPresence } from "@/components/blocks/MarlonPresence";
+import type { PresenceWindow } from "@/lib/presence";
 import type { SanitySettings, SanityOpeningHours } from "../../../sanity/lib/fetch";
 
 interface ContactSectionProps {
   settings: SanitySettings;
   hours: SanityOpeningHours;
+  /** Uit tmc.trainer_presence_windows, door de server-pagina aangeleverd. */
+  presence: readonly PresenceWindow[];
 }
 
-export function ContactSection({ settings, hours }: ContactSectionProps) {
+export function ContactSection({ settings, hours, presence }: ContactSectionProps) {
   const whatsappUrl = `https://wa.me/${settings.whatsappNumber}`;
 
   return (
@@ -68,7 +71,7 @@ export function ContactSection({ settings, hours }: ContactSectionProps) {
                 )}
               </div>
 
-              <MarlonPresence />
+              <MarlonPresence windows={presence} />
 
               <div>
                 <span className="tmc-eyebrow block mb-3">Direct contact</span>

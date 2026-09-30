@@ -15,15 +15,8 @@ export const TRIAL_CODE_SCOPES: readonly TrialCodeScope[] = [
   "vrij_trainen",
 ];
 
-/**
- * Scopes die in deze stand bruikbaar zijn (PR 1). Vrij trainen bestaat in de
- * database maar is pas inwisselbaar na PR 2; de admin-UI biedt hem niet aan.
- */
-export const SELECTABLE_TRIAL_CODE_SCOPES: readonly TrialCodeScope[] = [
-  "yoga_mobility",
-  "kettlebell",
-  "group",
-];
+/** Scopes die de admin-UI aanbiedt: alle vier. */
+export const SELECTABLE_TRIAL_CODE_SCOPES: readonly TrialCodeScope[] = TRIAL_CODE_SCOPES;
 
 export function isTrialCodeScope(value: unknown): value is TrialCodeScope {
   return typeof value === "string" && (TRIAL_CODE_SCOPES as readonly string[]).includes(value);
@@ -42,6 +35,8 @@ export const SCOPE_DESCRIPTION: Record<TrialCodeScope, string> = {
   yoga_mobility: "Alle yoga- en mobilitylessen",
   kettlebell: "Alle kettlebelllessen",
   group: "Yoga, mobility en kettlebell",
+  // De vensters van Marlon komen uit tmc.trainer_presence_windows en worden
+  // er in de admin-UI achter gezet (formatPresenceWindows); niet hardcoded.
   vrij_trainen: "Vast 1 uur, alleen als Marlon er is",
 };
 

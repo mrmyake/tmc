@@ -10,6 +10,7 @@ import { YogaTeaser } from "@/components/blocks/YogaTeaser";
 import { PricingTable, type HomePricingTier } from "@/components/blocks/PricingTable";
 import { ContactSection } from "@/components/blocks/ContactSection";
 import { getCatalogue } from "@/lib/catalogue";
+import { getTrainerPresenceWindows } from "@/lib/trainer-presence";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import {
   getSiteSettings,
@@ -86,7 +87,7 @@ const TestimonialCarousel = dynamic(() =>
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const [settings, trainers, offerings, pricing, hours, images] =
+  const [settings, trainers, offerings, pricing, hours, images, presence] =
     await Promise.all([
       getSiteSettings(),
       getTrainers(),
@@ -94,6 +95,7 @@ export default async function HomePage() {
       getPricing(),
       getOpeningHours(),
       getSiteImages(),
+      getTrainerPresenceWindows(),
     ]);
 
   const trainer = trainers[0];
@@ -124,7 +126,7 @@ export default async function HomePage() {
       <YogaTeaser />
       <PricingTable tiers={pricing} />
       <TestimonialCarousel />
-      <ContactSection settings={settings} hours={hours} />
+      <ContactSection settings={settings} hours={hours} presence={presence} />
     </>
   );
 }

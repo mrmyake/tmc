@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { PRESENCE_MARLON } from "@/lib/constants";
+import { getTrainerPresenceWindows } from "@/lib/trainer-presence";
 import { loadVrijTrainenPicker } from "@/lib/member/vrij-trainen-query";
 import { RoosterHeader } from "../RoosterHeader";
 import { SlotPicker } from "./SlotPicker";
@@ -168,7 +168,10 @@ async function SlotBookingView({
   switcher: ReactNode;
 }) {
   const supabase = await createClient();
-  const data = await loadVrijTrainenPicker(supabase, userId, requestedDate);
+  const [data, presenceRows] = await Promise.all([
+    loadVrijTrainenPicker(supabase, userId, requestedDate),
+    getTrainerPresenceWindows(),
+  ]);
 
   return (
     <>
@@ -200,8 +203,7 @@ async function SlotBookingView({
           presence={{
             // COPY: confirm met Marlon
             name: "Marlon",
-            weekdays: PRESENCE_MARLON.weekdays,
-            windows: PRESENCE_MARLON.windows,
+            rows: presenceRows,
           }}
         />
       )}

@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import type { TrialSessionOption } from "@/lib/trial-sessions";
 import type { TrialCodeScope } from "@/lib/trial-codes/scope";
 import { TrialBookingList } from "../boeken/TrialBookingList";
+import type { VisitorSlotData } from "@/lib/trial-codes/vrij-trainen-query";
 import { CodeEntry } from "./CodeEntry";
+import { VisitorSlotPicker } from "./VisitorSlotPicker";
 
 /**
  * De codeflow: eerst de codestap, na een door de server geldig bevonden code
@@ -19,10 +21,13 @@ import { CodeEntry } from "./CodeEntry";
  */
 export function CodeFlow({
   options,
+  slotData,
   code,
   scope,
 }: {
   options: TrialSessionOption[];
+  /** Alleen bij scope vrij trainen: dagstrip en kwartieren voor de slotkiezer. */
+  slotData: VisitorSlotData | null;
   code: string | null;
   scope: TrialCodeScope | null;
 }) {
@@ -47,6 +52,25 @@ export function CodeFlow({
     );
   }
 
+  const invalid = (m: string) => {
+    setMessage(m);
+    setForceEntry(true);
+    startTransition(() => router.refresh());
+  };
+
+  if (scope === "vrij_trainen" && slotData) {
+    return (
+      <VisitorSlotPicker
+        key={code}
+        data={slotData}
+        code={code}
+        scope={scope}
+        onChangeCode={() => setForceEntry(true)}
+        onCodeInvalid={invalid}
+      />
+    );
+  }
+
   return (
     <TrialBookingList
       // Nieuwe scope of code = verse lijst; de lijst houdt zelf state vast.
@@ -54,11 +78,7 @@ export function CodeFlow({
       options={options}
       mode="code"
       codeInfo={{ code, scope, onChangeCode: () => setForceEntry(true) }}
-      onCodeInvalid={(m) => {
-        setMessage(m);
-        setForceEntry(true);
-        startTransition(() => router.refresh());
-      }}
+      onCodeInvalid={invalid}
     />
   );
 }

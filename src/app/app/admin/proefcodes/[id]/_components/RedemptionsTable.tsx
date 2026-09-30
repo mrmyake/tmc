@@ -39,6 +39,17 @@ function SessionCell({ row }: { row: TrialCodeRedemptionRow }) {
     return <span className="text-text-muted text-sm">Onbekend</span>;
   }
   const start = new Date(row.sessionStartAt);
+  if (row.isSlot && row.sessionEndAt) {
+    // Vrij trainen staat niet in het admin-rooster; toon het slot zelf.
+    return (
+      <div className="flex flex-col">
+        <span className="text-sm text-text">{row.className}</span>
+        <span className="text-xs text-text-muted">
+          {formatShortDateWithYear(start)} · {formatTime(start)} – {formatTime(new Date(row.sessionEndAt))}
+        </span>
+      </div>
+    );
+  }
   return (
     <Link
       href={roosterWeekHref(row.sessionStartAt)}

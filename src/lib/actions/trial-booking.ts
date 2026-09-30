@@ -9,6 +9,7 @@ import { emitEvent } from "@/lib/events/emit";
 import { getCatalogue } from "@/lib/catalogue";
 import { sendNotification } from "@/lib/ntfy";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
+import { bookingTimes } from "@/lib/member/booking-times";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
 import {
@@ -75,6 +76,13 @@ interface StartTrialBookingInput {
   /** Terugkeerdoel na Mollie (workstream A): "app" of "web"; alleen een enum. */
   returnTarget?: ReturnTarget;
   /**
+   * Alleen code-modus met een vrij-trainen-code: de starttijd van het proefuur
+   * (ISO). De duur is altijd 60 minuten en wordt, net als de scope, het
+   * kwartier en de aanwezigheid van Marlon, server-side afgedwongen door
+   * tmc.redeem_trial_code. Nooit een eindtijd uit de client.
+   */
+  slotStartAt?: string;
+  /**
    * "paid" (standaard): de betaalde flow, negeert een aanwezig codecookie
    * volledig. "code": de gratis flow van /proefles/code; de code komt
    * uitsluitend uit het ondertekende httpOnly-cookie (nooit uit de input) en
@@ -105,6 +113,22 @@ const REDEEM_REASON_MESSAGE: Record<string, string> = {
   // COPY: confirm met Marlon
   scope_mismatch: "Je code is niet geldig voor deze les. Kies een les uit de lijst.",
   scope_not_available: CODE_NOT_AVAILABLE_MESSAGE,
+  // Vrij trainen via een code (PR 2): de server beslist over het slot.
+  // COPY: confirm met Marlon
+  slot_required: "Kies eerst een starttijd.",
+  // COPY: confirm met Marlon
+  slot_invalid: "Deze starttijd is niet beschikbaar. Kies een andere.",
+  // COPY: confirm met Marlon
+  slot_in_past: "Deze starttijd is al voorbij. Kies een andere.",
+  // COPY: confirm met Marlon
+  slot_outside_session: "Deze starttijd is niet beschikbaar. Kies een andere.",
+  // COPY: confirm met Marlon
+  outside_presence: "Vrij trainen met een proefcode kan alleen als Marlon er is. Kies een andere starttijd.",
+  // COPY: confirm met Marlon
+  slot_blocked: "Op dat moment is er een les. Kies een andere starttijd.",
+  // COPY: confirm met Marlon
+  slot_full: "Net iemand je voor: dit uur is niet meer vrij. Kies een andere starttijd.",
+  slot_not_allowed: "Boeken lukte niet. Probeer het opnieuw.",
 };
 
 /** Terug naar de codestap of de sessiekiezer, per weigering van de RPC. */
@@ -116,7 +140,15 @@ function stepForReason(reason: string | undefined): "code" | "session" | undefin
     reason === "session_not_scheduled" ||
     reason === "session_in_past" ||
     reason === "session_not_trial_eligible" ||
-    reason === "scope_mismatch"
+    reason === "scope_mismatch" ||
+    reason === "slot_required" ||
+    reason === "slot_invalid" ||
+    reason === "slot_in_past" ||
+    reason === "slot_outside_session" ||
+    reason === "outside_presence" ||
+    reason === "slot_blocked" ||
+    reason === "slot_full" ||
+    reason === "slot_not_allowed"
   ) {
     return "session";
   }
@@ -130,6 +162,8 @@ interface RedeemArgs {
   email: string;
   phone: string;
   isTest: boolean;
+  /** Vrij-trainen-code: start van het proefuur (ISO), anders null. */
+  slotStartAt: string | null;
 }
 
 /**
@@ -164,6 +198,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     p_email: args.email,
     p_phone: args.phone,
     p_is_test: args.isTest,
+    p_slot_start_at: args.slotStartAt,
   });
   if (error) {
     console.error("[startTrialBooking] redeem_trial_code failed", error);
@@ -180,6 +215,8 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     code?: string;
     session_id?: string;
     session_start_at?: string;
+    slot_start_at?: string | null;
+    slot_end_at?: string | null;
     prior_free_count?: number;
   };
 
@@ -219,11 +256,25 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
   });
 
   // Staf-melding zonder persoonsgegevens (PR #205): het topic is openbaar.
-  void sendNotification(
-    "Proefles geboekt met code!",
-    `Proefles-boeking ${trialBookingId} is gratis geboekt met code ${result.code ?? "?"}. Zie de sessie in het admin-rooster.`,
-    "ticket,muscle",
-  );
+  // Bij een proefuur vrij trainen alleen dat er een proefuur is geboekt, met
+  // datum en tijd van het slot; geen naam, code of boeking-id.
+  if (result.slot_start_at && result.slot_end_at) {
+    const slotStart = new Date(result.slot_start_at);
+    const slotEnd = new Date(result.slot_end_at);
+    void sendNotification(
+      // COPY: confirm met Marlon
+      "Proefuur vrij trainen geboekt!",
+      // COPY: confirm met Marlon
+      `Proefuur vrij trainen geboekt: ${formatWeekdayDate(slotStart)} · ${formatTimeRange(slotStart, slotEnd)}. Zie Proefuren vandaag in het admin-rooster.`,
+      "ticket,muscle",
+    );
+  } else {
+    void sendNotification(
+      "Proefles geboekt met code!",
+      `Proefles-boeking ${trialBookingId} is gratis geboekt met code ${result.code ?? "?"}. Zie de sessie in het admin-rooster.`,
+      "ticket,muscle",
+    );
+  }
 
   if ((result.prior_free_count ?? 0) > 0) {
     const { data: session } = await admin
@@ -236,8 +287,15 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     const className = Array.isArray(classTypeRaw)
       ? (classTypeRaw[0]?.name ?? "Proefles")
       : (classTypeRaw?.name ?? "Proefles");
-    const startAt = new Date(session?.start_at ?? result.session_start_at ?? Date.now());
-    const endAt = session?.end_at ? new Date(session.end_at) : startAt;
+    const times = bookingTimes(
+      { slot_start_at: result.slot_start_at, slot_end_at: result.slot_end_at },
+      {
+        start_at: session?.start_at ?? result.session_start_at ?? new Date().toISOString(),
+        end_at: session?.end_at ?? session?.start_at ?? result.session_start_at ?? new Date().toISOString(),
+      },
+    );
+    const startAt = new Date(times.startAt);
+    const endAt = new Date(times.endAt);
 
     await sendTrialCodeAbuseAlert({
       trialBookingId,
@@ -246,7 +304,8 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
       name: args.name,
       email: args.email,
       phone: args.phone,
-      className,
+      // COPY: confirm met Marlon
+      className: result.slot_start_at ? "Vrij trainen" : className,
       whenLabel: `${formatWeekdayDate(startAt)} · ${formatTimeRange(startAt, endAt)}`,
     });
   }
@@ -304,8 +363,27 @@ export async function startTrialBooking(
   if (session.status !== "scheduled") {
     return { ok: false, error: "Deze sessie is niet meer beschikbaar.", step: "session" };
   }
-  if (new Date(session.start_at) <= new Date()) {
+  // Een vrij-trainen-dagsessie begint 's ochtends; het proefuur zelf wordt
+  // server-side tegen nu gecontroleerd (slot_in_past), dus hier geen
+  // sessiestartcheck voor de code-modus op vrij trainen.
+  const freeTrainingViaCode = codeMode && session.pillar === "vrij_trainen";
+  if (!freeTrainingViaCode && new Date(session.start_at) <= new Date()) {
     return { ok: false, error: "Deze sessie is al voorbij.", step: "session" };
+  }
+
+  // Vrij trainen via een code: geen drop-in-prijs, geen sessiecapaciteit (de
+  // RPC telt het maximum per kwartier onder de sessielock). Alles wat de
+  // toegang bepaalt (scope, slot, aanwezigheid, maximum) beslist de RPC.
+  if (freeTrainingViaCode && code) {
+    return redeemTrialCodeBooking({
+      code,
+      sessionId: session.id,
+      name,
+      email,
+      phone,
+      isTest: trialBookingMode() === "test",
+      slotStartAt: input.slotStartAt ?? null,
+    });
   }
 
   const catalogue = await getCatalogue();
@@ -348,6 +426,7 @@ export async function startTrialBooking(
       email,
       phone,
       isTest: mode === "test",
+      slotStartAt: null,
     });
   }
 
@@ -493,6 +572,7 @@ export async function getTrialBookingByToken(
     .select(
       `
         id, name, status, cancelled_at, price_paid_cents, booked_at,
+        slot_start_at, slot_end_at,
         session:class_sessions(start_at, end_at, rescheduled_at, class_type:class_types(name)),
         trial_code:trial_codes!trial_bookings_trial_code_id_fkey(revoked_at, max_uses, uses_count)
       `,
@@ -516,12 +596,21 @@ export async function getTrialBookingByToken(
     class_type: { name: string } | { name: string }[] | null;
   } | null;
   const session = trial.session as unknown as SessionRel;
-  const startAt = session?.start_at ?? new Date().toISOString();
-  const endAt = session?.end_at ?? startAt;
+  // Een proefuur vrij trainen rekent en toont het slot, niet de dagsessie.
+  const nowIso = new Date().toISOString();
+  const times = bookingTimes(
+    { slot_start_at: trial.slot_start_at, slot_end_at: trial.slot_end_at },
+    { start_at: session?.start_at ?? nowIso, end_at: session?.end_at ?? session?.start_at ?? nowIso },
+  );
+  const startAt = times.startAt;
+  const endAt = times.endAt;
   const classTypeRaw = session?.class_type;
-  const className = Array.isArray(classTypeRaw)
-    ? (classTypeRaw[0]?.name ?? "Proefles")
-    : (classTypeRaw?.name ?? "Proefles");
+  const className = trial.slot_start_at
+    ? // COPY: confirm met Marlon
+      "Vrij trainen"
+    : Array.isArray(classTypeRaw)
+      ? (classTypeRaw[0]?.name ?? "Proefles")
+      : (classTypeRaw?.name ?? "Proefles");
 
   const now = new Date();
   // Zelfde regel als visitor_cancel_trial_booking: binnen de termijn, of
