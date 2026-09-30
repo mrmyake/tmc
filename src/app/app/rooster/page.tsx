@@ -20,6 +20,13 @@ import {
 import { FilterChips } from "./_components/FilterChips";
 import { SessionList } from "./_components/SessionList";
 import { DayStrip, type DayStripDay } from "./_components/DayStrip";
+import { RoosterHeader } from "./_components/RoosterHeader";
+import { WeergaveSwitch } from "./_components/WeergaveSwitch";
+import { VrijTrainenKaartje } from "./_components/VrijTrainenKaartje";
+import { VrijTrainenView } from "./_components/vrij-trainen/VrijTrainenView";
+import { loadCoveredPillars } from "@/lib/member/covered-pillars";
+import { loadVrijTrainenPicker } from "@/lib/member/vrij-trainen-query";
+import { amsterdamClock, nextFreeStart } from "@/lib/member/vrij-trainen-slots";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
 import { NextSessionCard } from "@/app/app/_components/NextSessionCard";
 import { IntakeBanner } from "@/app/app/_components/IntakeBanner";
@@ -84,8 +91,7 @@ const REASON_TO_STATUS: Record<string, SessionStatus> = {
   session_in_past: "past",
 };
 
-// Zelfde ISO-week/jaar-berekening als src/app/app/vrij-trainen/page.tsx en
-// src/lib/member/booking-actions.ts (softWeeklyCapCheck) — bewust een derde
+// Zelfde ISO-week/jaar-berekening als src/lib/member/booking-actions.ts (softWeeklyCapCheck), bewust een derde
 // kopie in plaats van een nieuwe gedeelde util, om deze wijziging chirurgisch
 // te houden. Zelfde UTC-basis als book_class_session's eigen
 // extract(isoyear/week from (start_at at time zone 'utc')::date), dus de
@@ -187,6 +193,7 @@ export default async function RoosterPage(props: {
     from?: string;
     dag?: string;
     pijler?: string;
+    weergave?: string;
   }>;
 }) {
   const searchParams = await props.searchParams;
@@ -205,6 +212,37 @@ export default async function RoosterPage(props: {
   const windowEnd = parseIsoDateToAmsterdamMidnight(
     addDaysIsoAmsterdam(fromIso, WINDOW_DAYS),
   )!;
+
+  // Welke weergave(n) tonen hangt af van wat de memberships dekken. Dit is
+  // alleen een weergavekeuze; canBook() en de selectie hieronder blijven
+  // zoals ze waren (spec-rooster-vrij-trainen.md).
+  const coverage = await loadCoveredPillars(supabase, user.id);
+  const coversLessons = [...coverage.pillars].some((p) => p !== "vrij_trainen");
+  const hasSwitch = coverage.coversVrijTrainen && coversLessons;
+  const vrijOnly = coverage.coversVrijTrainen && !coversLessons;
+  const showVrij = vrijOnly || (hasSwitch && searchParams.weergave === "vrij");
+  const switcher = hasSwitch ? (
+    <WeergaveSwitch
+      active={showVrij ? "vrij" : "lessen"}
+      dag={showVrij ? searchParams.dag : selectedDayIso}
+    />
+  ) : null;
+
+  if (showVrij) {
+    return (
+      <Container className="py-12 md:py-16 lg:py-20">
+        <div className="mx-auto max-w-[1080px]">
+          <VrijTrainenView
+            userId={user.id}
+            requestedDate={searchParams.dag}
+            cap={coverage.vrijTrainenFrequencyCap}
+            isPaused={coverage.vrijTrainenPaused}
+            switcher={switcher}
+          />
+        </div>
+      </Container>
+    );
+  }
 
   const pillarFilter = (
     searchParams.pijler && (PILLARS as readonly string[]).includes(searchParams.pijler)
@@ -233,6 +271,7 @@ export default async function RoosterPage(props: {
     membershipsResult,
     strikesResult,
     weeklyPillarCountResult,
+    vrijPickerData,
   ] = await Promise.all([
     (() => {
       let q = supabase
@@ -252,7 +291,7 @@ export default async function RoosterPage(props: {
             trainer:trainers(display_name, bio)
           `,
         )
-        // Vrij trainen heeft een eigen pagina (/app/vrij-trainen). Hier
+        // Vrij trainen heeft een eigen weergave (?weergave=vrij). Hier
         // alleen tijdslot-sessies.
         .neq("pillar", "vrij_trainen")
         .gte("start_at", windowStart.toISOString())
@@ -275,7 +314,7 @@ export default async function RoosterPage(props: {
     supabase
       .from("booking_settings")
       .select(
-        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, check_in_enabled, check_in_pillars",
+        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, check_in_enabled, check_in_pillars, vrij_trainen_booking_enabled",
       )
       .limit(1)
       .maybeSingle(),
@@ -366,6 +405,10 @@ export default async function RoosterPage(props: {
       .eq("status", "booked")
       .gte("session_date", weekRangeStartIso)
       .lt("session_date", weekRangeEndIso),
+    // Alleen voor het vrij-trainen-kaartje (lid dat beide weergaven heeft).
+    hasSwitch && !coverage.vrijTrainenPaused
+      ? loadVrijTrainenPicker(supabase, user.id, selectedDayIso, now)
+      : Promise.resolve(null),
   ]);
 
   if (sessionsResult.error) {
@@ -643,9 +686,9 @@ export default async function RoosterPage(props: {
     };
   });
 
-  // Vrij trainen wordt hier niet meer getoond — eigen pagina op
-  // /app/vrij-trainen. De query boven filtert al op pillar ≠
-  // vrij_trainen, dus enriched bevat alleen groepslessen.
+  // Vrij trainen wordt hier niet getoond, dat is de andere weergave. De
+  // query boven filtert al op pillar ≠ vrij_trainen, dus enriched bevat
+  // alleen groepslessen.
   const regularEnriched = enriched;
 
   // DayStrip tellers per dag.
@@ -715,16 +758,31 @@ export default async function RoosterPage(props: {
       }
     : null;
 
+  // Kaartje "Liever vrij trainen?": alleen in boekmodus, als de gekozen dag
+  // een vrij-trainen-sessie heeft (de kiezer snapt anders naar een andere
+  // dag) en er nog een start met plek is.
+  const vrijBookingEnabled = settingsResult.data?.vrij_trainen_booking_enabled ?? false;
+  const free =
+    vrijBookingEnabled &&
+    vrijPickerData &&
+    vrijPickerData.session &&
+    vrijPickerData.selectedDate === selectedDayIso
+      ? nextFreeStart(vrijPickerData.quarters, now.getTime())
+      : null;
+  const vrijKaartje =
+    free && vrijPickerData ? (
+      <VrijTrainenKaartje
+        dag={selectedDayIso}
+        available={free.available}
+        maxConcurrent={vrijPickerData.maxConcurrent}
+        time={amsterdamClock(free.startMs)}
+      />
+    ) : null;
+
   return (
     <Container className="py-16 md:py-20">
-      <header className="mb-10">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Rooster
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-5xl md:text-7xl text-text leading-[1.02] tracking-[-0.02em]">
-          Kies je moment.
-        </h1>
-      </header>
+      <div className={hasSwitch ? "mx-auto max-w-[1080px]" : undefined}>
+      <RoosterHeader eyebrow="Rooster" title="Kies je moment." switcher={switcher} />
 
       <OfflineBanner />
 
@@ -755,37 +813,49 @@ export default async function RoosterPage(props: {
         />
       </div>
 
-      <SessionList
-        sessions={selectedDaySessions.map((s) => ({
-          id: s.id,
-          startAt: s.startAt,
-          endAt: s.endAt,
-          className: s.className,
-          trainerName: s.trainerName,
-          trainerBio: s.trainerBio,
-          pillar: s.pillar,
-          capacity: s.capacity,
-          takenCount: s.takenCount,
-          spotsAvailable: s.spotsAvailable,
-          status: s.status,
-          bookingId: s.bookingId,
-          checkInHint: s.checkInHint,
-          checkedIn: s.checkedIn,
-          reasonText: s.reasonText,
-          rescheduledFrom: s.rescheduledFrom,
-          freeCancel: s.freeCancel,
-          waitlistEntryId: s.waitlistEntryId,
-          waitlistDeadline: s.waitlistDeadline,
-          waitlistRank: s.waitlistRank,
-        }))}
-        cancellationWindowHours={cancellationWindowHours}
-      />
+      <div
+        className={
+          vrijKaartje
+            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-10"
+            : undefined
+        }
+      >
+        <div>
+          <SessionList
+            sessions={selectedDaySessions.map((s) => ({
+              id: s.id,
+              startAt: s.startAt,
+              endAt: s.endAt,
+              className: s.className,
+              trainerName: s.trainerName,
+              trainerBio: s.trainerBio,
+              pillar: s.pillar,
+              capacity: s.capacity,
+              takenCount: s.takenCount,
+              spotsAvailable: s.spotsAvailable,
+              status: s.status,
+              bookingId: s.bookingId,
+              checkInHint: s.checkInHint,
+              checkedIn: s.checkedIn,
+              reasonText: s.reasonText,
+              rescheduledFrom: s.rescheduledFrom,
+              freeCancel: s.freeCancel,
+              waitlistEntryId: s.waitlistEntryId,
+              waitlistDeadline: s.waitlistDeadline,
+              waitlistRank: s.waitlistRank,
+            }))}
+            cancellationWindowHours={cancellationWindowHours}
+          />
 
-      {pillarFilter && selectedDaySessions.length > 0 && (
-        <p className="mt-10 text-text-muted text-xs">
-          Filter actief: {PILLAR_LABELS[pillarFilter]}.
-        </p>
-      )}
+          {pillarFilter && selectedDaySessions.length > 0 && (
+            <p className="mt-10 text-text-muted text-xs">
+              Filter actief: {PILLAR_LABELS[pillarFilter]}.
+            </p>
+          )}
+        </div>
+        {vrijKaartje && <div className="mt-8 lg:mt-0 lg:sticky lg:top-24">{vrijKaartje}</div>}
+      </div>
+      </div>
     </Container>
   );
 }

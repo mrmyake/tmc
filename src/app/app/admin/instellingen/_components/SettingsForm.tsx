@@ -119,7 +119,7 @@ export function SettingsForm({ initial }: SettingsFormProps) {
             </span>
             <span className="text-text-muted text-xs mt-0.5">
               {/* COPY: confirm met Marlon */}
-              Aan: leden boeken een tijdslot op /app/vrij-trainen. Uit: leden
+              Aan: leden boeken een tijdslot op /app/rooster (weergave Vrij trainen). Uit: leden
               zien alleen hun check-ins. Inchecken op de tablet werkt in
               beide gevallen.
             </span>

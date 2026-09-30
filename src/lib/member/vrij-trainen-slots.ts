@@ -110,6 +110,22 @@ export function isStartBookable(
   );
 }
 
+/**
+ * Eerstvolgende starttijd met een vrije plek, voor het kaartje in het rooster
+ * (spec-rooster-vrij-trainen.md). Eerst een start waar DEFAULT_SLOT_DURATION
+ * past; lukt dat niet, dan een van 30 minuten. Geen van beide: null.
+ */
+export function nextFreeStart(
+  quarters: readonly QuarterAvailability[],
+  nowMs: number,
+): { startMs: number; available: number } | null {
+  for (const minutes of [DEFAULT_SLOT_DURATION, 30]) {
+    const cell = quarterCells(quarters, minutes, nowMs).find((c) => c.bookable);
+    if (cell) return { startMs: cell.startMs, available: cell.available };
+  }
+  return null;
+}
+
 /** Toon de herinneringsregel alleen als de cron er nog een verstuurt. */
 export function reminderWillBeSent(slotStartIso: string, nowMs: number): boolean {
   return Date.parse(slotStartIso) - nowMs > REMINDER_LEAD_MS;

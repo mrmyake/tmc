@@ -11,6 +11,7 @@ import {
   durationLabel,
   groupByHour,
   isStartBookable,
+  nextFreeStart,
   quarterCells,
   quarterLabel,
   reminderWillBeSent,
@@ -144,4 +145,20 @@ test("aanwezigheid trainer per heel uur", () => {
 
 test("duurlabels", () => {
   assert.deepEqual([30, 45, 60, 75, 90].map(durationLabel), ["30 min", "45 min", "1 uur", "1 uur 15", "1,5 uur"]);
+});
+
+test("nextFreeStart: eerst een uur, anders een half uur, anders niets", () => {
+  // Uur past vanaf het eerste kwartier.
+  assert.deepEqual(nextFreeStart(day(START, 8, { 0: { available: 3 } }), BEFORE), {
+    startMs: Date.parse(START),
+    available: 3,
+  });
+  // Kwartier 1 is vol: een uur past nergens, een half uur pas vanaf 07:30.
+  const short = day(START, 5, { 1: { available: 0, booked: 5 } });
+  assert.equal(quarterCells(short, 60, BEFORE).some((c) => c.bookable), false);
+  assert.deepEqual(nextFreeStart(short, BEFORE), { startMs: Date.parse(START) + 2 * Q, available: 5 });
+  // Alles vol of voorbij: geen kaartje.
+  assert.equal(nextFreeStart(day(START, 8, { 0: { available: 0 }, 1: { available: 0 }, 2: { available: 0 }, 3: { available: 0 }, 4: { available: 0 }, 5: { available: 0 }, 6: { available: 0 }, 7: { available: 0 } }), BEFORE), null);
+  assert.equal(nextFreeStart(day(START, 8), Date.parse(START) + 24 * 60 * 60_000), null);
+  assert.equal(nextFreeStart([], BEFORE), null);
 });

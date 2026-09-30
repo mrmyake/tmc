@@ -9,7 +9,7 @@ import type { StripDay } from "@/lib/member/vrij-trainen-query";
 /**
  * Zeven dagen vanaf vandaag. Een dag zonder vrij-trainen-sessie is
  * uitgeschakeld, de gekozen dag krijgt een champagne rand en een dag met een
- * eigen boeking een champagne stip. Navigatie via ?dag=, zodat de server de
+ * eigen boeking een champagne stip. Navigatie via ?weergave=vrij&dag=, zodat de server de
  * beschikbaarheid van die dag laadt.
  */
 export function SlotDayStrip({
@@ -58,7 +58,7 @@ export function SlotDayStrip({
         return (
           <Link
             key={d.isoDate}
-            href={`/app/vrij-trainen?dag=${d.isoDate}`}
+            href={`/app/rooster?weergave=vrij&dag=${d.isoDate}`}
             scroll={false}
             aria-current={selected ? "date" : undefined}
             // COPY: confirm met Marlon

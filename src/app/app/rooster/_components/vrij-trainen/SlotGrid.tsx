@@ -3,8 +3,6 @@
 import {
   amsterdamClock,
   quarterLabel,
-  trainerPresentInHour,
-  type HourRow,
   type QuarterCell,
 } from "@/lib/member/vrij-trainen-slots";
 
@@ -15,54 +13,47 @@ interface Presence {
 }
 
 /**
- * Raster per uur: links het uur (plus de trainer als die het hele uur
- * aanwezig is), rechts vier kwartierknoppen. Alleen boekbare starts zijn
- * aanklikbaar. De gekozen start is champagne gevuld, de rest van het slot
- * champagne omrand.
+ * Starttijden als raster: 3 kolommen op mobiel, 4 op tablet, 6 op desktop
+ * (spec-rooster-vrij-trainen.md). Alleen boekbare starts zijn aanklikbaar. De
+ * gekozen start is champagne gevuld, de rest van het slot champagne omrand.
+ * Staat de trainer die dag in de studio, dan staat dat onder het raster.
  */
 export function SlotGrid({
-  rows,
+  cells,
   weekday,
   presence,
   selectedStartMs,
   slotQuarterMs,
   onSelect,
 }: {
-  rows: HourRow[];
+  cells: QuarterCell[];
   weekday: number;
   presence: Presence;
   selectedStartMs: number | null;
   slotQuarterMs: ReadonlySet<number>;
   onSelect: (cell: QuarterCell) => void;
 }) {
+  const present = presence.weekdays.includes(weekday);
   return (
-    <div className="flex flex-col gap-1.5">
-      {rows.map((row, i) => (
-        <div key={`${row.hourLabel}-${i}`} className="grid grid-cols-[3.25rem_1fr] items-center gap-2">
-          <div className="flex flex-col">
-            <span className="text-sm text-text tabular-nums">{row.hourLabel}</span>
-            {trainerPresentInHour(weekday, row.hour, presence) && (
-              // COPY: confirm met Marlon
-              <span className="text-[10px] uppercase tracking-[0.12em] text-accent">{presence.name}</span>
-            )}
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {row.cells.map((cell, idx) =>
-              cell ? (
-                <QuarterButton
-                  key={cell.quarterStart}
-                  cell={cell}
-                  isStart={cell.startMs === selectedStartMs}
-                  inSlot={slotQuarterMs.has(cell.startMs)}
-                  onSelect={onSelect}
-                />
-              ) : (
-                <span key={`empty-${idx}`} aria-hidden />
-              ),
-            )}
-          </div>
-        </div>
-      ))}
+    <div>
+      <div className="grid grid-cols-3 gap-1.5 md:grid-cols-4 lg:grid-cols-6">
+        {cells.map((cell) => (
+          <QuarterButton
+            key={cell.quarterStart}
+            cell={cell}
+            isStart={cell.startMs === selectedStartMs}
+            inSlot={slotQuarterMs.has(cell.startMs)}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+      {present && presence.windows.length > 0 && (
+        <p className="mt-4 text-xs text-text-muted">
+          {/* COPY: confirm met Marlon */}
+          {presence.name} is er van{" "}
+          {presence.windows.map((w) => `${w.from} tot ${w.to}`).join(" en van ")}.
+        </p>
+      )}
     </div>
   );
 }
@@ -107,7 +98,7 @@ function QuarterButton({
       aria-pressed={isStart}
       aria-label={`${time}, ${label}`}
       onClick={() => onSelect(cell)}
-      className={`flex flex-col items-center justify-center rounded border py-2 transition-colors duration-200 ${tone} ${
+      className={`flex flex-col items-center justify-center rounded border min-h-11 py-2 transition-colors duration-200 ${tone} ${
         cell.bookable ? "cursor-pointer" : "cursor-default"
       }`}
     >

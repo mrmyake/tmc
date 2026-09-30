@@ -455,7 +455,6 @@ export async function createBooking(
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
-  revalidatePath("/app/vrij-trainen");
 
   // Fire-and-forget confirmation email. Catch inside helper so this can
   // never crash the action.
@@ -666,7 +665,6 @@ export async function cancelBooking(
   revalidatePath("/app/rooster");
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
-  revalidatePath("/app/vrij-trainen");
 
   // De vrij-trainen-termijn is instelbaar en rekent vanaf het eigen slot
   // (spec-vrij-trainen-slots.md), dus geen vast aantal minuten in de tekst.
