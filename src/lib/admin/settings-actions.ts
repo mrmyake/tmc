@@ -27,6 +27,10 @@ export interface BookingSettingsInput {
   checkInEnabled: boolean;
   checkInPillars: CheckInPillar[];
   noShowReleaseMinutes: number;
+  /** Maximaal aantal vrij-trainen-boekingen tegelijk per kwartier. */
+  vrijTrainenMaxConcurrent: number;
+  /** Aan: /app/vrij-trainen toont de slotkiezer; uit: de check-in-weergave. */
+  vrijTrainenBookingEnabled: boolean;
 }
 
 function isPositiveInt(n: number, min = 0, max = 10_000_000): boolean {
@@ -51,6 +55,7 @@ export async function saveBookingSettings(
     ["noShowStrikeThreshold", 1, 10],
     ["noShowBlockDays", 0, 90],
     ["noShowReleaseMinutes", 0, 120],
+    ["vrijTrainenMaxConcurrent", 1, 50],
   ];
   for (const [key, min, max] of checks) {
     if (!isPositiveInt(input[key] as number, min, max)) {
@@ -63,6 +68,10 @@ export async function saveBookingSettings(
 
   if (typeof input.checkInEnabled !== "boolean") {
     return { ok: false, message: "Check-in toggle ontbreekt." };
+  }
+  if (typeof input.vrijTrainenBookingEnabled !== "boolean") {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Schakelaar boekmodus vrij trainen ontbreekt." };
   }
   if (!Array.isArray(input.checkInPillars)) {
     return { ok: false, message: "Check-in pillars ontbreken." };
@@ -89,6 +98,8 @@ export async function saveBookingSettings(
     check_in_enabled: input.checkInEnabled,
     check_in_pillars: dedupedPillars,
     no_show_release_minutes: input.noShowReleaseMinutes,
+    vrij_trainen_max_concurrent: input.vrijTrainenMaxConcurrent,
+    vrij_trainen_booking_enabled: input.vrijTrainenBookingEnabled,
   };
 
   const { error } = await admin
