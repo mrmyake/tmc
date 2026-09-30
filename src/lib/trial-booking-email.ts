@@ -111,6 +111,7 @@ export async function sendTrialBookingConfirmationEmail(trial: {
         whenLabel,
         cancelUrl,
         cancellationWindowHours,
+        variant: isSlot ? "vrij_trainen" : "group",
         // Gratis via proefcode: geen prijsregel en geen betaalverwijzing.
         priceLabel:
           trial.price_paid_cents > 0 ? formatPriceEuro(trial.price_paid_cents) : null,
