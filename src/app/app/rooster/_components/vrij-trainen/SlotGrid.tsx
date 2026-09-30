@@ -1,8 +1,11 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   amsterdamClock,
   quarterLabel,
+  trainerPresentInHour,
+  type HourRow,
   type QuarterCell,
 } from "@/lib/member/vrij-trainen-slots";
 
@@ -13,47 +16,54 @@ interface Presence {
 }
 
 /**
- * Starttijden als raster: 3 kolommen op mobiel, 4 op tablet, 6 op desktop
- * (spec-rooster-vrij-trainen.md). Alleen boekbare starts zijn aanklikbaar. De
- * gekozen start is champagne gevuld, de rest van het slot champagne omrand.
- * Staat de trainer die dag in de studio, dan staat dat onder het raster.
+ * Starttijden per uur: een kopregel over de volle rasterbreedte met het uur
+ * (en "Marlon aanwezig" als zij dat hele uur in de studio is), daaronder de
+ * kwartieren in een raster van 3 kolommen op mobiel, 4 op tablet en 6 op
+ * desktop (spec-rooster-vrij-trainen.md). Alleen boekbare starts zijn
+ * aanklikbaar. De gekozen start is champagne gevuld, de rest van het slot
+ * champagne omrand.
  */
 export function SlotGrid({
-  cells,
+  rows,
   weekday,
   presence,
   selectedStartMs,
   slotQuarterMs,
   onSelect,
 }: {
-  cells: QuarterCell[];
+  rows: HourRow[];
   weekday: number;
   presence: Presence;
   selectedStartMs: number | null;
   slotQuarterMs: ReadonlySet<number>;
   onSelect: (cell: QuarterCell) => void;
 }) {
-  const present = presence.weekdays.includes(weekday);
   return (
-    <div>
-      <div className="grid grid-cols-3 gap-1.5 md:grid-cols-4 lg:grid-cols-6">
-        {cells.map((cell) => (
-          <QuarterButton
-            key={cell.quarterStart}
-            cell={cell}
-            isStart={cell.startMs === selectedStartMs}
-            inSlot={slotQuarterMs.has(cell.startMs)}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
-      {present && presence.windows.length > 0 && (
-        <p className="mt-4 text-xs text-text-muted">
-          {/* COPY: confirm met Marlon */}
-          {presence.name} is er van{" "}
-          {presence.windows.map((w) => `${w.from} tot ${w.to}`).join(" en van ")}.
-        </p>
-      )}
+    <div className="grid grid-cols-3 gap-1.5 md:grid-cols-4 lg:grid-cols-6">
+      {rows.map((row, i) => (
+        <Fragment key={`${row.hourLabel}-${i}`}>
+          <div className="col-span-full flex items-baseline justify-between pt-3 first:pt-0">
+            <span className="text-xs tabular-nums text-text-muted">{row.hourLabel}</span>
+            {trainerPresentInHour(weekday, row.hour, presence) && (
+              <span className="text-[10px] uppercase tracking-[0.12em] text-accent">
+                {/* COPY: confirm met Marlon */}
+                {presence.name} aanwezig
+              </span>
+            )}
+          </div>
+          {row.cells.map((cell) =>
+            cell ? (
+              <QuarterButton
+                key={cell.quarterStart}
+                cell={cell}
+                isStart={cell.startMs === selectedStartMs}
+                inSlot={slotQuarterMs.has(cell.startMs)}
+                onSelect={onSelect}
+              />
+            ) : null,
+          )}
+        </Fragment>
+      ))}
     </div>
   );
 }

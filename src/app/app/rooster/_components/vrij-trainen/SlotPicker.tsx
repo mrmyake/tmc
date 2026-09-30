@@ -11,6 +11,7 @@ import { cancelBooking, createBooking } from "@/lib/member/booking-actions";
 import {
   DEFAULT_SLOT_DURATION,
   durationLabel,
+  groupByHour,
   amsterdamClock,
   isStartBookable,
   QUARTER_MS,
@@ -63,6 +64,7 @@ export function SlotPicker({
     () => quarterCells(data.quarters, duration, nowMs),
     [data.quarters, duration, nowMs],
   );
+  const rows = useMemo(() => groupByHour(cells), [cells]);
 
   // Past de gekozen start niet meer (tijd verstreken, nieuwe data na een
   // refresh), dan telt de keuze niet. Een andere duur ruimt hem ook echt op,
@@ -238,7 +240,7 @@ export function SlotPicker({
 
           <div>
             <SlotGrid
-              cells={cells}
+              rows={rows}
               weekday={weekday}
               presence={presence}
               selectedStartMs={selectedStartMs}
