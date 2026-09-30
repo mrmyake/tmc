@@ -91,6 +91,35 @@ export const SITE = {
   hormoonprofiel: "https://hormoonprofiel.com",
 } as const;
 
+// Studio-openingstijden: het venster waarin leden met vrij trainen naar
+// binnen kunnen. Dit is de fallback voor de Sanity-flow (sanity/lib/fetch.ts)
+// en de bron voor /contact. HH:MM, weergave via formatOpeningSchedule()
+// (src/lib/opening-hours-format.ts). De toegangslogica leest deze constante
+// niet; die komt uit de opening_hours-tabel.
+export const OPENING_HOURS_FALLBACK = [
+  { day: "Maandag", open: "07:00", close: "22:00", closed: false },
+  { day: "Dinsdag", open: "07:00", close: "22:00", closed: false },
+  { day: "Woensdag", open: "07:00", close: "22:00", closed: false },
+  { day: "Donderdag", open: "07:00", close: "22:00", closed: false },
+  { day: "Vrijdag", open: "07:00", close: "22:00", closed: false },
+  { day: "Zaterdag", open: "08:00", close: "14:00", closed: false },
+  { day: "Zondag", open: "08:00", close: "14:00", closed: false },
+] as const;
+
+// Aanwezigheid van Marlon in de studio. Staat los van de openingstijden.
+// COPY: confirm met Marlon
+export const PRESENCE_MARLON = {
+  label: "Aanwezigheid Marlon",
+  days: "Maandag t/m vrijdag",
+  // HH:MM, weergave via formatTime()
+  windows: [
+    { from: "07:00", to: "12:00" },
+    { from: "17:00", to: "21:00" },
+  ],
+  // COPY: confirm met Marlon
+  note: "Lid met vrij trainen? Dan train je altijd tijdens de openingstijden, ook als Marlon er niet is.",
+} as const;
+
 // Primaire navigatie (top-nav content-cluster), vier items. Labels zijn
 // user-facing NL-copy // COPY: confirm met Marlon, ook al zijn de meeste al
 // bestaande labels. Het "Early Member"-label wordt in de Navbar zelf

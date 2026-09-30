@@ -8,7 +8,9 @@ import { ContactForm } from "@/components/blocks/ContactForm";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
-import { SITE } from "@/lib/constants";
+import { SITE, OPENING_HOURS_FALLBACK } from "@/lib/constants";
+import { formatOpeningSchedule } from "@/lib/opening-hours-format";
+import { MarlonPresence } from "@/components/blocks/MarlonPresence";
 import { toTelHref } from "@/lib/phone";
 
 export function ContactContent() {
@@ -72,11 +74,15 @@ export function ContactContent() {
                 <div>
                   <span className="tmc-eyebrow block mb-3">Openingstijden</span>
                   <div className="text-text-muted text-sm space-y-1">
-                    <p>Maandag – vrijdag: 07:00 – 21:00</p>
-                    <p>Zaterdag: 08:00 – 14:00</p>
-                    <p>Zondag: gesloten</p>
+                    {formatOpeningSchedule(OPENING_HOURS_FALLBACK).map((g) => (
+                      <p key={g.key}>
+                        {g.label}: {g.value}
+                      </p>
+                    ))}
                   </div>
                 </div>
+
+                <MarlonPresence />
 
                 <div>
                   <span className="tmc-eyebrow block mb-3">WhatsApp</span>
