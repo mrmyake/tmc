@@ -13,6 +13,7 @@ const RETRY_COPY: Record<string, string> = {
   processing: "Je vorige betaling wordt nog verwerkt. Wacht even en ververs de pagina.",
   try_again: "Dat lukte net niet. Probeer het zo nog eens.",
   not_found: "We kunnen deze aanmelding niet vinden. Begin opnieuw via het aanbod.",
+  disabled: "Opnieuw betalen is op dit moment niet mogelijk. Neem contact met ons op via info@themovementclub.nl of WhatsApp, dan helpen we je verder.",
 };
 
 /**

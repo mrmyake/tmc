@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { GuestThanks } from "@/components/checkout/GuestThanks";
-import { isGuestCheckoutEnabled } from "@/lib/checkout/guest-flag";
 
 export const metadata: Metadata = {
   title: "Bedankt | The Movement Club",
@@ -16,7 +14,6 @@ export default async function KopenBedanktPage({
 }: {
   searchParams: Promise<{ t?: string }>;
 }) {
-  if (!isGuestCheckoutEnabled()) notFound();
   const { t } = await searchParams;
   return <GuestThanks kind="product" token={t} />;
 }

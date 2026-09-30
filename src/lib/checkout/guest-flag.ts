@@ -9,11 +9,14 @@ import "server-only";
  *   CHECKOUT_GUEST_ENABLED=0  uit
  *   niet gezet               aan op preview, uit op production en lokaal
  *
- * Elke nieuwe publieke ingang controleert dit: de server actions,
- * /welkom/[token] en de publieke bedankpagina's. De webhooktak bewust niet:
- * een intent die met de vlag aan is betaald, moet ook na het omzetten van de
- * vlag nog geconverteerd worden (geld is binnen). Met de vlag uit ontstaan
- * er geen nieuwe intents, dus blijft productie op het bestaande OTP-first pad.
+ * Alleen het STARTEN van een gastcheckout zit achter de vlag: de
+ * gastcheckout-action, de retry-action (nieuwe betaling op een intent) en
+ * het testformulier /dev/gastcheckout. De webhooktak, /welkom/[token] en de
+ * publieke bedankpagina's werken ongeacht de vlag en doen alleen iets met
+ * een geldig token: een intent die met de vlag aan is betaald moet ook na
+ * het omzetten converteren, het lid moet kunnen inloggen en zijn status
+ * zien. Met de vlag uit ontstaan er geen nieuwe intents, dus blijft
+ * productie op het bestaande OTP-first pad.
  */
 export function isGuestCheckoutEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = env.CHECKOUT_GUEST_ENABLED;

@@ -201,7 +201,9 @@ export async function startGuestCheckout(input: GuestCheckoutInput): Promise<Gue
 export async function retryGuestCheckoutPayment(
   statusToken: string,
 ): Promise<IntentRetryResult> {
-  if (!isGuestCheckoutEnabled()) return { ok: false, reason: "not_found" };
+  // Een nieuwe betaling starten mag niet met de vlag uit; de bedankpagina
+  // zelf blijft werken en toont dan de contactoptie.
+  if (!isGuestCheckoutEnabled()) return { ok: false, reason: "disabled" };
   const admin = createAdminClient();
 
   const deps: IntentRetryDeps = {

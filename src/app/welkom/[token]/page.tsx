@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
-import { isGuestCheckoutEnabled } from "@/lib/checkout/guest-flag";
 import { isValidLoginToken } from "@/lib/checkout/welcome-login-core";
 import { sha256Hex } from "@/lib/checkout/token-hash";
 import { LoginForm } from "@/app/login/LoginForm";
@@ -53,8 +51,10 @@ async function readLinkState(token: string): Promise<LinkState> {
   return { kind: "valid", email, firstName: profile?.first_name ?? null };
 }
 
+// Bewust niet achter CHECKOUT_GUEST_ENABLED: een lid met een geldige link uit
+// de welkomstmail moet ook na het uitzetten van de vlag kunnen inloggen. De
+// pagina doet alleen iets met een geldig token.
 export default async function WelkomPage({ params }: { params: Promise<{ token: string }> }) {
-  if (!isGuestCheckoutEnabled()) notFound();
   const { token } = await params;
   const state = await readLinkState(token);
 

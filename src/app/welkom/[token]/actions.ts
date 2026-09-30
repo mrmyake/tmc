@@ -6,7 +6,6 @@ import { createClient as createBareClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { postLoginTarget } from "@/lib/auth/role-landing";
-import { isGuestCheckoutEnabled } from "@/lib/checkout/guest-flag";
 import {
   welcomeLoginCore,
   type WelcomeLoginDeps,
@@ -24,8 +23,7 @@ import {
 export async function loginWithWelcomeToken(
   loginToken: string,
 ): Promise<Exclude<WelcomeLoginResult, { ok: true }>> {
-  if (!isGuestCheckoutEnabled()) return { ok: false, reason: "not_found", email: null };
-
+  // Niet achter de vlag (zie page.tsx): het token zelf is de poort.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return { ok: false, reason: "login_failed", email: null };

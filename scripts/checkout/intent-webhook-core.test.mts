@@ -197,10 +197,44 @@ test("modecheck: live-intent met test-webhook wordt genegeerd met alert", async 
   assert.equal(h.calls.createUser, 0);
 });
 
-test("betaling hoort niet bij de intent: genegeerd met alert", async () => {
-  const h = harness({ intent: intent({ mollie_payment_id: "tr_other" }) });
-  const out = await handleCheckoutIntentPayment(h.deps, { intentId: INTENT_ID, payment: PAID, mode: "test" });
+test("vervangen betaling meldt zich met canceled: stil genegeerd, geen alert", async () => {
+  const h = harness({ intent: intent({ mollie_payment_id: "tr_new" }) });
+  const out = await handleCheckoutIntentPayment(h.deps, { intentId: INTENT_ID, payment: { ...PAID, id: "tr_old", status: "canceled", paidAt: null }, mode: "test" });
   assert.deepEqual(out, { kind: "ignored", reason: "payment_mismatch" });
+  assert.deepEqual(h.calls.notify, []);
+  assert.deepEqual(h.calls.cancel, []);
+});
+
+test("betaalde verweesde betaling: genegeerd met alert paid_orphan_payment", async () => {
+  const h = harness({ intent: intent({ mollie_payment_id: "tr_new" }) });
+  const out = await handleCheckoutIntentPayment(h.deps, { intentId: INTENT_ID, payment: { ...PAID, id: "tr_old" }, mode: "test" });
+  assert.deepEqual(out, { kind: "ignored", reason: "payment_mismatch" });
+  assert.deepEqual(h.calls.notify, ["Gastcheckout: betaalde verweesde betaling"]);
+  assert.equal(h.calls.createUser, 0);
+});
+
+test("markerfout transiënt: retry auth_marker_transient, niets vastgelegd", async () => {
+  const h = harness({ intent: intent(), existingUser: PROFILE_OTHER, transient: () => true });
+  h.deps.auth.intentMarkerForUser = async () => {
+    throw new Error("503");
+  };
+  const out = await handleCheckoutIntentPayment(h.deps, { intentId: INTENT_ID, payment: PAID, mode: "test" });
+  assert.equal(out.kind, "retry");
+  assert.equal(out.kind === "retry" && out.reason, "auth_marker_transient");
+  assert.deepEqual(h.calls.fail, []);
+  assert.deepEqual(h.calls.convert, []);
+});
+
+test("markerfout blijvend: failed auth_marker_error met alert, nooit existing_account", async () => {
+  const h = harness({ intent: intent(), existingUser: PROFILE_OTHER });
+  h.deps.auth.intentMarkerForUser = async () => {
+    throw new Error("403");
+  };
+  const out = await handleCheckoutIntentPayment(h.deps, { intentId: INTENT_ID, payment: PAID, mode: "test" });
+  assert.deepEqual(out, { kind: "failed", intentId: INTENT_ID, reason: "auth_marker_error" });
+  assert.deepEqual(h.calls.fail, [{ code: "auth_marker_error" }]);
+  assert.deepEqual(h.calls.notify, ["Gastcheckout: accountcontrole mislukt"]);
+  assert.deepEqual(h.calls.convert, []);
 });
 
 test("canceled, failed of expired betaling: cancel_checkout_intent, geen account", async () => {

@@ -65,7 +65,7 @@ export type IntentRetryResult =
   | { ok: true; checkoutUrl: string }
   | {
       ok: false;
-      reason: "not_found" | "expired" | "already_paid" | "processing" | "try_again";
+      reason: "not_found" | "expired" | "already_paid" | "processing" | "try_again" | "disabled";
     };
 
 const TOKEN_RE = /^[0-9a-f]{64}$/;

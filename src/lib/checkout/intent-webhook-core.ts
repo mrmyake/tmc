@@ -127,6 +127,8 @@ export type IntentWebhookOutcome =
   | { kind: "failed"; intentId: string; reason: string }
   | { kind: "retry"; intentId: string; reason: string; error: unknown };
 
+type MarkerCheck = { ok: true; owns: boolean } | { ok: false; error: unknown };
+
 const TERMINAL_FAILED = new Set(["failed", "expired", "canceled"]);
 
 function acquisitionOf(intent: CheckoutIntentRow): Record<string, string | null> {
@@ -169,11 +171,16 @@ export async function handleCheckoutIntentPayment(
   }
 
   if (intent.mollie_payment_id !== payment.id) {
-    await deps.notify(
-      "Gastcheckout: betaling hoort niet bij intent",
-      `Intent ${intent.id} verwacht een andere betaling dan ${payment.id}. Niet verwerkt.`,
-      "warning",
-    );
+    // Een vervangen betaling (Opnieuw proberen) meldt zich later nog met
+    // canceled, expired of failed: stil negeren. Alleen een betaalde
+    // verweesde betaling is geld zonder koppeling en vraagt om een mens.
+    if (payment.status === "paid") {
+      await deps.notify(
+        "Gastcheckout: betaalde verweesde betaling",
+        `paid_orphan_payment: intent ${intent.id}, betaling ${payment.id}. Hoort niet (meer) bij de intent; refund of handmatig koppelen.`,
+        "warning",
+      );
+    }
     return { kind: "ignored", reason: "payment_mismatch" };
   }
 
@@ -354,7 +361,7 @@ async function resolveProfile(
     existingId = null;
   }
   if (existingId) {
-    return { kind: "resolved", profileId: existingId, profileCreated: await ownsIntent(deps, existingId, intent.id) };
+    return resolveByMarker(deps, intent, paidAt, existingId);
   }
 
   const created = await deps.auth.createUser({
@@ -374,7 +381,7 @@ async function resolveProfile(
     if (!raced) {
       return { kind: "stop", outcome: { kind: "retry", intentId: intent.id, reason: "auth_race_unresolved", error: null } };
     }
-    return { kind: "resolved", profileId: raced, profileCreated: await ownsIntent(deps, raced, intent.id) };
+    return resolveByMarker(deps, intent, paidAt, raced);
   }
   if (deps.isTransient(created.error)) {
     return { kind: "stop", outcome: { kind: "retry", intentId: intent.id, reason: "auth_create_user_transient", error: created.error } };
@@ -388,10 +395,36 @@ async function resolveProfile(
   return { kind: "stop", outcome: { kind: "failed", intentId: intent.id, reason: "createuser_failed" } };
 }
 
-async function ownsIntent(deps: IntentWebhookDeps, userId: string, intentId: string): Promise<boolean> {
+/**
+ * Beslist op app_metadata.checkout_intent_id of een bestaande user door deze
+ * intent is gemaakt. Een fout bij het lezen van de marker mag nooit stil
+ * "bestaand account" worden: transiënt wordt een retry (Mollie herhaalt),
+ * blijvend wordt failed met code auth_marker_error plus staf-alert.
+ */
+async function resolveByMarker(
+  deps: IntentWebhookDeps,
+  intent: CheckoutIntentRow,
+  paidAt: string,
+  userId: string,
+): Promise<ResolveOutcome> {
+  const marker = await ownsIntent(deps, userId, intent.id);
+  if (marker.ok) return { kind: "resolved", profileId: userId, profileCreated: marker.owns };
+  if (deps.isTransient(marker.error)) {
+    return { kind: "stop", outcome: { kind: "retry", intentId: intent.id, reason: "auth_marker_transient", error: marker.error } };
+  }
+  await deps.db.fail({ intentId: intent.id, code: "auth_marker_error", paidAt });
+  await deps.notify(
+    "Gastcheckout: accountcontrole mislukt",
+    `Intent ${intent.id}: de marker van de bestaande user kon niet gelezen worden (auth_marker_error). Betaling is binnen; handmatig afronden of retry-intent draaien.`,
+    "warning",
+  );
+  return { kind: "stop", outcome: { kind: "failed", intentId: intent.id, reason: "auth_marker_error" } };
+}
+
+async function ownsIntent(deps: IntentWebhookDeps, userId: string, intentId: string): Promise<MarkerCheck> {
   try {
-    return (await deps.auth.intentMarkerForUser(userId)) === intentId;
-  } catch {
-    return false;
+    return { ok: true, owns: (await deps.auth.intentMarkerForUser(userId)) === intentId };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
