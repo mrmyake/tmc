@@ -31,6 +31,15 @@
 --   (p_profile_created false) wordt niet aangeraakt: de intent gaat naar
 --   failed met conversion_error 'existing_account', paid_at gezet, PII
 --   blijft staan voor de staf; PR 2 stuurt de alert.
+-- - Herkansing na failed: elk faalpunt ná het vaststellen van een nieuw
+--   profiel legt profile_id op de intent vast. Bij de herhaalde webhook
+--   geeft createUser email_exists (p_profile_created false), maar hetzelfde
+--   profile_id als vastgelegd telt dan als "door deze intent gemaakt" en de
+--   conversie loopt alsnog door. Een ander profile_id, of een intent zonder
+--   vastgelegd profiel, blijft existing_account.
+-- - Late conversie (expired, cancelled, failed): orders.expires_at wordt
+--   greatest(intent.expires_at, now() + 24 uur), zodat de expire-orders-cron
+--   de order niet op expired zet vóór activate_order.
 -- - Retentie: PII van converted intents wordt direct gewist (e-mail voor de
 --   bedankpagina komt daarna uit profiles.email). expired, cancelled en
 --   failed worden na 30 dagen opgeruimd door de cron (PR 2). De lookup voor
@@ -402,7 +411,12 @@ begin
 
   -- Wijziging B: bestaand account. Niets aan profiles of orders; de intent
   -- gaat naar failed met code existing_account, PII blijft voor de staf.
-  if not coalesce(p_profile_created, false) then
+  -- Het profiel telt als "door deze intent gemaakt" als de webhook het net
+  -- heeft aangemaakt (p_profile_created), of als een eerdere mislukte
+  -- poging van deze intent het al had vastgelegd (retry na failed: de
+  -- webhook krijgt dan email_exists en geeft p_profile_created false).
+  if not (coalesce(p_profile_created, false)
+          or (v_row.profile_id is not null and v_row.profile_id = p_profile_id)) then
     update tmc.checkout_intents
     set status = 'failed', conversion_error = 'existing_account', paid_at = v_paid_at
     where id = p_intent_id;
@@ -478,7 +492,9 @@ begin
       coalesce((v_pricing ->> 'early_member_price_lock')::boolean, false),
       v_pricing ->> 'signup_fee_waiver',
       (v_pricing ->> 'first_charge_vat_amount_cents')::integer,
-      v_pricing, 'self', 'pending', v_row.expires_at,
+      v_pricing, 'self', 'pending',
+      -- Late conversie: nooit een order die al verlopen is bij aanmaak.
+      greatest(v_row.expires_at, now() + interval '24 hours'),
       v_row.mollie_customer_id, v_row.mollie_payment_id, v_row.ga_client_id, v_row.ga_session_id
     )
     returning id into v_order_id;
@@ -486,8 +502,12 @@ begin
     when unique_violation then
       -- orders_one_open_subscription_idx of orders_mollie_payment_id_key.
       -- Geld is binnen: intent naar failed, staf lost het op (PR 2 alert).
+      -- profile_id blijft vastgelegd zodat de herkansing dit profiel als
+      -- het eigen profiel herkent (checkout_intents_converted_shape laat
+      -- profile_id zonder order_id toe zolang status niet converted is).
       update tmc.checkout_intents
-      set status = 'failed', conversion_error = 'order_conflict', paid_at = v_paid_at
+      set status = 'failed', conversion_error = 'order_conflict', paid_at = v_paid_at,
+          profile_id = p_profile_id
       where id = p_intent_id;
       return jsonb_build_object('ok', false, 'reason', 'order_conflict', 'intent_id', p_intent_id);
   end;

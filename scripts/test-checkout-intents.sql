@@ -385,10 +385,13 @@ begin
   perform pg_temp.verwacht('7a bestaand account: existing_account', r, false, 'existing_account');
   select * into v_int from tmc.checkout_intents where id = i;
   if v_int.status <> 'failed' or v_int.conversion_error <> 'existing_account' or v_int.paid_at is null
-     or not v_int.paid_but_failed or v_int.email is null or v_int.phone is null then
+     or not v_int.paid_but_failed or v_int.email is null or v_int.phone is null or v_int.profile_id is not null then
     raise exception 'FAIL 7b: intent %', to_jsonb(v_int);
   end if;
-  raise notice 'PASS 7b intent failed na paid, PII blijft staan voor de staf';
+  raise notice 'PASS 7b intent failed na paid, PII blijft staan voor de staf, geen profile_id vastgelegd';
+  -- Retry op een echte existing_account-intent (geen vastgelegd profiel) blijft existing_account.
+  r := pg_temp.convert(i, pg_temp.p(1), 'tr_test_2', false);
+  perform pg_temp.verwacht('7b2 retry op existing_account blijft existing_account', r, false, 'existing_account');
   select * into v_prof from tmc.profiles where id = pg_temp.p(1);
   select count(*) into v_cnt from tmc.orders where profile_id = pg_temp.p(1);
   if v_prof.first_name <> 'Bestaand' or v_prof.street_address <> 'Oud 1' or v_prof.mollie_customer_id is not null or v_cnt <> 0 then
@@ -486,21 +489,53 @@ begin
   r := pg_temp.convert(i, pg_temp.p(14), 'tr_test_6', true);
   perform pg_temp.verwacht('10a open order van profiel: order_conflict', r, false, 'order_conflict');
   select * into v_int from tmc.checkout_intents where id = i;
-  if v_int.status <> 'failed' or v_int.conversion_error <> 'order_conflict' or not v_int.paid_but_failed then
+  if v_int.status <> 'failed' or v_int.conversion_error <> 'order_conflict' or not v_int.paid_but_failed
+     or v_int.profile_id <> pg_temp.p(14) or v_int.order_id is not null then
     raise exception 'FAIL 10a: intent %', to_jsonb(v_int);
   end if;
   if (select count(*) from tmc.orders where profile_id = pg_temp.p(14)) <> 1 then
     raise exception 'FAIL 10a: er is toch een tweede order';
   end if;
-  raise notice 'PASS 10a intent failed met order_conflict, geen tweede order';
+  raise notice 'PASS 10a intent failed met order_conflict, profile_id vastgelegd, geen tweede order';
 
-  -- Verlopen intent met late betaling wordt gehonoreerd (zoals activate_order).
+  -- Herkansing met een ANDER profiel dan vastgelegd: existing_account.
+  r := pg_temp.convert(i, pg_temp.p(15), 'tr_test_6', false);
+  perform pg_temp.verwacht('10a2 retry met ander profile_id: existing_account', r, false, 'existing_account');
+  select * into v_int from tmc.checkout_intents where id = i;
+  if v_int.profile_id <> pg_temp.p(14) or v_int.conversion_error <> 'existing_account' then
+    raise exception 'FAIL 10a2: vastgelegd profiel verloren: %', to_jsonb(v_int);
+  end if;
+
+  -- Conflicterende order weg; herhaalde webhook met email_exists
+  -- (p_profile_created false) en hetzelfde profiel converteert alsnog.
+  delete from tmc.orders where profile_id = pg_temp.p(14) and status = 'draft';
+  r := pg_temp.convert(i, pg_temp.p(14), 'tr_test_6', false);
+  perform pg_temp.verwacht('10a3 retry met eigen profiel na order_conflict converteert', r, true);
+  if not (r ->> 'from_failed')::boolean or (r ->> 'already_converted')::boolean or length(r ->> 'login_token') <> 64 then
+    raise exception 'FAIL 10a3: %', r;
+  end if;
+  select * into v_int from tmc.checkout_intents where id = i;
+  if v_int.status <> 'converted' or v_int.conversion_error is not null or v_int.profile_id <> pg_temp.p(14)
+     or v_int.order_id is null or v_int.email is not null then
+    raise exception 'FAIL 10a3: intent %', to_jsonb(v_int);
+  end if;
+  if (select count(*) from tmc.orders where profile_id = pg_temp.p(14) and status = 'pending') <> 1 then
+    raise exception 'FAIL 10a3: verwacht precies een pending order';
+  end if;
+  raise notice 'PASS 10a3 herkansing: from_failed, nieuw inlogtoken, order pending';
+
+  -- Verlopen intent met late betaling wordt gehonoreerd (zoals activate_order);
+  -- de order krijgt een expiry in de toekomst, niet die van de intent.
   r := pg_temp.maak('laat@voorbeeld.nl', '+31666666662');
   i := (r ->> 'intent_id')::uuid;
   perform pg_temp.pending(i, 'tr_test_7');
-  update tmc.checkout_intents set status = 'expired' where id = i;
+  update tmc.checkout_intents set status = 'expired', expires_at = now() - interval '2 days' where id = i;
   r := pg_temp.convert(i, pg_temp.p(15), 'tr_test_7', true);
   perform pg_temp.verwacht('10b verlopen intent met late betaling geconverteerd', r, true);
+  if (select expires_at from tmc.orders where id = (r ->> 'order_id')::uuid) <= now() + interval '23 hours' then
+    raise exception 'FAIL 10b2: order-expiry ligt niet minstens 24 uur in de toekomst';
+  end if;
+  raise notice 'PASS 10b2 order-expiry bij late conversie ligt in de toekomst';
 
   -- Draft (nog geen betaling) kan niet converteren; verkeerde betaling ook niet.
   r := pg_temp.maak('draft@voorbeeld.nl', '+31666666663');
