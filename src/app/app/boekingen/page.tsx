@@ -9,6 +9,7 @@ import {
   type BoekingenView,
 } from "./_components/BoekingenTabs";
 import { UpcomingRow } from "./_components/UpcomingRow";
+import { bookingTimes, cancelWindowMinutes } from "@/lib/member/booking-times";
 import { HistoryRow, type HistoryRowData } from "./_components/HistoryRow";
 import { PtUpcomingRow, type PtUpcomingRowData } from "./_components/PtUpcomingRow";
 
@@ -26,6 +27,9 @@ type BookingRow = {
   status: string;
   no_show_at: string | null;
   booked_at?: string;
+  pillar?: string;
+  slot_start_at?: string | null;
+  slot_end_at?: string | null;
   session:
     | {
         id: string;
@@ -148,7 +152,7 @@ export default async function BoekingenPage(props: {
   ] = await Promise.all([
       supabase
         .from("booking_settings")
-        .select("cancellation_window_hours")
+        .select("cancellation_window_hours, vrij_trainen_cancel_window_minutes")
         .limit(1)
         .maybeSingle(),
       view === "komend"
@@ -160,6 +164,9 @@ export default async function BoekingenPage(props: {
                 status,
                 no_show_at,
                 booked_at,
+                pillar,
+                slot_start_at,
+                slot_end_at,
                 session:class_sessions!inner(
                   id, start_at, end_at, rescheduled_at, occurrence_start_at,
                   class_type:class_types(name),
@@ -169,7 +176,10 @@ export default async function BoekingenPage(props: {
             )
             .eq("profile_id", user.id)
             .eq("status", "booked")
-            .gte("session.start_at", nowIso)
+            // Op end_at: een vrij-trainen-slot hoort bij een dagsessie die om
+            // 07:00 al begonnen kan zijn. De echte start (slot of sessie)
+            // filtert en sorteert hieronder (spec-vrij-trainen-slots.md).
+            .gte("session.end_at", nowIso)
             .order("session(start_at)", { ascending: true })
             .returns<BookingRow[]>()
         : Promise.resolve({ data: null, error: null }),
@@ -181,6 +191,8 @@ export default async function BoekingenPage(props: {
                 id,
                 status,
                 no_show_at,
+                slot_start_at,
+                slot_end_at,
                 session:class_sessions!inner(
                   id, start_at, end_at,
                   class_type:class_types(name),
@@ -284,8 +296,11 @@ export default async function BoekingenPage(props: {
   logIfError("pt history", ptHistoryResult.error);
   logIfError("pt pending cancellations", ptPendingCancellationsResult.error);
 
-  const cancellationWindowHours =
-    settingsResult.data?.cancellation_window_hours ?? 6;
+  const cancelSettings = {
+    cancellationWindowHours: settingsResult.data?.cancellation_window_hours ?? 6,
+    vrijTrainenCancelWindowMinutes:
+      settingsResult.data?.vrij_trainen_cancel_window_minutes ?? 5,
+  };
 
   const checkInBySession = new Map<string, string>();
   for (const ci of todayCheckInsResult.data ?? []) {
@@ -304,8 +319,11 @@ export default async function BoekingenPage(props: {
   const upcomingRows =
     (upcomingResult.data ?? [])
       .filter((b) => b.session)
-      .map((b) => {
-        const start = new Date(b.session!.start_at);
+      .map((b) => ({ b, ...bookingTimes(b, b.session!) }))
+      .filter((r) => Date.parse(r.startAt) >= Date.parse(nowIso))
+      .sort((x, y) => Date.parse(x.startAt) - Date.parse(y.startAt))
+      .map(({ b, startAt, endAt }) => {
+        const start = new Date(startAt);
         const sessionIso = isoDateAmsterdam(start);
         const isToday = sessionIso === todayIsoForHint;
         const status =
@@ -335,11 +353,12 @@ export default async function BoekingenPage(props: {
         );
         return {
           bookingId: b.id,
-          startAt: b.session!.start_at,
-          endAt: b.session!.end_at,
+          startAt,
+          endAt,
           className: b.session!.class_type?.name ?? "Sessie",
           trainerName: b.session!.trainer?.display_name ?? "coach",
           status,
+          cancelWindowMinutes: cancelWindowMinutes(b.pillar, cancelSettings),
           checkInHint,
           checkedIn,
           rescheduledFrom,
@@ -372,6 +391,9 @@ export default async function BoekingenPage(props: {
   const historyRows =
     (historyResult.data ?? [])
       .filter((b) => b.session)
+      // Een vrij-trainen-slot van vandaag dat nog moet beginnen staat bij
+      // komend, niet hier (de query filtert op de sessiestart van 07:00).
+      .filter((b) => Date.parse(bookingTimes(b, b.session!).startAt) < Date.parse(nowIso))
       .map((b) => {
         const hasCheckIn = historyCheckInSessionIds.has(b.session!.id);
         const displayStatus = deriveDisplayStatus(
@@ -381,7 +403,7 @@ export default async function BoekingenPage(props: {
         );
         return {
           bookingId: b.id,
-          startAt: b.session!.start_at,
+          startAt: bookingTimes(b, b.session!).startAt,
           className: b.session!.class_type?.name ?? "Sessie",
           trainerName: b.session!.trainer?.display_name ?? "coach",
           status: mapStatus(displayStatus),
@@ -503,11 +525,7 @@ export default async function BoekingenPage(props: {
               {upcomingRows.length > 0 && (
                 <div>
                   {upcomingRows.map((row) => (
-                    <UpcomingRow
-                      key={row.bookingId}
-                      row={row}
-                      cancellationWindowHours={cancellationWindowHours}
-                    />
+                    <UpcomingRow key={row.bookingId} row={row} />
                   ))}
                 </div>
               )}

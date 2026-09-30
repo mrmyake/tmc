@@ -8,6 +8,7 @@ import GuestSessionCancelled from "@/emails/guest_session_cancelled";
 import VisitorSessionRescheduled from "@/emails/visitor_session_rescheduled";
 import { siteUrl as publicSiteUrl } from "@/lib/site-url";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { bookingTimes } from "@/lib/member/booking-times";
 
 /**
  * Meldingen bij eenmalige wijzigingen van een groepsles door de studio
@@ -83,16 +84,33 @@ export async function notifySessionCancelled(
       ...result.guests.map((g) => g.booked_by),
     ]);
 
-    const recipients: Array<{ profileId: string; audience: "booking" | "waitlist"; creditRestored: boolean }> = [
-      ...result.bookings.map((b) => ({
-        profileId: b.profile_id,
-        audience: "booking" as const,
-        creditRestored: b.credits_refunded,
-      })),
+    // Vrij trainen: elk lid heeft een eigen slot binnen de dagsessie; dat
+    // slot is de tijd in de melding (spec-vrij-trainen-slots.md).
+    const slotByBooking = new Map<string, { slot_start_at: string | null; slot_end_at: string | null }>();
+    if (result.bookings.length > 0) {
+      const { data: slotRows } = await createAdminClient()
+        .from("bookings")
+        .select("id, slot_start_at, slot_end_at")
+        .in("id", result.bookings.map((b) => b.booking_id));
+      for (const row of slotRows ?? []) slotByBooking.set(row.id, row);
+    }
+    const sessionTimes = { start_at: result.start_at, end_at: result.end_at };
+
+    const recipients: Array<{ profileId: string; audience: "booking" | "waitlist"; creditRestored: boolean; when: string }> = [
+      ...result.bookings.map((b) => {
+        const t = bookingTimes(slotByBooking.get(b.booking_id) ?? {}, sessionTimes);
+        return {
+          profileId: b.profile_id,
+          audience: "booking" as const,
+          creditRestored: b.credits_refunded,
+          when: whenLabel(t.startAt, t.endAt),
+        };
+      }),
       ...result.waitlist.map((w) => ({
         profileId: w.profile_id,
         audience: "waitlist" as const,
         creditRestored: false,
+        when,
       })),
     ];
 
@@ -103,11 +121,11 @@ export async function notifySessionCancelled(
           to: p.email,
           toName: p.first_name ?? undefined,
           // COPY: confirm met Marlon
-          subject: `${name} geannuleerd: ${when}`,
+          subject: `${name} geannuleerd: ${r.when}`,
           react: SessionCancelledByAdmin({
             firstName: p.first_name ?? "",
             className: name,
-            whenLabel: when,
+            whenLabel: r.when,
             reason,
             creditRestored: r.creditRestored,
             siteUrl: siteUrl(),
@@ -119,7 +137,7 @@ export async function notifySessionCancelled(
         // COPY: confirm met Marlon
         title: `${name} gaat niet door`,
         // COPY: confirm met Marlon
-        body: `${when}. Reden: ${reason}`,
+        body: `${r.when}. Reden: ${reason}`,
         data: { type: "session_cancelled", sessionId: result.session_id },
       });
     }

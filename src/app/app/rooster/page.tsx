@@ -306,6 +306,9 @@ export default async function RoosterPage(props: {
       )
       .eq("profile_id", user.id)
       .eq("status", "booked")
+      // Het rooster toont geen vrij trainen (eigen pagina); een slot zou hier
+      // met de sessiestart van 07:00 verschijnen (spec-vrij-trainen-slots.md).
+      .neq("pillar", "vrij_trainen")
       .gte("session.start_at", now.toISOString())
       .order("session(start_at)", { ascending: true })
       .limit(1)

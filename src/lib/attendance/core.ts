@@ -130,6 +130,13 @@ export async function setMemberAttendance(
         .select(bookingSelect)
         .eq("session_id", input.sessionId)
         .eq("profile_id", input.profileId)
+        // Sinds de partiele unique index (vrij-trainen-slots) kan een lid naast
+        // een geannuleerde rij opnieuw geboekt staan. 'booked' sorteert voor
+        // 'cancelled' en 'waitlisted', dus de actieve boeking wint; zonder
+        // actieve boeking geeft de laatste annulering booking_cancelled.
+        .order("status", { ascending: true })
+        .order("booked_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
   if (bookingRes.error) {
     console.error("[setMemberAttendance] booking select", bookingRes.error);

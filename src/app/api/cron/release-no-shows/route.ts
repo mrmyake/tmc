@@ -56,6 +56,10 @@ export async function GET(req: Request) {
        session:class_sessions!inner(id, start_at)`,
     )
     .eq("status", "booked")
+    // Vrij trainen valt buiten no-show-afhandeling: de kiosk-check-in is
+    // sessieloos en een slot vrijgeven op sessiestart klopt niet
+    // (spec-vrij-trainen-slots.md).
+    .neq("pillar", "vrij_trainen")
     .gte("session.start_at", now.toISOString())
     .lte("session.start_at", cutoff.toISOString())
     .returns<Row[]>();

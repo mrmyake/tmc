@@ -26,6 +26,7 @@ import {
   type ResolvedStatusLine,
 } from "./dashboard";
 import type { EntitlementRow, EntitlementUpsell } from "../_components/DashboardEntitlements";
+import { bookingTimes } from "@/lib/member/booking-times";
 
 // Zelfde vijf statussen als /app/abonnement's currentResult (ACTIVE_STATUSES).
 const ACTIVE_STATUSES = [
@@ -169,7 +170,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
         .from("bookings")
         .select(
           `
-            id,
+            id, slot_start_at, slot_end_at,
             session:class_sessions!inner(
               id, start_at, end_at,
               class_type:class_types(name),
@@ -179,12 +180,18 @@ export async function loadDashboardData(): Promise<DashboardData> {
         )
         .eq("profile_id", user.id)
         .eq("status", "booked")
-        .gte("session.start_at", now.toISOString())
+        // Op end_at en niet op start_at: een vrij-trainen-slot om 18:00 hoort
+        // bij een dagsessie die om 07:00 al begonnen is. De echte starttijd
+        // (slot of sessie) wordt hieronder bepaald; een ruime limit houdt de
+        // eerstvolgende erin, want per dag is er hooguit een vrij-trainen-rij.
+        .gte("session.end_at", now.toISOString())
         .order("session(start_at)", { ascending: true })
-        .limit(1)
+        .limit(10)
         .returns<
           Array<{
             id: string;
+            slot_start_at: string | null;
+            slot_end_at: string | null;
             session: {
               id: string;
               start_at: string;
@@ -222,11 +229,14 @@ export async function loadDashboardData(): Promise<DashboardData> {
     }),
   );
 
-  const nextBookingRow = nextBookingResult.data?.[0];
-  const nextSession: DashboardNextSession | null = nextBookingRow?.session
+  const nextBookingRow = (nextBookingResult.data ?? [])
+    .flatMap((b) => (b.session ? [{ b, session: b.session, ...bookingTimes(b, b.session) }] : []))
+    .filter((r) => new Date(r.startAt) >= now)
+    .sort((x, y) => Date.parse(x.startAt) - Date.parse(y.startAt))[0];
+  const nextSession: DashboardNextSession | null = nextBookingRow
     ? {
-        startAt: new Date(nextBookingRow.session.start_at),
-        endAt: new Date(nextBookingRow.session.end_at),
+        startAt: new Date(nextBookingRow.startAt),
+        endAt: new Date(nextBookingRow.endAt),
         className: nextBookingRow.session.class_type?.name ?? "Sessie",
         trainerName: nextBookingRow.session.trainer?.display_name ?? "een coach",
       }

@@ -6,6 +6,7 @@ import {
   toIsoDate,
   zonedWallClockToUtc,
 } from "./amsterdam-time";
+import { isVrijTrainenDayConflict } from "./vrij-trainen-guards";
 
 /**
  * Vastgelegde beslissing (rapport-trainingsbeheer.md): materialisatiehorizon
@@ -34,6 +35,12 @@ export interface TemplateForMaterialization {
 export interface MaterializeResult {
   attempts: number;
   errors: number;
+  /**
+   * Vrij-trainen-occurrences overgeslagen omdat op die Amsterdamse dag al een
+   * geplande vrij-trainen-sessie staat (index
+   * class_sessions_vrij_trainen_one_per_day). Geen fout: de dag is gedekt.
+   */
+  skippedExistingVrijTrainenDay: number;
 }
 
 /**
@@ -58,6 +65,7 @@ export async function materializeSessionsForTemplates(
   const fromDate = opts.fromDate ?? new Date();
   let attempts = 0;
   let errors = 0;
+  let skippedExistingVrijTrainenDay = 0;
 
   for (let offset = 0; offset < opts.horizonDays; offset++) {
     const target = new Date(fromDate.getTime() + offset * 86_400_000);
@@ -104,7 +112,11 @@ export async function materializeSessionsForTemplates(
         { onConflict: "template_id,occurrence_start_at", ignoreDuplicates: true },
       );
 
-      if (upErr) {
+      if (upErr && isVrijTrainenDayConflict(upErr)) {
+        // Maximaal een vrij-trainen-sessie per dag (spec-vrij-trainen-slots.md):
+        // bestaat er al een, dan is deze dag gedekt en slaan we hem over.
+        skippedExistingVrijTrainenDay++;
+      } else if (upErr) {
         errors++;
         console.error(
           "[materializeSessionsForTemplates] upsert failed",
@@ -120,5 +132,5 @@ export async function materializeSessionsForTemplates(
     }
   }
 
-  return { attempts, errors };
+  return { attempts, errors, skippedExistingVrijTrainenDay };
 }

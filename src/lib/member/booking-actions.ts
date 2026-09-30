@@ -13,6 +13,7 @@ import {
   formatWeekdayDate,
 } from "@/lib/format-date";
 import { planCovers } from "./plan-coverage";
+import { bookingTimes } from "./booking-times";
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
@@ -22,6 +23,9 @@ function siteUrl(): string {
 async function sendBookingConfirmationEmail(args: {
   profileId: string;
   sessionId: string;
+  /** Vrij trainen: het geboekte slot is de tijd in de mail. */
+  slotStartAt?: string | null;
+  slotEndAt?: string | null;
 }): Promise<void> {
   try {
     const admin = createAdminClient();
@@ -54,8 +58,12 @@ async function sendBookingConfirmationEmail(args: {
       : sessionRow.trainer) as { display_name: string | null } | null;
     void (0 as unknown as Ref<never>);
 
-    const start = new Date(sessionRow.start_at);
-    const end = new Date(sessionRow.end_at);
+    const times = bookingTimes(
+      { slot_start_at: args.slotStartAt, slot_end_at: args.slotEndAt },
+      sessionRow,
+    );
+    const start = new Date(times.startAt);
+    const end = new Date(times.endAt);
     const whenLabel = `${formatRelativeWhen(start).replace(/\s·\s.*/, "")} · ${formatTimeRange(start, end)}`;
 
     await sendEmail({
@@ -78,13 +86,14 @@ async function sendBookingConfirmationEmail(args: {
 /** Fire-and-forget cancellation-by-member email. Never blocks the action. */
 async function sendBookingCancelledEmail(args: {
   profileId: string;
+  bookingId: string;
   sessionId: string;
   withinWindow: boolean;
   lateMessage: string;
 }): Promise<void> {
   try {
     const admin = createAdminClient();
-    const [profileRes, sessionRes] = await Promise.all([
+    const [profileRes, sessionRes, bookingRes] = await Promise.all([
       admin
         .from("profiles")
         .select("first_name, email")
@@ -97,6 +106,11 @@ async function sendBookingCancelledEmail(args: {
         )
         .eq("id", args.sessionId)
         .maybeSingle(),
+      admin
+        .from("bookings")
+        .select("slot_start_at, slot_end_at")
+        .eq("id", args.bookingId)
+        .maybeSingle(),
     ]);
     const profile = profileRes.data;
     const sessionRow = sessionRes.data;
@@ -105,8 +119,9 @@ async function sendBookingCancelledEmail(args: {
     const ct = (Array.isArray(sessionRow.class_type)
       ? sessionRow.class_type[0]
       : sessionRow.class_type) as { name: string | null } | null;
-    const start = new Date(sessionRow.start_at);
-    const end = new Date(sessionRow.end_at);
+    const times = bookingTimes(bookingRes.data ?? {}, sessionRow);
+    const start = new Date(times.startAt);
+    const end = new Date(times.endAt);
     const whenLabel = `${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`;
 
     await sendEmail({
@@ -189,6 +204,19 @@ const BOOK_REASON_COPY: Record<string, string> = {
   daily_cap_reached: "Maximaal twee sessies per dag.",
   no_coverage: "Deze sessie valt buiten je huidige abonnement.",
   already_booked: "Je hebt deze sessie al geboekt.",
+  // Vrij trainen met slots (spec-vrij-trainen-slots.md).
+  // COPY: confirm met Marlon
+  slot_required: "Kies een tijdslot om vrij trainen te boeken.",
+  // COPY: confirm met Marlon
+  slot_invalid: "Kies een starttijd op het kwartier en een duur van 30 tot 90 minuten.",
+  // COPY: confirm met Marlon
+  slot_outside_session: "Dit tijdslot valt buiten de openingstijden van vrij trainen.",
+  // COPY: confirm met Marlon
+  slot_not_allowed: "Voor deze les kies je geen tijdslot.",
+  // COPY: confirm met Marlon
+  slot_full: "Dit tijdslot zit vol. Kies een ander moment.",
+  // COPY: confirm met Marlon
+  slot_blocked: "Op dit moment is de studio bezet door een les. Kies een ander moment.",
 };
 
 type BookClassSessionResult = {
@@ -200,6 +228,8 @@ type BookClassSessionResult = {
   credits_used?: number;
   pillar?: string;
   session_date?: string;
+  slot_start_at?: string | null;
+  slot_end_at?: string | null;
 };
 
 type CancelClassBookingResult = {
@@ -383,6 +413,8 @@ export async function createBooking(
   void sendBookingConfirmationEmail({
     profileId: user.id,
     sessionId,
+    slotStartAt: result.slot_start_at ?? null,
+    slotEndAt: result.slot_end_at ?? null,
   });
 
   return {
@@ -519,13 +551,17 @@ export async function cancelBooking(
   revalidatePath("/app");
   revalidatePath("/app/boekingen");
 
+  // De vrij-trainen-termijn is instelbaar en rekent vanaf het eigen slot
+  // (spec-vrij-trainen-slots.md), dus geen vast aantal minuten in de tekst.
   const lateMessage = isVrijTrainen
-    ? "Je boeking is geannuleerd. Deze sessie telt mee. Je was binnen vijf minuten voor de start."
+    ? // COPY: confirm met Marlon
+      "Je boeking is geannuleerd. Deze sessie telt mee, omdat je vlak voor de start van je tijdslot annuleerde."
     : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.";
 
   // Fire-and-forget confirmation mail. Catch inside helper.
   void sendBookingCancelledEmail({
     profileId: user.id,
+    bookingId,
     sessionId,
     withinWindow,
     lateMessage,

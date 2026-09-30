@@ -71,6 +71,9 @@ export default async function TrainerSessiesPage(props: {
        class_type:class_types(name)`,
     )
     .eq("trainer_id", selectedTrainerId)
+    // Vrij trainen (dagsessie met eigen slots) is geen les van de trainer
+    // (spec-vrij-trainen-slots.md).
+    .neq("pillar", "vrij_trainen")
     .gte("start_at", now.toISOString())
     .lt("start_at", horizon.toISOString())
     .order("start_at")

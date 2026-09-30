@@ -18,6 +18,11 @@ export interface UpcomingRowData {
   className: string;
   trainerName: string;
   status: "booked" | "waitlisted";
+  /**
+   * Annuleertermijn in minuten voor deze boeking: vrij trainen heeft een
+   * eigen termijn, gerekend vanaf het slot (spec-vrij-trainen-slots.md).
+   */
+  cancelWindowMinutes: number;
   /** "Ingecheckt 09:14" (past) of "Check in bij de tablet" (future today). */
   checkInHint?: string | null;
   checkedIn?: boolean;
@@ -29,14 +34,13 @@ export interface UpcomingRowData {
 
 interface UpcomingRowProps {
   row: UpcomingRowData;
-  cancellationWindowHours: number;
 }
 
-function isLateCancel(startMs: number, windowHours: number): boolean {
-  return (startMs - Date.now()) / 3_600_000 < windowHours;
+function isLateCancel(startMs: number, windowMinutes: number): boolean {
+  return (startMs - Date.now()) / 60_000 < windowMinutes;
 }
 
-export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) {
+export function UpcomingRow({ row }: UpcomingRowProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +49,7 @@ export function UpcomingRow({ row, cancellationWindowHours }: UpcomingRowProps) 
 
   function doCancel() {
     const note =
-      !row.freeCancel && isLateCancel(start.getTime(), cancellationWindowHours)
+      !row.freeCancel && isLateCancel(start.getTime(), row.cancelWindowMinutes)
       ? "Je annuleert binnen het cancel-venster. Deze sessie telt mee. Weet je het zeker?"
       : null;
     if (note && !window.confirm(note)) return;
