@@ -15,6 +15,7 @@ interface Props {
 
 export function BuyButton({ slug, productLabel }: Props) {
   const [error, setError] = useState<string | null>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handleBuy() {
@@ -30,6 +31,8 @@ export function BuyButton({ slug, productLabel }: Props) {
       });
       if (!res.ok) {
         setError(res.error);
+        // Op de reason, niet op de foutcopy: die staat vol COPY-markers.
+        setNeedsProfile(res.reason === "profile_incomplete");
         return;
       }
       trackPaymentStart({
@@ -40,8 +43,6 @@ export function BuyButton({ slug, productLabel }: Props) {
       await openCheckout(res.checkoutUrl);
     });
   }
-
-  const needsProfile = error?.toLowerCase().includes("profiel") ?? false;
 
   return (
     <div className="flex flex-col items-end gap-2">

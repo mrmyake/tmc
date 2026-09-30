@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Container } from "@/components/layout/Container";
 import { IdentifyStage } from "@/components/checkout/IdentifyStage";
+import type { CheckoutIdentity } from "@/lib/checkout/profile-complete-core";
 import { PayStage } from "@/components/checkout/PayStage";
 import { trackConfiguratorStageView } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
@@ -10,7 +11,8 @@ import { ProductChoiceStage } from "./ProductChoiceStage";
 
 interface Props {
   products: Record<string, CatalogueRow>;
-  loggedIn: boolean;
+  /** Uitkomst van profileCompleteForCheckout() in page.tsx. */
+  identity: CheckoutIdentity;
 }
 
 type Stage = "configure" | "identify" | "pay";
@@ -20,13 +22,18 @@ type Stage = "configure" | "identify" | "pay";
  * de abonnements-specifieke props. Geen URL-state: de stage is pure
  * React-state, net als op /abonnement.
  */
-export function KopenCheckout({ products, loggedIn }: Props) {
+export function KopenCheckout({ products, identity }: Props) {
   const [stage, setStage] = useState<Stage>("configure");
   const [product, setProduct] = useState<CatalogueRow | null>(null);
-  // Los van de server-bepaalde `loggedIn`: flipt zodra IdentifyStage OTP +
-  // profiel afrondt, zodat Pay -> Terug -> Ga verder niet opnieuw om een
-  // code vraagt.
-  const [identified, setIdentified] = useState(loggedIn);
+  // Los van de server-bepaalde `identity`: flipt zodra IdentifyStage (OTP
+  // plus profiel, of alleen de gegevens bij een ingelogd onvolledig
+  // profiel) afrondt, zodat Pay -> Terug -> Ga verder niet opnieuw om een
+  // code of gegevens vraagt. Zelfde regel als AbonnementConfigurator.
+  const [identified, setIdentified] = useState(identity.status === "complete");
+  const account =
+    identity.status === "anonymous"
+      ? undefined
+      : { email: identity.email, prefill: identity.prefill };
 
   // Zelfde stage-event als /abonnement; GA4 hangt er page_location aan,
   // dus de twee checkouts blijven in de rapportage uit elkaar te houden.
@@ -60,6 +67,11 @@ export function KopenCheckout({ products, loggedIn }: Props) {
     setStage("pay");
   }
 
+  function handleProfileIncomplete() {
+    setIdentified(false);
+    setStage("identify");
+  }
+
   return (
     <Container className="py-16 md:py-24 max-w-2xl">
       {stage === "configure" && (
@@ -72,6 +84,7 @@ export function KopenCheckout({ products, loggedIn }: Props) {
       {stage === "identify" && (
         <IdentifyStage
           formName="kopen_identify"
+          account={account}
           onDone={handleIdentified}
           onBack={() => setStage("configure")}
         />
@@ -81,6 +94,7 @@ export function KopenCheckout({ products, loggedIn }: Props) {
           kind="product"
           product={product}
           onBack={() => setStage("configure")}
+          onProfileIncomplete={handleProfileIncomplete}
         />
       )}
     </Container>

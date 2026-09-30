@@ -31,6 +31,13 @@ interface SubscriptionProps {
   /** Uit getCancellationNoticeDays(): dezelfde bron als request_membership_cancellation. */
   cancellationNoticeDays: number;
   onBack: () => void;
+  /**
+   * createOrderAndCheckout gaf reason "profile_incomplete": de configurator
+   * toont dan de gegevensstap (voorgevuld) in plaats van een link naar de
+   * profielpagina. Zonder callback blijft de link staan (BuyButton in de
+   * app heeft geen gegevensstap).
+   */
+  onProfileIncomplete?: () => void;
 }
 
 interface ProductProps {
@@ -38,13 +45,20 @@ interface ProductProps {
   /** Een rij uit tmc.catalogue met kind "product" (rittenkaart of PT-/Duo-pakket). */
   product: CatalogueRow;
   onBack: () => void;
+  onProfileIncomplete?: () => void;
 }
 
 type Props = SubscriptionProps | ProductProps;
 
 export function PayStage(props: Props) {
   if (props.kind === "product") {
-    return <ProductPayStage product={props.product} onBack={props.onBack} />;
+    return (
+      <ProductPayStage
+        product={props.product}
+        onBack={props.onBack}
+        onProfileIncomplete={props.onProfileIncomplete}
+      />
+    );
   }
   return <SubscriptionPayStage {...props} />;
 }
@@ -57,8 +71,10 @@ function SubscriptionPayStage({
   emActive,
   cancellationNoticeDays,
   onBack,
+  onProfileIncomplete,
 }: SubscriptionProps) {
   const [error, setError] = useState<string | null>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // Weergave-only, catalogus-afgeleid: createOrderAndCheckout retourneert
@@ -94,10 +110,15 @@ function SubscriptionPayStage({
         returnTarget: returnTargetForThisClient(),
       });
       if (!res.ok) {
-        setError(res.error);
         // Tegenhanger van begin_checkout: zonder dit event is een server-side
         // weigering in GA4 niet te onderscheiden van vrijwillig afhaken.
         trackCheckoutRejected({ itemId: plan.slug, reason: res.reason });
+        if (res.reason === "profile_incomplete" && onProfileIncomplete) {
+          onProfileIncomplete();
+          return;
+        }
+        setError(res.error);
+        setNeedsProfile(res.reason === "profile_incomplete");
         return;
       }
       trackPaymentStart({
@@ -108,8 +129,6 @@ function SubscriptionPayStage({
       await openCheckout(res.checkoutUrl);
     });
   }
-
-  const needsProfile = error?.toLowerCase().includes("profiel") ?? false;
 
   return (
     <div>
@@ -221,11 +240,14 @@ function SubscriptionPayStage({
 function ProductPayStage({
   product,
   onBack,
+  onProfileIncomplete,
 }: {
   product: CatalogueRow;
   onBack: () => void;
+  onProfileIncomplete?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handlePay() {
@@ -241,8 +263,13 @@ function ProductPayStage({
         returnTarget: returnTargetForThisClient(),
       });
       if (!res.ok) {
-        setError(res.error);
         trackCheckoutRejected({ itemId: product.slug, reason: res.reason });
+        if (res.reason === "profile_incomplete" && onProfileIncomplete) {
+          onProfileIncomplete();
+          return;
+        }
+        setError(res.error);
+        setNeedsProfile(res.reason === "profile_incomplete");
         return;
       }
       trackPaymentStart({
@@ -254,7 +281,6 @@ function ProductPayStage({
     });
   }
 
-  const needsProfile = error?.toLowerCase().includes("profiel") ?? false;
   const showCredits = product.credits !== null && product.credits > 1;
 
   return (

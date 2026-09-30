@@ -3,6 +3,7 @@
 import { SequenceType } from "@mollie/api-client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { profileCompleteForCheckout } from "@/lib/checkout/profile-complete";
 import { emitEvent } from "@/lib/events/emit";
 import { getMollieClient } from "@/lib/mollie";
 import { siteUrl, mollieWebhookUrl } from "@/lib/site-url";
@@ -110,25 +111,30 @@ export async function createOrderAndCheckout(
 
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user?.email) {
+    // Dezelfde check als de pagina's /abonnement en /kopen gebruiken om de
+    // gegevensstap te tonen of over te slaan. Voorheen stond hier alleen
+    // voor- en achternaam; telefoon en adres zijn net zo goed verplicht
+    // voor SEPA en facturering, en de gegevensstap eist ze al.
+    const identity = await profileCompleteForCheckout(supabase);
+    if (identity.status === "anonymous" || !identity.email) {
       return { ok: false, error: "Niet ingelogd.", reason: "not_authenticated" };
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("first_name,last_name,mollie_customer_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (!profile?.first_name || !profile?.last_name) {
+    if (identity.status === "incomplete") {
+      // PayStage stuurt op deze reason terug naar de gegevensstap
+      // (voorgevuld); BuyButton in de app linkt naar de profielpagina.
       return {
         ok: false,
-        error: "Vul eerst je profiel in (voor- en achternaam).",
+        error: "Vul eerst je gegevens aan.", // COPY: confirm met Marlon
         reason: "profile_incomplete",
       };
     }
+    const user = { id: identity.userId, email: identity.email };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("mollie_customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
     // Prijs, Early Member-toepassing en alle guards zitten in de RPC; hier
     // gaat alleen de selectie heen, nooit een bedrag.
@@ -208,10 +214,10 @@ export async function createOrderAndCheckout(
 
     // Eén Mollie-klant per profiel (profiles.mollie_customer_id), niet
     // meer afgeleid uit de laatste membership-rij.
-    let mollieCustomerId: string | null = profile.mollie_customer_id ?? null;
+    let mollieCustomerId: string | null = profile?.mollie_customer_id ?? null;
     if (!mollieCustomerId) {
       const customer = await mollie.customers.create({
-        name: `${profile.first_name} ${profile.last_name}`.trim(),
+        name: `${identity.prefill.first_name} ${identity.prefill.last_name}`.trim(),
         email: user.email,
         metadata: { profile_id: user.id },
       });
