@@ -278,7 +278,8 @@ export function SessionEditPanel({
                   active={tab === "participants"}
                   onClick={() => setTab("participants")}
                 >
-                  Deelnemers ({session.bookedCount})
+                  {/* Totale bezetting uit de view, zelfde getal als het blok in het rooster. */}
+                  Deelnemers ({session.takenCount})
                 </TabButton>
               </div>
 
@@ -288,6 +289,7 @@ export function SessionEditPanel({
                   selfFetch
                   canRefund
                   initialParticipants={[]}
+                  initialTakenCount={session.takenCount}
                   session={toSessionSummary(session)}
                 />
               )}

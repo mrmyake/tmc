@@ -43,6 +43,8 @@ export default async function TrainerSessionPage(props: {
         session={res.session}
         initialParticipants={res.participants}
         initialGuests={res.guests}
+        initialTrials={res.trials}
+        takenCount={res.takenCount}
       />
       <p className="max-w-xl mx-auto mt-8 text-text-muted text-xs">
         {/* COPY: confirm met Marlon */}

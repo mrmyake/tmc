@@ -91,8 +91,12 @@ export interface TrialRefundInfo {
 
 /**
  * Proefles van deze sessie (tmc.trial_bookings): betaald via Mollie of gratis
- * via een proefcode. Geen aanwezigheidsmodel (attended/no_show worden nergens
- * gezet, zie spec-community-growth.md §1); alleen tonen en annuleren.
+ * via een proefcode. Aanwezigheid leeft in trial_bookings.status ('attended',
+ * via markTrialAttendance), niet in check_ins: check_ins.profile_id is NOT
+ * NULL en een bezoeker heeft geen profiel. Geen no-show voor proeflessen
+ * (spec-community-growth.md, proefcodes v2). Status 'pending' (betaling nog
+ * open) komt alleen mee voor admins; de trainer- en kioskweergave zien hem
+ * niet.
  */
 export interface TrialRow {
   trialBookingId: string;
@@ -192,6 +196,15 @@ export async function loadParticipants(
       participants: ParticipantRow[];
       guests: GuestRow[];
       trials: TrialRow[];
+      /**
+       * Totale bezetting zoals tmc.v_session_availability die telt (leden
+       * booked + proeflessen pending/paid/attended zonder testrijen + gasten
+       * booked/attended + open wachtlijstpromoties). Dezelfde bron als het
+       * rooster, zodat "Totaal" hier hetzelfde getal toont. De view kent
+       * alleen sessies met status scheduled; daarbuiten een eigen telling
+       * met dezelfde regels (zonder promoties, die vervallen bij annulering).
+       */
+      takenCount: number;
     }
   | { ok: false; message: string }
 > {
@@ -200,7 +213,16 @@ export async function loadParticipants(
 
   const admin = createAdminClient();
 
-  const [sessionRes, bookingsRes, checkInsRes, guestsRes, trialsRes] = await Promise.all([
+  // Pending proeflessen (Mollie-betaling nog open) alleen voor admins: die
+  // moeten zien waarom een plek bezet is. Trainer en kiosk zien alleen wat
+  // echt komt.
+  const trialStatuses =
+    auth.ctx.role === "admin"
+      ? ["pending", "paid", "attended", "no_show", "cancelled"]
+      : ["paid", "attended", "no_show", "cancelled"];
+
+  const [sessionRes, bookingsRes, checkInsRes, guestsRes, trialsRes, availabilityRes] =
+    await Promise.all([
     admin
       .from("class_sessions")
       .select(
@@ -247,8 +269,13 @@ export async function loadParticipants(
         "id, name, status, price_paid_cents, trial_code_id, is_test, booked_at, cancelled_at, cancellation_reason",
       )
       .eq("session_id", sessionId)
-      .in("status", ["paid", "attended", "no_show", "cancelled"])
+      .in("status", trialStatuses)
       .order("booked_at", { ascending: true }),
+    admin
+      .from("v_session_availability")
+      .select("taken_count")
+      .eq("id", sessionId)
+      .maybeSingle(),
   ]);
 
   const checkInByProfile = new Map<string, string>();
@@ -408,7 +435,18 @@ export async function loadParticipants(
     refund: refundByTrial.get(t.id) ?? null,
   }));
 
-  return { ok: true, session, participants, guests, trials };
+  // Zelfde regels als de view, voor sessies die er niet (meer) in staan.
+  const fallbackTaken =
+    participants.filter((p) => p.status !== "cancelled").length +
+    guests.filter((g) => g.status === "booked" || g.status === "attended").length +
+    trials.filter(
+      (t) =>
+        !t.isTest &&
+        (t.status === "pending" || t.status === "paid" || t.status === "attended"),
+    ).length;
+  const takenCount = availabilityRes.data?.taken_count ?? fallbackTaken;
+
+  return { ok: true, session, participants, guests, trials, takenCount };
 }
 
 // ----------------------------------------------------------------------------
@@ -676,6 +714,121 @@ export async function markGuestAttendance(
       payload: {
         session_id: sessionId,
         guest_booking_id: u.guestBookingId,
+        status: u.status,
+      },
+    });
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rooster");
+  revalidatePath(`/app/admin/sessies/${sessionId}`);
+  revalidatePath(`/app/trainer/sessies/${sessionId}`);
+
+  // COPY: confirm met Marlon
+  return { ok: true, message: "Aanwezigheid opgeslagen." };
+}
+
+// ----------------------------------------------------------------------------
+// Mark trial attendance (bulk)
+//
+// Proefles-aanwezigheid leeft in trial_bookings.status ('attended'), net als
+// bij gasten: check_ins.profile_id is NOT NULL en een bezoeker heeft geen
+// profiel. Alleen paid naar attended en terug naar paid; geen no-show voor
+// proeflessen (spec-community-growth.md) en autoMarkNoShows raakt deze
+// tabel niet. Een pending (betaling open) of geannuleerde rij is niet af te
+// vinken. Zelfde guard als markAttendance: admin of de trainer van de sessie.
+// ----------------------------------------------------------------------------
+
+interface TrialAttendanceInput {
+  trialBookingId: string;
+  status: "attended" | "paid";
+}
+
+export async function markTrialAttendance(
+  sessionId: string,
+  updates: TrialAttendanceInput[],
+): Promise<AttendanceActionResult> {
+  if (!sessionId) return { ok: false, message: "Geen sessie." };
+  if (updates.length === 0) {
+    return { ok: true, message: "Geen wijzigingen." };
+  }
+
+  const auth = await authorizeForSession(sessionId);
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+
+  const ids = updates.map((u) => u.trialBookingId);
+  const { data: rows, error: fetchErr } = await admin
+    .from("trial_bookings")
+    .select("id, session_id, status")
+    .in("id", ids);
+
+  if (fetchErr) {
+    console.error("[markTrialAttendance] fetch failed", fetchErr);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Kon proeflessen niet laden." };
+  }
+
+  const byId = new Map(
+    (rows ?? []).map((t) => [
+      t.id,
+      { sessionId: t.session_id as string, status: t.status as string },
+    ]),
+  );
+
+  for (const u of updates) {
+    const cur = byId.get(u.trialBookingId);
+    if (!cur) {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Proefles niet gevonden." };
+    }
+    if (cur.sessionId !== sessionId) {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Proefles hoort niet bij deze sessie." };
+    }
+    if (cur.status !== "paid" && cur.status !== "attended") {
+      // COPY: confirm met Marlon
+      return {
+        ok: false,
+        message: "Deze proefles is niet af te vinken (nog niet betaald of geannuleerd).",
+      };
+    }
+    if (cur.status === u.status) continue;
+
+    // Statusguard in de WHERE: een gelijktijdige annulering (webhook, cron,
+    // admin) wint, en dan laten we de rij met rust in plaats van een
+    // geannuleerde proefles weer op attended te zetten.
+    const { data: updated, error: updateErr } = await admin
+      .from("trial_bookings")
+      .update({ status: u.status })
+      .eq("id", u.trialBookingId)
+      .in("status", ["paid", "attended"])
+      .select("id");
+
+    if (updateErr) {
+      console.error("[markTrialAttendance] update failed", updateErr);
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Bijwerken lukte niet." };
+    }
+    if ((updated?.length ?? 0) === 0) {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Deze proefles is intussen geannuleerd." };
+    }
+
+    // Geen bezoekersgegevens in de payload (zelfde afweging als bij gasten).
+    await emitEvent({
+      type:
+        u.status === "attended"
+          ? "trial_booking.attended"
+          : "trial_booking.attendance_reverted",
+      actorType: auth.ctx.role,
+      actorId: auth.ctx.userId,
+      subjectType: "trial_booking",
+      subjectId: u.trialBookingId,
+      payload: {
+        session_id: sessionId,
+        trial_booking_id: u.trialBookingId,
         status: u.status,
       },
     });

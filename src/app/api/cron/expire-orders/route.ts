@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMollieClient } from "@/lib/mollie";
-import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
-import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Pending trial_bookings ouder dan dit venster worden tegen Mollie
- * gereconcilieerd. De trial-betaling is beperkt tot iDEAL (15 min
- * vervaltijd) en kaart (30 min), dus na 2 uur hoort de webhook allang
- * geweest te zijn; alles wat dan nog pending staat is een gemiste of
- * mislukte webhook-levering.
- */
-const TRIAL_RECONCILE_HOURS = 2;
 
 /**
  * Pending rijen zonder mollie_payment_id zijn wezen: het proces is
@@ -28,7 +15,7 @@ const TRIAL_RECONCILE_HOURS = 2;
 const TRIAL_ORPHAN_HOURS = 1;
 
 /**
- * Expiry-sweep voor tmc.orders plus reconciliatie van pending
+ * Expiry-sweep voor tmc.orders plus opruimen van verweesde pending
  * trial_bookings.
  *
  * Stap 1 verplaatst draft/pending orders wier expires_at is verstreken
@@ -42,13 +29,11 @@ const TRIAL_ORPHAN_HOURS = 1;
  * opnieuw moet versturen. Zelfservice-orders die verlopen zijn normaal
  * volume (afgehaakte checkouts), niet actionable.
  *
- * Stap 2 is de backstop voor de trial-webhook (capacity-integrity,
- * 2026-07-23): een pending trial_booking telt mee in de sessiecapaciteit
- * (tmc.session_occupancy), dus een rij die de webhook nooit bereikt heeft
- * houdt anders eeuwig een plek bezet. Stale pending rijen worden tegen de
- * Mollie-status gereconcilieerd in beide richtingen: alsnog paid als de
- * betaling gelukt is, cancelled als de betaling definitief niet meer kan
- * slagen. Rijen zonder payment-id gaan direct naar cancelled.
+ * Stap 2 ruimt pending trial_bookings zonder payment-id op. De
+ * reconciliatie van pending rijen met een payment-id tegen Mollie (in
+ * beide richtingen) zit sinds de vrijgave-fix in
+ * /api/cron/expire-trial-bookings, elke 15 minuten; hier was dat dagelijks
+ * en bleef een plek tot een dag bezet.
  */
 export async function GET(req: Request) {
   const denied = verifyCronAuth(req);
@@ -80,13 +65,11 @@ export async function GET(req: Request) {
     );
   }
 
-  // -- 2. Stale pending trial_bookings reconcilieren -----------------------
+  // -- 2. Verweesde pending trial_bookings opruimen -------------------------
 
   let trialsCancelled = 0;
-  let trialsPaid = 0;
-  let trialsSkipped = 0;
 
-  // 2a. Wezen zonder payment-id: nooit door de webhook te vinden.
+  // Wezen zonder payment-id: nooit door de webhook te vinden.
   const orphanCutoff = new Date(
     Date.now() - TRIAL_ORPHAN_HOURS * 3_600_000,
   ).toISOString();
@@ -104,120 +87,10 @@ export async function GET(req: Request) {
     trialsCancelled += orphans?.length ?? 0;
   }
 
-  // 2b. Stale pending met payment-id: Mollie is de waarheid.
-  const staleCutoff = new Date(
-    Date.now() - TRIAL_RECONCILE_HOURS * 3_600_000,
-  ).toISOString();
-  const { data: stale, error: staleErr } = await admin
-    .from("trial_bookings")
-    .select(
-      "id, mollie_payment_id, session_id, name, email, phone, cancel_token, price_paid_cents, is_test",
-    )
-    .eq("status", "pending")
-    .not("mollie_payment_id", "is", null)
-    .lt("booked_at", staleCutoff);
-
-  if (staleErr) {
-    console.error("[cron/expire-orders] stale trial query failed", staleErr);
-  }
-
-  // Modus per rij uit trial_bookings.is_test (PR 5, TODO uit PR 4
-  // ingelost). De Map in mollie.ts maakt herhaald opvragen gratis.
-  const anyStale = (stale?.length ?? 0) > 0;
-  for (const trial of stale ?? []) {
-    const mollie = getMollieClient(trial.is_test ? "test" : "live");
-    if (anyStale && !mollie) {
-      console.error(
-        `[cron/expire-orders] mollie not configured (mode=${trial.is_test ? "test" : "live"}); trial ${trial.id} left as-is`,
-      );
-    }
-    if (!mollie || !trial.mollie_payment_id) {
-      trialsSkipped += 1;
-      continue;
-    }
-    try {
-      const payment = await mollie.payments.get(trial.mollie_payment_id);
-
-      if (payment.status === "paid") {
-        // Gemiste webhook in de goede richting: alsnog bevestigen, met
-        // hetzelfde vervolg als de webhook (event + ntfy). De statusguard
-        // maakt dit idempotent tegen een gelijktijdige webhook-levering.
-        const { data: updated, error: upErr } = await admin
-          .from("trial_bookings")
-          .update({ status: "paid" })
-          .eq("id", trial.id)
-          .eq("status", "pending")
-          .select("id");
-        if (upErr || (updated?.length ?? 0) === 0) {
-          trialsSkipped += 1;
-          continue;
-        }
-        await emitEvent({
-          type: "trial_booking.paid",
-          actorType: "system",
-          actorId: null,
-          subjectType: "trial_booking",
-          subjectId: trial.id,
-          payload: { session_id: trial.session_id, via: "cron_reconcile" },
-        });
-        // Zelfde bijvangst als de webhook: sessie intussen geannuleerd,
-        // dan direct annuleren met refund en annuleringsmail.
-        if (await cancelIfSessionCancelled(trial)) {
-          trialsPaid += 1;
-          continue;
-        }
-        await sendNotification(
-          "Nieuwe proefles-boeking!",
-          `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,
-          "muscle,fire",
-        );
-        // Zelfde bevestigingsmail als het normale webhook-pad: dit is
-        // precies het scenario waarin de webhook nooit is aangekomen, dus
-        // zonder deze aanroep zou de bezoeker zijn cancel_token nooit
-        // zien — de kern van het probleem dat deze fix oplost.
-        await sendTrialBookingConfirmationEmail(trial);
-        trialsPaid += 1;
-      } else if (
-        payment.status === "failed" ||
-        payment.status === "canceled" ||
-        payment.status === "expired"
-      ) {
-        const { data: cancelled, error: cancelErr } = await admin
-          .from("trial_bookings")
-          .update({ status: "cancelled", cancelled_at: now })
-          .eq("id", trial.id)
-          .eq("status", "pending")
-          .select("id");
-        if (cancelErr) {
-          console.error(
-            "[cron/expire-orders] trial cancel failed",
-            trial.id,
-            cancelErr,
-          );
-          trialsSkipped += 1;
-          continue;
-        }
-        trialsCancelled += cancelled?.length ?? 0;
-      } else {
-        // Nog open bij Mollie: laten staan, volgende run kijkt opnieuw.
-        trialsSkipped += 1;
-      }
-    } catch (err) {
-      console.error(
-        "[cron/expire-orders] mollie reconcile failed",
-        trial.id,
-        err,
-      );
-      trialsSkipped += 1;
-    }
-  }
-
   return NextResponse.json({
     ok: true,
     expired: expired?.length ?? 0,
     adminExpired: adminExpired.length,
     trialsCancelled,
-    trialsPaid,
-    trialsSkipped,
   });
 }

@@ -6,6 +6,7 @@ import { sendNotification } from "@/lib/ntfy";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { syncPaymentRefundsFromMollie } from "@/lib/refunds/process";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
+import { cancellationReasonForMollieStatus } from "@/lib/trial-expiry";
 
 export async function POST(request: Request) {
   try {
@@ -57,6 +58,17 @@ export async function POST(request: Request) {
       console.warn("[trial-bookings/webhook] row not found", paymentId);
       return NextResponse.json({ ok: true });
     }
+
+    // Wat de spiegel al wist, voordat we hem bijwerken: nodig om een
+    // betaling die binnenkomt op een al geannuleerde proefles te
+    // onderscheiden van een refund-update op een eerder al betaalde en
+    // daarna door de studio geannuleerde proefles (zie hieronder).
+    const { data: previousMirror } = await admin
+      .from("payments")
+      .select("status")
+      .eq("mollie_payment_id", payment.id)
+      .maybeSingle();
+    const previouslyPaid = previousMirror?.status === "paid";
 
     // Payments-spiegel (PR 5, dicht het omzetlek uit spec-facturatie.md
     // 2.9): elke statusovergang geupsert, zelfde patroon als de
@@ -113,6 +125,44 @@ export async function POST(request: Request) {
         amountRefundedValue: payment.amountRefunded?.value ?? null,
         isTest: trial.is_test === true,
       });
+    }
+
+    // Betaling komt alsnog binnen op een proefles die al geannuleerd is
+    // (door de cron expire-trial-bookings, een eerdere expired-webhook of
+    // de studio). Geen automatische actie: de plek is misschien al weg en
+    // terugbetalen is een beslissing van Marlon. Wel een alarm en een
+    // event, een keer per betaling. Een refund-update op een betaling die
+    // al 'paid' in de spiegel stond is geen nieuwe betaling en slaat dit
+    // over.
+    if (trial.status === "cancelled" && newStatus === "paid" && !previouslyPaid) {
+      const { data: alreadyFlagged } = await admin
+        .from("events")
+        .select("id")
+        .eq("type", "trial_booking.paid_after_cancel")
+        .eq("subject_id", trial.id)
+        .limit(1)
+        .maybeSingle();
+      if (!alreadyFlagged) {
+        await emitEvent({
+          type: "trial_booking.paid_after_cancel",
+          actorType: "visitor",
+          actorId: null,
+          subjectType: "trial_booking",
+          subjectId: trial.id,
+          payload: {
+            session_id: trial.session_id,
+            trial_booking_id: trial.id,
+            mollie_payment_id: payment.id,
+            amount_cents: amountCents,
+          },
+        });
+        await sendNotification(
+          "Proefles betaald na annulering",
+          `Betaling ${payment.id} kwam binnen voor proefles-boeking ${trial.id}, maar die was al geannuleerd. Niets automatisch gedaan: controleer de plek en beslis over terugbetaling.`,
+          "rotating_light",
+        );
+      }
+      return NextResponse.json({ ok: true });
     }
 
     // Idempotent: al in een eindstatus, en niet opnieuw naar pending.
@@ -182,12 +232,40 @@ export async function POST(request: Request) {
       // annuleerlink op cancel_token en het annuleringsvenster. Ontbrak
       // hiervoor volledig, zie src/lib/trial-booking-email.ts.
       await sendTrialBookingConfirmationEmail(trial);
-    } else if (newStatus === "failed" || newStatus === "canceled" || newStatus === "expired") {
-      await admin
-        .from("trial_bookings")
-        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-        .eq("id", trial.id)
-        .eq("status", "pending");
+    } else {
+      // Definitief niet betaald: de plek komt vrij, met de reden uit de
+      // Mollie-status (payment_expired, payment_failed, payment_canceled).
+      // De cron expire-trial-bookings is het vangnet als deze webhook
+      // niet aankomt. Statusguard in de WHERE, zoals bij paid.
+      const reason = cancellationReasonForMollieStatus(newStatus);
+      if (reason) {
+        const { data: cancelled } = await admin
+          .from("trial_bookings")
+          .update({
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: reason,
+          })
+          .eq("id", trial.id)
+          .eq("status", "pending")
+          .select("id");
+        if ((cancelled?.length ?? 0) > 0) {
+          await emitEvent({
+            type: "trial_booking.cancelled",
+            actorType: "system",
+            actorId: null,
+            subjectType: "trial_booking",
+            subjectId: trial.id,
+            payload: {
+              session_id: trial.session_id,
+              reason,
+              via: "webhook",
+              mollie_status: newStatus,
+              mollie_payment_id: payment.id,
+            },
+          });
+        }
+      }
     }
 
     return NextResponse.json({ ok: true });

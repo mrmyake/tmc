@@ -110,6 +110,12 @@ export type EventType =
   | "trial_booking.created"
   | "trial_booking.paid"
   | "trial_booking.cancelled"
+  // Betaling komt binnen op een al geannuleerde proefles: geen actie, wel
+  // alarm (webhook /api/trial-bookings/webhook).
+  | "trial_booking.paid_after_cancel"
+  // Aanwezigheid van een proefles (markTrialAttendance): status attended en terug.
+  | "trial_booking.attended"
+  | "trial_booking.attendance_reverted"
   // Proefcodes v2 (src/lib/trial-codes/): de DB-RPC's schrijven
   // trial_code.created/redeemed/revoked/released zelf; alleen de
   // misbruikmelding wordt vanuit TS gelogd.
