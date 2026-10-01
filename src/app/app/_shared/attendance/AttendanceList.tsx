@@ -15,7 +15,7 @@ import {
   type TrialRow,
 } from "@/lib/admin/attendance-actions";
 import { TrialBookingsBlock } from "./TrialBookingsBlock";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
   timeZone: "Europe/Amsterdam",
@@ -338,7 +338,7 @@ export function AttendanceList({
             {session.classTypeName}
           </h1>
           <p className="text-text-muted text-base md:text-lg">
-            {formatWeekdayDate(new Date(session.startAt))} ·{" "}
+            {formatWeekdayDateHeading(new Date(session.startAt))} ·{" "}
             {formatTimeRange(new Date(session.startAt), new Date(session.endAt))}{" "}
             · {session.trainerName} ·{" "}
             {PILLAR_LABELS[session.pillar as Pillar] ?? session.pillar}

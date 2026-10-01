@@ -7,7 +7,7 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { formatEuro } from "@/lib/format";
-import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
+import { formatWeekdayDateHeading, formatTimeRange } from "@/lib/format-date";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
@@ -160,7 +160,7 @@ export function TrialBookingList({
                         </span>
                       </p>
                       <p className="text-text-muted text-xs mt-1">
-                        {formatWeekdayDate(new Date(o.startAt))} &middot;{" "}
+                        {formatWeekdayDateHeading(new Date(o.startAt))} &middot;{" "}
                         {formatTimeRange(
                           new Date(o.startAt),
                           new Date(o.endAt),
@@ -206,7 +206,7 @@ export function TrialBookingList({
                 {selected.className} &middot; {selected.pillarLabel}
               </p>
               <p className="text-text-muted text-xs mb-8">
-                {formatWeekdayDate(new Date(selected.startAt))} &middot;{" "}
+                {formatWeekdayDateHeading(new Date(selected.startAt))} &middot;{" "}
                 {formatTimeRange(
                   new Date(selected.startAt),
                   new Date(selected.endAt),

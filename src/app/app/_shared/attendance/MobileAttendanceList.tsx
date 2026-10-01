@@ -10,7 +10,7 @@ import {
   type ParticipantRow,
   type SessionSummary,
 } from "@/lib/admin/attendance-actions";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
@@ -222,7 +222,7 @@ export function MobileAttendanceList({
           {session.classTypeName}
         </h1>
         <p className="text-text-muted text-sm leading-relaxed">
-          {formatWeekdayDate(start)}
+          {formatWeekdayDateHeading(start)}
         </p>
         <p className="text-text-muted text-sm leading-relaxed">
           {formatTimeRange(start, end)} ·{" "}

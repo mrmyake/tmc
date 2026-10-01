@@ -16,7 +16,7 @@ import {
   type AdminActionResult,
 } from "@/lib/admin/session-actions";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 import { AttendanceList } from "@/app/app/_shared/attendance/AttendanceList";
 import type { SessionSummary } from "@/lib/admin/attendance-actions";
 import {
@@ -214,7 +214,7 @@ export function SessionEditPanel({
                 {session.className}
               </h2>
               <p className="text-text-muted text-sm mb-2">
-                {formatWeekdayDate(new Date(session.startAt))}
+                {formatWeekdayDateHeading(new Date(session.startAt))}
               </p>
               <p
                 className={`text-text-muted text-sm ${session.templateId ? "mb-2" : "mb-6"}`}

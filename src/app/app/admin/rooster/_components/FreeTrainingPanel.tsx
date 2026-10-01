@@ -2,7 +2,7 @@ import { getFreeTrainingAvailability } from "@/lib/scheduling/opening-hours";
 import { getTodayCheckIns } from "@/lib/check-in/actions";
 import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
 import { Chip } from "@/components/ui/Chip";
-import { formatTime, formatWeekdayDate, isoDateAmsterdam, todayIsoAmsterdam } from "@/lib/format-date";
+import { formatTime, formatWeekdayDateHeading, isoDateAmsterdam, todayIsoAmsterdam } from "@/lib/format-date";
 import { getUpcomingTrialHours } from "@/lib/admin/trial-hours";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 
@@ -142,7 +142,7 @@ export async function FreeTrainingPanel() {
               <div key={iso}>
                 <span className="text-text-muted text-xs uppercase tracking-[0.14em] block mb-2">
                   {/* COPY: confirm met Marlon */}
-                  {iso === todayIso ? "Vandaag" : formatWeekdayDate(new Date(rows[0].slotStartAt))}
+                  {iso === todayIso ? "Vandaag" : formatWeekdayDateHeading(new Date(rows[0].slotStartAt))}
                 </span>
                 <ul className="flex flex-col">
                   {rows.map((t) => (

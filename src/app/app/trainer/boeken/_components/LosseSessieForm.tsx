@@ -9,7 +9,7 @@ import {
   type BookPtForMemberResult,
 } from "@/lib/admin/pt-booking-actions";
 import { zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 import { MomentPicker } from "./MomentPicker";
 import { OverrideWarning } from "./OverrideWarning";
 import { SuccessBanner } from "./SuccessBanner";
@@ -175,7 +175,7 @@ export function LosseSessieForm({
       <SuccessBanner
         // COPY: confirm met Marlon
         title="Sessie geboekt."
-        detail={`${formatWeekdayDate(first)} · ${formatTimeRange(first, firstEnd)}${
+        detail={`${formatWeekdayDateHeading(first)} · ${formatTimeRange(first, firstEnd)}${
           result.bookings.length > 1
             ? ` · ${result.bookings.length} sessies (wekelijks)`
             : ""

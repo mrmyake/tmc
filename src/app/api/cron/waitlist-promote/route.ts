@@ -4,7 +4,7 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import WaitlistPromoted from "@/emails/waitlist_promoted";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { capitalizeFirst, formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { confirmDeadlineLabel } from "@/lib/member/waitlist";
 
 function siteUrl(): string {
@@ -124,7 +124,7 @@ async function notifyPromoted(row: PromotedRow): Promise<void> {
       // COPY: confirm met Marlon
       title: `Plek vrij: ${className}`,
       // COPY: confirm met Marlon
-      body: `${whenLabel}. Bevestig ${deadlineLabel}.`,
+      body: `${capitalizeFirst(whenLabel)}. Bevestig ${deadlineLabel}.`,
       data: { type: "waitlist_promoted", waitlistEntryId: row.entry_id },
     });
   } catch (err) {

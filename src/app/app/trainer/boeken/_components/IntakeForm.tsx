@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { AdminField, AdminInput } from "@/components/ui/AdminField";
 import { createPtIntake } from "@/lib/admin/pt-intake-actions";
 import { zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 import { MomentPicker } from "./MomentPicker";
 import { SuccessBanner } from "./SuccessBanner";
 
@@ -108,7 +108,7 @@ export function IntakeForm({
       <SuccessBanner
         // COPY: confirm met Marlon
         title="Intake ingepland."
-        detail={`${formatWeekdayDate(start)} · ${formatTimeRange(start, end)}`}
+        detail={`${formatWeekdayDateHeading(start)} · ${formatTimeRange(start, end)}`}
         payUrl={null}
         warning={null}
         onReset={() => setResult(null)}

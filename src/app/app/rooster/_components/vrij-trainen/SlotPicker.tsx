@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   amsterdamParts,
-  formatWeekdayDate,
+  formatWeekdayDateHeading,
   parseIsoDateToAmsterdamMidnight,
 } from "@/lib/format-date";
 import { cancelBooking, createBooking } from "@/lib/member/booking-actions";
@@ -63,7 +63,7 @@ export function SlotPicker({
   const dayDate = parseIsoDateToAmsterdamMidnight(data.selectedDate)!;
   const weekday = amsterdamParts(dayDate).weekday;
   const dayPresence = { name: presence.name, ...presenceForWeekday(presence.rows, weekday) };
-  const summary = `${formatWeekdayDate(dayDate)} · ${durationLabel(duration)}`;
+  const summary = `${formatWeekdayDateHeading(dayDate)} · ${durationLabel(duration)}`;
 
   function onSelect(cell: QuarterCell) {
     setMessage(null);
@@ -178,7 +178,7 @@ export function SlotPicker({
                 Open studio
               </span>
               <p className="font-[family-name:var(--font-playfair)] text-2xl leading-tight text-text">
-                {formatWeekdayDate(dayDate)}
+                {formatWeekdayDateHeading(dayDate)}
               </p>
               <p className="mt-1 text-sm text-text-muted">
                 {/* COPY: confirm met Marlon */}

@@ -10,7 +10,7 @@ import {
   type AdminActionResult,
   type DayCancellationPreview,
 } from "@/lib/admin/session-actions";
-import { formatTime, formatWeekdayDate } from "@/lib/format-date";
+import { formatTime, formatWeekdayDateHeading } from "@/lib/format-date";
 
 interface DayCancelPanelProps {
   /** Amsterdamse datum "yyyy-mm-dd", of null als het paneel dicht is. */
@@ -83,7 +83,7 @@ export function DayCancelPanel({ isoDate, onClose }: DayCancelPanelProps) {
     });
   }
 
-  const dateLabel = isoDate ? formatWeekdayDate(new Date(`${isoDate}T12:00:00Z`)) : "";
+  const dateLabel = isoDate ? formatWeekdayDateHeading(new Date(`${isoDate}T12:00:00Z`)) : "";
   const nothingToCancel = preview !== null && preview.sessionCount === 0;
 
   return (

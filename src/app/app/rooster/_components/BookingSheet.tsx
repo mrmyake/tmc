@@ -20,7 +20,7 @@ import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import {
   formatShortDate,
   formatTimeRange,
-  formatWeekdayDate,
+  formatWeekdayDateHeading,
 } from "@/lib/format-date";
 import type { SessionRowData } from "./SessionRow";
 
@@ -319,7 +319,7 @@ export function BookingSheet({
               </h2>
 
               <dl className="flex flex-col gap-5 mb-10">
-                <Detail label="Wanneer" value={formatWeekdayDate(session.startAt)} />
+                <Detail label="Wanneer" value={formatWeekdayDateHeading(session.startAt)} />
                 <Detail
                   label="Tijd"
                   value={
