@@ -74,13 +74,16 @@ export default async function AdminDashboardPage() {
       .neq("pillar", "vrij_trainen")
       .gte("start_at", weekStart.toISOString())
       .lt("start_at", weekEnd.toISOString()),
+    // Bezetting per sessie uit tmc.v_session_availability (leden,
+    // proeflessen, gasten, open promoties): zelfde telling als rooster en
+    // deelnemerslijst. De view kent alleen sessies met status scheduled,
+    // net als de capaciteitsquery hierboven.
     admin
-      .from("bookings")
-      .select("id, session_date, pillar, status", { count: "exact" })
-      .eq("status", "booked")
+      .from("v_session_availability")
+      .select("id, start_at, taken_count")
       .neq("pillar", "vrij_trainen")
-      .gte("session_date", isoDate(weekStart))
-      .lt("session_date", isoDate(weekEnd)),
+      .gte("start_at", weekStart.toISOString())
+      .lt("start_at", weekEnd.toISOString()),
     admin
       .from("memberships")
       .select(
@@ -138,13 +141,15 @@ export default async function AdminDashboardPage() {
     (sum, s) => sum + (s.capacity ?? 0),
     0,
   );
-  const weekBooked = weekBookingsCountRes.count ?? 0;
-
-  // Bar chart: bezetting per dag
+  // Bar chart en weektotaal: taken_count per dag gesommeerd.
   const bookingsByDate = new Map<string, number>();
-  for (const b of weekBookingsCountRes.data ?? []) {
-    const key = b.session_date;
-    if (key) bookingsByDate.set(key, (bookingsByDate.get(key) ?? 0) + 1);
+  let weekBooked = 0;
+  for (const s of weekBookingsCountRes.data ?? []) {
+    if (!s?.start_at) continue;
+    const taken = s.taken_count ?? 0;
+    const key = isoDate(new Date(s.start_at));
+    bookingsByDate.set(key, (bookingsByDate.get(key) ?? 0) + taken);
+    weekBooked += taken;
   }
   const capacityByDate = new Map<string, number>();
   for (const s of weekSessionsRes.data ?? []) {

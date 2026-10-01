@@ -85,30 +85,56 @@ export default async function KioskPage() {
     const rows = sessionRows ?? [];
     const sessionIds = rows.map((r) => r.id);
 
-    const [{ data: bookingRows }, { data: checkinRows }] = await Promise.all([
+    // Geboekt: de totale bezetting uit tmc.v_session_availability (leden,
+    // proeflessen, gasten, open promoties), zelfde getal als rooster en
+    // deelnemerslijst. Een geannuleerde sessie staat niet in de view en
+    // blijft op 0; KioskFrame toont die als "Vervalt".
+    // Ingecheckt: leden uit tmc.check_ins (sessie-gebonden check-ins
+    // ontstaan uitsluitend via de kern uit #214) plus aanwezige gasten en
+    // proeflessen, die hun aanwezigheid in de eigen tabel dragen.
+    const none = Promise.resolve({ data: [] as { session_id: string | null }[] });
+    const [
+      { data: availabilityRows },
+      { data: checkinRows },
+      { data: guestRows },
+      { data: trialRows },
+    ] = await Promise.all([
       sessionIds.length
         ? admin
-            .from("bookings")
-            .select("session_id")
-            .in("session_id", sessionIds)
-            .eq("status", "booked")
-        : Promise.resolve({ data: [] as { session_id: string }[] }),
-      // Ingecheckt-aantal komt uit tmc.check_ins, niet bookings.attended_at;
-      // sessie-gebonden check-ins ontstaan uitsluitend via de kern uit #214.
+            .from("v_session_availability")
+            .select("id, taken_count")
+            .in("id", sessionIds)
+        : Promise.resolve({ data: [] as { id: string; taken_count: number | null }[] }),
+      sessionIds.length
+        ? admin.from("check_ins").select("session_id").in("session_id", sessionIds)
+        : none,
       sessionIds.length
         ? admin
-            .from("check_ins")
+            .from("guest_bookings")
             .select("session_id")
             .in("session_id", sessionIds)
-        : Promise.resolve({ data: [] as { session_id: string | null }[] }),
+            .eq("status", "attended")
+        : none,
+      sessionIds.length
+        ? admin
+            .from("trial_bookings")
+            .select("session_id")
+            .in("session_id", sessionIds)
+            .eq("status", "attended")
+            .eq("is_test", false)
+        : none,
     ]);
 
     const bookedCounts = new Map<string, number>();
-    for (const b of bookingRows ?? []) {
-      bookedCounts.set(b.session_id, (bookedCounts.get(b.session_id) ?? 0) + 1);
+    for (const r of availabilityRows ?? []) {
+      if (r.id) bookedCounts.set(r.id, r.taken_count ?? 0);
     }
     const checkedInCounts = new Map<string, number>();
-    for (const c of checkinRows ?? []) {
+    for (const c of [
+      ...(checkinRows ?? []),
+      ...(guestRows ?? []),
+      ...(trialRows ?? []),
+    ]) {
       if (!c.session_id) continue;
       checkedInCounts.set(
         c.session_id,

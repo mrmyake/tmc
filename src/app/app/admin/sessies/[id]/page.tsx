@@ -32,6 +32,7 @@ export default async function AdminSessionPage(props: {
         initialParticipants={res.participants}
         initialGuests={res.guests}
         initialTrials={res.trials}
+        initialTakenCount={res.takenCount}
         canRefund
       />
     </div>

@@ -7,6 +7,7 @@ import {
   loadParticipants,
   markAttendance,
   markGuestAttendance,
+  markTrialAttendance,
   refundCredit,
   type AttendanceActionResult,
   type GuestRow,
@@ -15,6 +16,7 @@ import {
   type TrialRow,
 } from "@/lib/admin/attendance-actions";
 import { TrialBookingsBlock } from "./TrialBookingsBlock";
+import { AttendanceCheckbox } from "./AttendanceCheckbox";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
@@ -29,14 +31,21 @@ import { AvatarBubble } from "./AvatarBubble";
 import { PlanBadge } from "./PlanBadge";
 
 type DirtyMap = Map<string, "attended" | "booked" | "no_show">;
+type TrialDirtyMap = Map<string, "attended" | "paid">;
 
 export interface AttendanceListProps {
   session: SessionSummary;
   initialParticipants: ParticipantRow[];
   /** Gasten van de sessie; apart van leden (ander aanwezigheidsmodel). */
   initialGuests?: GuestRow[];
-  /** Proeflessen van de sessie (betaald en via code); alleen tonen en annuleren. */
+  /** Proeflessen van de sessie (betaald en via code); afvinken via markTrialAttendance. */
   initialTrials?: TrialRow[];
+  /**
+   * Totale bezetting uit tmc.v_session_availability (loadParticipants);
+   * dezelfde telling als het rooster. Bij selfFetch komt hij mee met de
+   * deelnemers; tot die tijd geldt deze startwaarde.
+   */
+  initialTakenCount?: number;
   canRefund: boolean;
   embedded?: boolean;
   /**
@@ -51,6 +60,7 @@ export function AttendanceList({
   initialParticipants,
   initialGuests = [],
   initialTrials = [],
+  initialTakenCount = 0,
   canRefund,
   embedded = false,
   selfFetch = false,
@@ -59,8 +69,10 @@ export function AttendanceList({
     useState<ParticipantRow[]>(initialParticipants);
   const [guests, setGuests] = useState<GuestRow[]>(initialGuests);
   const [trials, setTrials] = useState<TrialRow[]>(initialTrials);
+  const [takenCount, setTakenCount] = useState<number>(initialTakenCount);
   const [dirty, setDirty] = useState<DirtyMap>(new Map());
   const [guestDirty, setGuestDirty] = useState<DirtyMap>(new Map());
+  const [trialDirty, setTrialDirty] = useState<TrialDirtyMap>(new Map());
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<
     { tone: "success" | "error"; text: string } | null
@@ -82,6 +94,7 @@ export function AttendanceList({
         setParticipants(res.participants);
         setGuests(res.guests);
         setTrials(res.trials);
+        setTakenCount(res.takenCount);
       } else {
         setMessage({ tone: "error", text: res.message });
       }
@@ -103,20 +116,37 @@ export function AttendanceList({
     [session.endAt],
   );
 
+  // "Totaal" is de bezetting uit de view (zelfde getal als het rooster);
+  // aanwezig en no-show tellen leden, gasten en proeflessen samen.
   const stats = useMemo(() => {
     const active = participants.filter((p) => p.status !== "cancelled");
-    const attended = active.filter((p) => {
+    const attendedMembers = active.filter((p) => {
       const next = dirty.get(p.bookingId) ?? p.status;
       return next === "attended";
     }).length;
-    const noShow = active.filter((p) => {
+    const noShowMembers = active.filter((p) => {
       const next = dirty.get(p.bookingId) ?? p.status;
       return next === "no_show";
     }).length;
+    const attendedGuests = guests.filter(
+      (g) => (guestDirty.get(g.guestBookingId) ?? g.status) === "attended",
+    ).length;
+    const noShowGuests = guests.filter(
+      (g) => (guestDirty.get(g.guestBookingId) ?? g.status) === "no_show",
+    ).length;
+    const attendedTrials = trials.filter(
+      (t) => (trialDirty.get(t.trialBookingId) ?? t.status) === "attended",
+    ).length;
     const mats = active.filter((p) => p.rentalMat).length;
     const towels = active.filter((p) => p.rentalTowel).length;
-    return { total: active.length, attended, noShow, mats, towels };
-  }, [participants, dirty]);
+    return {
+      total: takenCount,
+      attended: attendedMembers + attendedGuests + attendedTrials,
+      noShow: noShowMembers + noShowGuests,
+      mats,
+      towels,
+    };
+  }, [participants, dirty, guests, guestDirty, trials, trialDirty, takenCount]);
 
   const showRentals = session.pillar === "yoga_mobility";
   const hasAnyRentals =
@@ -167,8 +197,21 @@ export function AttendanceList({
     setGuestDirty(copy);
   }
 
+  function currentTrialStatus(t: TrialRow): TrialRow["status"] {
+    return trialDirty.get(t.trialBookingId) ?? t.status;
+  }
+
+  function toggleTrialAttended(t: TrialRow) {
+    if (t.status !== "paid" && t.status !== "attended") return;
+    const next = currentTrialStatus(t) === "attended" ? "paid" : "attended";
+    const copy = new Map(trialDirty);
+    if (next === t.status) copy.delete(t.trialBookingId);
+    else copy.set(t.trialBookingId, next);
+    setTrialDirty(copy);
+  }
+
   function save() {
-    if (dirty.size === 0 && guestDirty.size === 0) {
+    if (dirty.size === 0 && guestDirty.size === 0 && trialDirty.size === 0) {
       setMessage({ tone: "success", text: "Geen wijzigingen." });
       return;
     }
@@ -180,10 +223,14 @@ export function AttendanceList({
     const guestPayload = Array.from(guestDirty.entries()).map(
       ([guestBookingId, status]) => ({ guestBookingId, status }),
     );
+    const trialPayload = Array.from(trialDirty.entries()).map(
+      ([trialBookingId, status]) => ({ trialBookingId, status }),
+    );
     startTransition(async () => {
-      // Twee bronnen, twee actions: leden via markAttendance
+      // Drie bronnen, drie actions: leden via markAttendance
       // (check_ins/attended_at/strikes), gasten via markGuestAttendance
-      // (guest_bookings.status). Eerste fout wint als melding.
+      // (guest_bookings.status), proeflessen via markTrialAttendance
+      // (trial_bookings.status). Eerste fout wint als melding.
       let failed: AttendanceActionResult | null = null;
 
       if (payload.length > 0) {
@@ -221,6 +268,21 @@ export function AttendanceList({
             }),
           );
           setGuestDirty(new Map());
+        } else {
+          failed = failed ?? res;
+        }
+      }
+
+      if (trialPayload.length > 0) {
+        const res = await markTrialAttendance(session.id, trialPayload);
+        if (res.ok) {
+          setTrials((prev) =>
+            prev.map((t) => {
+              const next = trialDirty.get(t.trialBookingId);
+              return next ? { ...t, status: next } : t;
+            }),
+          );
+          setTrialDirty(new Map());
         } else {
           failed = failed ?? res;
         }
@@ -323,7 +385,8 @@ export function AttendanceList({
   const cancelled = participants.filter((p) => p.status === "cancelled");
   const activeGuests = guests.filter((g) => g.status !== "cancelled");
   const cancelledGuests = guests.filter((g) => g.status === "cancelled");
-  const dirtyCount = dirty.size + guestDirty.size;
+  const activeTrials = trials.filter((t) => t.status !== "cancelled");
+  const dirtyCount = dirty.size + guestDirty.size + trialDirty.size;
 
   const paddingClass = embedded ? "" : "px-6 md:px-10 lg:px-12 py-10 md:py-14";
 
@@ -399,11 +462,14 @@ export function AttendanceList({
         </div>
       )}
 
-      {!loading && active.length === 0 && activeGuests.length === 0 && (
-        <p className="text-text-muted text-sm py-8">
-          Nog geen boekingen voor deze sessie.
-        </p>
-      )}
+      {!loading &&
+        active.length === 0 &&
+        activeGuests.length === 0 &&
+        activeTrials.length === 0 && (
+          <p className="text-text-muted text-sm py-8">
+            Nog geen boekingen voor deze sessie.
+          </p>
+        )}
 
       {!loading && active.length > 0 && (
         <ul className="flex flex-col divide-y divide-[color:var(--ink-500)]/60 mb-8">
@@ -555,10 +621,18 @@ export function AttendanceList({
         </div>
       )}
 
-      {/* Proeflessen: eigen blok, geen aanwezigheidsmodel. Annuleren en de
-          terugbetaling opnieuw indienen alleen voor admins (canRefund). */}
+      {/* Proeflessen: zelfde rijstijl, afvinken via de dirty-map hier
+          (markTrialAttendance bij opslaan). Annuleren en de terugbetaling
+          opnieuw indienen alleen voor admins (canRefund). */}
       {!loading && (
-        <TrialBookingsBlock trials={trials} sessionId={session.id} canManage={canRefund} />
+        <TrialBookingsBlock
+          trials={trials}
+          sessionId={session.id}
+          canManage={canRefund}
+          currentStatus={currentTrialStatus}
+          onToggleAttended={toggleTrialAttended}
+          disabled={pending}
+        />
       )}
 
       {cancelledGuests.length > 0 && (
@@ -731,56 +805,5 @@ function SummaryStat({
         {value}
       </span>
     </div>
-  );
-}
-
-function AttendanceCheckbox({
-  id,
-  label,
-  checked,
-  onChange,
-  disabled,
-  tone,
-}: {
-  id: string;
-  label: string;
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-  tone?: "danger";
-}) {
-  const checkedColor =
-    tone === "danger"
-      ? "border-[color:var(--danger)] bg-[color:var(--danger)]/10 text-[color:var(--danger)]"
-      : "border-[color:var(--success)] bg-[color:var(--success)]/10 text-[color:var(--success)]";
-  return (
-    <label
-      htmlFor={id}
-      className={`inline-flex items-center gap-2 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] border transition-colors duration-300 cursor-pointer ${
-        checked
-          ? checkedColor
-          : "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent"
-      } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
-    >
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        className="sr-only"
-      />
-      <span
-        aria-hidden
-        className={`w-3 h-3 border ${
-          checked
-            ? tone === "danger"
-              ? "border-[color:var(--danger)] bg-[color:var(--danger)]"
-              : "border-[color:var(--success)] bg-[color:var(--success)]"
-            : "border-text-muted/60"
-        }`}
-      />
-      {label}
-    </label>
   );
 }

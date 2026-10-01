@@ -36,6 +36,7 @@
     "test:trial-codes": "node --import ./scripts/ts-loader.mjs --test scripts/trial-codes/*.test.mts",
     "test:refunds": "node --import ./scripts/ts-loader.mjs --test scripts/refunds/*.test.mts",
     "test:trial-self-cancel": "node --import ./scripts/ts-loader.mjs --test scripts/trial-self-cancel/*.test.mts",
+    "test:trial-expiry": "node --import ./scripts/ts-loader.mjs --test scripts/trial-expiry/*.test.mts",
     "test:vrij-trainen": "node --import ./scripts/ts-loader.mjs --test scripts/vrij-trainen/*.test.mts",
     "test:trial-vrij-trainen-db": "scripts/test-trial-vrij-trainen-db.sh",
     "test:trial-vrij-trainen-race": "scripts/test-trial-vrij-trainen-race.sh",

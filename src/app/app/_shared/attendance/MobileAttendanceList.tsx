@@ -6,9 +6,11 @@ import {
   autoMarkNoShows,
   markAttendance,
   markGuestAttendance,
+  markTrialAttendance,
   type GuestRow,
   type ParticipantRow,
   type SessionSummary,
+  type TrialRow,
 } from "@/lib/admin/attendance-actions";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
@@ -35,15 +37,22 @@ export interface MobileAttendanceListProps {
   initialParticipants: ParticipantRow[];
   /** Gasten van de sessie; apart van leden (ander aanwezigheidsmodel). */
   initialGuests?: GuestRow[];
+  /** Proeflessen (paid/attended; pending komt voor trainers niet mee). */
+  initialTrials?: TrialRow[];
+  /** Totale bezetting uit tmc.v_session_availability, zelfde getal als het rooster. */
+  takenCount: number;
 }
 
 export function MobileAttendanceList({
   session,
   initialParticipants,
   initialGuests = [],
+  initialTrials = [],
+  takenCount,
 }: MobileAttendanceListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>(initialParticipants);
   const [guestRows, setGuestRows] = useState<GuestRow[]>(initialGuests);
+  const [trialRows, setTrialRows] = useState<TrialRow[]>(initialTrials);
   const [syncByBooking, setSyncByBooking] = useState<Record<string, SyncState>>(
     {},
   );
@@ -61,12 +70,24 @@ export function MobileAttendanceList({
   const cancelled = rows.filter((r) => r.status === "cancelled");
   const activeGuests = guestRows.filter((g) => g.status !== "cancelled");
   const cancelledGuests = guestRows.filter((g) => g.status === "cancelled");
+  // Alleen af te vinken proeflessen; pending (betaling open) ziet een
+  // trainer niet, en een geannuleerde hoort niet in deze lijst.
+  const activeTrials = trialRows.filter(
+    (t) => t.status === "paid" || t.status === "attended",
+  );
 
+  // "Totaal" is de bezetting uit de view (zelfde getal als het rooster);
+  // aanwezig en no-show tellen leden, gasten en proeflessen samen.
   const stats = useMemo(() => {
-    const attended = active.filter((r) => r.status === "attended").length;
-    const noShow = active.filter((r) => r.status === "no_show").length;
-    return { total: active.length, attended, noShow };
-  }, [active]);
+    const attended =
+      active.filter((r) => r.status === "attended").length +
+      activeGuests.filter((g) => g.status === "attended").length +
+      activeTrials.filter((t) => t.status === "attended").length;
+    const noShow =
+      active.filter((r) => r.status === "no_show").length +
+      activeGuests.filter((g) => g.status === "no_show").length;
+    return { total: takenCount, attended, noShow };
+  }, [active, activeGuests, activeTrials, takenCount]);
 
   function setStatusLocal(bookingId: string, status: LocalStatus) {
     setRows((prev) =>
@@ -194,6 +215,49 @@ export function MobileAttendanceList({
     persistGuest(g.guestBookingId, next, previous);
   }
 
+  // Proeflessen: zelfde optimistische per-rij flow via markTrialAttendance
+  // (trial_bookings.status paid/attended). Geen no-show voor proeflessen.
+  function setTrialStatusLocal(trialBookingId: string, status: "attended" | "paid") {
+    setTrialRows((prev) =>
+      prev.map((t) =>
+        t.trialBookingId === trialBookingId ? { ...t, status } : t,
+      ),
+    );
+  }
+
+  function toggleTrialAttended(t: TrialRow) {
+    if (t.status !== "paid" && t.status !== "attended") return;
+    const next = t.status === "attended" ? "paid" : "attended";
+    const previous = t.status;
+    setTrialStatusLocal(t.trialBookingId, next);
+    setSyncByBooking((s) => ({ ...s, [t.trialBookingId]: "saving" }));
+    setErrorByBooking((e) => {
+      const copy = { ...e };
+      delete copy[t.trialBookingId];
+      return copy;
+    });
+
+    void (async () => {
+      const res = await markTrialAttendance(session.id, [
+        { trialBookingId: t.trialBookingId, status: next },
+      ]);
+      if (res.ok) {
+        setSyncByBooking((s) => ({ ...s, [t.trialBookingId]: "saved" }));
+        window.setTimeout(() => {
+          setSyncByBooking((s) => {
+            const copy = { ...s };
+            if (copy[t.trialBookingId] === "saved") delete copy[t.trialBookingId];
+            return copy;
+          });
+        }, 1500);
+      } else {
+        setSyncByBooking((s) => ({ ...s, [t.trialBookingId]: "error" }));
+        setErrorByBooking((e) => ({ ...e, [t.trialBookingId]: res.message }));
+        setTrialStatusLocal(t.trialBookingId, previous);
+      }
+    })();
+  }
+
   function runAutoNoShows() {
     setBulkMessage(null);
     startBulkTransition(async () => {
@@ -247,7 +311,9 @@ export function MobileAttendanceList({
         <Stat label="No-show" value={String(stats.noShow)} tone="danger" />
       </div>
 
-      {active.length === 0 && activeGuests.length === 0 ? (
+      {active.length === 0 &&
+      activeGuests.length === 0 &&
+      activeTrials.length === 0 ? (
         <p className="text-text-muted text-sm py-8 text-center">
           Nog geen boekingen voor deze sessie.
         </p>
@@ -428,6 +494,78 @@ export function MobileAttendanceList({
                       }`}
                     >
                       <UserX size={15} strokeWidth={1.8} aria-hidden />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Proeflessen: zelfde rijstijl als leden, alleen een vinkje
+          (markTrialAttendance, trial_bookings.status). Geen no-show. */}
+      {activeTrials.length > 0 && (
+        <div className="mb-8">
+          <span className="tmc-eyebrow block mb-3">
+            {/* COPY: confirm met Marlon */}
+            Proeflessen ({activeTrials.length})
+          </span>
+          <ul className="flex flex-col gap-3">
+            {activeTrials.map((t) => {
+              const sync = syncByBooking[t.trialBookingId] ?? "idle";
+              const error = errorByBooking[t.trialBookingId];
+              const isAttended = t.status === "attended";
+              return (
+                <li
+                  key={t.trialBookingId}
+                  className={`flex items-center gap-4 p-4 bg-bg-elevated border transition-colors duration-300 ${
+                    isAttended
+                      ? "border-[color:var(--success)]/40"
+                      : "border-[color:var(--ink-500)]"
+                  }`}
+                >
+                  <AvatarBubble
+                    firstName={t.name.split(" ")[0] ?? t.name}
+                    lastName={t.name.split(" ").slice(1).join(" ")}
+                    avatarUrl={null}
+                    size={48}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text text-base font-medium truncate">
+                      {t.name}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
+                        {/* COPY: confirm met Marlon */}
+                        {t.isFree ? "Proefles via code" : "Proefles"}
+                      </span>
+                      {t.isTest && (
+                        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted border border-text-muted/40 px-2 py-0.5">
+                          {/* COPY: confirm met Marlon */}
+                          Test
+                        </span>
+                      )}
+                    </div>
+                    <SyncLine state={sync} error={error} />
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleTrialAttended(t)}
+                      aria-label={
+                        isAttended
+                          ? `Markeer ${t.name} als niet aanwezig`
+                          : `Markeer ${t.name} als aanwezig`
+                      }
+                      aria-pressed={isAttended}
+                      className={`w-[52px] h-[52px] rounded-full border-2 flex items-center justify-center transition-colors duration-300 cursor-pointer ${
+                        isAttended
+                          ? "bg-[color:var(--success)] border-[color:var(--success)] text-bg"
+                          : "bg-transparent border-text-muted/40 text-text-muted hover:border-accent hover:text-accent"
+                      }`}
+                    >
+                      <Check size={24} strokeWidth={2.2} aria-hidden />
                     </button>
                   </div>
                 </li>

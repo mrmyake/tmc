@@ -7,6 +7,7 @@ import type { ChipTone } from "@/lib/tone";
 import type { TrialRow } from "@/lib/admin/attendance-actions";
 import { adminCancelTrialBooking, retryPaymentRefund } from "@/lib/admin/trial-booking-actions";
 import { AvatarBubble } from "./AvatarBubble";
+import { AttendanceCheckbox } from "./AttendanceCheckbox";
 
 // COPY: confirm met Marlon
 const REFUND_LABEL: Record<TrialRow["refund"] extends infer R ? (R extends { status: infer S } ? S & string : never) : never, { label: string; tone: ChipTone }> = {
@@ -24,19 +25,29 @@ function euro(cents: number): string {
 }
 
 /**
- * Proeflessen op de sessie-detailpagina en in het rooster-zijpaneel, naast
- * leden en gasten (spec-community-growth.md §1 "Annulering door de
- * studio"). Alleen tonen en, voor admins, annuleren met verplichte reden en
- * de terugbetaling opnieuw indienen. Geen aanwezigheidsmodel.
+ * Proeflessen op de sessie-detailpagina en in het rooster-zijpaneel, in
+ * dezelfde rijstijl als leden en gasten (spec-community-growth.md §1).
+ * Afvinken loopt via de ouder (AttendanceList houdt de dirty-map en slaat
+ * op via markTrialAttendance): paid naar attended en terug, geen no-show.
+ * Een pending rij (betaling nog open, alleen admins zien die) heeft geen
+ * knoppen. Voor admins daarnaast annuleren met verplichte reden en de
+ * terugbetaling opnieuw indienen.
  */
 export function TrialBookingsBlock({
   trials: initialTrials,
   sessionId,
   canManage,
+  currentStatus,
+  onToggleAttended,
+  disabled = false,
 }: {
   trials: TrialRow[];
   sessionId: string;
   canManage: boolean;
+  /** Status inclusief niet-opgeslagen wijziging (dirty-map van de ouder). */
+  currentStatus: (t: TrialRow) => TrialRow["status"];
+  onToggleAttended: (t: TrialRow) => void;
+  disabled?: boolean;
 }) {
   const [trials, setTrials] = useState<TrialRow[]>(initialTrials);
   const [cancelFor, setCancelFor] = useState<TrialRow | null>(null);
@@ -173,7 +184,11 @@ export function TrialBookingsBlock({
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
                       {/* COPY: confirm met Marlon */}
-                      {t.isFree ? "Proefles via code" : `Proefles ${euro(t.pricePaidCents)}`}
+                      {t.status === "pending"
+                        ? "Proefles, wacht op betaling"
+                        : t.isFree
+                          ? "Proefles via code"
+                          : `Proefles ${euro(t.pricePaidCents)}`}
                     </span>
                     {t.isTest && (
                       <Chip tone="muted">
@@ -181,9 +196,20 @@ export function TrialBookingsBlock({
                         Test
                       </Chip>
                     )}
-                    {t.status !== "paid" && <StatusBadge status={t.status === "attended" ? "attended" : "no_show"} />}
+                    {(currentStatus(t) === "attended" || currentStatus(t) === "no_show") && (
+                      <StatusBadge status={currentStatus(t) === "attended" ? "attended" : "no_show"} />
+                    )}
                   </div>
                 </div>
+                {(t.status === "paid" || t.status === "attended") && (
+                  <AttendanceCheckbox
+                    id={`tatt-${t.trialBookingId}`}
+                    label="Aanwezig"
+                    checked={currentStatus(t) === "attended"}
+                    onChange={() => onToggleAttended(t)}
+                    disabled={disabled || pending}
+                  />
+                )}
                 {canManage && t.status === "paid" && (
                   <button
                     type="button"
