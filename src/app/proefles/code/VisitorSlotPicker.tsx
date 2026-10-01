@@ -9,7 +9,7 @@ import { trackFormStart, trackLead } from "@/lib/analytics";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import {
   amsterdamParts,
-  formatWeekdayDate,
+  formatWeekdayDateHeading,
   parseIsoDateToAmsterdamMidnight,
 } from "@/lib/format-date";
 import { returnTargetForThisClient } from "@/lib/native/checkout";
@@ -131,7 +131,7 @@ export function VisitorSlotPicker({
   }
 
   // COPY: confirm met Marlon
-  const summary = `${formatWeekdayDate(dayDate)} · 1 uur`;
+  const summary = `${formatWeekdayDateHeading(dayDate)} · 1 uur`;
 
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh]">

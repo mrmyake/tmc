@@ -5,7 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { sendPushToProfile } from "@/lib/push";
 import BookingReminder from "@/emails/booking_reminder";
 import IntakeReminder from "@/emails/intake_reminder";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { capitalizeFirst, formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { bookingTimes } from "@/lib/member/booking-times";
 
 export const dynamic = "force-dynamic";
@@ -171,7 +171,7 @@ export async function GET(req: Request) {
     // de cron niet.
     void sendPushToProfile(row.profile_id, {
       title: `Morgen: ${ct?.name ?? "Sessie"}`,
-      body: `${whenLabel} met ${tr?.display_name ?? "je coach"}`,
+      body: `${capitalizeFirst(whenLabel)} met ${tr?.display_name ?? "je coach"}`,
       data: { type: "booking_reminder", sessionId: row.session_id },
     });
 
@@ -268,7 +268,7 @@ export async function GET(req: Request) {
 
       void sendPushToProfile(row.profile_id, {
         title: `Morgen: ${className}`,
-        body: `${whenLabel} met ${tr?.display_name ?? "je coach"}`,
+        body: `${capitalizeFirst(whenLabel)} met ${tr?.display_name ?? "je coach"}`,
         data: { type: "pt_booking_reminder", ptSessionId: row.pt_session_id },
       });
 

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { AdminField, AdminInput } from "@/components/ui/AdminField";
 import { OverrideWarning } from "../../boeken/_components/OverrideWarning";
-import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { formatTimeRange, formatWeekdayDateHeading } from "@/lib/format-date";
 import { zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
 import {
   markPtAttendance,
@@ -238,7 +238,7 @@ export function SessionDetailPanel({
           {KIND_LABEL[session.kind]}
         </span>
         <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-text mb-1 pr-10">
-          {formatWeekdayDate(start)}
+          {formatWeekdayDateHeading(start)}
         </h2>
         <p className="text-text-muted text-sm mb-6">
           {formatTimeRange(start, end)}

@@ -38,7 +38,7 @@ async function sendBookingConfirmationEmail(args: {
       admin
         .from("class_sessions")
         .select(
-          `start_at, end_at,
+          `start_at, end_at, pillar,
            class_type:class_types(name),
            trainer:trainers(display_name)`,
         )
@@ -64,7 +64,7 @@ async function sendBookingConfirmationEmail(args: {
     );
     const start = new Date(times.startAt);
     const end = new Date(times.endAt);
-    const whenLabel = `${formatRelativeWhen(start).replace(/\s·\s.*/, "")} · ${formatTimeRange(start, end)}`;
+    const whenLabel = `${formatRelativeWhen(start, new Date(), { inline: true }).replace(/\s·\s.*/, "")} · ${formatTimeRange(start, end)}`;
 
     await sendEmail({
       to: profile.email,
@@ -76,6 +76,7 @@ async function sendBookingConfirmationEmail(args: {
         trainerName: tr?.display_name ?? "je coach",
         whenLabel,
         siteUrl: siteUrl(),
+        pillar: sessionRow.pillar,
       }),
     });
   } catch (err) {

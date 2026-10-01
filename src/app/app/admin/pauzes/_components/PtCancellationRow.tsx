@@ -7,7 +7,7 @@ import { resolvePtCancellation } from "@/lib/admin/pt-cancellation-actions";
 import {
   formatRelativeWhen,
   formatTimeRange,
-  formatWeekdayDate,
+  formatWeekdayDateHeading,
 } from "@/lib/format-date";
 
 interface PtCancellationRowProps {
@@ -109,7 +109,7 @@ export function PtCancellationRow({
             <span className="text-text text-base font-medium">{name}</span>
           )}
           <span className="text-[10px] uppercase tracking-[0.14em] text-text-muted/80">
-            Aangevraagd {formatRelativeWhen(new Date(createdAt))}
+            Aangevraagd {formatRelativeWhen(new Date(createdAt), new Date(), { inline: true })}
           </span>
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-2 mt-3">
@@ -118,7 +118,7 @@ export function PtCancellationRow({
             <dd className="text-sm text-text mt-1">
               {sessionLabel}
               <br />
-              {formatWeekdayDate(start)} · {formatTimeRange(start, end)}
+              {formatWeekdayDateHeading(start)} · {formatTimeRange(start, end)}
             </dd>
           </div>
           <div>

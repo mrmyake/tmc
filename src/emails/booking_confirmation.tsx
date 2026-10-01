@@ -1,6 +1,7 @@
 import { Button, Heading, Text } from "@react-email/components";
 import * as React from "react";
 import { EmailLayout, emailTokens } from "./_layout";
+import { bookingInstructionText } from "@/lib/member/booking-instruction";
 
 export interface BookingConfirmationProps {
   firstName: string;
@@ -9,6 +10,8 @@ export interface BookingConfirmationProps {
   whenLabel: string; // "woensdag 23 april · 06:30 – 07:30"
   locationLabel?: string;
   siteUrl: string;
+  /** class_sessions.pillar; bepaalt welke instructietekst getoond wordt. */
+  pillar?: string | null;
 }
 
 export default function BookingConfirmation({
@@ -18,6 +21,7 @@ export default function BookingConfirmation({
   whenLabel,
   locationLabel = "Industrieweg 14P, Loosdrecht",
   siteUrl,
+  pillar,
 }: BookingConfirmationProps) {
   return (
     <EmailLayout preview={`Je sessie staat: ${className} · ${whenLabel}`}>
@@ -58,8 +62,7 @@ export default function BookingConfirmation({
           margin: "0 0 28px 0",
         }}
       >
-        Kom tien minuten voor de start binnen, kleed je om en ademt even.
-        Annuleren kan tot zes uur van tevoren via de app.
+        {bookingInstructionText(pillar)}
       </Text>
 
       <Button

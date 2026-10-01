@@ -12,7 +12,7 @@ import {
   addDaysIsoAmsterdam,
   amsterdamParts,
   DAY_SHORT_NL,
-  formatWeekdayDate,
+  formatWeekdayDateHeading,
   MONTH_SHORT_NL,
   parseIsoDateToAmsterdamMidnight,
   todayIsoAmsterdam,
@@ -167,7 +167,7 @@ export function MomentPicker({
 
   const selectedLabel = (() => {
     const d = parseIsoDateToAmsterdamMidnight(dateIso);
-    return d ? `${formatWeekdayDate(d)}, ${time}` : time;
+    return d ? `${formatWeekdayDateHeading(d)}, ${time}` : time;
   })();
 
   function handleTimelineClick(e: React.MouseEvent<HTMLDivElement>) {

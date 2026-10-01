@@ -123,6 +123,21 @@ export function formatWeekdayDate(date: Date): string {
   }).format(date);
 }
 
+/** Hoofdletter vooraan: voor dag-labels aan het begin van een zin, regel of kop. */
+export function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Kleine letter vooraan: voor dag-labels midden in een zin. */
+export function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/** "Woensdag 22 april": variant voor het begin van een zin, regel of kop. */
+export function formatWeekdayDateHeading(date: Date): string {
+  return capitalizeFirst(formatWeekdayDate(date));
+}
+
 /** "wo 22 apr" */
 export function formatShortDate(date: Date): string {
   const p = amsterdamParts(date);
@@ -135,8 +150,21 @@ export function formatShortDateWithYear(date: Date): string {
   return `${DAY_SHORT_NL[p.weekday]} ${p.day} ${MONTH_SHORT_NL[p.month - 1]} ${p.year}`;
 }
 
-/** "Vandaag · 06:30" / "Morgen · 07:00" / "woensdag · 16:00" / "woensdag 22 april · 16:00" */
-export function formatRelativeWhen(date: Date, now: Date = new Date()): string {
+/**
+ * "Vandaag · 06:30" / "Morgen · 07:00" / "Woensdag · 16:00" / "Woensdag 22 april · 16:00".
+ * Standaard met hoofdletter (begin van een regel of label); `inline: true`
+ * geeft de kleine-letter-variant voor midden in een zin.
+ */
+export function formatRelativeWhen(
+  date: Date,
+  now: Date = new Date(),
+  options: { inline?: boolean } = {},
+): string {
+  const label = relativeWhenRaw(date, now);
+  return options.inline ? lowerFirst(label) : capitalizeFirst(label);
+}
+
+function relativeWhenRaw(date: Date, now: Date): string {
   const target = amsterdamParts(date);
   const today = amsterdamParts(now);
   const time = `${pad2(target.hour)}:${pad2(target.minute)}`;

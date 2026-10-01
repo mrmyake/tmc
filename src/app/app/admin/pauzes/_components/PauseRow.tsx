@@ -87,7 +87,7 @@ export function PauseRow({
           )}
           <span className="tmc-eyebrow">{planLabel}</span>
           <span className="text-[10px] uppercase tracking-[0.14em] text-text-muted/80">
-            Aangevraagd {formatRelativeWhen(new Date(createdAt))}
+            Aangevraagd {formatRelativeWhen(new Date(createdAt), new Date(), { inline: true })}
           </span>
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-2 mt-3">
