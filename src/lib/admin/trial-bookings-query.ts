@@ -55,7 +55,11 @@ export interface TrialBookingGroup {
 }
 
 export interface TrialBookingKpis {
-  /** pending of paid, les binnen de komende 7 dagen. */
+  /**
+   * pending of paid, les binnen de komende 7 dagen. Boekingen op een
+   * geannuleerde sessie tellen niet mee (die les gaat niet door), de rij
+   * blijft wel zichtbaar in de lijst met de chip "Les geannuleerd".
+   */
   upcomingWeek: number;
   attended: number;
 }
@@ -217,7 +221,7 @@ export async function getTrialBookingKpis(now: Date = new Date()): Promise<Trial
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("trial_bookings")
-    .select("status, slot_start_at, class_sessions(start_at)")
+    .select("status, slot_start_at, class_sessions(start_at, status)")
     .eq("is_test", false)
     .in("status", ["pending", "paid", "attended"]);
   if (error) {
@@ -230,14 +234,18 @@ export async function getTrialBookingKpis(now: Date = new Date()): Promise<Trial
   for (const r of (data ?? []) as Array<{
     status: string;
     slot_start_at: string | null;
-    class_sessions: { start_at: string } | { start_at: string }[] | null;
+    class_sessions:
+      | { start_at: string; status: string }
+      | { start_at: string; status: string }[]
+      | null;
   }>) {
     if (r.status === "attended") {
       kpis.attended += 1;
       continue;
     }
-    const at = r.slot_start_at ?? firstOf(r.class_sessions)?.start_at ?? null;
-    if (!at) continue;
+    const session = firstOf(r.class_sessions);
+    if (!session || session.status === "cancelled") continue;
+    const at = r.slot_start_at ?? session.start_at;
     const atMs = new Date(at).getTime();
     if (atMs >= nowMs && atMs < weekMs) kpis.upcomingWeek += 1;
   }
