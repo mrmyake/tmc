@@ -19,6 +19,7 @@ import {
   FileText,
   TrendingUp,
   PhoneCall,
+  Mail,
 } from "lucide-react";
 
 type IconType = typeof LayoutDashboard;
@@ -72,6 +73,8 @@ const SECONDARY: NavItem[] = [
   { href: "/app/admin/proefcodes", label: "Proefcodes", icon: Ticket },
   // Terugbelaanvragen van /proefles (tmc.trial_requests).
   { href: "/app/admin/proeflessen", label: "Proeflessen", icon: PhoneCall },
+  // E-mailaanmeldingen uit MailerLite plus leden met marketing opt-in.
+  { href: "/app/admin/aanmeldingen", label: "Aanmeldingen", icon: Mail },
   {
     href: "/app/admin/aankondigingen",
     label: "Aankondigingen",
