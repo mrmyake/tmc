@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toWhatsAppHref } from "@/lib/admin/whatsapp";
 import {
   isTrialRequestStatus,
   type TrialRequestStatus,
@@ -25,6 +26,8 @@ export interface TrialRequestRow {
   name: string;
   email: string;
   phone: string | null;
+  /** null zonder of met een niet te normaliseren nummer; dan geen knop. */
+  whatsappHref: string | null;
   preference: string | null;
   experience: string | null;
   message: string | null;
@@ -71,6 +74,7 @@ function mapRow(r: RawTrialRequestRow): TrialRequestRow {
     name: r.name,
     email: r.email,
     phone: r.phone,
+    whatsappHref: toWhatsAppHref(r.phone),
     preference: r.preference,
     experience: r.experience,
     message: r.message,
