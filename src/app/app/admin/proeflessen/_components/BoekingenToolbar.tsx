@@ -4,28 +4,29 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Search, X } from "lucide-react";
-import type { TrialRequestStatusFilter } from "@/lib/admin/trial-requests-query";
-import {
-  TRIAL_REQUEST_STATUSES,
-  TRIAL_REQUEST_STATUS_LABEL,
-} from "@/lib/trial-requests/status";
+import type { TrialBookingPeriod } from "@/lib/admin/trial-bookings-query";
 
 // COPY: confirm met Marlon
-const FILTER_LABEL: Record<"open" | "all", string> = {
-  open: "Nieuw en benaderd",
+const PERIOD_LABEL: Record<TrialBookingPeriod, string> = {
+  upcoming: "Komend",
+  past: "Afgelopen",
   all: "Alles",
 };
 
-interface ProeflessenToolbarProps {
-  status: TrialRequestStatusFilter;
+const PERIODS: TrialBookingPeriod[] = ["upcoming", "past", "all"];
+
+interface BoekingenToolbarProps {
+  period: TrialBookingPeriod;
   q: string;
+  showCancelled: boolean;
 }
 
 /**
- * Zelfde opzet als ProefcodesToolbar: zoekveld en statusfilter als
- * URL-params. Zonder param geldt "open" (new plus contacted).
+ * Zelfde opzet als ProeflessenToolbar: zoekveld, periode en de toggle voor
+ * geannuleerde boekingen als URL-params (q, periode, geannuleerd). Zonder
+ * params geldt Komend zonder annuleringen.
  */
-export function ProeflessenToolbar({ status, q }: ProeflessenToolbarProps) {
+export function BoekingenToolbar({ period, q, showCancelled }: BoekingenToolbarProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const [query, setQuery] = useState(q);
@@ -43,7 +44,8 @@ export function ProeflessenToolbar({ status, q }: ProeflessenToolbarProps) {
       if (v === null || v === "") next.delete(k);
       else next.set(k, v);
     }
-    router.push(`/app/admin/proeflessen?${next.toString()}`);
+    const qs = next.toString();
+    router.push(qs ? `/app/admin/proeflessen?${qs}` : "/app/admin/proeflessen");
   }
 
   function submitSearch(e: React.FormEvent) {
@@ -51,12 +53,12 @@ export function ProeflessenToolbar({ status, q }: ProeflessenToolbarProps) {
     pushWith({ q: query.trim() || null });
   }
 
-  const hasFilters = Boolean(q) || status !== "open";
+  const hasFilters = Boolean(q) || period !== "upcoming" || showCancelled;
 
   return (
     <div className="flex flex-col gap-4 mb-8">
       <form onSubmit={submitSearch} className="relative">
-        <label htmlFor="proeflessen-search" className="sr-only">
+        <label htmlFor="boekingen-search" className="sr-only">
           {/* COPY: confirm met Marlon */}
           Zoek op naam, e-mail of telefoon
         </label>
@@ -67,7 +69,7 @@ export function ProeflessenToolbar({ status, q }: ProeflessenToolbarProps) {
           className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted"
         />
         <input
-          id="proeflessen-search"
+          id="boekingen-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -90,29 +92,37 @@ export function ProeflessenToolbar({ status, q }: ProeflessenToolbarProps) {
         )}
       </form>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <label className="inline-flex items-center gap-2">
           {/* COPY: confirm met Marlon */}
-          <span className="tmc-eyebrow">Status</span>
+          <span className="tmc-eyebrow">Periode</span>
           <select
-            value={status}
+            value={period}
             onChange={(e) =>
-              pushWith({ status: e.target.value === "open" ? null : e.target.value })
+              pushWith({ periode: e.target.value === "upcoming" ? null : e.target.value })
             }
             className="bg-bg-elevated border border-[color:var(--ink-500)] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-text focus:outline-none focus:border-accent cursor-pointer"
           >
-            <option value="open">{FILTER_LABEL.open}</option>
-            {TRIAL_REQUEST_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {TRIAL_REQUEST_STATUS_LABEL[s]}
+            {PERIODS.map((p) => (
+              <option key={p} value={p}>
+                {PERIOD_LABEL[p]}
               </option>
             ))}
-            <option value="all">{FILTER_LABEL.all}</option>
           </select>
+        </label>
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => pushWith({ geannuleerd: e.target.checked ? "1" : null })}
+            className="accent-[color:var(--accent)] cursor-pointer"
+          />
+          {/* COPY: confirm met Marlon */}
+          <span className="tmc-eyebrow">Toon geannuleerd</span>
         </label>
         {hasFilters && (
           <Link
-            href="/app/admin/proeflessen?tab=aanvragen"
+            href="/app/admin/proeflessen"
             className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted hover:text-accent transition-colors"
           >
             {/* COPY: confirm met Marlon */}

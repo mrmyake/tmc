@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { adminCancelTrialBooking } from "@/lib/admin/trial-booking-actions";
 import type { TrialCodeRedemptionRow } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear, formatTime } from "@/lib/format-date";
+import { trialBookingStatusLabel } from "@/lib/trial-bookings/status";
 
 function isoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
   const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -23,15 +24,6 @@ function roosterWeekHref(startAtIso: string): string {
   const { isoWeek, isoYear } = isoWeekYear(new Date(startAtIso));
   return `/app/admin/rooster?week=${isoYear}-W${String(isoWeek).padStart(2, "0")}`;
 }
-
-// COPY: confirm met Marlon
-const BOOKING_STATUS_LABEL: Record<string, string> = {
-  paid: "Bevestigd",
-  attended: "Aanwezig",
-  no_show: "Niet gekomen",
-  cancelled: "Geannuleerd",
-  pending: "In behandeling",
-};
 
 function SessionCell({ row }: { row: TrialCodeRedemptionRow }) {
   if (!row.sessionStartAt) {
@@ -91,7 +83,7 @@ function StatusCell({ row }: { row: TrialCodeRedemptionRow }) {
       {cancelled
         ? // COPY: confirm met Marlon
           "Geannuleerd"
-        : (BOOKING_STATUS_LABEL[row.bookingStatus] ?? row.bookingStatus)}
+        : trialBookingStatusLabel(row.bookingStatus)}
     </Chip>
   );
 }

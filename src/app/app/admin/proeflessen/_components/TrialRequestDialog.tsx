@@ -16,6 +16,7 @@ import {
   type TrialRequestStatus,
 } from "@/lib/trial-requests/status";
 import { formatShortDateWithYear, formatTime } from "@/lib/format-date";
+import { WhatsAppButton } from "./WhatsAppButton";
 
 const fieldClasses =
   "w-full bg-bg-elevated border border-[color:var(--ink-500)] px-3 py-2.5 text-sm text-text focus:outline-none focus:border-accent";
@@ -108,9 +109,12 @@ export function TrialRequestDialog({ row }: { row: TrialRequestRow }) {
             {/* COPY: confirm met Marlon */}
             <DetailRow label="Telefoon">
               {row.phone ? (
-                <a href={`tel:${row.phone}`} className="hover:text-accent transition-colors">
-                  {row.phone}
-                </a>
+                <div className="flex flex-wrap items-center gap-3">
+                  <a href={`tel:${row.phone}`} className="hover:text-accent transition-colors">
+                    {row.phone}
+                  </a>
+                  <WhatsAppButton href={row.whatsappHref} name={row.name} />
+                </div>
               ) : (
                 <span className="text-text-muted">Niet opgegeven</span>
               )}

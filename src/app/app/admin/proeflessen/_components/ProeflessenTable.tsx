@@ -3,6 +3,7 @@ import { experienceLabel } from "@/lib/trial-requests/status";
 import { formatShortDateWithYear } from "@/lib/format-date";
 import { StatusChip } from "./status";
 import { TrialRequestDialog } from "./TrialRequestDialog";
+import { WhatsAppButton } from "./WhatsAppButton";
 
 function EmptyState() {
   return (
@@ -117,7 +118,10 @@ export function ProeflessenTable({ rows }: { rows: TrialRequestRow[] }) {
                   <StatusChip status={row.status} />
                 </td>
                 <td className="py-4 pl-4 pr-3 align-middle text-right">
-                  <TrialRequestDialog row={row} />
+                  <div className="inline-flex items-center gap-3">
+                    <WhatsAppButton href={row.whatsappHref} name={row.name} />
+                    <TrialRequestDialog row={row} />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -157,6 +161,7 @@ export function ProeflessenTable({ rows }: { rows: TrialRequestRow[] }) {
               )}
             </div>
             <div className="flex items-center gap-3">
+              <WhatsAppButton href={row.whatsappHref} name={row.name} />
               <TrialRequestDialog row={row} />
             </div>
           </li>
