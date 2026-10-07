@@ -20,7 +20,6 @@ export default defineType({
         list: [
           { title: "Aanbod", value: "aanbod" },
           { title: "Mobility Check", value: "mobility-check" },
-          { title: "Crowdfunding", value: "crowdfunding" },
           { title: "Algemeen", value: "algemeen" },
         ],
       },

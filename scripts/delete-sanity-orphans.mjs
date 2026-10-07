@@ -109,4 +109,4 @@ if (referrers.length) {
 
 const tx = docs.reduce((t, d) => t.delete(d._id), client.transaction());
 const res = await tx.commit();
-console.log(`\nVerwijderd: ${res.results?.length ?? docs.length} documenten in één transaction.`);
+console.log(`\nVerwijderd: ${res.results?.length ?? docs.length} documenten in één transaction. transactionId: ${res.transactionId}`);
