@@ -1,0 +1,331 @@
+[
+  {
+    "_createdAt": "2026-04-20T00:05:51Z",
+    "_id": "faq-crowdfunding-1",
+    "_rev": "6WUBtffRoYp4scOheFMf6y",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:51Z",
+    "answer": [
+      {
+        "_key": "a9",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "We mikken op de zomer van 2026. Zodra de crowdfunding is afgerond starten we met de inrichting."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 1,
+    "page": "crowdfunding",
+    "question": "Wanneer gaat de gym open?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:52Z",
+    "_id": "faq-crowdfunding-2",
+    "_rev": "uXMrLeJpLTKjKB1IM2IFxW",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T16:45:51Z",
+    "answer": [
+      {
+        "_key": "a_cf2",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "De gym gaat door, ook als we het doelbedrag niet volledig halen. Alle bedragen gaan naar de inrichting van de studio en elke backer krijgt gewoon zijn gekozen tier (lidmaatschap, strippenkaart of PT-programma). Geen refunds, wel de zekerheid dat je krijgt waarvoor je hebt betaald."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 2,
+    "page": "crowdfunding",
+    "question": "Wat als het doel niet gehaald wordt?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:53Z",
+    "_id": "faq-crowdfunding-3",
+    "_rev": "uXMrLeJpLTKjKB1IM0y2Ui",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:53Z",
+    "answer": [
+      {
+        "_key": "a11",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "Ja, neem contact op en we regelen het verschil."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 3,
+    "page": "crowdfunding",
+    "question": "Kan ik mijn tier upgraden?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:54Z",
+    "_id": "faq-crowdfunding-4",
+    "_rev": "d8Bsy6HtZVJ33BsI8RnXy9",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:54Z",
+    "answer": [
+      {
+        "_key": "a12",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "Industrieweg 14P, Loosdrecht."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 4,
+    "page": "crowdfunding",
+    "question": "Waar is The Movement Club?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:55Z",
+    "_id": "faq-crowdfunding-5",
+    "_rev": "d8Bsy6HtZVJ33BsI8RnY7I",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:55Z",
+    "answer": [
+      {
+        "_key": "a13",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "Marlon is een ervaren trainer met een sterke track record in Loosdrecht en omgeving. Zijn aanpak is persoonlijk, wetenschappelijk onderbouwd en altijd gericht op duurzaam resultaat."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 5,
+    "page": "crowdfunding",
+    "question": "Wie is Marlon?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:56Z",
+    "_id": "faq-crowdfunding-6",
+    "_rev": "uXMrLeJpLTKjKB1IM0y2gH",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:56Z",
+    "answer": [
+      {
+        "_key": "a14",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "Vrij trainen op alle equipment, alle groepslessen, yoga & mobility classes, en toegang tot het online programma."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 6,
+    "page": "crowdfunding",
+    "question": "Wat houdt full access in?"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:57Z",
+    "_id": "faq-crowdfunding-7",
+    "_rev": "uXMrLeJpLTKjKB1IM0y2rq",
+    "_type": "faq",
+    "_updatedAt": "2026-04-20T00:05:57Z",
+    "answer": [
+      {
+        "_key": "a15",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "Je betaalt eenmalig via iDEAL of creditcard. Geen abonnement, geen automatische incasso."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "order": 7,
+    "page": "crowdfunding",
+    "question": "Hoe werkt betaling?"
+  },
+  {
+    "_createdAt": "2026-04-21T23:07:42Z",
+    "_id": "7ea4a151-bc0e-4a00-976e-83a7137ef910",
+    "_rev": "IuqynXQBI5HqwCScxbcjdS",
+    "_system": {
+      "base": {
+        "id": "7ea4a151-bc0e-4a00-976e-83a7137ef910",
+        "rev": "B7AFk2FWjA9JIOxAmlgbMT"
+      }
+    },
+    "_type": "trainer",
+    "_updatedAt": "2026-04-21T23:14:58Z",
+    "bio": [
+      {
+        "_key": "a4c60e0a84f3",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "5d831bc6b4b3",
+            "_type": "span",
+            "marks": [],
+            "text": ""
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      },
+      {
+        "_key": "9d02192f02ca",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "907afb48f038",
+            "_type": "span",
+            "marks": [],
+            "text": "Youri hier. Ik kwam in krachttraining terecht via rugby, een gescheurde kruisband op mijn 22e, een revalidatietraject dat me leerde dat goed tillen een skill is, niet een talent. Sinds die fysio-sessies ben ik nooit meer gestopt.\n\nBij TMC begeleid ik voornamelijk 1-op-1 PT's en Vrij Trainen-leden die gericht willen werken aan kracht of spieropbouw. Ik werk graag met mensen die eerder dachten \"kracht is niks voor mij\", meestal klopt dat gewoon niet, het is alleen nooit goed uitgelegd. Naast PT help ik ook met sportrevalidatie na blessures, in overleg met fysiotherapeuten.\n\nBuiten de gym: rugby, BBQ, en twee Duitse staande honden die vinden dat ik te veel werk."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "certifications": [
+      "EREPS EQF Level 4 gecertificeerd",
+      "CIAR Sportrevalidatie",
+      "NASM PES"
+    ],
+    "displayOrder": 3,
+    "heroQuote": "Zwaar tillen is geen brute kracht. Het is honderd kleine keuzes die één grote beweging mogelijk maken.",
+    "isActive": true,
+    "isPtAvailable": true,
+    "languages": [
+      "nl",
+      "en"
+    ],
+    "name": "Remi Lemmens",
+    "photo": {
+      "_type": "image",
+      "asset": {
+        "_ref": "image-7c18e6d3e5db3c806fd6e0139d4256b28a4cb69f-1448x1086-png",
+        "_type": "reference"
+      }
+    },
+    "pillarSpecialties": [
+      "kids",
+      "senior"
+    ],
+    "ptTier": "standard",
+    "role": "personal_trainer"
+  },
+  {
+    "_createdAt": "2026-04-21T22:52:58Z",
+    "_id": "b5356c23-1b4f-42ae-88c4-11690b03f284",
+    "_rev": "B7AFk2FWjA9JIOxAmlgdmL",
+    "_system": {
+      "base": {
+        "id": "b5356c23-1b4f-42ae-88c4-11690b03f284",
+        "rev": "5gT3NN2oRCPZp5HJejvq1R"
+      }
+    },
+    "_type": "trainer",
+    "_updatedAt": "2026-04-21T23:15:05Z",
+    "bio": [
+      {
+        "_key": "e5a3df8ff088",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "aa42321efe29",
+            "_type": "span",
+            "marks": [],
+            "text": "Fenna, yoga- en mobility-docent bij TMC. Ooit werkte ik als fysiotherapeut op een revalidatieafdeling, waar ik dag in dag uit zag hoe weinig mensen nog vrij in hun lichaam bewegen. Dat werd mijn missie: mensen hun bewegingsvrijheid teruggeven, voordat er een blessure nodig is om eraan te denken."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      },
+      {
+        "_key": "68121f734c39",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "5d4aa3884062",
+            "_type": "span",
+            "marks": [],
+            "text": "In TMC draai ik Vinyasa, Yin en een wekelijkse Mobility-klas die zich specifiek richt op schouders, heupen en onderrug — de drie plekken waar moderne levensstijl ons het hardst raakt. Mijn lessen zijn rustig, niet zacht: je gaat werken, maar met precisie in plaats van intensiteit."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      },
+      {
+        "_key": "163fe7d537be",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "58330fb3b53e",
+            "_type": "span",
+            "marks": [],
+            "text": "Buiten de mat: lange wandelingen, zelfgebakken brood, en te veel poëziebundels."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "certifications": [
+      "200-uurs Vinyasa teacher via Yoga Alliance",
+      "100-uurs Yin specialization",
+      "breathwork-certificering via Soma IBF"
+    ],
+    "displayOrder": 2,
+    "heroQuote": "Mobility is geen rekoefening. Het is weer leren luisteren naar wat je lichaam je al maanden vertelt.",
+    "isActive": true,
+    "isPtAvailable": false,
+    "languages": [
+      "nl",
+      "en"
+    ],
+    "name": "Fenna de Boer",
+    "photo": {
+      "_type": "image",
+      "asset": {
+        "_ref": "image-4833507dfa2f7920669ffc5127f01e155781245f-1122x1402-png",
+        "_type": "reference"
+      }
+    },
+    "pillarSpecialties": [
+      "yoga_mobility",
+      "kids"
+    ],
+    "role": "yoga_mobility",
+    "yearsOfExperience": 8
+  }
+]
