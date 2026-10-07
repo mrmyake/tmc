@@ -4,6 +4,7 @@
 //
 //   node scripts/delete-sanity-orphans.mjs                      dry-run, alle types
 //   node scripts/delete-sanity-orphans.mjs --types=crowdfundingTier,crowdfundingSettings
+//   node scripts/delete-sanity-orphans.mjs --types=faq,trainer --ids=faq-crowdfunding-1,...   selectie op _id
 //   node scripts/delete-sanity-orphans.mjs --export=docs/archive/x.json   schrijft herstelpunt, wijzigt niets
 //   node scripts/delete-sanity-orphans.mjs --types=... --execute          verwijdert echt
 //
@@ -20,6 +21,19 @@ const arg = (name) =>
 const execute = process.argv.includes("--execute");
 const exportPath = arg("export");
 const types = (arg("types") ?? DEFAULT_TYPES.join(",")).split(",").filter(Boolean);
+const selectedIds = (arg("ids") ?? "").split(",").filter(Boolean);
+
+// Types die in gebruik blijven: nooit een hele type selecteren, alleen met
+// een expliciete id-lijst (--ids=). Een draft (drafts.<id>) gaat altijd mee.
+const LIVE_TYPES = new Set([
+  "siteSettings", "siteImages", "openingHours", "trainer", "offering",
+  "faq", "yogaStyle", "yogaTeacher",
+]);
+const liveWithoutIds = types.filter((t) => LIVE_TYPES.has(t) && selectedIds.length === 0);
+if (liveWithoutIds.length) {
+  console.error(`Weiger: ${liveWithoutIds.join(", ")} is een type dat blijft bestaan. Geef een expliciete lijst met --ids=.`);
+  process.exit(1);
+}
 
 const token = process.env.SANITY_TOKEN;
 if (!token) {
@@ -36,12 +50,23 @@ const client = createClient({
   perspective: "raw", // inclusief drafts.* en versions
 });
 
-const label = (d) => d.name ?? d.title ?? d.headline ?? d.tierId ?? "(geen naam)";
+const label = (d) => d.name ?? d.question ?? d.title ?? d.headline ?? d.tierId ?? "(geen naam)";
 
-const docs = await client.fetch(
-  `*[_type in $types] | order(_type asc, _id asc)`,
-  { types }
-);
+const docs = selectedIds.length
+  ? await client.fetch(
+      `*[_type in $types && (_id in $ids || _id in $draftIds)] | order(_type asc, _id asc)`,
+      { types, ids: selectedIds, draftIds: selectedIds.map((i) => `drafts.${i}`) }
+    )
+  : await client.fetch(`*[_type in $types] | order(_type asc, _id asc)`, { types });
+
+if (selectedIds.length) {
+  const found = new Set(docs.map((d) => d._id.replace(/^drafts\./, "")));
+  const missing = selectedIds.filter((i) => !found.has(i));
+  if (missing.length) {
+    console.error(`Afgebroken: id's niet gevonden of van een ander type: ${missing.join(", ")}`);
+    process.exit(1);
+  }
+}
 
 if (exportPath) {
   mkdirSync(dirname(exportPath), { recursive: true });
