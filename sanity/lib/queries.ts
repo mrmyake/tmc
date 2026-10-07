@@ -10,9 +10,6 @@ export const faqsByPageQuery = `*[_type == "faq" && page == $page] | order(order
 
 export const siteImagesQuery = `*[_type == "siteImages"][0]`;
 
-// Legacy: alleen nog gebruikt door /api/crowdfunding (zie fetch.ts).
-export const crowdfundingSettingsQuery = `*[_type == "crowdfundingSettings"][0]`;
-
 // --- Yoga ---
 
 const yogaTeacherProjection = `{

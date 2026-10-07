@@ -1,0 +1,332 @@
+[
+  {
+    "_createdAt": "2026-04-20T00:05:58Z",
+    "_id": "crowdfundingSettings",
+    "_rev": "6WUBtffRoYp4scOheGkkxN",
+    "_type": "crowdfundingSettings",
+    "_updatedAt": "2026-04-20T16:45:52Z",
+    "active": false,
+    "budgetItems": [
+      {
+        "_key": "b1",
+        "amount": 30000,
+        "label": "Equipment & inrichting"
+      },
+      {
+        "_key": "b2",
+        "amount": 10000,
+        "label": "Vloer, spiegels, afwerking"
+      },
+      {
+        "_key": "b3",
+        "amount": 5000,
+        "label": "Branding & signage"
+      },
+      {
+        "_key": "b4",
+        "amount": 5000,
+        "label": "Lancering & marketing"
+      }
+    ],
+    "goal": 50000,
+    "headline": "Make A Move",
+    "story": [
+      {
+        "_key": "story1",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s1",
+            "_type": "span",
+            "text": "The Movement Club is de nieuwe boutique gym in Loosdrecht. Klein, persoonlijk en high-end. High-end equipment, groepslessen, yoga & mobility, personal training en online programma's. Alles onder één dak. Geen anonieme massa, geen eindeloze sportscholencontracten."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      },
+      {
+        "_key": "story2",
+        "_type": "block",
+        "children": [
+          {
+            "_key": "s2",
+            "_type": "span",
+            "text": "We bouwen deze gym samen met onze toekomstige leden. Geen anonieme investeerders. Geen concessies. Jij bent er vanaf dag één bij, met je naam op de Founders Wall. Make A Move."
+          }
+        ],
+        "markDefs": [],
+        "style": "normal"
+      }
+    ],
+    "subline": "Word founding member van The Movement Club, de nieuwe boutique gym in Loosdrecht. Geen anonieme investeerders. Wij bouwen dit samen.",
+    "thankYouText": "Je hebt zojuist je plek gereserveerd als founding member. We houden je op de hoogte over de opening en je eerste training. Deel het met je crew. Samen maken we The Movement Club.",
+    "thankYouTitle": "Welkom bij The Movement Club!",
+    "whatsappShareText": "Ik heb mijn move gemaakt. Jij ook? 💪 Word founding member van The Movement Club in Loosdrecht:"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:04Z",
+    "_id": "crowdfundingTier-all-in",
+    "_rev": "6WUBtffRoYp4scOheFMfs0",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:04Z",
+    "active": true,
+    "badge": "POPULAIR",
+    "description": "Een vol jaar full access. Onze meest gekozen founding tier.",
+    "highlighted": true,
+    "includes": [
+      "12 maanden full access",
+      "Vrij trainen, groepslessen, yoga & mobility",
+      "Welkomspakket (t-shirt, shaker, band)",
+      "Naam op Founders Wall",
+      "28% korting t.o.v. reguliere prijs"
+    ],
+    "maxSlots": 25,
+    "name": "ALL IN",
+    "normalPrice": 1800,
+    "order": 6,
+    "price": 1295,
+    "tagline": "All in. No excuses.",
+    "tierId": "all-in"
+  },
+  {
+    "_createdAt": "2026-04-20T00:05:59Z",
+    "_id": "crowdfundingTier-first-move",
+    "_rev": "6WUBtffRoYp4scOheFMfIj",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:05:59Z",
+    "active": true,
+    "description": "De kleinste move is nog steeds een move. Jouw naam op de Founders Wall.",
+    "highlighted": false,
+    "includes": [
+      "Naam op de Founders Wall in de gym"
+    ],
+    "maxSlots": 50,
+    "name": "FIRST MOVE",
+    "order": 1,
+    "price": 29,
+    "tagline": "Zet de eerste stap.",
+    "tierId": "first-move"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:00Z",
+    "_id": "crowdfundingTier-flow",
+    "_rev": "6WUBtffRoYp4scOheFMfUU",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:00Z",
+    "active": true,
+    "description": "Strippenkaart voor onze yoga & mobility lessen. Jouw ritme.",
+    "highlighted": false,
+    "includes": [
+      "Strippenkaart: 10 yoga & mobility lessen",
+      "34% korting t.o.v. reguliere prijs"
+    ],
+    "name": "FLOW",
+    "normalPrice": 150,
+    "order": 2,
+    "price": 99,
+    "tagline": "Find your flow.",
+    "tierId": "flow"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:01Z",
+    "_id": "crowdfundingTier-kickstart",
+    "_rev": "uXMrLeJpLTKjKB1IM0y33P",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:01Z",
+    "active": true,
+    "badge": "EARLY BIRD",
+    "description": "Eén maand full access. Ervaar de club.",
+    "highlighted": false,
+    "includes": [
+      "1 maand full access",
+      "Vrij trainen op high-end equipment",
+      "Alle groepslessen, yoga & mobility",
+      "14% korting t.o.v. reguliere prijs"
+    ],
+    "maxSlots": 50,
+    "name": "KICKSTART",
+    "normalPrice": 150,
+    "order": 3,
+    "price": 129,
+    "tagline": "Your move starts here.",
+    "tierId": "kickstart"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:06Z",
+    "_id": "crowdfundingTier-legacy",
+    "_rev": "6WUBtffRoYp4scOheFMg3l",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:06Z",
+    "active": true,
+    "badge": "LIFETIME",
+    "description": "Lifetime membership. Breakeven na 23 maanden.",
+    "highlighted": false,
+    "includes": [
+      "Lifetime membership",
+      "Vrij trainen, groepslessen, yoga & mobility",
+      "Welkomspakket",
+      "Founders Wall met gouden vermelding",
+      "Breakeven na 23 maanden"
+    ],
+    "maxSlots": 10,
+    "name": "LEGACY",
+    "order": 8,
+    "price": 3495,
+    "tagline": "Leave your mark. Full access, voor altijd.",
+    "tierId": "legacy"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:02Z",
+    "_id": "crowdfundingTier-momentum",
+    "_rev": "uXMrLeJpLTKjKB1IM0y3Ey",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:02Z",
+    "active": true,
+    "description": "Drie maanden full access. Genoeg tijd om gewoonte te worden.",
+    "highlighted": false,
+    "includes": [
+      "3 maanden full access",
+      "Vrij trainen, groepslessen, yoga & mobility",
+      "Naam op Founders Wall",
+      "16% korting t.o.v. reguliere prijs"
+    ],
+    "maxSlots": 40,
+    "name": "MOMENTUM",
+    "normalPrice": 450,
+    "order": 4,
+    "price": 379,
+    "tagline": "Drie maanden om je fundament te leggen.",
+    "tierId": "momentum"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:05Z",
+    "_id": "crowdfundingTier-power-move",
+    "_rev": "d8Bsy6HtZVJ33BsI8RnYPa",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:05Z",
+    "active": true,
+    "description": "Met een van onze trainers. Meting, plan, resultaat.",
+    "highlighted": false,
+    "includes": [
+      "12-weken programma met een van onze trainers",
+      "Meting + 2× personal training per week",
+      "Groepslessen, voedingsbegeleiding",
+      "Trainingsschema op maat",
+      "17% korting t.o.v. reguliere prijs"
+    ],
+    "maxSlots": 10,
+    "name": "POWER MOVE",
+    "normalPrice": 2409,
+    "order": 7,
+    "price": 1995,
+    "tagline": "Het complete 12-weken programma.",
+    "tierId": "power-move"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:07Z",
+    "_id": "crowdfundingTier-the-original",
+    "_rev": "uXMrLeJpLTKjKB1IM0y3QX",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:07Z",
+    "active": true,
+    "badge": "3 BESCHIKBAAR",
+    "description": "Gegarandeerd Marlon als jouw PT. Jouw naam voor altijd in de gym.",
+    "highlighted": false,
+    "includes": [
+      "Lifetime membership",
+      "Gegarandeerd Marlon als jouw personal trainer",
+      "Jaarlijks persoonlijk trainingsplan",
+      "Eigen locker met naamplaatje",
+      "Jouw naam op een apparaat",
+      "Maandelijkse private session met Marlon",
+      "Founding dinner voor de opening"
+    ],
+    "maxSlots": 3,
+    "name": "THE ORIGINAL",
+    "order": 9,
+    "price": 4995,
+    "tagline": "Be the original.",
+    "tierId": "the-original"
+  },
+  {
+    "_createdAt": "2026-04-20T00:06:03Z",
+    "_id": "crowdfundingTier-the-squad",
+    "_rev": "6WUBtffRoYp4scOheFMfgF",
+    "_type": "crowdfundingTier",
+    "_updatedAt": "2026-04-20T00:06:03Z",
+    "active": true,
+    "badge": "GROEPSAANKOOP",
+    "description": "Voor jou en drie vrienden. Samen sterker.",
+    "highlighted": false,
+    "includes": [
+      "4 personen × 1 maand full access",
+      "Vrij trainen, groepslessen, yoga & mobility",
+      "Squad foto op de Founders Wall",
+      "25% korting t.o.v. reguliere prijs"
+    ],
+    "maxSlots": 20,
+    "name": "THE SQUAD",
+    "normalPrice": 600,
+    "order": 5,
+    "price": 449,
+    "tagline": "Move your crew.",
+    "tierId": "the-squad"
+  },
+  {
+    "_createdAt": "2026-04-11T19:15:05Z",
+    "_id": "pricing-essentials",
+    "_rev": "uXMrLeJpLTKjKB1IM0y1Fc",
+    "_type": "pricingTier",
+    "_updatedAt": "2026-04-20T00:05:38Z",
+    "ctaLink": "/contact",
+    "ctaText": "Vraag tarieven aan",
+    "features": [
+      "2 groepstrainingen per week",
+      "Toegang tot de studio",
+      "Trainingsschema op maat"
+    ],
+    "highlighted": false,
+    "name": "Essentials",
+    "order": 1,
+    "subtitle": "2x per week groepstraining"
+  },
+  {
+    "_createdAt": "2026-04-11T19:15:06Z",
+    "_id": "pricing-premium",
+    "_rev": "uXMrLeJpLTKjKB1IM0y1RB",
+    "_type": "pricingTier",
+    "_updatedAt": "2026-04-20T00:05:39Z",
+    "ctaLink": "/contact",
+    "ctaText": "Vraag tarieven aan",
+    "features": [
+      "Onbeperkt groepstrainingen",
+      "1x personal training per maand",
+      "Voedingsadvies op maat",
+      "Prioriteit bij boekingen"
+    ],
+    "highlighted": true,
+    "name": "Premium",
+    "order": 2,
+    "subtitle": "Onbeperkt groep + 1x PT per maand"
+  },
+  {
+    "_createdAt": "2026-04-11T19:15:07Z",
+    "_id": "pricing-private",
+    "_rev": "6WUBtffRoYp4scOheFMe6G",
+    "_type": "pricingTier",
+    "_updatedAt": "2026-04-20T00:05:40Z",
+    "ctaLink": "/contact",
+    "ctaText": "Plan een kennismaking",
+    "features": [
+      "Wekelijkse personal training",
+      "Volledig gepersonaliseerd programma",
+      "Voedings- en herstelplan",
+      "Direct contact met Marlon",
+      "Flexibele planning"
+    ],
+    "highlighted": false,
+    "name": "Private",
+    "order": 3,
+    "subtitle": "Volledig PT-traject op maat"
+  }
+]

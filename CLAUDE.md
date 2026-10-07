@@ -496,7 +496,7 @@ SANITY_API_TOKEN=xxx   # alleen voor server-side schrijf-acties
 NEXT_PUBLIC_SITE_URL=https://www.themovementclub.nl
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-2VFCDM4KRZ
 
-# (Crowdfunding module — zie aparte spec)
+# (Crowdfunding module: verwijderd, zie #120)
 # MOLLIE_API_KEY
 # NEXT_PUBLIC_SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY
@@ -623,7 +623,6 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 ## Gerelateerde documenten
 
 - `spec-analytics.md`: de meetgrens, de vier poorten van de evaluatieplicht, het eventregister en de conversiebrug. Leidend voor alles wat met meting te maken heeft.
-- `tmc-crowdfunding-module.md`: historische spec voor de `/crowdfunding` module. De endpoints en de bijbehorende analytics-helpers zijn verwijderd in #120; het document staat er nog als achtergrond, niet als beschrijving van de huidige codebase.
 - `the-movement-club-sanity-cms.md` — volledige CMS migratie plan en onboarding voor Marlon.
 - `navigation-refactor-spec.md` — refactor-spec voor member/trainer/admin role-scoped layouts.
 
