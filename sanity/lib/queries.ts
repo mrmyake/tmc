@@ -2,7 +2,14 @@ export const siteSettingsQuery = `*[_type == "siteSettings"][0]`;
 
 export const openingHoursQuery = `*[_type == "openingHours"][0]`;
 
-export const trainersQuery = `*[_type == "trainer"] | order(order asc)`;
+// De homepage gebruikt trainers[0], dus de head trainer staat expliciet
+// vooraan. Nieuwe documenten krijgen displayOrder 0 (initialValue), terwijl
+// Marlon alleen het legacy veld order 1 heeft; zonder rolprioriteit zou een
+// nieuwe trainer hem verdringen.
+export const trainersQuery = `*[_type == "trainer" && isActive != false]
+  | order(select(role == "head_trainer" => 0, 1) asc,
+          coalesce(displayOrder, order, 999) asc,
+          name asc)`;
 
 export const offeringsQuery = `*[_type == "offering"] | order(order asc)`;
 
