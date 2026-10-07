@@ -467,10 +467,10 @@ Marlon beheert content via Sanity Studio op `themovementclub.nl/studio`. Login m
 - `openingHours` — openingstijden
 - `trainer` — Marlon bio, foto, socials
 - `offering` — aanbod items (PT, Small Group, Mobility, Strength)
-- `faq` — FAQ items met `page` filter (aanbod/crowdfunding/algemeen)
+- `faq` — FAQ items met `page` filter (opties in het schema: aanbod, mobility-check, crowdfunding, algemeen; de site toont alleen `aanbod`)
 - `yogaStyle`, `yogaTeacher` — yoga-minisite
 
-Prijzen komen uit `tmc.catalogue` (Supabase), niet uit Sanity. `pricingTier`, `testimonial`, `blogPost` en de crowdfunding-types (`crowdfundingSettings`, `crowdfundingTier`) zijn niet meer geregistreerd en staan niet in de Studio; oude documenten staan nog ongetypeerd in de dataset. Elk type in de desk structure van `sanity.config.ts` moet geregistreerd zijn: `scripts/check-sanity-structure.mjs` draait als `prebuild` en faalt de build anders.
+Prijzen komen uit `tmc.catalogue` (Supabase), niet uit Sanity. De schema's en documenten van `pricingTier` en de crowdfunding-types zijn verwijderd (#277, #278); herstelpunt in `docs/archive/sanity-export-2026-10-07.json`. `testimonial` en `blogPost` zijn niet meer geregistreerd. Elk type in de desk structure van `sanity.config.ts` moet geregistreerd zijn: `scripts/check-sanity-structure.mjs` draait als `prebuild` en faalt de build anders.
 
 **Render:** ISR (Incremental Static Regeneration). Publish in Sanity → webhook naar Vercel → pagina binnen 5-10s live.
 
