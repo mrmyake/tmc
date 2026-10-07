@@ -19,8 +19,8 @@ import yogaTeacher from "./yogaTeacher";
 // - classType: idem
 // - scheduleTemplate, membershipPlan, bookingSettings: live in Supabase
 // - crowdfundingSettings, crowdfundingTier: campagne vervangen door Early
-//   Member (/early-member); documenten blijven in de dataset voor de legacy
-//   checkout/webhook-routes, maar zijn niet meer bewerkbaar in Studio
+//   Member (/early-member). Schemabestanden verwijderd in
+//   chore/remove-dead-crowdfunding-sanity-code, terughalen kan via git.
 // - pricingTier: schemabestand verwijderd (2026-07-24, fix/marketing-
 //   content-bugs). tmc.catalogue is de enige prijsbron, dit was een tweede.
 //   3 legacy documenten (pricing-essentials/premium/private) blijven in de

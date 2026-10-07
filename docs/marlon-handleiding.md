@@ -175,14 +175,10 @@ Dit scherm bepaalt het hele boekings‑ en betalingsbeleid. **Wijzig hier allé�
 | `no_show_strike_threshold` + `no_show_strike_window_days` | Na X no‑shows in Y dagen krijgt het lid een tijdelijke blok |
 | `no_show_block_days` | Hoe lang die blok duurt |
 | `no_show_release_minutes` | Op dit moment niet actief: de taak die plekken vrijgeeft bij geen check‑in staat uit. De instelling doet nu niets |
-| `registration_fee_cents` | Eenmalige inschrijfkosten |
-| `drop_in_*_cents` | Drop‑in prijzen per pijler |
-| `ten_ride_card_*_cents` | 10‑rittenkaart prijzen |
-| `member_pt_discount_percent` | Korting op PT voor leden |
 | `check_in_enabled` + `check_in_pillars` | Welke pijlers de fysieke check‑in flow gebruiken |
 | `admin_checkin_pin_hash` | De pincode voor de tablet bij de ingang — zet via de aparte form |
 
-**Prijswijzigingen** lopen door naar de website (`/aanbod`, `/proefles`) via Sanity. Op de admin‑kant pas je alleen de boekings‑logica aan; de prijzen die bezoekers zien staan ook in Sanity (zie sectie 10).
+**Prijzen** pas je hier niet aan. Die staan niet in Sanity en niet in dit scherm; een prijswijziging loopt via Ilja (zie sectie 10). Dit scherm bevat alleen het boekings‑ en no‑show‑beleid.
 
 ---
 
@@ -196,17 +192,16 @@ Dit is waar je álle teksten, foto's en content van de website aanpast — **zon
 
 | Document | Inhoud |
 |---|---|
-| **Site Settings** | Adres, telefoon, WhatsApp, KvK, BTW, e‑mail — gebruikt op elke pagina |
-| **Site Images** | Hero‑foto's, studio‑foto's, trainer‑foto's |
-| **Opening Hours** | Openingstijden (gebruikt op de site én in Google Business) |
-| **Trainer** | Marlon's bio, foto, socials |
-| **Offering** | Aanbod‑items op `/aanbod` (PT, Small Group, Mobility, Strength) |
-| **Pricing Tier** | Abonnementen en tarieven (zichtbaar op `/aanbod`) |
-| **Testimonial** | Klant‑reviews op de homepage |
-| **FAQ** | Veelgestelde vragen — filterbaar per pagina (`aanbod` / `crowdfunding` / `algemeen`) |
-| **Blog Post** | Optioneel — voor content marketing |
-| **Crowdfunding Tier** | Tiers voor de crowdfunding pagina |
-| **Crowdfunding Settings** | Doelbedrag, tellers, status van de campagne |
+| **Website Instellingen** | Adres, telefoon, WhatsApp, KvK, BTW, e‑mail — gebruikt op elke pagina |
+| **Openingstijden** | Openingstijden (gebruikt op de site én in Google Business) |
+| **Website Afbeeldingen** | Hero‑foto's, studio‑foto's, trainer‑foto's |
+| **Trainers** | Marlon's bio, foto, socials |
+| **Trainingsaanbod** | Aanbod‑items op `/aanbod` (PT, Small Group, Mobility, Strength) |
+| **FAQ** | Veelgestelde vragen op `/aanbod` |
+| **Yoga vormen** | De yogastijlen op de yoga‑pagina's |
+| **Yoga docenten** | De yogadocenten op de yoga‑pagina's |
+
+**Prijzen en lidmaatschappen staan niet in Sanity.** Wat bezoekers op de site zien komt uit het systeem achter de app. Er is geen scherm om prijzen aan te passen, ook niet in Admin → Instellingen. Een prijswijziging loopt via Ilja.
 
 ### Hoe je iets aanpast
 
@@ -218,9 +213,9 @@ Dit is waar je álle teksten, foto's en content van de website aanpast — **zon
 ### Tips voor onderhoud
 - **Foto's**: minimaal 1600px breed, JPG of WebP. Sanity comprimeert automatisch.
 - **Alt‑tekst** is verplicht bij elke afbeelding — niet alleen voor SEO maar ook voor toegankelijkheid.
-- **Volgorde**: bij Offering, Pricing Tier en Testimonial bepaalt het veld `order` of het sleep‑handvat de volgorde op de site.
+- **Volgorde**: bij Trainingsaanbod en FAQ bepaalt het veld `order` of het sleep‑handvat de volgorde op de site.
 - **Inactief maken** in plaats van verwijderen — zet `active: false`. Dan blijft het in je archief maar verschijnt niet op de site.
-- **Veranderen jullie de prijzen?** Pas dit aan op **twee plekken**: in Sanity (Pricing Tier — voor de website) én in Admin → Instellingen (voor de boekingslogica). Anders raken ze uit sync.
+- **Veranderen jullie de prijzen?** Dat kun je niet zelf in Sanity of Instellingen doen. Geef de nieuwe prijzen door aan Ilja.
 
 ---
 
@@ -234,7 +229,7 @@ Alle leads van de website komen automatisch in MailerLite terecht met een **tag*
 |---|---|
 | `Proefles Lead` | Proefles aangevraagd |
 | `Contact Lead` | Contactformulier |
-| `Crowdfunding Backer` | Crowdfunding betaling gedaan |
+| `Crowdfunding Backer` | Betaling in de oude crowdfunding‑campagne (geen nieuwe leads meer) |
 | `Member` | Bestaand lid |
 
 De PDF-guide, de 7-dagen Mobility Reset sequence en de Mobility Check funnel zijn per 2026-09-19 tijdelijk van de site gehaald. De bijbehorende tags en automations staan nog in MailerLite maar krijgen geen nieuwe leads meer binnen; die voedende pagina's bestaan niet meer. Niks aan doen tot de funnel terugkomt.
