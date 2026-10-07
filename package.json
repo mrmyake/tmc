@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/check-sanity-structure.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -18,6 +19,7 @@
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
+    "test:sanity-structure": "node --import ./scripts/ts-loader.mjs --test scripts/sanity-structure/*.test.mts",
     "test:access": "node --import ./scripts/ts-loader.mjs --test scripts/access/*.test.mts",
     "test:mollie": "node --import ./scripts/ts-loader.mjs --test scripts/mollie/*.test.mts",
     "test:orders": "node --import ./scripts/ts-loader.mjs --test scripts/orders/*.test.mts",
