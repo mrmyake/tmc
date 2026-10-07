@@ -38,22 +38,10 @@ export default defineConfig({
             S.divider(),
             S.documentTypeListItem("trainer").title("Trainers"),
             S.documentTypeListItem("offering").title("Trainingsaanbod"),
-            S.documentTypeListItem("pricingTier").title("Lidmaatschap"),
             S.documentTypeListItem("faq").title("FAQ"),
             S.divider(),
             S.documentTypeListItem("yogaStyle").title("Yoga vormen"),
             S.documentTypeListItem("yogaTeacher").title("Yoga docenten"),
-            S.divider(),
-            S.listItem()
-              .title("Crowdfunding Instellingen")
-              .child(
-                S.document()
-                  .schemaType("crowdfundingSettings")
-                  .documentId("crowdfundingSettings")
-              ),
-            S.documentTypeListItem("crowdfundingTier").title(
-              "Crowdfunding Tiers"
-            ),
           ]),
     }),
   ],

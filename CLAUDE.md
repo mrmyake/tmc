@@ -56,7 +56,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - [x] Navbar (transparant → solid on scroll) + Footer
 - [x] Contact + proefles formulieren (via MailerLite + Resend)
 - [x] Vercel deployment live
-- [x] Sanity CMS geïnstalleerd (schemas: siteSettings, siteImages, openingHours, trainer, offering, pricingTier, testimonial, faq, blogPost)
+- [x] Sanity CMS geïnstalleerd (geregistreerde schemas: siteSettings, siteImages, openingHours, trainer, offering, faq, yogaStyle, yogaTeacher)
 
 ### Wat nog gebouwd moet worden
 
@@ -461,16 +461,16 @@ module.exports = {
 
 Marlon beheert content via Sanity Studio op `themovementclub.nl/studio`. Login met Google.
 
-**Schema's (al aanwezig):**
+**Geregistreerde schema's (`sanity/schemas/index.ts`):**
 - `siteSettings` — site-wide teksten, contactgegevens
 - `siteImages` — hero/studio/trainer foto's
 - `openingHours` — openingstijden
 - `trainer` — Marlon bio, foto, socials
 - `offering` — aanbod items (PT, Small Group, Mobility, Strength)
-- `pricingTier` — abonnementen/tarieven
-- `testimonial` — klant reviews
 - `faq` — FAQ items met `page` filter (aanbod/crowdfunding/algemeen)
-- `blogPost` — optioneel voor content marketing
+- `yogaStyle`, `yogaTeacher` — yoga-minisite
+
+Prijzen komen uit `tmc.catalogue` (Supabase), niet uit Sanity. `pricingTier`, `testimonial`, `blogPost` en de crowdfunding-types (`crowdfundingSettings`, `crowdfundingTier`) zijn niet meer geregistreerd en staan niet in de Studio; oude documenten staan nog ongetypeerd in de dataset. Elk type in de desk structure van `sanity.config.ts` moet geregistreerd zijn: `scripts/check-sanity-structure.mjs` draait als `prebuild` en faalt de build anders.
 
 **Render:** ISR (Incremental Static Regeneration). Publish in Sanity → webhook naar Vercel → pagina binnen 5-10s live.
 
