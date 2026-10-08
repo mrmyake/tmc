@@ -152,6 +152,7 @@ async function notifyTrainerOfRequest(args: {
       toName: trainerProfile.first_name ?? trainer?.display_name ?? undefined,
       // COPY: confirm met Marlon
       subject: "Annulering aangevraagd voor een PT-sessie",
+      replyTo: null, // stafmail
       react: PtCancellationRequest({
         trainerName:
           trainerProfile.first_name ?? trainer?.display_name ?? "coach",

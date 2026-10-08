@@ -66,8 +66,12 @@ export default function AccountDeleted({ siteUrl }: AccountDeletedProps) {
           margin: "0 0 0 0",
         }}
       >
-        Kom je ooit terug, dan ben je welkom. Vragen? Mail ons via {siteUrl}
-        /contact.
+        {/* COPY: confirm met Marlon */}
+        Kom je ooit terug, dan ben je welkom. Vragen?{" "}
+        <a href={`${siteUrl}/contact`} style={{ color: emailTokens.CHAMPAGNE, textDecoration: "underline" }}>
+          Neem contact op
+        </a>
+        .
       </Text>
     </EmailLayout>
   );
