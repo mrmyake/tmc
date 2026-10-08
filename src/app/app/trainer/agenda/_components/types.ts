@@ -54,7 +54,7 @@ export interface AgendaSessionData {
  * gepositioneerde kernblok (start/duur), de omkleedtijd-buffer uit
  * get_pt_busy (alleen bookable/intake hebben die), en de laan-toewijzing
  * voor bewust naast-elkaar getoonde dubbelboekingen (zie
- * lib/overlap-layout.ts).
+ * lib/scheduling/day-overlap-layout.ts).
  */
 export interface AgendaSessionBlockData extends AgendaSessionData {
   startOffsetMin: number;

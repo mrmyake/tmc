@@ -39,6 +39,10 @@ export interface AdminSessionBlockData {
   startOffsetMin: number;
   durationMin: number;
   startLabel: string; // "06:30"
+  /** Laan binnen een cluster van overlappende lessen (day-overlap-layout.ts). */
+  lane: number;
+  laneCount: number;
+  overlapping: boolean;
 }
 
 export interface AdminTrainerOption {

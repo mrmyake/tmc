@@ -12,7 +12,7 @@ import {
   todayIsoAmsterdam,
 } from "@/lib/format-date";
 import { AgendaScreen } from "./_components/AgendaScreen";
-import { layoutDayOverlaps } from "./_components/overlap-layout";
+import { layoutDayOverlaps } from "@/lib/scheduling/day-overlap-layout";
 import {
   GRID_END_HOUR,
   GRID_START_HOUR,
