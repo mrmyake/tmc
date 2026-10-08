@@ -9,12 +9,19 @@ interface SendArgs {
   subject: string;
   react: React.ReactElement;
   /**
-   * Optioneel antwoordadres. Zonder replyTo gaat een antwoord naar het
-   * afzenderadres (MAILERSEND_FROM_EMAIL, een no-reply-adres). Mails waarop
-   * de ontvanger mag antwoorden zetten hier een inbox die Marlon leest.
+   * Antwoordadres. Weggelaten: DEFAULT_REPLY_TO (Marlons inbox), zodat een
+   * antwoord van een lid of bezoeker bij een mens aankomt in plaats van bij
+   * het no-reply-afzenderadres. `null` zet het antwoordadres uit; gebruik dat
+   * voor stafmails (de ontvanger is geen lid of bezoeker). Een eigen adres
+   * overschrijft de default.
    */
-  replyTo?: { email: string; name?: string };
+  replyTo?: { email: string; name?: string } | null;
 }
+
+export const DEFAULT_REPLY_TO = {
+  email: "marlon@themovementclub.nl",
+  name: "The Movement Club",
+};
 
 /**
  * Transactional email helper. Renders a React Email component to HTML and
@@ -64,8 +71,11 @@ export async function sendEmail({
       .setSubject(subject)
       .setHtml(html)
       .setText(text);
-    if (replyTo) {
-      params.setReplyTo(new Recipient(replyTo.email, replyTo.name));
+    const effectiveReplyTo = replyTo === undefined ? DEFAULT_REPLY_TO : replyTo;
+    if (effectiveReplyTo) {
+      params.setReplyTo(
+        new Recipient(effectiveReplyTo.email, effectiveReplyTo.name),
+      );
     }
 
     // Timeout (3a-bis, outbound-timeouts.ts): de SDK loopt via gaxios

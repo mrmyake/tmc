@@ -101,14 +101,15 @@ export default function GuestConfirmation({
           lineHeight: 1.6,
         }}
       >
-        Beviel het na afloop? Bekijk op{" "}
+        {/* COPY: confirm met Marlon */}
+        Beviel het na afloop?{" "}
         <a
           href={`${siteUrl}/aanbod`}
-          style={{ color: emailTokens.CHAMPAGNE, textDecoration: "none" }}
+          style={{ color: emailTokens.CHAMPAGNE, textDecoration: "underline" }}
         >
-          themovementclub.nl/aanbod
+          Bekijk ons aanbod
         </a>{" "}
-        wat een lidmaatschap voor je kan zijn.
+        en ontdek wat een lidmaatschap voor je kan zijn.
       </Text>
     </EmailLayout>
   );

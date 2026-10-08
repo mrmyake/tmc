@@ -54,7 +54,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - [x] `/contact` — formulier, adres, routebeschrijving, WhatsApp
 - [x] `/proefles` — aanmeldformulier, gratis & vrijblijvend
 - [x] Navbar (transparant → solid on scroll) + Footer
-- [x] Contact + proefles formulieren (via MailerLite + Resend)
+- [x] Contact + proefles formulieren (via MailerLite)
 - [x] Vercel deployment live
 - [x] Sanity CMS geïnstalleerd (geregistreerde schemas: siteSettings, siteImages, openingHours, trainer, offering, faq, yogaStyle, yogaTeacher)
 
@@ -112,7 +112,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - **Hosting:** Vercel (auto-deploy via GitHub)
 - **CMS:** Sanity (project `hn9lkvte`, studio op `/studio`)
 - **Email:** MailerLite (forms + automations)
-- **Forms backend:** Resend voor transactionele emails (indien van toepassing)
+- **Transactionele e-mail:** MailerSend via `sendEmail()` in `src/lib/email.ts` (React Email-templates in `src/emails/`); Supabase Auth-mail gaat via custom SMTP, ook MailerSend
 - **Analytics:** GA4 + Vercel Analytics
 - **Taal:** Nederlands
 
@@ -233,6 +233,17 @@ De funnel (PDF "Beweeg Beter" guide, 7-Dagen Mobility Reset, Gratis Mobility Che
 6. **Proefles aanvraag** → auto-reply + intern notificatie
 
 **Env var:** `MAILERLITE_API_KEY` (al aanwezig in `.env.local`, terug te halen via `vercel env pull`)
+
+---
+
+## E-mail
+
+- **Linkregel:** in de HTML-versie van een mail is een URL of kaal domein nooit zichtbare tekst; elke link heeft een beschrijvende linktekst ("Bekijk ons aanbod", niet "themovementclub.nl/aanbod"). Elke href wijst naar themovementclub.nl (of is `mailto:`/`tel:`). De plain-text-versie is uitgezonderd. Reden: een zichtbare URL als linktekst of fallback is een spamsignaal en liet eerder mails in de spam belanden.
+- **Nieuwe template:** maak `src/emails/<naam>.tsx` en voeg een entry toe in `src/emails/registry.ts` (id, onderwerp, fixture). Zonder entry faalt de check.
+- **Reply-to:** `sendEmail()` zet standaard `marlon@themovementclub.nl` als reply-to; de afzender blijft noreply@themovementclub.nl. Stafmails (`pt_cancellation_request`, `pt_trainer_change`, `trial_code_abuse_alert`) zetten `replyTo: null`.
+- **Auth-mail:** `supabase/templates/*.html` en `supabase/templates/subjects.json` zijn de bron van waarheid voor de Supabase Auth-templates. Het dashboard moet er handmatig mee gelijk blijven tot de sync-PR er is (terugschrijven gebeurt nog niet). Auth-templates tonen nooit een URL als tekst; de knop of de code is genoeg.
+- **Check:** `npm run check:emails` rendert elke registry-entry en elke Auth-template en toetst ze aan de linkregel. Draait als `prebuild`, dus een schending laat de Vercel-build (en de preview) falen. Geen env vars of netwerk nodig. De tests: `npm run test:emails`.
+- **Testmail versturen:** `npm run send-test-emails -- --to <adres>` is een dry run; met `--send` gaat elke template (met `[TEST]` voor het onderwerp) via dezelfde `sendEmail()` naar dat adres, bv. een mail-tester.com-adres. Optioneel `--only <template-id>`. Vereist de MailerSend-env in `.env.local` (`vercel env pull`). Auth-mails vallen erbuiten: test ze met een OTP-aanvraag op `/login` voor het testadres.
 
 ---
 

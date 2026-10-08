@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/check-sanity-structure.mjs",
+    "prebuild": "node scripts/check-sanity-structure.mjs && node --import tsx scripts/check-emails.mts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -19,6 +19,9 @@
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
+    "check:emails": "node --import tsx scripts/check-emails.mts",
+    "test:emails": "node --import tsx --test scripts/emails/*.test.mts",
+    "send-test-emails": "node --env-file=.env.local --import tsx --import ./scripts/ts-loader.mjs scripts/send-test-emails.ts",
     "test:sanity-structure": "node --import ./scripts/ts-loader.mjs --test scripts/sanity-structure/*.test.mts",
     "test:access": "node --import ./scripts/ts-loader.mjs --test scripts/access/*.test.mts",
     "test:mollie": "node --import ./scripts/ts-loader.mjs --test scripts/mollie/*.test.mts",
@@ -92,6 +95,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
     "exceljs": "^4.4.0",
+    "htmlparser2": "^12.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

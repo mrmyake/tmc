@@ -129,7 +129,10 @@ export default function TrialCodeAbuseAlert({
         }}
       >
         {/* COPY: confirm met Marlon */}
-        Beheer: {adminUrl}
+        Beheer:{" "}
+        <a href={adminUrl} style={{ color: emailTokens.CHAMPAGNE, textDecoration: "underline" }}>
+          Open de proefcode
+        </a>
       </Text>
     </EmailLayout>
   );
