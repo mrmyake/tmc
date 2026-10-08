@@ -40,7 +40,7 @@ export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps)
       }`}
       aria-label={`${session.className} om ${session.startLabel}${isCancelled ? ", vervalt" : ""}`}
     >
-      <span className={`text-[10px] font-medium uppercase text-text-muted ${compact ? "tracking-normal" : "tracking-[0.18em]"}`}>
+      <span className={`font-medium uppercase text-text-muted ${compact ? "text-[9px] tracking-tight" : "text-[10px] tracking-[0.18em]"}`}>
         {session.startLabel}
         {isCancelled && !compact && (
           // Op de tijdregel, zodat het ook in een blok van een uur zichtbaar blijft.
