@@ -31,25 +31,25 @@ export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps)
       style={{
         top: `${session.startOffsetMin}px`,
         height: `${Math.max(30, session.durationMin) - 2}px`,
-        left: `calc(${leftPct}% + 4px)`,
-        width: `calc(${widthPct}% - 8px)`,
+        left: `calc(${leftPct}% + ${compact ? 2 : 4}px)`,
+        width: `calc(${widthPct}% - ${compact ? 4 : 8}px)`,
       }}
       title={`${session.className} om ${session.startLabel}, ${session.trainerName}${isCancelled ? ", vervalt" : ""}`}
-      className={`absolute ${isCancelled ? "z-0" : "z-10"} flex flex-col items-start gap-0.5 ${compact ? "px-1.5 py-1" : "px-3 py-2"} border border-[color:var(--ink-500)] border-l-4 ${tone} bg-bg-elevated text-left transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:bg-bg-elevated/80 cursor-pointer overflow-hidden ${
+      className={`absolute ${isCancelled ? "z-0" : "z-10"} flex flex-col items-start gap-0.5 ${compact ? "px-1 py-1" : "px-3 py-2"} border border-[color:var(--ink-500)] border-l-4 ${tone} bg-bg-elevated text-left transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:bg-bg-elevated/80 cursor-pointer overflow-hidden ${
         isCancelled ? "opacity-40 border-dashed" : ""
       }`}
       aria-label={`${session.className} om ${session.startLabel}${isCancelled ? ", vervalt" : ""}`}
     >
       <span className={`text-[10px] font-medium uppercase text-text-muted ${compact ? "tracking-normal" : "tracking-[0.18em]"}`}>
         {session.startLabel}
-        {isCancelled && (
+        {isCancelled && !compact && (
           // Op de tijdregel, zodat het ook in een blok van een uur zichtbaar blijft.
           <span className="text-[color:var(--danger)]">
             {/* COPY: confirm met Marlon */}
             {" · "}Vervalt
           </span>
         )}
-        {session.rescheduledFromLabel && !isCancelled && (
+        {session.rescheduledFromLabel && !isCancelled && !compact && (
           <span className="text-accent normal-case tracking-normal">
             {/* COPY: confirm met Marlon */}
             {" "}(was {session.rescheduledFromLabel})
@@ -57,7 +57,11 @@ export function AdminSessionBlock({ session, onSelect }: AdminSessionBlockProps)
         )}
       </span>
       <span
-        className={`text-xs font-medium text-text leading-tight line-clamp-2 ${
+        className={`font-medium text-text leading-tight ${
+          // Compact: korter lettertype en afbreken binnen het woord, zodat de
+          // naam ook in een smalle laan zichtbaar blijft (volledige naam in de tooltip).
+          compact ? "text-[10px] break-all line-clamp-4" : "text-xs line-clamp-2"
+        } ${
           isCancelled ? "line-through decoration-text-muted/60" : ""
         }`}
       >
