@@ -622,6 +622,30 @@ export async function adminCreateSession(
     return { ok: false, message: "Trainer is niet actief." };
   }
 
+  // Duplicate-guard: geen tweede niet-geannuleerde les van hetzelfde type op
+  // hetzelfde tijdstip. Een geannuleerde les telt niet mee, zodat Marlon
+  // daarnaast een nieuwe kan aanmaken. Geen unique index: bewust alleen deze
+  // check (twee gelijktijdige requests kunnen er nog doorheen).
+  const { data: duplicate, error: duplicateErr } = await admin
+    .from("class_sessions")
+    .select("id")
+    .eq("class_type_id", input.classTypeId)
+    .eq("start_at", start.toISOString())
+    .neq("status", "cancelled")
+    .limit(1)
+    .maybeSingle();
+  if (duplicateErr) {
+    console.error("[adminCreateSession] duplicate check failed", duplicateErr);
+    return { ok: false, message: "Aanmaken lukte niet." };
+  }
+  if (duplicate) {
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      message: "Er staat al een les van dit type op dit tijdstip.",
+    };
+  }
+
   const { data, error } = await admin
     .from("class_sessions")
     .insert({

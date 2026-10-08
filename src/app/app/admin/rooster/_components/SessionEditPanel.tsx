@@ -31,6 +31,8 @@ type OverrideMode = null | "trainer" | "time" | "cancel";
 interface SessionEditPanelProps {
   session: AdminSessionBlockData | null;
   trainers: AdminTrainerOption[];
+  /** Geannuleerde les: open "Nieuwe sessie" voorgevuld met deze gegevens. */
+  onCreateSimilar: (session: AdminSessionBlockData) => void;
   onClose: () => void;
 }
 
@@ -39,6 +41,7 @@ const clubEase: [number, number, number, number] = [0.2, 0.7, 0.1, 1];
 export function SessionEditPanel({
   session,
   trainers,
+  onCreateSimilar,
   onClose,
 }: SessionEditPanelProps) {
   const [pending, startTransition] = useTransition();
@@ -304,6 +307,14 @@ export function SessionEditPanel({
                   {session.cancellationReason
                     ? ` Reden: ${session.cancellationReason}.`
                     : ""}
+                  <button
+                    type="button"
+                    onClick={() => onCreateSimilar(session)}
+                    className="mt-3 block text-xs font-medium uppercase tracking-[0.18em] text-text hover:text-accent transition-colors cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    Nieuwe les met dezelfde gegevens
+                  </button>
                 </div>
               )}
 

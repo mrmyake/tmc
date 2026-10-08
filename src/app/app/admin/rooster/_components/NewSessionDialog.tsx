@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -35,8 +35,20 @@ const WEEKDAY_CHIPS: Array<{ label: string; dayOfWeek: number }> = [
   { label: "Zo", dayOfWeek: 0 },
 ];
 
+/** Voorinvulling vanuit een geannuleerde les ("Nieuwe les met dezelfde gegevens"). */
+export interface NewSessionPrefill {
+  classTypeId: string;
+  trainerId: string;
+  date: string; // yyyy-mm-dd, Amsterdam
+  startTime: string; // HH:mm, Amsterdam
+  durationMinutes: number;
+  /** NULL betekent onbeperkt. */
+  capacity: number | null;
+}
+
 interface NewSessionDialogProps {
   open: boolean;
+  prefill?: NewSessionPrefill | null;
   classTypes: AdminClassTypeOption[];
   trainers: AdminTrainerOption[];
   defaultDate: string; // yyyy-mm-dd
@@ -48,9 +60,14 @@ export function NewSessionDialog({
   classTypes,
   trainers,
   defaultDate,
+  prefill = null,
   onClose,
 }: NewSessionDialogProps) {
   const [pending, startTransition] = useTransition();
+  // Na een geslaagde submit blijft de knop uit tot de dialoog dicht is, ook
+  // tijdens de wachttijd van onClose (voorkomt een tweede aanmaakpoging).
+  const [closing, setClosing] = useState(false);
+  const prefillRef = useRef<NewSessionPrefill | null>(null);
   const [result, setResult] = useState<AdminActionResult | null>(null);
   const [mode, setMode] = useState<"once" | "recurring">("once");
   const [classTypeId, setClassTypeId] = useState(classTypes[0]?.id ?? "");
@@ -72,20 +89,43 @@ export function NewSessionDialog({
   // defaultCapacity null betekent onbeperkt en stroomt door naar de sessie.
   useEffect(() => {
     if (!selectedType) return;
+    // Een voorinvulling wint van de lestype-default, eenmalig. Wisselt de
+    // gebruiker daarna van lestype, dan gelden de defaults weer.
+    const p = prefillRef.current;
+    prefillRef.current = null;
+    if (p && p.classTypeId === selectedType.id) {
+      setCapacity(p.capacity);
+      setDurationMinutes(p.durationMinutes);
+      return;
+    }
     setCapacity(selectedType.defaultCapacity);
     setDurationMinutes(selectedType.defaultDurationMinutes);
   }, [selectedType]);
 
   useEffect(() => {
     if (open) {
-      setDate(defaultDate);
+      setClosing(false);
       setResult(null);
+      if (prefill) {
+        prefillRef.current = prefill;
+        setClassTypeId(prefill.classTypeId);
+        setTrainerId(prefill.trainerId);
+        setDate(prefill.date);
+        setStartTime(prefill.startTime);
+        setDurationMinutes(prefill.durationMinutes);
+        setCapacity(prefill.capacity);
+        setNotes("");
+      } else {
+        prefillRef.current = null;
+        setDate(defaultDate);
+      }
       setMode("once");
       setSelectedDays([]);
       setHasEndDate(false);
       setEndDate("");
       setBlocksFreeTraining(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- alleen bij openen (of andere standaarddatum) initialiseren
   }, [open, defaultDate]);
 
   useEffect(() => {
@@ -128,6 +168,7 @@ export function NewSessionDialog({
       });
       setResult(res);
       if (res.ok) {
+        setClosing(true);
         window.setTimeout(onClose, 1000);
       }
     });
@@ -181,6 +222,7 @@ export function NewSessionDialog({
         // COPY: confirm met Marlon
         message: `Serie aangemaakt voor ${results.length} dag(en) per week. ${totalMaterialized} sessie(s) ingepland voor de komende weken.`,
       });
+      setClosing(true);
       window.setTimeout(onClose, 1200);
     });
   }
@@ -490,7 +532,7 @@ export function NewSessionDialog({
                 <button
                   type="button"
                   onClick={submit}
-                  disabled={pending}
+                  disabled={pending || closing}
                   className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                 >
                   {pending ? "Bezig" : "Aanmaken"}

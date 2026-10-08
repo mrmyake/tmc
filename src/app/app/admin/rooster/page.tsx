@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
+import { layoutDayOverlaps } from "@/lib/scheduling/day-overlap-layout";
 import { RoosterEditorClient } from "./RoosterEditorClient";
 import { FreeTrainingPanel } from "./_components/FreeTrainingPanel";
 import {
@@ -327,11 +328,25 @@ export default async function AdminRoosterPage(props: {
       startOffsetMin,
       durationMin,
       startLabel: `${String(sp.hour).padStart(2, "0")}:${String(sp.minute).padStart(2, "0")}`,
+      // Wordt hieronder per dag ingevuld door layoutDayOverlaps.
+      lane: 0,
+      laneCount: 1,
+      overlapping: false,
     };
     dayBucket.sessions.push(block);
     if (block.status === "scheduled" && !block.hasStarted) {
       dayBucket.hasCancellableSessions = true;
     }
+  }
+
+  // Overlappende lessen naast elkaar in plaats van gestapeld. Binnen een
+  // cluster krijgen geplande lessen de eerste lanen, geannuleerde volgen;
+  // id als tiebreaker houdt de volgorde deterministisch.
+  for (const day of days) {
+    day.sessions = layoutDayOverlaps(day.sessions, (a, b) => {
+      const rank = (x: AdminSessionBlockData) => (x.status === "cancelled" ? 1 : 0);
+      return rank(a) - rank(b) || a.id.localeCompare(b.id);
+    });
   }
 
   const trainers: AdminTrainerOption[] = (trainersRes.data ?? []).map((t) => ({
