@@ -6,7 +6,7 @@ import {
   leadAttributionsCsv,
   type LeadAttributionExportRow,
 } from "@/lib/attribution/csv";
-import { parseAdConsent } from "@/lib/attribution/params";
+import { parseAnalyticsConsent } from "@/lib/attribution/params";
 
 /**
  * Export van tmc.lead_attributions voor de knop "Attributie CSV" op
@@ -40,7 +40,7 @@ type RawAttribution = {
   utm_term: string | null;
   utm_content: string | null;
   landing_path: string | null;
-  ad_consent: string;
+  analytics_consent: string;
 };
 
 export async function exportLeadAttributionsCsv(): Promise<ExportLeadAttributionsResult> {
@@ -51,7 +51,7 @@ export async function exportLeadAttributionsCsv(): Promise<ExportLeadAttribution
   const { data, error } = await admin
     .from("lead_attributions")
     .select(
-      "id, created_at, source_type, source_id, email, gclid, gbraid, wbraid, fbclid, utm_source, utm_medium, utm_campaign, utm_term, utm_content, landing_path, ad_consent",
+      "id, created_at, source_type, source_id, email, gclid, gbraid, wbraid, fbclid, utm_source, utm_medium, utm_campaign, utm_term, utm_content, landing_path, analytics_consent",
     )
     .order("created_at", { ascending: false })
     .limit(EXPORT_LIMIT);
@@ -121,7 +121,7 @@ export async function exportLeadAttributionsCsv(): Promise<ExportLeadAttribution
       utmTerm: r.utm_term,
       utmContent: r.utm_content,
       landingPath: r.landing_path,
-      adConsent: parseAdConsent(r.ad_consent),
+      analyticsConsent: parseAnalyticsConsent(r.analytics_consent),
     });
   }
 

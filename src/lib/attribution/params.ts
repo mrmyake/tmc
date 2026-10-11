@@ -39,8 +39,8 @@ export const LANDING_PARAM = "lp";
 export const VALUE_MAX = 512;
 export const LANDING_PATH_MAX = 2048;
 
-export const AD_CONSENT_VALUES = ["granted", "denied", "unknown"] as const;
-export type AdConsent = (typeof AD_CONSENT_VALUES)[number];
+export const ANALYTICS_CONSENT_VALUES = ["granted", "denied", "unknown"] as const;
+export type AnalyticsConsent = (typeof ANALYTICS_CONSENT_VALUES)[number];
 
 /** De parameters zoals ze tussen pagina's reizen (server page naar client). */
 export type AttributionParams = Partial<Record<AttributionKey, string>> & {
@@ -50,13 +50,13 @@ export type AttributionParams = Partial<Record<AttributionKey, string>> & {
 
 /** Wat de client bij de inzending meestuurt: de parameters plus de bannerkeuze. */
 export type LeadAttributionInput = AttributionParams & {
-  ad_consent?: AdConsent;
+  analytics_consent?: AnalyticsConsent;
 };
 
 /** Gevalideerd resultaat voor de server-side insert. */
 export interface SanitizedLeadAttribution {
   params: AttributionParams;
-  adConsent: AdConsent;
+  analyticsConsent: AnalyticsConsent;
 }
 
 type ParamSource =
@@ -187,7 +187,7 @@ export function withAttribution(href: string, params: AttributionParams | null |
 }
 
 /** Bannerkeuze uit de client; alles buiten de drie waarden wordt unknown. */
-export function parseAdConsent(raw: unknown): AdConsent {
+export function parseAnalyticsConsent(raw: unknown): AnalyticsConsent {
   return raw === "granted" || raw === "denied" ? raw : "unknown";
 }
 
@@ -208,5 +208,5 @@ export function sanitizeLeadAttribution(raw: unknown): SanitizedLeadAttribution 
   if (!hasAttribution(params)) return null;
   const landing = sanitizeLandingPath(data.landing_path);
   if (landing) params.landing_path = landing;
-  return { params, adConsent: parseAdConsent(data.ad_consent) };
+  return { params, analyticsConsent: parseAnalyticsConsent(data.analytics_consent) };
 }

@@ -24,26 +24,26 @@ function withStorage<T>(value: string | null, fn: () => T): T {
 }
 
 test("test h: granted, denied en unknown uit de drie bannertoestanden", async () => {
-  const { adConsentFromBanner, leadAttributionForSubmit } = await import(
+  const { analyticsConsentFromBanner, leadAttributionForSubmit } = await import(
     "../../src/lib/attribution/consent.ts"
   );
-  assert.equal(withStorage("granted", adConsentFromBanner), "granted");
-  assert.equal(withStorage("denied", adConsentFromBanner), "denied");
-  assert.equal(withStorage(null, adConsentFromBanner), "unknown");
+  assert.equal(withStorage("granted", analyticsConsentFromBanner), "granted");
+  assert.equal(withStorage("denied", analyticsConsentFromBanner), "denied");
+  assert.equal(withStorage(null, analyticsConsentFromBanner), "unknown");
   // Een onbekende waarde in de sleutel telt als geen keuze.
-  assert.equal(withStorage("misschien", adConsentFromBanner), "unknown");
+  assert.equal(withStorage("misschien", analyticsConsentFromBanner), "unknown");
 
   // Zonder parameters gaat er niets mee (geen rij); met parameters de keuze erbij.
   assert.equal(withStorage("granted", () => leadAttributionForSubmit({})), undefined);
   assert.deepEqual(
     withStorage("denied", () => leadAttributionForSubmit({ gclid: "x", landing_path: "/proefles?gclid=x" })),
-    { gclid: "x", landing_path: "/proefles?gclid=x", ad_consent: "denied" },
+    { gclid: "x", landing_path: "/proefles?gclid=x", analytics_consent: "denied" },
   );
 });
 
-test("adConsentFromBanner: geen window (server) is unknown, geblokkeerde storage ook", async () => {
-  const { adConsentFromBanner } = await import("../../src/lib/attribution/consent.ts");
-  assert.equal(adConsentFromBanner(), "unknown");
+test("analyticsConsentFromBanner: geen window (server) is unknown, geblokkeerde storage ook", async () => {
+  const { analyticsConsentFromBanner } = await import("../../src/lib/attribution/consent.ts");
+  assert.equal(analyticsConsentFromBanner(), "unknown");
   const g = globalThis as unknown as Record<string, unknown>;
   const saved = g.window;
   g.window = {};
@@ -53,14 +53,14 @@ test("adConsentFromBanner: geen window (server) is unknown, geblokkeerde storage
     },
   };
   try {
-    assert.equal(adConsentFromBanner(), "unknown");
+    assert.equal(analyticsConsentFromBanner(), "unknown");
   } finally {
     g.window = saved;
     delete g.localStorage;
   }
 });
 
-test("CSV: kop, quoting en ad_consent als laatste kolom", () => {
+test("CSV: kop, quoting en analytics_consent als laatste kolom", () => {
   const csv = leadAttributionsCsv([
     {
       createdAt: "2026-10-11T12:00:00.000Z",
@@ -79,7 +79,7 @@ test("CSV: kop, quoting en ad_consent als laatste kolom", () => {
       utmTerm: null,
       utmContent: null,
       landingPath: "/proefles?gclid=test123",
-      adConsent: "granted",
+      analyticsConsent: "granted",
     },
     {
       createdAt: "2026-10-11T12:05:00.000Z",
@@ -98,13 +98,13 @@ test("CSV: kop, quoting en ad_consent als laatste kolom", () => {
       utmTerm: null,
       utmContent: null,
       landingPath: null,
-      adConsent: "unknown",
+      analyticsConsent: "unknown",
     },
   ]);
   const lines = csv.split("\n");
   assert.equal(lines.length, 3);
   assert.equal(lines[0], LEAD_ATTRIBUTION_CSV_HEADER.map((h) => `"${h}"`).join(","));
-  assert.equal(LEAD_ATTRIBUTION_CSV_HEADER.at(-1), "Bannerkeuze");
+  assert.equal(LEAD_ATTRIBUTION_CSV_HEADER.at(-1), "analytics_consent");
   assert.equal(
     lines[1],
     '"2026-10-11T12:00:00.000Z","trial_booking","0f1e2d3c-4b5a-4968-8777-66554433aabb","paid","opening","a@b.nl","test123","","","","google","","herfst ""actie""","","","/proefles?gclid=test123","granted"',

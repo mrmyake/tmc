@@ -32,7 +32,7 @@ const attribution = {
   utm_source: "google",
   utm_campaign: "test",
   landing_path: "/proefles?gclid=test123&utm_source=google&utm_campaign=test",
-  ad_consent: "granted",
+  analytics_consent: "granted",
 };
 
 function silence(fn: () => Promise<unknown>) {
@@ -67,7 +67,7 @@ test("schrijft een rij met alle velden, e-mail lowercase, on conflict do nothing
     utm_term: null,
     utm_content: null,
     landing_path: "/proefles?gclid=test123&utm_source=google&utm_campaign=test",
-    ad_consent: "granted",
+    analytics_consent: "granted",
   });
 });
 
@@ -82,7 +82,7 @@ test("test c: zonder parameters geen insert", async () => {
   );
   assert.equal(
     await recordLeadAttribution(
-      { sourceType: "trial_request", sourceId: SOURCE_ID, email: "a@b.nl", attribution: { ad_consent: "granted" } },
+      { sourceType: "trial_request", sourceId: SOURCE_ID, email: "a@b.nl", attribution: { analytics_consent: "granted" } },
       { admin },
     ),
     "skipped",

@@ -3,10 +3,12 @@
 -- Een rij per geslaagde proefboeking of terugbelaanvraag die met
 -- advertentie- of campagneparameters in de URL is binnengekomen: Google Ads
 -- (gclid, gbraid, wbraid), Meta (fbclid) en de vijf utm-velden, plus het pad
--- met querystring van de eerste /proefles-pagina (landing_path) en de keuze uit
--- de cookiebanner op het moment van inzenden (ad_consent). Bedoeld voor een
--- latere server-side upload van conversies met consentsignalen naar Google Ads
--- en Meta; die upload zelf wordt hier bewust niet gebouwd.
+-- met querystring van de eerste /proefles-pagina (landing_path) en de keuze
+-- voor analytische cookies uit de cookiebanner op het moment van inzenden
+-- (analytics_consent). Dat is uitdrukkelijk geen advertentietoestemming: een
+-- upload naar Google Ads of Meta mag pas als de banner een advertentiecategorie
+-- heeft en er een aparte kolom ad_consent bestaat; analytics_consent is nooit
+-- een bron voor ad_user_data of ad_personalization.
 --
 -- Ontwerpbesluiten:
 -- - Geen tags, pixels, cookies of web storage: de app leest de parameters
@@ -50,8 +52,8 @@ create table tmc.lead_attributions (
   utm_content text check (char_length(utm_content) <= 512),
   landing_path text
     check (landing_path like '/%' and char_length(landing_path) <= 2048),
-  ad_consent text not null default 'unknown'
-    check (ad_consent in ('granted', 'denied', 'unknown')),
+  analytics_consent text not null default 'unknown'
+    check (analytics_consent in ('granted', 'denied', 'unknown')),
   constraint lead_attributions_any_param_check check (
     coalesce(
       gclid, gbraid, wbraid, fbclid,
@@ -70,8 +72,8 @@ comment on column tmc.lead_attributions.email is
   'E-mailadres van de lead, lowercase; de brug naar tmc.profiles.email bij een latere analyse.';
 comment on column tmc.lead_attributions.landing_path is
   'Pad plus querystring van de eerste /proefles-pagina in dit bezoek, zoals de app het via de parameter lp heeft meegedragen (begint met /, max 2048). Null als de parameter ontbrak of ongeldig was.';
-comment on column tmc.lead_attributions.ad_consent is
-  'Keuze uit de cookiebanner op het moment van inzenden: granted, denied of unknown (geen keuze). Bedoeld voor een latere server-side upload met consentsignalen (ad_user_data) naar Google Ads en Meta.';
+comment on column tmc.lead_attributions.analytics_consent is
+  'Keuze voor analytische cookies uit de cookiebanner op het moment van inzenden: granted, denied of unknown (geen keuze). Geen advertentietoestemming en nooit een bron voor ad_user_data of ad_personalization; een upload naar Google Ads of Meta vraagt een advertentiecategorie in de banner en een aparte kolom ad_consent.';
 
 create unique index lead_attributions_source_uidx
   on tmc.lead_attributions (source_type, source_id);

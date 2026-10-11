@@ -4,7 +4,7 @@ import {
   ATTRIBUTION_KEYS,
   attributionQuery,
   hasAttribution,
-  parseAdConsent,
+  parseAnalyticsConsent,
   parseAttribution,
   resolveAttribution,
   sanitizeLandingPath,
@@ -132,13 +132,13 @@ test("rondreis: wat withAttribution schrijft leest resolveAttribution ongewijzig
   assert.deepEqual(next, start);
 });
 
-test("parseAdConsent: drie waarden, alles anders unknown", () => {
-  assert.equal(parseAdConsent("granted"), "granted");
-  assert.equal(parseAdConsent("denied"), "denied");
-  assert.equal(parseAdConsent("unknown"), "unknown");
-  assert.equal(parseAdConsent("yes"), "unknown");
-  assert.equal(parseAdConsent(undefined), "unknown");
-  assert.equal(parseAdConsent(null), "unknown");
+test("parseAnalyticsConsent: drie waarden, alles anders unknown", () => {
+  assert.equal(parseAnalyticsConsent("granted"), "granted");
+  assert.equal(parseAnalyticsConsent("denied"), "denied");
+  assert.equal(parseAnalyticsConsent("unknown"), "unknown");
+  assert.equal(parseAnalyticsConsent("yes"), "unknown");
+  assert.equal(parseAnalyticsConsent(undefined), "unknown");
+  assert.equal(parseAnalyticsConsent(null), "unknown");
 });
 
 test("sanitizeLeadAttribution: server-side, onbekende sleutels weg, ongeldige lp weggelaten", () => {
@@ -146,13 +146,13 @@ test("sanitizeLeadAttribution: server-side, onbekende sleutels weg, ongeldige lp
     gclid: "test123",
     utm_source: "google",
     landing_path: "https://evil.example/x",
-    ad_consent: "denied",
+    analytics_consent: "denied",
     email: "niet@hier.nl",
     __proto__: { x: 1 },
   });
   assert.deepEqual(result, {
     params: { gclid: "test123", utm_source: "google" },
-    adConsent: "denied",
+    analyticsConsent: "denied",
   });
 });
 
@@ -160,7 +160,7 @@ test("sanitizeLeadAttribution: zonder parameters null, ook met alleen lp of cons
   assert.equal(sanitizeLeadAttribution(undefined), null);
   assert.equal(sanitizeLeadAttribution(null), null);
   assert.equal(sanitizeLeadAttribution("gclid=x"), null);
-  assert.equal(sanitizeLeadAttribution({ landing_path: "/proefles", ad_consent: "granted" }), null);
+  assert.equal(sanitizeLeadAttribution({ landing_path: "/proefles", analytics_consent: "granted" }), null);
   assert.equal(sanitizeLeadAttribution({ gclid: "met spatie" }), null);
 });
 
@@ -170,5 +170,5 @@ test("sanitizeLeadAttribution: alle negen sleutels komen door", () => {
   assert.ok(result);
   for (const key of ATTRIBUTION_KEYS) assert.equal(result.params[key], `v_${key}`);
   assert.equal(result.params.landing_path, "/proefles?x=1");
-  assert.equal(result.adConsent, "unknown");
+  assert.equal(result.analyticsConsent, "unknown");
 });

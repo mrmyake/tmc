@@ -143,8 +143,8 @@ export function PrivacybeleidContent() {
                 Kom je via een advertentie bij ons terecht en boek of vraag je
                 een proefles aan, dan bewaren we ook de klik-ID uit die
                 advertentie (van Google of Meta), de campagnegegevens uit de
-                link, de pagina waarop je binnenkwam en je keuze uit de
-                cookiebanner op dat moment, zodat we weten welke advertenties
+                link, de pagina waarop je binnenkwam en je keuze voor analytische
+                cookies uit de cookiebanner op dat moment, zodat we weten welke advertenties
                 tot proeflessen leiden. We sturen deze gegevens op dit moment
                 niet terug naar Google of Meta.
               </p>

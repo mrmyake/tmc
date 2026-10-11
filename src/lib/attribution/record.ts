@@ -60,7 +60,7 @@ export async function recordLeadAttribution(
         utm_term: sanitized.params.utm_term ?? null,
         utm_content: sanitized.params.utm_content ?? null,
         landing_path: sanitized.params.landing_path ?? null,
-        ad_consent: sanitized.adConsent,
+        analytics_consent: sanitized.analyticsConsent,
       },
       { onConflict: "source_type,source_id", ignoreDuplicates: true },
     );

@@ -1,24 +1,25 @@
 import { getConsent } from "@/lib/consent";
 import {
   hasAttribution,
-  type AdConsent,
+  type AnalyticsConsent,
   type AttributionParams,
   type LeadAttributionInput,
 } from "./params";
 
 /**
  * Client-side: de bestaande bannerkeuze (src/lib/consent.ts, localStorage
- * tmc_cookie_consent) naar ad_consent. Alleen lezen van de bestaande sleutel,
+ * tmc_cookie_consent) naar analytics_consent. Alleen lezen van de bestaande sleutel,
  * geen nieuwe opslag.
  *
  * De banner kent een categorie (analytische cookies, analytics_storage); de
  * advertentiecategorieen van Consent Mode (ad_storage, ad_user_data,
  * ad_personalization) staan in de layout vast op denied. Accepteren wordt
- * hier dus granted, weigeren denied, geen keuze unknown. Wat dat betekent
- * voor een latere upload met ad_user_data staat in
- * spec-marketing-attribution.md.
+ * hier dus granted, weigeren denied, geen keuze unknown. Dit is de keuze voor
+ * analytische cookies en uitdrukkelijk geen advertentietoestemming: nooit
+ * gebruiken als bron voor ad_user_data of ad_personalization
+ * (spec-marketing-attribution.md).
  */
-export function adConsentFromBanner(): AdConsent {
+export function analyticsConsentFromBanner(): AnalyticsConsent {
   try {
     const consent = getConsent();
     if (consent === "granted") return "granted";
@@ -39,5 +40,5 @@ export function leadAttributionForSubmit(
   params: AttributionParams | null | undefined,
 ): LeadAttributionInput | undefined {
   if (!hasAttribution(params)) return undefined;
-  return { ...params, ad_consent: adConsentFromBanner() };
+  return { ...params, analytics_consent: analyticsConsentFromBanner() };
 }

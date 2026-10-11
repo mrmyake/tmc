@@ -1,4 +1,4 @@
-import type { AdConsent } from "./params";
+import type { AnalyticsConsent } from "./params";
 
 /**
  * Een rij van de admin-export (spec-marketing-attribution.md): de
@@ -25,7 +25,7 @@ export interface LeadAttributionExportRow {
   utmTerm: string | null;
   utmContent: string | null;
   landingPath: string | null;
-  adConsent: AdConsent;
+  analyticsConsent: AnalyticsConsent;
 }
 
 // COPY: confirm met Marlon
@@ -46,7 +46,7 @@ export const LEAD_ATTRIBUTION_CSV_HEADER = [
   "utm_term",
   "utm_content",
   "Landingspad",
-  "Bannerkeuze",
+  "analytics_consent",
 ] as const;
 
 function quote(cell: string | null): string {
@@ -75,7 +75,7 @@ export function leadAttributionsCsv(rows: readonly LeadAttributionExportRow[]): 
     r.utmTerm,
     r.utmContent,
     r.landingPath,
-    r.adConsent,
+    r.analyticsConsent,
   ]);
   return [[...LEAD_ATTRIBUTION_CSV_HEADER], ...body]
     .map((row) => row.map(quote).join(","))

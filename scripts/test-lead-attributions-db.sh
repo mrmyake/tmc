@@ -47,20 +47,20 @@ select pg_temp.check_('tabel bestaat met RLS aan',
   (select relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'tmc' and c.relname = 'lead_attributions'));
 select pg_temp.check_('kolommen aanwezig',
   (select count(*) from information_schema.columns where table_schema = 'tmc' and table_name = 'lead_attributions'
-     and column_name in ('id','created_at','source_type','source_id','email','gclid','gbraid','wbraid','fbclid','utm_source','utm_medium','utm_campaign','utm_term','utm_content','landing_path','ad_consent')) = 16);
+     and column_name in ('id','created_at','source_type','source_id','email','gclid','gbraid','wbraid','fbclid','utm_source','utm_medium','utm_campaign','utm_term','utm_content','landing_path','analytics_consent')) = 16);
 select pg_temp.check_('unieke index op (source_type, source_id)',
   exists (select 1 from pg_indexes where schemaname = 'tmc' and tablename = 'lead_attributions' and indexname = 'lead_attributions_source_uidx' and indexdef like 'CREATE UNIQUE INDEX%'));
 select pg_temp.check_('index op lower(email)',
   exists (select 1 from pg_indexes where schemaname = 'tmc' and tablename = 'lead_attributions' and indexname = 'lead_attributions_email_idx' and indexdef like '%lower(email)%'));
 
 -- Inserts (service_role-pad: hier als postgres)
-insert into tmc.lead_attributions (source_type, source_id, email, gclid, utm_source, utm_campaign, landing_path, ad_consent)
+insert into tmc.lead_attributions (source_type, source_id, email, gclid, utm_source, utm_campaign, landing_path, analytics_consent)
 values ('trial_booking', 'e9000000-0000-4000-8000-000000000001', 'la@test.invalid', 'test123', 'google', 'test', '/proefles?gclid=test123&utm_source=google&utm_campaign=test', 'granted');
 select pg_temp.check_('a rij voor de proefboeking', (select count(*) from tmc.lead_attributions where source_type = 'trial_booking' and source_id = 'e9000000-0000-4000-8000-000000000001') = 1);
 insert into tmc.lead_attributions (source_type, source_id, email, fbclid)
 values ('trial_request', 'e9000000-0000-4000-8000-000000000002', 'bel@test.invalid', 'fb.1.abc');
-select pg_temp.check_('a rij voor de aanvraag, ad_consent default unknown en landing_path null',
-  (select ad_consent = 'unknown' and landing_path is null from tmc.lead_attributions where source_type = 'trial_request' and source_id = 'e9000000-0000-4000-8000-000000000002'));
+select pg_temp.check_('a rij voor de aanvraag, analytics_consent default unknown en landing_path null',
+  (select analytics_consent = 'unknown' and landing_path is null from tmc.lead_attributions where source_type = 'trial_request' and source_id = 'e9000000-0000-4000-8000-000000000002'));
 
 -- j: dubbele aanroep
 select pg_temp.check_('j tweede rij voor dezelfde bron geweigerd (23505)',
@@ -75,11 +75,11 @@ select pg_temp.check_('j zelfde id als ander brontype is wel een eigen rij',
 
 -- Constraints
 select pg_temp.check_('c zonder enige parameter geweigerd (23514)',
-  pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, landing_path, ad_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', '/proefles', 'granted')$q$) = '23514');
+  pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, landing_path, analytics_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', '/proefles', 'granted')$q$) = '23514');
 select pg_temp.check_('source_type buiten de twee waarden geweigerd',
   pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid) values ('order', gen_random_uuid(), 'x@test.invalid', 'x')$q$) = '23514');
-select pg_temp.check_('ad_consent buiten de drie waarden geweigerd',
-  pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid, ad_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', 'x', 'yes')$q$) = '23514');
+select pg_temp.check_('analytics_consent buiten de drie waarden geweigerd',
+  pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid, analytics_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', 'x', 'yes')$q$) = '23514');
 select pg_temp.check_('e-mail met hoofdletters geweigerd',
   pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid) values ('trial_request', gen_random_uuid(), 'X@test.invalid', 'x')$q$) = '23514');
 select pg_temp.check_('g landing_path zonder / geweigerd',
