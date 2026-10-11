@@ -32,10 +32,25 @@ export interface VisitorSlotData {
   presence: PresenceWindow[];
 }
 
+export interface VisitorSlotPickerOptions {
+  /**
+   * Welke beschikbaarheids-RPC: de codeflow leest
+   * vrij_trainen_visitor_availability (maximum van 5); de gratis openingsflow
+   * vrij_trainen_opening_availability, die daarnaast per kwartier het
+   * openingsquotum van 4 gratis proefgasten teruggeeft (opening_available).
+   * De kiezer toont dan het kleinste van beide.
+   */
+  availabilityRpc?: "vrij_trainen_visitor_availability" | "vrij_trainen_opening_availability";
+  /** Alleen voor de openingsflow: in welke is_test-modus het quotum telt. */
+  isTest?: boolean;
+}
+
 export async function loadVisitorSlotPicker(
   requestedDate: string | undefined,
   now: Date = new Date(),
+  options: VisitorSlotPickerOptions = {},
 ): Promise<VisitorSlotData> {
+  const rpc = options.availabilityRpc ?? "vrij_trainen_visitor_availability";
   const todayIso = todayIsoAmsterdam(now);
   const empty: VisitorSlotData = {
     days: Array.from({ length: VISITOR_HORIZON_DAYS }, (_, i) => ({
@@ -67,7 +82,9 @@ export async function loadVisitorSlotPicker(
       .gte("start_at", windowStart.toISOString())
       .lt("start_at", windowEnd.toISOString())
       .order("start_at", { ascending: true }),
-    admin.rpc("vrij_trainen_visitor_availability", { p_from: todayIso, p_to: toIso }),
+    rpc === "vrij_trainen_opening_availability"
+      ? admin.rpc(rpc, { p_from: todayIso, p_to: toIso, p_is_test: options.isTest ?? false })
+      : admin.rpc(rpc, { p_from: todayIso, p_to: toIso }),
   ]);
   if (sessionsRes.error) console.error("[visitor-slots] sessions", sessionsRes.error);
   if (availRes.error) console.error("[visitor-slots] availability", availRes.error);
@@ -87,6 +104,8 @@ export async function loadVisitorSlotPicker(
     booked: number;
     available: number;
     blocked: boolean;
+    /** Alleen uit vrij_trainen_opening_availability. */
+    opening_available?: number;
   };
   const rowsBySession = new Map<string, QuarterAvailability[]>();
   for (const r of (availRes.data ?? []) as Row[]) {
@@ -94,7 +113,12 @@ export async function loadVisitorSlotPicker(
     list.push({
       quarterStart: r.quarter_start,
       booked: r.booked,
-      available: r.available,
+      // Openingsflow: het kleinste van het gewone maximum en het quotum van
+      // 4 gratis proefgasten per kwartier.
+      available:
+        typeof r.opening_available === "number"
+          ? Math.min(r.available, r.opening_available)
+          : r.available,
       blocked: r.blocked,
     });
     rowsBySession.set(r.session_id, list);

@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin/attendance-actions";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+import { trialSourceLabel } from "@/lib/opening-trial/rules";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
   timeZone: "Europe/Amsterdam",
@@ -73,7 +74,7 @@ export function MobileAttendanceList({
   // Alleen af te vinken proeflessen; pending (betaling open) ziet een
   // trainer niet, en een geannuleerde hoort niet in deze lijst.
   const activeTrials = trialRows.filter(
-    (t) => t.status === "paid" || t.status === "attended",
+    (t) => t.status === "paid" || t.status === "attended" || t.status === "no_show",
   );
 
   // "Totaal" is de bezetting uit de view (zelfde getal als het rooster);
@@ -85,7 +86,8 @@ export function MobileAttendanceList({
       activeTrials.filter((t) => t.status === "attended").length;
     const noShow =
       active.filter((r) => r.status === "no_show").length +
-      activeGuests.filter((g) => g.status === "no_show").length;
+      activeGuests.filter((g) => g.status === "no_show").length +
+      activeTrials.filter((t) => t.status === "no_show").length;
     return { total: takenCount, attended, noShow };
   }, [active, activeGuests, activeTrials, takenCount]);
 
@@ -216,8 +218,10 @@ export function MobileAttendanceList({
   }
 
   // Proeflessen: zelfde optimistische per-rij flow via markTrialAttendance
-  // (trial_bookings.status paid/attended). Geen no-show voor proeflessen.
-  function setTrialStatusLocal(trialBookingId: string, status: "attended" | "paid") {
+  // (trial_bookings.status paid/attended/no_show, onderling omkeerbaar).
+  type TrialLocalStatus = "attended" | "paid" | "no_show";
+
+  function setTrialStatusLocal(trialBookingId: string, status: TrialLocalStatus) {
     setTrialRows((prev) =>
       prev.map((t) =>
         t.trialBookingId === trialBookingId ? { ...t, status } : t,
@@ -225,10 +229,24 @@ export function MobileAttendanceList({
     );
   }
 
+  function trialSettable(t: TrialRow): boolean {
+    return t.status === "paid" || t.status === "attended" || t.status === "no_show";
+  }
+
   function toggleTrialAttended(t: TrialRow) {
-    if (t.status !== "paid" && t.status !== "attended") return;
-    const next = t.status === "attended" ? "paid" : "attended";
-    const previous = t.status;
+    if (!trialSettable(t)) return;
+    const next: TrialLocalStatus = t.status === "attended" ? "paid" : "attended";
+    persistTrial(t, next);
+  }
+
+  function toggleTrialNoShow(t: TrialRow) {
+    if (!trialSettable(t)) return;
+    const next: TrialLocalStatus = t.status === "no_show" ? "paid" : "no_show";
+    persistTrial(t, next);
+  }
+
+  function persistTrial(t: TrialRow, next: TrialLocalStatus) {
+    const previous = t.status as TrialLocalStatus;
     setTrialStatusLocal(t.trialBookingId, next);
     setSyncByBooking((s) => ({ ...s, [t.trialBookingId]: "saving" }));
     setErrorByBooking((e) => {
@@ -268,6 +286,10 @@ export function MobileAttendanceList({
           prev.map((r) =>
             r.status === "booked" ? { ...r, status: "no_show" } : r,
           ),
+        );
+        // Niet-afgevinkte proefgasten zijn server-side ook no_show geworden.
+        setTrialRows((prev) =>
+          prev.map((t) => (t.status === "paid" ? { ...t, status: "no_show" } : t)),
         );
       }
     });
@@ -503,8 +525,9 @@ export function MobileAttendanceList({
         </div>
       )}
 
-      {/* Proeflessen: zelfde rijstijl als leden, alleen een vinkje
-          (markTrialAttendance, trial_bookings.status). Geen no-show. */}
+      {/* Proeflessen: zelfde rijstijl als leden, vinkje en no-show
+          (markTrialAttendance, trial_bookings.status). Dit is ook de lijst
+          die de kiosk opent ("Deelnemers inchecken"). */}
       {activeTrials.length > 0 && (
         <div className="mb-8">
           <span className="tmc-eyebrow block mb-3">
@@ -516,13 +539,16 @@ export function MobileAttendanceList({
               const sync = syncByBooking[t.trialBookingId] ?? "idle";
               const error = errorByBooking[t.trialBookingId];
               const isAttended = t.status === "attended";
+              const isNoShow = t.status === "no_show";
               return (
                 <li
                   key={t.trialBookingId}
                   className={`flex items-center gap-4 p-4 bg-bg-elevated border transition-colors duration-300 ${
                     isAttended
                       ? "border-[color:var(--success)]/40"
-                      : "border-[color:var(--ink-500)]"
+                      : isNoShow
+                        ? "border-[color:var(--danger)]/40"
+                        : "border-[color:var(--ink-500)]"
                   }`}
                 >
                   <AvatarBubble
@@ -538,7 +564,7 @@ export function MobileAttendanceList({
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
                         {/* COPY: confirm met Marlon */}
-                        {t.isFree ? "Proefles via code" : "Proefles"}
+                        {trialSourceLabel({ source: t.source, status: t.status })}
                       </span>
                       {t.isTest && (
                         <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted border border-text-muted/40 px-2 py-0.5">
@@ -566,6 +592,23 @@ export function MobileAttendanceList({
                       }`}
                     >
                       <Check size={24} strokeWidth={2.2} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleTrialNoShow(t)}
+                      aria-label={
+                        isNoShow
+                          ? `Herstel status voor ${t.name}`
+                          : `Markeer ${t.name} als no-show`
+                      }
+                      aria-pressed={isNoShow}
+                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors duration-300 cursor-pointer ${
+                        isNoShow
+                          ? "bg-[color:var(--danger)]/10 border-[color:var(--danger)]/60 text-[color:var(--danger)]"
+                          : "bg-transparent border-text-muted/30 text-text-muted hover:border-[color:var(--danger)]/60 hover:text-[color:var(--danger)]"
+                      }`}
+                    >
+                      <UserX size={15} strokeWidth={1.8} aria-hidden />
                     </button>
                   </div>
                 </li>
@@ -631,7 +674,8 @@ export function MobileAttendanceList({
           disabled={bulkPending || !sessionEnded}
           title={
             sessionEnded
-              ? "Markeer alle open boekingen als no-show"
+              ? // COPY: confirm met Marlon
+                "Markeer alle open boekingen en niet-afgevinkte proefgasten als no-show"
               : "Kan pas na einde sessie"
           }
           className="inline-flex items-center justify-center px-7 py-4 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-40 disabled:pointer-events-none cursor-pointer"

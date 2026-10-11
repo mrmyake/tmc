@@ -5,6 +5,8 @@ import {
   isTrialBookingStatus,
   type TrialBookingStatus,
 } from "@/lib/trial-bookings/status";
+import { isTrialBookingSource, type TrialBookingSource } from "@/lib/opening-trial/rules";
+import { isMissingColumnError } from "@/lib/supabase/missing-column";
 
 /**
  * Leesqueries voor de tab Boekingen op /app/admin/proeflessen
@@ -33,8 +35,10 @@ export interface TrialBookingRow {
   /** null als het nummer niet te normaliseren is; dan geen knop. */
   whatsappHref: string | null;
   status: TrialBookingStatus;
-  /** Gratis via proefcode (anders betaald via Mollie). */
+  /** Gratis via proefcode (anders betaald via Mollie of gratis in de openingsperiode). */
   viaCode: boolean;
+  /** paid (Mollie), code (proefcode) of opening (gratis openingsperiode). */
+  source: TrialBookingSource;
   pricePaidCents: number;
   bookedAt: string;
   cancelledAt: string | null;
@@ -78,6 +82,8 @@ type RawTrialBookingRow = {
   email: string;
   phone: string;
   status: string;
+  /** Ontbreekt tot de migratie van de gratis openingsperiode is gepusht. */
+  source?: string | null;
   trial_code_id: string | null;
   price_paid_cents: number;
   booked_at: string;
@@ -89,10 +95,12 @@ type RawTrialBookingRow = {
 };
 
 const TRIAL_BOOKING_SELECT = `
-  id, session_id, name, email, phone, status, trial_code_id, price_paid_cents,
+  id, session_id, name, email, phone, status, source, trial_code_id, price_paid_cents,
   booked_at, cancelled_at, cancellation_reason, slot_start_at, slot_end_at,
   class_sessions(start_at, end_at, status, class_types(name))
 `;
+// Zonder source: tot de migratie van de gratis openingsperiode is gepusht.
+const TRIAL_BOOKING_SELECT_LEGACY = TRIAL_BOOKING_SELECT.replace("status, source,", "status,");
 
 // Bovengrens; geen paginering. Ruim boven wat de studio aan proeflessen
 // verwacht, en de periode-filter houdt de lijst in de praktijk kort.
@@ -128,6 +136,7 @@ function mapRow(r: RawTrialBookingRow): TrialBookingRow {
     whatsappHref: toWhatsAppHref(r.phone),
     status: isTrialBookingStatus(r.status) ? r.status : "pending",
     viaCode: r.trial_code_id !== null,
+    source: isTrialBookingSource(r.source) ? r.source : r.trial_code_id ? "code" : "paid",
     pricePaidCents: r.price_paid_cents,
     bookedAt: r.booked_at,
     cancelledAt: r.cancelled_at,
@@ -149,22 +158,26 @@ export async function listTrialBookingGroups(opts: {
 }): Promise<TrialBookingGroup[]> {
   const now = opts.now ?? new Date();
   const admin = createAdminClient();
-  let query = admin
-    .from("trial_bookings")
-    .select(TRIAL_BOOKING_SELECT)
-    .eq("is_test", false)
-    .limit(LIST_LIMIT);
-
-  if (!opts.showCancelled) query = query.neq("status", "cancelled");
-
   const term = sanitizeSearch(opts.q);
-  if (term) {
-    query = query.or(
-      `name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`,
-    );
-  }
+  const build = (select: string) => {
+    let query = admin
+      .from("trial_bookings")
+      .select(select)
+      .eq("is_test", false)
+      .limit(LIST_LIMIT);
+    if (!opts.showCancelled) query = query.neq("status", "cancelled");
+    if (term) {
+      query = query.or(
+        `name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`,
+      );
+    }
+    return query;
+  };
 
-  const { data, error } = await query;
+  let { data, error } = await build(TRIAL_BOOKING_SELECT);
+  if (error && isMissingColumnError(error)) {
+    ({ data, error } = await build(TRIAL_BOOKING_SELECT_LEGACY));
+  }
   if (error) {
     console.error("[trial-bookings-query] list failed", error);
     return [];
@@ -173,7 +186,7 @@ export async function listTrialBookingGroups(opts: {
   const nowMs = now.getTime();
   const groups = new Map<string, TrialBookingGroup>();
 
-  for (const r of (data ?? []) as RawTrialBookingRow[]) {
+  for (const r of (data ?? []) as unknown as RawTrialBookingRow[]) {
     const session = firstOf(r.class_sessions);
     const at = occursAt(r);
     // Zonder sessie (FK cascade heeft hem weggehaald tussen twee reads) is

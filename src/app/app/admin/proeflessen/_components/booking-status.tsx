@@ -1,5 +1,6 @@
 import { Chip } from "@/components/ui/Chip";
 import type { ChipTone } from "@/lib/tone";
+import type { TrialBookingSource } from "@/lib/opening-trial/rules";
 import {
   TRIAL_BOOKING_STATUS_LABEL,
   type TrialBookingStatus,
@@ -17,12 +18,16 @@ export function BookingStatusChip({ status }: { status: TrialBookingStatus }) {
   return <Chip tone={STATUS_TONE[status]}>{TRIAL_BOOKING_STATUS_LABEL[status]}</Chip>;
 }
 
-/** "Code" (gratis via proefcode) of "Betaald" (drop-in via Mollie). */
-export function BookingKindChip({ viaCode }: { viaCode: boolean }) {
+/**
+ * "Gratis" (openingsperiode), "Code" (gratis via proefcode) of "Betaald"
+ * (drop-in via Mollie), naar trial_bookings.source.
+ */
+export function BookingKindChip({ source }: { source: TrialBookingSource }) {
   // COPY: confirm met Marlon
+  const label = source === "opening" ? "Gratis" : source === "code" ? "Code" : "Betaald";
   return (
     <Chip tone="muted" dot={false}>
-      {viaCode ? "Code" : "Betaald"}
+      {label}
     </Chip>
   );
 }

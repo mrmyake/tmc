@@ -39,7 +39,8 @@ export default async function AdminSettingsPage() {
            fair_use_daily_max, no_show_strike_window_days,
            no_show_strike_threshold, no_show_block_days,
            check_in_enabled, check_in_pillars, no_show_release_minutes,
-           vrij_trainen_max_concurrent, vrij_trainen_booking_enabled`,
+           vrij_trainen_max_concurrent, vrij_trainen_booking_enabled,
+           free_trial_start_at, free_trial_end_at`,
         )
         .eq("id", "singleton")
         .maybeSingle(),
@@ -129,6 +130,8 @@ export default async function AdminSettingsPage() {
           noShowReleaseMinutes: row.no_show_release_minutes ?? 10,
           vrijTrainenMaxConcurrent: row.vrij_trainen_max_concurrent ?? 5,
           vrijTrainenBookingEnabled: row.vrij_trainen_booking_enabled ?? false,
+          freeTrialStartAt: row.free_trial_start_at ?? null,
+          freeTrialEndAt: row.free_trial_end_at ?? null,
         }}
       />
 

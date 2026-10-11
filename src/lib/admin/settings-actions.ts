@@ -31,6 +31,17 @@ export interface BookingSettingsInput {
   vrijTrainenMaxConcurrent: number;
   /** Aan: /app/rooster?weergave=vrij toont de slotkiezer; uit: de check-in-weergave. */
   vrijTrainenBookingEnabled: boolean;
+  /**
+   * Gratis openingsperiode voor proeflessen (ISO-timestamps, beide of geen).
+   * Binnen [start, einde] toont /proefles de gratis kaart en boekt
+   * tmc.book_opening_trial; daarbuiten de drie gewone kaarten, zonder deploy.
+   */
+  freeTrialStartAt: string | null;
+  freeTrialEndAt: string | null;
+}
+
+function isIsoTimestamp(v: unknown): v is string {
+  return typeof v === "string" && Number.isFinite(Date.parse(v));
 }
 
 function isPositiveInt(n: number, min = 0, max = 10_000_000): boolean {
@@ -84,6 +95,24 @@ export async function saveBookingSettings(
   }
   const dedupedPillars = Array.from(new Set(input.checkInPillars));
 
+  // Gratis periode: leeg (uit), of twee geldige tijdstippen met einde na start.
+  const hasStart = input.freeTrialStartAt !== null && input.freeTrialStartAt !== "";
+  const hasEnd = input.freeTrialEndAt !== null && input.freeTrialEndAt !== "";
+  if (hasStart !== hasEnd) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Vul voor de gratis proefles zowel een start als een einde in, of laat beide leeg." };
+  }
+  if (hasStart && (!isIsoTimestamp(input.freeTrialStartAt) || !isIsoTimestamp(input.freeTrialEndAt))) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "De periode voor de gratis proefles bevat een ongeldige datum." };
+  }
+  if (hasStart && Date.parse(input.freeTrialEndAt as string) <= Date.parse(input.freeTrialStartAt as string)) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Het einde van de gratis proefles moet na de start liggen." };
+  }
+  const freeTrialStartAt = hasStart ? new Date(input.freeTrialStartAt as string).toISOString() : null;
+  const freeTrialEndAt = hasEnd ? new Date(input.freeTrialEndAt as string).toISOString() : null;
+
   const admin = createAdminClient();
 
   const patch = {
@@ -100,6 +129,8 @@ export async function saveBookingSettings(
     no_show_release_minutes: input.noShowReleaseMinutes,
     vrij_trainen_max_concurrent: input.vrijTrainenMaxConcurrent,
     vrij_trainen_booking_enabled: input.vrijTrainenBookingEnabled,
+    free_trial_start_at: freeTrialStartAt,
+    free_trial_end_at: freeTrialEndAt,
   };
 
   const { error } = await admin
@@ -122,6 +153,10 @@ export async function saveBookingSettings(
 
   revalidatePath("/app/admin/instellingen");
   revalidatePath("/app/admin");
+  // De kaarten op /proefles volgen de gratis periode direct.
+  revalidatePath("/proefles");
+  revalidatePath("/proefles/boeken");
+  revalidatePath("/proefles/gratis");
 
   return { ok: true, message: "Instellingen opgeslagen." };
 }
