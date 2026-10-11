@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordLeadAttribution } from "@/lib/attribution/record";
 
 /**
  * Terugbelformulier op /proefles (kaart "Liever gebeld worden").
@@ -12,6 +13,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * niet onzichtbaar maakt. MailerLite blijft alleen mailinglijst: de account
  * kent uitsluitend de velden name en phone, dus voorkeur, ervaring en
  * bericht gaan daar niet meer heen.
+ *
+ * Attributie (spec-marketing-attribution.md): de body mag een object
+ * `attribution` bevatten met de advertentie- en campagneparameters van de URL
+ * plus de bannerkeuze. Na een geslaagde insert gaat dat, opnieuw gevalideerd,
+ * naar tmc.lead_attributions; een fout daar laat de aanvraag nooit falen.
  *
  * Geen rate limiting: er bestaat geen generieke helper per IP in de
  * codebase (de tellers voor proefcodes en kiosk-PIN zijn feature-specifieke
@@ -40,6 +46,8 @@ interface TrialRequestInput {
   preference: string | null;
   experience: string | null;
   message: string | null;
+  /** Ruw uit de body; recordLeadAttribution valideert. */
+  attribution: unknown;
 }
 
 /** Trim; een lege string of een niet-string wordt null. */
@@ -78,22 +86,40 @@ function parseTrialRequest(raw: unknown): ParseResult {
       preference: fields.preference,
       experience: fields.experience,
       message: fields.message,
+      attribution: data.attribution,
     },
   };
 }
 
+/**
+ * Schrijft de aanvraag en, als de insert slaagde en er parameters waren, de
+ * attributierij met het nieuwe id. Beide stappen loggen alleen bij een fout.
+ */
 async function storeTrialRequest(input: TrialRequestInput): Promise<void> {
   try {
     const admin = createAdminClient();
-    const { error } = await admin.from("trial_requests").insert({
-      name: input.name,
+    const { data, error } = await admin
+      .from("trial_requests")
+      .insert({
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        preference: input.preference,
+        experience: input.experience,
+        message: input.message,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      console.error("[proefles] trial_requests insert failed", error);
+      return;
+    }
+    await recordLeadAttribution({
+      sourceType: "trial_request",
+      sourceId: data.id,
       email: input.email,
-      phone: input.phone,
-      preference: input.preference,
-      experience: input.experience,
-      message: input.message,
+      attribution: input.attribution,
     });
-    if (error) console.error("[proefles] trial_requests insert failed", error);
   } catch (e) {
     console.error("[proefles] trial_requests insert failed", e);
   }

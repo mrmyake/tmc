@@ -12,6 +12,8 @@ import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { startOpeningTrialBooking } from "@/lib/actions/opening-trial";
 import { trackLead, trackFormStart } from "@/lib/analytics";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
+import { leadAttributionForSubmit } from "@/lib/attribution/consent";
+import type { AttributionParams } from "@/lib/attribution/params";
 
 import type { TrialSessionOption } from "@/lib/trial-sessions";
 import type { TrialCodeScope } from "@/lib/trial-codes/scope";
@@ -36,6 +38,12 @@ interface Props {
    * groepsles en vrij trainen; de lijst toont dan geen eigen kop.
    */
   embedded?: boolean;
+  /**
+   * Advertentie- en campagneparameters uit de URL van de pagina
+   * (spec-marketing-attribution.md); gaan met de bannerkeuze mee in de
+   * action-input en worden server-side opnieuw gevalideerd.
+   */
+  attribution?: AttributionParams;
 }
 
 export function TrialBookingList({
@@ -44,6 +52,7 @@ export function TrialBookingList({
   onCodeInvalid,
   codeInfo,
   embedded = false,
+  attribution = {},
 }: Props) {
   const isCode = mode === "code";
   const isFree = mode === "free";
@@ -73,6 +82,7 @@ export function TrialBookingList({
         name,
         email,
         phone,
+        attribution: leadAttributionForSubmit(attribution),
       });
       if (!result.ok) {
         setBusy(false);
@@ -105,6 +115,7 @@ export function TrialBookingList({
       phone,
       mode,
       returnTarget: returnTargetForThisClient(),
+      attribution: leadAttributionForSubmit(attribution),
     });
 
     if (!result.ok) {

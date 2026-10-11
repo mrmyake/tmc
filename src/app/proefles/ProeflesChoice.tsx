@@ -8,6 +8,7 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { ProeflesContent } from "./ProeflesContent";
 import { trackCTA } from "@/lib/analytics";
+import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
 
 /**
  * Drieweg-keuze vóór alles (spec-community-growth.md §1): direct boeken
@@ -19,12 +20,23 @@ import { trackCTA } from "@/lib/analytics";
  * tmc.booking_settings) wordt de eerste kaart de gratis variant
  * (/proefles/gratis) en verdwijnt de proefcodekaart; de terugbelkaart blijft.
  * Na de einddatum staan de drie gewone kaarten er automatisch weer.
+ *
+ * attribution: advertentie- en campagneparameters uit de URL van deze pagina
+ * (spec-marketing-attribution.md). De kaarten dragen ze mee in hun links en
+ * het terugbelformulier stuurt ze mee; zonder parameters blijven de links
+ * precies zoals ze waren.
  */
-export function ProeflesChoice({ freePeriodActive = false }: { freePeriodActive?: boolean }) {
+export function ProeflesChoice({
+  freePeriodActive = false,
+  attribution = {},
+}: {
+  freePeriodActive?: boolean;
+  attribution?: AttributionParams;
+}) {
   const [choice, setChoice] = useState<"none" | "call">("none");
 
   if (choice === "call") {
-    return <ProeflesContent />;
+    return <ProeflesContent attribution={attribution} />;
   }
 
   return (
@@ -56,7 +68,7 @@ export function ProeflesChoice({ freePeriodActive = false }: { freePeriodActive?
           <ScrollReveal delay={0.05}>
             {freePeriodActive ? (
               <Link
-                href="/proefles/gratis"
+                href={withAttribution("/proefles/gratis", attribution)}
                 onClick={() => trackCTA("Boek je gratis proefles", "/proefles")}
                 className="group block h-full bg-bg-elevated p-8 md:p-10 relative transition-colors duration-300 hover:bg-bg-elevated/80"
               >
@@ -85,7 +97,7 @@ export function ProeflesChoice({ freePeriodActive = false }: { freePeriodActive?
               </Link>
             ) : (
               <Link
-                href="/proefles/boeken"
+                href={withAttribution("/proefles/boeken", attribution)}
                 onClick={() => trackCTA("Boek direct", "/proefles")}
                 className="group block h-full bg-bg-elevated p-8 md:p-10 relative transition-colors duration-300 hover:bg-bg-elevated/80"
               >
@@ -115,7 +127,7 @@ export function ProeflesChoice({ freePeriodActive = false }: { freePeriodActive?
           {!freePeriodActive && (
             <ScrollReveal delay={0.075}>
               <Link
-                href="/proefles/code"
+                href={withAttribution("/proefles/code", attribution)}
                 onClick={() => trackCTA("Ik heb een proefcode", "/proefles")}
                 className="group block h-full bg-bg-elevated p-8 md:p-10 relative transition-colors duration-300 hover:bg-bg-elevated/80"
               >

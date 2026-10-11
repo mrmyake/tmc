@@ -9,6 +9,7 @@ import type { TrialSessionOption } from "@/lib/trial-sessions";
 import type { VisitorSlotData } from "@/lib/trial-codes/vrij-trainen-query";
 import { TrialBookingList } from "../boeken/TrialBookingList";
 import { VisitorSlotPicker } from "../code/VisitorSlotPicker";
+import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
 
 /**
  * De gratis openingsflow: kop, keuze tussen groepsles en vrij trainen (links,
@@ -20,12 +21,15 @@ export function OpeningTrialFlow({
   options,
   slotData,
   periodEndAt,
+  attribution = {},
 }: {
   soort: "les" | "vrij";
   options: TrialSessionOption[];
   slotData: VisitorSlotData | null;
   /** Einde van de gratis periode (ISO), voor de regel onder de kop. */
   periodEndAt: string | null;
+  /** Advertentie- en campagneparameters uit de URL; reizen mee in de tabs en de boeking. */
+  attribution?: AttributionParams;
 }) {
   const tabClass = (active: boolean) =>
     `inline-flex items-center justify-center px-6 py-3 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-300 ${
@@ -57,12 +61,16 @@ export function OpeningTrialFlow({
           </p>
 
           <nav aria-label="Soort proefles" className="flex flex-wrap gap-3 mb-10">
-            <Link href="/proefles/gratis" className={tabClass(soort === "les")} aria-current={soort === "les" ? "page" : undefined}>
+            <Link
+              href={withAttribution("/proefles/gratis", attribution)}
+              className={tabClass(soort === "les")}
+              aria-current={soort === "les" ? "page" : undefined}
+            >
               {/* COPY: confirm met Marlon */}
               Groepsles
             </Link>
             <Link
-              href="/proefles/gratis?soort=vrij"
+              href={withAttribution("/proefles/gratis?soort=vrij", attribution)}
               className={tabClass(soort === "vrij")}
               aria-current={soort === "vrij" ? "page" : undefined}
             >
@@ -73,9 +81,20 @@ export function OpeningTrialFlow({
         </ScrollReveal>
 
         {soort === "les" ? (
-          <TrialBookingList key="free" options={options} mode="free" embedded />
+          <TrialBookingList
+            key="free"
+            options={options}
+            mode="free"
+            embedded
+            attribution={attribution}
+          />
         ) : slotData ? (
-          <VisitorSlotPicker key="opening" data={slotData} variant="opening" />
+          <VisitorSlotPicker
+            key="opening"
+            data={slotData}
+            variant="opening"
+            attribution={attribution}
+          />
         ) : null}
 
         <p className="mt-14 text-text-muted text-xs leading-relaxed max-w-2xl">

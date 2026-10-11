@@ -8,6 +8,8 @@ import { parsePhone } from "@/lib/phone-parse";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { clientIp } from "@/lib/trial-codes/server";
 import { getOpeningTrialPeriod } from "@/lib/opening-trial/period";
+import { recordLeadAttribution } from "@/lib/attribution/record";
+import type { LeadAttributionInput } from "@/lib/attribution/params";
 import {
   OPENING_GENERIC_ERROR,
   OPENING_RATE_LIMITED_MESSAGE,
@@ -38,6 +40,12 @@ interface StartOpeningTrialBookingInput {
    * uit de client.
    */
   slotStartAt?: string;
+  /**
+   * Advertentie- en campagneparameters uit de URL plus de bannerkeuze
+   * (spec-marketing-attribution.md). Wordt na de geslaagde boeking opnieuw
+   * gevalideerd en weggeschreven; laat de boeking nooit falen.
+   */
+  attribution?: LeadAttributionInput;
 }
 
 const NAME_MAX = 120;
@@ -139,6 +147,14 @@ export async function startOpeningTrialBooking(
   }
 
   const trialBookingId = result.trial_booking_id ?? "";
+
+  // Attributie na de commit van de boeking; logt en gaat door bij een fout.
+  await recordLeadAttribution({
+    sourceType: "trial_booking",
+    sourceId: trialBookingId,
+    email,
+    attribution: input.attribution,
+  });
 
   await sendTrialBookingConfirmationEmail({
     id: trialBookingId,

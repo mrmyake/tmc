@@ -8,6 +8,7 @@ import { TrialBookingList } from "../boeken/TrialBookingList";
 import type { VisitorSlotData } from "@/lib/trial-codes/vrij-trainen-query";
 import { CodeEntry } from "./CodeEntry";
 import { VisitorSlotPicker } from "./VisitorSlotPicker";
+import type { AttributionParams } from "@/lib/attribution/params";
 
 /**
  * De codeflow: eerst de codestap, na een door de server geldig bevonden code
@@ -24,12 +25,15 @@ export function CodeFlow({
   slotData,
   code,
   scope,
+  attribution = {},
 }: {
   options: TrialSessionOption[];
   /** Alleen bij scope vrij trainen: dagstrip en kwartieren voor de slotkiezer. */
   slotData: VisitorSlotData | null;
   code: string | null;
   scope: TrialCodeScope | null;
+  /** Advertentie- en campagneparameters uit de URL; reizen mee in de dagstrip en de boeking. */
+  attribution?: AttributionParams;
 }) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
@@ -67,6 +71,7 @@ export function CodeFlow({
         scope={scope}
         onChangeCode={() => setForceEntry(true)}
         onCodeInvalid={invalid}
+        attribution={attribution}
       />
     );
   }
@@ -79,6 +84,7 @@ export function CodeFlow({
       mode="code"
       codeInfo={{ code, scope, onChangeCode: () => setForceEntry(true) }}
       onCodeInvalid={invalid}
+      attribution={attribution}
     />
   );
 }

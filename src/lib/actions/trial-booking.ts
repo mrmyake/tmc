@@ -30,6 +30,8 @@ import {
   selfCancelMessage,
 } from "@/lib/trial-self-cancel";
 import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
+import { recordLeadAttribution } from "@/lib/attribution/record";
+import type { LeadAttributionInput } from "@/lib/attribution/params";
 
 export type StartTrialBookingResult =
   | { ok: true; free: false; checkoutUrl: string }
@@ -90,6 +92,13 @@ interface StartTrialBookingInput {
    * prijs en het overslaan van Mollie worden nooit client-side bepaald.
    */
   mode?: "paid" | "code";
+  /**
+   * Advertentie- en campagneparameters uit de URL plus de bannerkeuze
+   * (spec-marketing-attribution.md). Wordt na de geslaagde boeking (code: na
+   * de RPC; betaald: na een geslaagde payments.create) opnieuw gevalideerd en
+   * weggeschreven; laat de boeking nooit falen.
+   */
+  attribution?: LeadAttributionInput;
 }
 
 // COPY: confirm met Marlon
@@ -164,6 +173,7 @@ interface RedeemArgs {
   isTest: boolean;
   /** Vrij-trainen-code: start van het proefuur (ISO), anders null. */
   slotStartAt: string | null;
+  attribution: LeadAttributionInput | undefined;
 }
 
 /**
@@ -245,6 +255,14 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
 
   const trialBookingId = result.trial_booking_id ?? "";
   const cancelToken = result.cancel_token ?? "";
+
+  // Attributie na de commit van de boeking; logt en gaat door bij een fout.
+  await recordLeadAttribution({
+    sourceType: "trial_booking",
+    sourceId: trialBookingId,
+    email: args.email,
+    attribution: args.attribution,
+  });
 
   await sendTrialBookingConfirmationEmail({
     id: trialBookingId,
@@ -383,6 +401,7 @@ export async function startTrialBooking(
       phone,
       isTest: trialBookingMode() === "test",
       slotStartAt: input.slotStartAt ?? null,
+      attribution: input.attribution,
     });
   }
 
@@ -427,6 +446,7 @@ export async function startTrialBooking(
       phone,
       isTest: mode === "test",
       slotStartAt: null,
+      attribution: input.attribution,
     });
   }
 
@@ -505,6 +525,17 @@ export async function startTrialBooking(
     .from("trial_bookings")
     .update({ mollie_payment_id: payment.id })
     .eq("id", trial.id);
+
+  // Attributie pas nu: een mislukte payments.create ruimt de pending-rij
+  // hierboven weer op, en dan hoort er ook geen attributierij te zijn. De
+  // status (pending, later paid via de webhook) komt bij de export via de
+  // join. Logt en gaat door bij een fout.
+  await recordLeadAttribution({
+    sourceType: "trial_booking",
+    sourceId: trial.id,
+    email,
+    attribution: input.attribution,
+  });
 
   await emitEvent({
     type: "trial_booking.created",

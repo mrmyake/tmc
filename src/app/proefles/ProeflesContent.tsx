@@ -9,6 +9,8 @@ import { Field, fieldInputClasses } from "@/components/ui/Field";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { ChevronDown } from "lucide-react";
 import { trackLead, trackFormStart } from "@/lib/analytics";
+import { leadAttributionForSubmit } from "@/lib/attribution/consent";
+import type { AttributionParams } from "@/lib/attribution/params";
 
 const benefits = [
   "Kennismaking met trainer Marlon",
@@ -17,7 +19,13 @@ const benefits = [
   "Volledig vrijblijvend, geen verplichtingen",
 ];
 
-export function ProeflesContent() {
+/**
+ * Terugbelformulier (kaart "Liever gebeld worden"). attribution: de
+ * advertentie- en campagneparameters van de URL van /proefles
+ * (spec-marketing-attribution.md); ze gaan met de bannerkeuze van dit moment
+ * mee in de JSON-body en worden server-side opnieuw gevalideerd.
+ */
+export function ProeflesContent({ attribution = {} }: { attribution?: AttributionParams }) {
   const [submitted, setSubmitted] = useState(false);
   const tracked = useRef(false);
 
@@ -119,7 +127,10 @@ export function ProeflesContent() {
                       await fetch("/api/proefles", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(Object.fromEntries(formData.entries())),
+                        body: JSON.stringify({
+                          ...Object.fromEntries(formData.entries()),
+                          attribution: leadAttributionForSubmit(attribution),
+                        }),
                       });
                     } catch {
                       /* continue */
