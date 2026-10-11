@@ -1,0 +1,53 @@
+# Spec: marketing-attributie van proefles-leads
+
+First-party attributie van alle proefles-paden: welke advertentie of campagne leidde tot een proefboeking of terugbelaanvraag. Zonder tags, pixels, cookies of client-side opslag. Besloten ontwerp en akkoord Ilja, 2026-10-11.
+
+## Doel
+
+Advertenties (Google Ads, Meta) linken direct naar `/proefles` of `/proefles/gratis`. Bij elke geslaagde proefboeking of terugbelaanvraag die met advertentie- of campagneparameters in de URL begon, bewaren we server-side wie (e-mailadres), welke klik (gclid, gbraid, wbraid, fbclid), welke campagne (utm_source, utm_medium, utm_campaign, utm_term, utm_content), waar de bezoeker binnenkwam (landing_path) en de keuze voor analytische cookies uit de cookiebanner op dat moment (analytics_consent). Daarmee is later vast te stellen welke advertenties tot proeflessen leiden. Een server-side terugmelding van conversies naar Google Ads of Meta is een aparte, latere stap met eigen voorwaarden (zie Consentmapping).
+
+## Scope
+
+- **Alle vier de inzendpaden onder /proefles**: gratis in de openingsperiode (`/proefles/gratis`, `tmc.book_opening_trial`), betaald via Mollie (`/proefles/boeken`, directe insert plus `payments.create`), met proefcode (`/proefles/code`, `tmc.redeem_trial_code`) en "Liever gebeld worden" (`/api/proefles`, `tmc.trial_requests`).
+- **Capture**: de server pages van `/proefles`, `/proefles/gratis`, `/proefles/boeken` en `/proefles/code` lezen de parameters uit `searchParams` (`resolveAttribution` in `src/lib/attribution/params.ts`) en geven ze als props aan de client-componenten. Onbekende sleutels vallen weg, waarden worden getrimd en begrensd (512 tekens), klik-ID's alleen `[A-Za-z0-9_.-]`.
+- **Doorgifte**: alleen via de URL en React-props. De kaarten op `/proefles`, de tabs op `/proefles/gratis` en de dagstrip van de slotkiezer (gratis en code) plakken de parameters aan hun href (`withAttribution`); de twee redirects (`/proefles/boeken` naar `/proefles/gratis` tijdens de periode, `/proefles/gratis` naar `/proefles` erbuiten) dragen ze mee. De codestap op `/proefles/code` ververst dezelfde URL. Het terugbelformulier blijft op `/proefles`. Zonder parameters blijven alle links precies zoals ze waren.
+- **Landingspad**: parameter `lp`, gezet bij de eerste /proefles-pagina met parameters (pad plus volledige querystring) en daarna ongewijzigd meegedragen. Ontbreekt `lp` of is hij ongeldig (begint niet met `/`, begint met `//`, bevat protocol, host, whitespace of besturingstekens, langer dan 2048), dan geldt de huidige URL als landing. Een ongeldige `lp` laat de insert nooit falen: hij wordt weggelaten.
+- **Consentmoment**: bij de inzending leest de client de bestaande bannerkeuze (`getConsent()` uit `src/lib/consent.ts`, localStorage `tmc_cookie_consent`, alleen lezen) en stuurt die mee als `analytics_consent`: `granted` bij Accepteren, `denied` bij Weigeren, `unknown` zonder keuze. De server valideert tegen de drie waarden; alles anders wordt `unknown`.
+- **Server-side insert**: `recordLeadAttribution` (`src/lib/attribution/record.ts`, service_role) valideert opnieuw, schrijft alleen als er minstens een advertentie- of campagneparameter is, gebruikt `on conflict (source_type, source_id) do nothing` en logt elke fout zonder te throwen. Aangeroepen na succes: in `startOpeningTrialBooking` na de RPC, in `startTrialBooking` na `redeem_trial_code` (code) of na een geslaagde `payments.create` (betaald; een mislukte betaling ruimt de pending-rij op en krijgt dus ook geen attributierij), en in `/api/proefles` na de insert met `.select("id")`.
+- **Tabel `tmc.lead_attributions`** (migratie `20261011130000_lead_attributions.sql`): `id`, `created_at`, `source_type` (`trial_booking` of `trial_request`), `source_id` (geen FK: twee brontabellen), `email` (lowercase, max 254), de negen parameterkolommen (max 512), `landing_path` (begint met `/`, max 2048), `analytics_consent` (`granted`, `denied`, `unknown`, default `unknown`), check dat minstens een parameter gevuld is. Unieke index op `(source_type, source_id)`, index op `lower(email)` en op `created_at desc`. RLS aan met een `is_admin()`-leespolicy; grants uitsluitend `service_role`, niets voor `anon` of `authenticated`.
+- **Admin-export**: knop "Attributie CSV" in de Boekingen-toolbar van `/app/admin/proeflessen` (`AttributieCsvExport`, server action `exportLeadAttributionsCsv` achter `requireAdmin`). Beide brontypen in een bestand met status en bron van de gekoppelde proefboeking (`pending`, `paid`, ...; `paid`, `code`, `opening`) of de status van de terugbelaanvraag, plus `analytics_consent` (kolomkop `analytics_consent`). Testboekingen (`is_test`) en rijen zonder bestaande bron blijven weg. Geen nieuw scherm.
+- **Privacyverklaring**: een alinea in de sectie "Welke persoonsgegevens verzamelen we" (`PrivacybeleidContent.tsx`, gemarkeerd `// COPY: confirm met Marlon`) over klik-ID's, campagnegegevens, landingspagina en bannerkeuze bij een proefles-aanmelding, en dat we die nu niet terugsturen naar Google of Meta.
+
+## Consentmapping
+
+De banner (`CookieConsent.tsx`) kent een categorie: analytische cookies (`analytics_storage`). Consent Mode v2 in de layout zet `ad_storage`, `ad_user_data` en `ad_personalization` vast op `denied`; de banner wijzigt alleen `analytics_storage`. `analytics_consent` legt dus de keuze voor analytische cookies vast en is uitdrukkelijk geen advertentietoestemming:
+
+| Bannertoestand | `tmc_cookie_consent` | `analytics_consent` |
+|---|---|---|
+| Accepteren | `granted` | `granted` |
+| Weigeren | `denied` | `denied` |
+| Geen keuze (banner nog open, of localStorage geblokkeerd) | ontbreekt | `unknown` |
+
+Een server-side upload van conversies naar Google Ads of Meta mag pas nadat de banner een eigen advertentiecategorie heeft (en de banner-tekst "Geen advertentiecookies, geen tracking door derden" plus de Consent Mode-defaults zijn herzien) en er een aparte kolom `ad_consent` bestaat die die advertentiekeuze vastlegt. `analytics_consent` mag nooit als bron voor `ad_user_data` of `ad_personalization` worden gebruikt; `granted` betekent hier uitsluitend "heeft de analytische cookies geaccepteerd".
+
+## Bewust niet
+
+- **Geen tags en geen pixels**: geen Google Ads-tag, geen Meta-pixel, geen conversion linker. De bestaande GA4 (`gtag.js` via `DeferredAnalytics`, Consent Mode default denied) blijft zoals hij is.
+- **Geen uploads**: geen Google Ads offline conversion import, geen Meta Conversions API. Pas aan de orde als de cookiebanner een advertentiecategorie kent. Een `gclid` is tot 90 dagen na de klik uploadbaar; de rij zelf blijft langer staan (zie bewaartermijn).
+- **Geen cookie en geen web storage voor de attributie**: geen first-party cookie, geen localStorage, geen sessionStorage. Wie van `/proefles` wegnavigeert buiten `/proefles/*` en later terugkomt zonder parameters, is bewust niet meer te koppelen.
+- **Bestaande `UtmTracker` ongewijzigd**: hij schrijft `sessionStorage.tmc_utm` (utm first-touch) op alle marketingroutes, dus ook op `/proefles`, zonder consentcheck, en voedt de profiel-attributie bij login en checkout. Niet uitgebreid met gclid, gbraid, wbraid of fbclid; staat als bekend punt in de PR.
+- **Geen wijziging aan de RPC's** `book_opening_trial` en `redeem_trial_code`, aan de Mollie-flow of aan prijzen en handhaving; de acties krijgen alleen een optioneel veld `attribution`.
+- **Geen GA4-event**: de bestaande events (`generate_lead`, `cta_click`, `form_start`) blijven ongewijzigd; de tabel is first-party meting, geen analytics.
+- **Geen foreign key** van `source_id`: twee brontabellen. De enige verwijderroute van een `trial_bookings`-rij (mislukte `payments.create`) ligt voor de insert van de attributierij.
+- **Geen rate limiting of extra validatie op de bestaande paden**: alleen het veld `attribution` is nieuw.
+
+## Open punten
+
+- **Bewaartermijn**: geen automatische opruiming in deze PR. De rijen bevatten e-mail plus klik-ID's; een termijn (bijvoorbeeld 13 maanden, gelijk aan de analytics-retentie) en een cron horen in een volgende PR, samen met de tekst in de privacyverklaring.
+- **Advertentiecategorie in de banner en kolom `ad_consent`**: beide zijn voorwaarde voor elke upload met `ad_user_data` of `ad_personalization` (zie Consentmapping).
+- **Koppeling met `tmc.profiles`**: `lower(email)` is de brug; een query of rapport dat proefles-leads aan latere leden koppelt is bewust nog niet gebouwd.
+- **Status van betaalde boekingen**: de attributierij ontstaat bij `pending`; de export leest de actuele status via de join. Een verlopen of mislukte betaling (`cancelled` via de expire-cron) blijft als rij staan met die status.
+
+## Ledger
+
+- **PR #285 (2026-10-11, first-party attributie-capture op alle /proefles-paden)**: branch `feat/proefles-attribution`, `github.com/mrmyake/tmc/pull/285`, merge-hash volgt na de merge; migratie `20261011130000_lead_attributions.sql` pas na de merge met `supabase db push`. Fable. Migratie: nieuwe tabel `tmc.lead_attributions` (zie Scope), RLS met `is_admin()`-leespolicy, grants alleen `service_role`, zelfcontrole op grants. App: `src/lib/attribution/params.ts` (pure laag: parse, saneren, `lp`, querystring), `consent.ts` (bannerkeuze naar `analytics_consent`), `record.ts` (service-role insert, nooit blokkerend), `csv.ts`; capture en doorgifte op `/proefles`, `/proefles/gratis`, `/proefles/boeken` en `/proefles/code` inclusief de twee redirects, de tabs en de dagstrip; optioneel veld `attribution` op `startOpeningTrialBooking` en `startTrialBooking`; `/api/proefles` met `.select("id")` en attributie; knop "Attributie CSV" in de Boekingen-toolbar; privacyalinea gemarkeerd voor Marlon. Tests: `test:attribution` (pure laag, consentmapping, `recordLeadAttribution` met een nep-client voor overslaan, mislukken en dubbele aanroep, CSV) en `scripts/test-lead-attributions-db.sh` tegen een lokale database (schema, constraints, unieke index, grants, RLS). Bewust niet aangeraakt: zie "Bewust niet".

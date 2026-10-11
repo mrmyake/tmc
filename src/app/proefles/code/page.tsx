@@ -3,6 +3,7 @@ import { getTrialSessionOptions } from "@/lib/trial-sessions";
 import { readTrialCodeCookie } from "@/lib/trial-codes/server";
 import { lookupUsableTrialCodeScope } from "@/lib/trial-codes/lookup";
 import { loadVisitorSlotPicker } from "@/lib/trial-codes/vrij-trainen-query";
+import { resolveAttribution } from "@/lib/attribution/params";
 import { CodeFlow } from "./CodeFlow";
 
 export const metadata: Metadata = {
@@ -29,6 +30,9 @@ export default async function TrialCodePage(props: {
   const sp = await props.searchParams;
   const dagRaw = sp.dag;
   const dag = Array.isArray(dagRaw) ? dagRaw[0] : dagRaw;
+  // Advertentie- en campagneparameters uit de URL (spec-marketing-attribution.md);
+  // de codestap ververst dezelfde URL, dus ze blijven staan tot de boeking.
+  const attribution = resolveAttribution(sp, "/proefles/code");
 
   const code = await readTrialCodeCookie();
   const scope = code ? await lookupUsableTrialCodeScope(code) : null;
@@ -40,6 +44,12 @@ export default async function TrialCodePage(props: {
       : [];
   const slotData = scope === "vrij_trainen" ? await loadVisitorSlotPicker(dag) : null;
   return (
-    <CodeFlow options={options} slotData={slotData} code={scope ? code : null} scope={scope} />
+    <CodeFlow
+      options={options}
+      slotData={slotData}
+      code={scope ? code : null}
+      scope={scope}
+      attribution={attribution}
+    />
   );
 }

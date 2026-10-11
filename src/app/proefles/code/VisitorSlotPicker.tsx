@@ -23,12 +23,20 @@ import { SlotGrid } from "@/app/app/rooster/_components/vrij-trainen/SlotGrid";
 import { SlotFooter } from "@/app/app/rooster/_components/vrij-trainen/SlotFooter";
 import { useSlotSelection } from "@/app/app/rooster/_components/vrij-trainen/useSlotSelection";
 import { CodeInfoBanner } from "../_components/CodeInfoBanner";
+import { leadAttributionForSubmit } from "@/lib/attribution/consent";
+import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
 
 /** Een proefuur vrij trainen is altijd precies een uur; de server dwingt dat af. */
 const DURATION_MINUTES = 60;
 
 type Props = {
   data: VisitorSlotData;
+  /**
+   * Advertentie- en campagneparameters uit de URL van de pagina
+   * (spec-marketing-attribution.md); reizen mee in de dagstrip en gaan met de
+   * bannerkeuze mee in de action-input.
+   */
+  attribution?: AttributionParams;
 } & (
   | {
       /** Codeflow (standaard): een code met scope vrij trainen uit het cookie. */
@@ -59,7 +67,7 @@ type Props = {
  * door tmc.redeem_trial_code of tmc.book_opening_trial.
  */
 export function VisitorSlotPicker(props: Props) {
-  const { data } = props;
+  const { data, attribution = {} } = props;
   const isOpening = props.variant === "opening";
   const router = useRouter();
   const [selection, setSelection] = useState<{ date: string; start: string } | null>(null);
@@ -118,6 +126,7 @@ export function VisitorSlotPicker(props: Props) {
         name,
         email,
         phone,
+        attribution: leadAttributionForSubmit(attribution),
       });
       if (!result.ok) {
         setBusy(false);
@@ -150,6 +159,7 @@ export function VisitorSlotPicker(props: Props) {
       phone,
       mode: "code",
       returnTarget: returnTargetForThisClient(),
+      attribution: leadAttributionForSubmit(attribution),
     });
     if (!result.ok) {
       setBusy(false);
@@ -203,7 +213,10 @@ export function VisitorSlotPicker(props: Props) {
           days={data.days}
           selectedDate={data.selectedDate}
           hrefFor={(iso) =>
-            isOpening ? `/proefles/gratis?soort=vrij&dag=${iso}` : `/proefles/code?dag=${iso}`
+            withAttribution(
+              isOpening ? `/proefles/gratis?soort=vrij&dag=${iso}` : `/proefles/code?dag=${iso}`,
+              attribution,
+            )
           }
         />
       </div>

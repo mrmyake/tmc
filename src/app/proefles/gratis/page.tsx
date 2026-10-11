@@ -6,6 +6,7 @@ import {
   getOpeningTrialSessionOptions,
   loadOpeningSlotPicker,
 } from "@/lib/opening-trial/sessions";
+import { resolveAttribution, withAttribution } from "@/lib/attribution/params";
 import { OpeningTrialFlow } from "./OpeningTrialFlow";
 
 export const metadata: Metadata = {
@@ -30,10 +31,12 @@ export const dynamic = "force-dynamic";
 export default async function OpeningTrialPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const period = await getOpeningTrialPeriod();
-  if (!isOpeningPeriodActive(period)) redirect("/proefles");
+  const [period, sp] = await Promise.all([getOpeningTrialPeriod(), props.searchParams]);
+  // Advertentie- en campagneparameters reizen mee in de redirect en in de
+  // links van deze pagina (spec-marketing-attribution.md).
+  const attribution = resolveAttribution(sp, "/proefles/gratis");
+  if (!isOpeningPeriodActive(period)) redirect(withAttribution("/proefles", attribution));
 
-  const sp = await props.searchParams;
   const soortRaw = Array.isArray(sp.soort) ? sp.soort[0] : sp.soort;
   const soort = soortRaw === "vrij" ? "vrij" : "les";
   const dagRaw = Array.isArray(sp.dag) ? sp.dag[0] : sp.dag;
@@ -49,6 +52,7 @@ export default async function OpeningTrialPage(props: {
       options={options}
       slotData={slotData}
       periodEndAt={period?.endAt ?? null}
+      attribution={attribution}
     />
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getOpeningTrialPeriod } from "@/lib/opening-trial/period";
 import { isOpeningPeriodActive } from "@/lib/opening-trial/rules";
+import { resolveAttribution } from "@/lib/attribution/params";
 import { ProeflesChoice } from "./ProeflesChoice";
 
 export const metadata: Metadata = {
@@ -20,7 +21,18 @@ export const metadata: Metadata = {
 // wisselen (spec-community-growth.md par. 1 "Gratis openingsperiode").
 export const dynamic = "force-dynamic";
 
-export default async function ProeflesPage() {
-  const period = await getOpeningTrialPeriod();
-  return <ProeflesChoice freePeriodActive={isOpeningPeriodActive(period)} />;
+export default async function ProeflesPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [period, sp] = await Promise.all([getOpeningTrialPeriod(), props.searchParams]);
+  // Advertentie- en campagneparameters uit de URL (spec-marketing-attribution.md):
+  // alleen gelezen en als props doorgegeven; de kaarten dragen ze mee in hun
+  // links. Zonder parameters een leeg object en schone links.
+  const attribution = resolveAttribution(sp, "/proefles");
+  return (
+    <ProeflesChoice
+      freePeriodActive={isOpeningPeriodActive(period)}
+      attribution={attribution}
+    />
+  );
 }

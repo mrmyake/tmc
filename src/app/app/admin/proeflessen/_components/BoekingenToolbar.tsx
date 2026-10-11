@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Search, X } from "lucide-react";
 import type { TrialBookingPeriod } from "@/lib/admin/trial-bookings-query";
+import { AttributieCsvExport } from "./AttributieCsvExport";
 
 // COPY: confirm met Marlon
 const PERIOD_LABEL: Record<TrialBookingPeriod, string> = {
@@ -24,7 +25,8 @@ interface BoekingenToolbarProps {
 /**
  * Zelfde opzet als ProeflessenToolbar: zoekveld, periode en de toggle voor
  * geannuleerde boekingen als URL-params (q, periode, geannuleerd). Zonder
- * params geldt Komend zonder annuleringen.
+ * params geldt Komend zonder annuleringen. Rechts de export van de
+ * attributierijen (beide brontypen; spec-marketing-attribution.md).
  */
 export function BoekingenToolbar({ period, q, showCancelled }: BoekingenToolbarProps) {
   const router = useRouter();
@@ -129,6 +131,7 @@ export function BoekingenToolbar({ period, q, showCancelled }: BoekingenToolbarP
             Reset filters
           </Link>
         )}
+        <AttributieCsvExport />
       </div>
     </div>
   );
