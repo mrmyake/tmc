@@ -16,6 +16,7 @@ import {
   type AccessType,
 } from "@/lib/check-in/actions";
 import { ACCESS_TYPE_LABELS_NL } from "@/lib/check-in/access-type-labels";
+import { TrialGuestsPanel } from "./TrialGuestsPanel";
 
 const PILLAR_LABELS: Record<string, string> = {
   yoga_mobility: "Yoga & Mobility",
@@ -263,6 +264,12 @@ export function AdminPanel() {
             />
           )}
         </section>
+
+        {/* Proefgasten (geen profiel, dus niet via zoeken en check_ins):
+            afvinken, terugdraaien en no-show via trial_bookings.status. */}
+        <div className="lg:col-span-2">
+          <TrialGuestsPanel />
+        </div>
       </div>
 
       {toast && (

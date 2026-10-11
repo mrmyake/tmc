@@ -23,6 +23,12 @@ export interface TrialCodeConfirmationProps {
    * huur van mat en handdoek); standaard de groepsles-variant.
    */
   variant?: "group" | "vrij_trainen";
+  /**
+   * Hoe de proefles is ontstaan (trial_bookings.source). "opening" voegt de
+   * regel toe dat de proefles gratis is dankzij de openingsperiode; "paid" en
+   * "code" houden de bestaande tekst.
+   */
+  source?: "paid" | "code" | "opening";
 }
 
 /**
@@ -45,6 +51,7 @@ export default function TrialCodeConfirmation({
   locationLabel = "Industrieweg 14P, Loosdrecht",
   priceLabel = null,
   variant = "group",
+  source = "code",
 }: TrialCodeConfirmationProps) {
   return (
     <EmailLayout preview={`Je proefles staat vast: ${className} · ${whenLabel}`}>
@@ -81,6 +88,15 @@ export default function TrialCodeConfirmation({
       {priceLabel && (
         <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
           Betaald: {priceLabel}.
+        </Text>
+      )}
+
+      {source === "opening" && (
+        <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
+          {/* COPY: confirm met Marlon */}
+          Deze proefles is gratis: ons cadeau in de openingsperiode van The
+          Movement Club. Kom je niet en annuleer je niet op tijd, dan vervalt
+          je gratis proefles.
         </Text>
       )}
 

@@ -6,6 +6,7 @@ import { Chip } from "@/components/ui/Chip";
 import type { ChipTone } from "@/lib/tone";
 import type { TrialRow } from "@/lib/admin/attendance-actions";
 import { adminCancelTrialBooking, retryPaymentRefund } from "@/lib/admin/trial-booking-actions";
+import { trialSourceLabel } from "@/lib/opening-trial/rules";
 import { AvatarBubble } from "./AvatarBubble";
 import { AttendanceCheckbox } from "./AttendanceCheckbox";
 
@@ -28,10 +29,11 @@ function euro(cents: number): string {
  * Proeflessen op de sessie-detailpagina en in het rooster-zijpaneel, in
  * dezelfde rijstijl als leden en gasten (spec-community-growth.md §1).
  * Afvinken loopt via de ouder (AttendanceList houdt de dirty-map en slaat
- * op via markTrialAttendance): paid naar attended en terug, geen no-show.
- * Een pending rij (betaling nog open, alleen admins zien die) heeft geen
- * knoppen. Voor admins daarnaast annuleren met verplichte reden en de
- * terugbetaling opnieuw indienen.
+ * op via markTrialAttendance): aanwezig en no-show, beide terug te draaien,
+ * zoals bij leden en gasten. Een pending rij (betaling nog open, alleen
+ * admins zien die) heeft geen knoppen. Voor admins daarnaast annuleren met
+ * verplichte reden en de terugbetaling opnieuw indienen. Label per bron:
+ * "Proefles, gratis" (openingsperiode), "Proefles via code" of de prijs.
  */
 export function TrialBookingsBlock({
   trials: initialTrials,
@@ -39,6 +41,7 @@ export function TrialBookingsBlock({
   canManage,
   currentStatus,
   onToggleAttended,
+  onToggleNoShow,
   disabled = false,
 }: {
   trials: TrialRow[];
@@ -47,6 +50,7 @@ export function TrialBookingsBlock({
   /** Status inclusief niet-opgeslagen wijziging (dirty-map van de ouder). */
   currentStatus: (t: TrialRow) => TrialRow["status"];
   onToggleAttended: (t: TrialRow) => void;
+  onToggleNoShow: (t: TrialRow) => void;
   disabled?: boolean;
 }) {
   const [trials, setTrials] = useState<TrialRow[]>(initialTrials);
@@ -184,11 +188,11 @@ export function TrialBookingsBlock({
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
                       {/* COPY: confirm met Marlon */}
-                      {t.status === "pending"
-                        ? "Proefles, wacht op betaling"
-                        : t.isFree
-                          ? "Proefles via code"
-                          : `Proefles ${euro(t.pricePaidCents)}`}
+                      {trialSourceLabel({
+                        source: t.source,
+                        status: t.status,
+                        priceLabel: t.pricePaidCents > 0 ? euro(t.pricePaidCents) : null,
+                      })}
                     </span>
                     {t.isTest && (
                       <Chip tone="muted">
@@ -201,14 +205,24 @@ export function TrialBookingsBlock({
                     )}
                   </div>
                 </div>
-                {(t.status === "paid" || t.status === "attended") && (
-                  <AttendanceCheckbox
-                    id={`tatt-${t.trialBookingId}`}
-                    label="Aanwezig"
-                    checked={currentStatus(t) === "attended"}
-                    onChange={() => onToggleAttended(t)}
-                    disabled={disabled || pending}
-                  />
+                {(t.status === "paid" || t.status === "attended" || t.status === "no_show") && (
+                  <div className="flex items-center gap-2">
+                    <AttendanceCheckbox
+                      id={`tatt-${t.trialBookingId}`}
+                      label="Aanwezig"
+                      checked={currentStatus(t) === "attended"}
+                      onChange={() => onToggleAttended(t)}
+                      disabled={disabled || pending}
+                    />
+                    <AttendanceCheckbox
+                      id={`tns-${t.trialBookingId}`}
+                      label="No-show"
+                      tone="danger"
+                      checked={currentStatus(t) === "no_show"}
+                      onChange={() => onToggleNoShow(t)}
+                      disabled={disabled || pending}
+                    />
+                  </div>
                 )}
                 {canManage && t.status === "paid" && (
                   <button

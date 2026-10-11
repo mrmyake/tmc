@@ -7,6 +7,7 @@ import BookingReminder from "@/emails/booking_reminder";
 import IntakeReminder from "@/emails/intake_reminder";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { bookingTimes } from "@/lib/member/booking-times";
+import { sendTrialBookingReminderEmail } from "@/lib/trial-booking-email";
 
 export const dynamic = "force-dynamic";
 
@@ -359,6 +360,116 @@ export async function GET(req: Request) {
     }
   }
 
+  // Proefboekingen (gratis openingsperiode, PR gratis-proefles-opening):
+  // betaald, via code en gratis, een codepad. Account-loos, dus de
+  // annuleerlink op cancel_token in plaats van een knop naar de app; geen
+  // push. Zelfde window, zelfde stamp-eerst-dedupe op
+  // trial_bookings.reminder_sent_at. Alleen status paid (attended, no_show en
+  // cancelled krijgen nooit een herinnering; pending wacht nog op Mollie).
+  // Een proefuur vrij trainen rekent met het slot (bookingTimes).
+  type TrialRow = {
+    id: string;
+    name: string;
+    email: string;
+    cancel_token: string;
+    slot_start_at: string | null;
+    slot_end_at: string | null;
+    session: {
+      start_at: string;
+      end_at: string;
+      status: string;
+      class_type: { name: string | null } | { name: string | null }[] | null;
+      trainer: { display_name: string | null } | { display_name: string | null }[] | null;
+    } | null;
+  };
+
+  const { data: trialCandidates, error: trialError } = await admin
+    .from("trial_bookings")
+    .select(
+      `
+        id, name, email, cancel_token, slot_start_at, slot_end_at,
+        session:class_sessions!inner(
+          start_at, end_at, status,
+          class_type:class_types(name),
+          trainer:trainers(display_name)
+        )
+      `,
+    )
+    .eq("status", "paid")
+    .is("reminder_sent_at", null)
+    // Dagsessies vrij trainen beginnen vroeg en lopen tot de avond; filter
+    // ruim op de sessie en precies op het slot in TS.
+    .gte("session.end_at", windowStart.toISOString())
+    .lt("session.start_at", windowEnd.toISOString())
+    .returns<TrialRow[]>();
+
+  let trialSent = 0;
+  let trialSkipped = 0;
+
+  if (trialError) {
+    console.error("[cron/send-reminders] trial query failed", trialError);
+  } else {
+    const trialElig = (trialCandidates ?? []).filter((r) => {
+      const s = Array.isArray(r.session) ? r.session[0] : r.session;
+      if (!s || s.status !== "scheduled") return false;
+      const startMs = new Date(bookingTimes(r, s).startAt).getTime();
+      return startMs >= windowStart.getTime() && startMs < windowEnd.getTime();
+    });
+
+    let cancellationWindowHours = 6;
+    if (trialElig.length > 0) {
+      const { data: settings } = await admin
+        .from("booking_settings")
+        .select("cancellation_window_hours")
+        .eq("id", "singleton")
+        .maybeSingle();
+      cancellationWindowHours = settings?.cancellation_window_hours ?? 6;
+    }
+
+    for (const row of trialElig) {
+      const session = Array.isArray(row.session) ? row.session[0] : row.session;
+      if (!session || !row.email || !row.cancel_token) {
+        trialSkipped++;
+        continue;
+      }
+
+      const { error: stampErr } = await admin
+        .from("trial_bookings")
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("reminder_sent_at", null);
+      if (stampErr) {
+        console.error("[cron/send-reminders] trial stamp failed", row.id, stampErr);
+        trialSkipped++;
+        continue;
+      }
+
+      const ct = (Array.isArray(session.class_type)
+        ? session.class_type[0]
+        : session.class_type) as { name: string | null } | null;
+      const tr = (Array.isArray(session.trainer)
+        ? session.trainer[0]
+        : session.trainer) as { display_name: string | null } | null;
+      const times = bookingTimes(row, session);
+
+      await sendTrialBookingReminderEmail({
+        name: row.name,
+        email: row.email,
+        cancelToken: row.cancel_token,
+        // COPY: confirm met Marlon
+        className: ct?.name ?? "Proefles",
+        // COPY: confirm met Marlon
+        trainerName: tr?.display_name ?? "je coach",
+        startAt: new Date(times.startAt),
+        endAt: new Date(times.endAt),
+        isSlot: Boolean(row.slot_start_at),
+        cancellationWindowHours,
+      });
+
+      trialSent++;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     checked: candidates?.length ?? 0,
@@ -371,5 +482,8 @@ export async function GET(req: Request) {
     intakeChecked: intakeCandidates?.length ?? 0,
     intakeSent,
     intakeSkipped,
+    trialChecked: trialCandidates?.length ?? 0,
+    trialSent,
+    trialSkipped,
   });
 }

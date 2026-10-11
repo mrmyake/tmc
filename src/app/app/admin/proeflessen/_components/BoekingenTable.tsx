@@ -147,7 +147,7 @@ export function BoekingenTable({
                     <PhoneLink phone={row.phone} />
                   </td>
                   <td className="py-4 px-4 align-middle">
-                    <BookingKindChip viaCode={row.viaCode} />
+                    <BookingKindChip source={row.source} />
                   </td>
                   <td className="py-4 px-4 align-middle">
                     <BookingStatusChip status={row.status} />
@@ -183,7 +183,7 @@ export function BoekingenTable({
                     <PhoneLink phone={row.phone} />
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <BookingKindChip viaCode={row.viaCode} />
+                    <BookingKindChip source={row.source} />
                     <WhatsAppButton href={row.whatsappHref} name={row.name} />
                   </div>
                 </li>

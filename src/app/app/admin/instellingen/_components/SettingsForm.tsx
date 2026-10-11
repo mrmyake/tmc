@@ -127,6 +127,26 @@ export function SettingsForm({ initial }: SettingsFormProps) {
         </label>
       </Section>
 
+      {/* COPY: confirm met Marlon */}
+      <Section title="Gratis proefles (openingsperiode)">
+        <DateTimeField
+          // COPY: confirm met Marlon
+          label="Gratis vanaf"
+          // COPY: confirm met Marlon
+          hint="Vanaf dit moment toont /proefles de gratis kaart en is de betaalde route uit."
+          value={values.freeTrialStartAt}
+          onChange={(v) => setField("freeTrialStartAt", v)}
+        />
+        <DateTimeField
+          // COPY: confirm met Marlon
+          label="Gratis tot en met"
+          // COPY: confirm met Marlon
+          hint="Daarna staan de drie gewone kaarten er automatisch weer. Beide leeg = geen gratis periode."
+          value={values.freeTrialEndAt}
+          onChange={(v) => setField("freeTrialEndAt", v)}
+        />
+      </Section>
+
       <Section title="No-show beleid">
         <IntField
           label="Strike-venster (dagen)"
@@ -289,6 +309,45 @@ function Section({
         {children}
       </div>
     </section>
+  );
+}
+
+/** ISO-timestamp naar de waarde van een datetime-local-veld, in de klok van de browser. */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Waarde van een datetime-local-veld (klok van de browser) naar ISO; leeg wordt null. */
+function fromLocalInput(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+function DateTimeField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <AdminField label={label} hint={hint}>
+      <AdminInput
+        type="datetime-local"
+        value={toLocalInput(value)}
+        onChange={(e) => onChange(fromLocalInput(e.target.value))}
+        className="tabular-nums"
+      />
+    </AdminField>
   );
 }
 

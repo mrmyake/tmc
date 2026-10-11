@@ -43,6 +43,9 @@
     "test:vrij-trainen": "node --import ./scripts/ts-loader.mjs --test scripts/vrij-trainen/*.test.mts",
     "test:trial-vrij-trainen-db": "scripts/test-trial-vrij-trainen-db.sh",
     "test:trial-vrij-trainen-race": "scripts/test-trial-vrij-trainen-race.sh",
+    "test:opening-trial": "node --import ./scripts/ts-loader.mjs --test scripts/opening-trial/rules.test.mts scripts/opening-trial/trial-core.test.mts && node --import tsx --test scripts/opening-trial/emails.test.mts",
+    "test:opening-trial-db": "scripts/test-opening-trial-db.sh",
+    "test:opening-trial-race": "scripts/test-opening-trial-race.sh",
     "test:session-overrides": "node --import tsx --import ./scripts/session-overrides/hooks.mjs --test scripts/session-overrides/*.test.mts",
     "test:waitlist": "node --import ./scripts/ts-loader.mjs --test scripts/waitlist/waitlist.test.mts",
     "test:waitlist-db": "node --import tsx --import ./scripts/waitlist/hooks.mjs --test scripts/waitlist/waitlist.db.test.mts"

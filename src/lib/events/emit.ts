@@ -116,6 +116,9 @@ export type EventType =
   // Aanwezigheid van een proefles (markTrialAttendance): status attended en terug.
   | "trial_booking.attended"
   | "trial_booking.attendance_reverted"
+  // No-show voor een proefles (handmatig of autoMarkNoShows); in de gratis
+  // openingsperiode telt dat als gebruikte gratis proefles.
+  | "trial_booking.no_show_marked"
   // Proefcodes v2 (src/lib/trial-codes/): de DB-RPC's schrijven
   // trial_code.created/redeemed/revoked/released zelf; alleen de
   // misbruikmelding wordt vanuit TS gelogd.

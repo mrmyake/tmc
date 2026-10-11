@@ -3,7 +3,10 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import TrialCodeConfirmation from "@/emails/trial_code_confirmation";
+import TrialBookingReminder from "@/emails/trial_booking_reminder";
 import TrialBookingCancelledByStudio from "@/emails/trial_booking_cancelled_by_studio";
+import type { TrialBookingSource } from "@/lib/opening-trial/rules";
+import { isMissingColumnError } from "@/lib/supabase/missing-column";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { siteUrl } from "@/lib/site-url";
@@ -36,6 +39,12 @@ export async function sendTrialBookingConfirmationEmail(trial: {
   email: string;
   cancel_token: string;
   price_paid_cents: number;
+  /**
+   * trial_bookings.source. Ontbreekt bij de webhook en de cron (die lezen
+   * de rij niet opnieuw); dan wordt hij hier uit de rij gelezen. "opening"
+   * voegt in de mail de regel over de gratis openingsperiode toe.
+   */
+  source?: TrialBookingSource;
 }): Promise<void> {
   try {
     const admin = createAdminClient();
@@ -73,12 +82,27 @@ export async function sendTrialBookingConfirmationEmail(trial: {
 
     // Een proefuur vrij trainen toont het slot (bv. 18:00 tot 19:00), niet de
     // dagsessie van 07:00 tot 21:00.
-    const { data: slotRow } = await admin
+    // Zonder de kolom source (tot de migratie van de gratis openingsperiode
+    // is gepusht) dezelfde rij zonder die kolom.
+    let slotRes = await admin
       .from("trial_bookings")
-      .select("slot_start_at, slot_end_at")
+      .select("slot_start_at, slot_end_at, source")
       .eq("id", trial.id)
       .maybeSingle();
+    if (slotRes.error && isMissingColumnError(slotRes.error)) {
+      slotRes = await admin
+        .from("trial_bookings")
+        .select("slot_start_at, slot_end_at")
+        .eq("id", trial.id)
+        .maybeSingle();
+    }
+    const slotRow = slotRes.data as
+      | { slot_start_at: string | null; slot_end_at: string | null; source?: string | null }
+      | null;
     const isSlot = Boolean(slotRow?.slot_start_at);
+    const source: TrialBookingSource =
+      trial.source ??
+      (slotRow?.source === "opening" || slotRow?.source === "code" ? slotRow.source : "paid");
     const times = bookingTimes(
       { slot_start_at: slotRow?.slot_start_at, slot_end_at: slotRow?.slot_end_at },
       { start_at: session.start_at, end_at: session.end_at },
@@ -112,7 +136,9 @@ export async function sendTrialBookingConfirmationEmail(trial: {
         cancelUrl,
         cancellationWindowHours,
         variant: isSlot ? "vrij_trainen" : "group",
-        // Gratis via proefcode: geen prijsregel en geen betaalverwijzing.
+        source,
+        // Gratis (code of openingsperiode): geen prijsregel en geen
+        // betaalverwijzing.
         priceLabel:
           trial.price_paid_cents > 0 ? formatPriceEuro(trial.price_paid_cents) : null,
       }),
@@ -123,6 +149,50 @@ export async function sendTrialBookingConfirmationEmail(trial: {
       trial.id,
       err,
     );
+  }
+}
+
+/**
+ * Herinnering een dag van tevoren voor een proefboeking (betaald, via code
+ * of gratis in de openingsperiode), aangeroepen door de send-reminders cron
+ * na de stempel op reminder_sent_at. Geeft terug of MailerSend de mail heeft
+ * aangenomen; nooit throwen.
+ */
+export async function sendTrialBookingReminderEmail(args: {
+  name: string;
+  email: string;
+  cancelToken: string;
+  className: string;
+  trainerName: string;
+  startAt: Date;
+  endAt: Date;
+  isSlot: boolean;
+  cancellationWindowHours: number;
+}): Promise<boolean> {
+  try {
+    const firstName = args.name.split(" ")[0] ?? "";
+    const whenLabel = `${formatWeekdayDate(args.startAt)} · ${formatTimeRange(args.startAt, args.endAt)}`;
+    // COPY: confirm met Marlon
+    const className = args.isSlot ? "Vrij trainen" : args.className;
+    return await sendEmail({
+      to: args.email,
+      toName: firstName,
+      // COPY: confirm met Marlon
+      subject: `Morgen: je proefles ${className}`,
+      react: TrialBookingReminder({
+        firstName,
+        className,
+        // Bij vrij trainen is Marlon er altijd bij (aanwezigheidsvenster).
+        trainerName: args.isSlot ? "Marlon" : args.trainerName,
+        whenLabel,
+        cancelUrl: `${siteUrl()}/proefles/annuleren/${args.cancelToken}`,
+        cancellationWindowHours: args.cancellationWindowHours,
+        variant: args.isSlot ? "vrij_trainen" : "group",
+      }),
+    });
+  } catch (err) {
+    console.error("[trial-booking-email] reminder failed", err);
+    return false;
   }
 }
 

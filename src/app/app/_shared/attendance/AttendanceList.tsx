@@ -31,7 +31,7 @@ import { AvatarBubble } from "./AvatarBubble";
 import { PlanBadge } from "./PlanBadge";
 
 type DirtyMap = Map<string, "attended" | "booked" | "no_show">;
-type TrialDirtyMap = Map<string, "attended" | "paid">;
+type TrialDirtyMap = Map<string, "attended" | "paid" | "no_show">;
 
 export interface AttendanceListProps {
   session: SessionSummary;
@@ -137,12 +137,15 @@ export function AttendanceList({
     const attendedTrials = trials.filter(
       (t) => (trialDirty.get(t.trialBookingId) ?? t.status) === "attended",
     ).length;
+    const noShowTrials = trials.filter(
+      (t) => (trialDirty.get(t.trialBookingId) ?? t.status) === "no_show",
+    ).length;
     const mats = active.filter((p) => p.rentalMat).length;
     const towels = active.filter((p) => p.rentalTowel).length;
     return {
       total: takenCount,
       attended: attendedMembers + attendedGuests + attendedTrials,
-      noShow: noShowMembers + noShowGuests,
+      noShow: noShowMembers + noShowGuests + noShowTrials,
       mats,
       towels,
     };
@@ -201,9 +204,22 @@ export function AttendanceList({
     return trialDirty.get(t.trialBookingId) ?? t.status;
   }
 
+  function trialSettable(t: TrialRow): boolean {
+    return t.status === "paid" || t.status === "attended" || t.status === "no_show";
+  }
+
   function toggleTrialAttended(t: TrialRow) {
-    if (t.status !== "paid" && t.status !== "attended") return;
+    if (!trialSettable(t)) return;
     const next = currentTrialStatus(t) === "attended" ? "paid" : "attended";
+    const copy = new Map(trialDirty);
+    if (next === t.status) copy.delete(t.trialBookingId);
+    else copy.set(t.trialBookingId, next);
+    setTrialDirty(copy);
+  }
+
+  function toggleTrialNoShow(t: TrialRow) {
+    if (!trialSettable(t)) return;
+    const next = currentTrialStatus(t) === "no_show" ? "paid" : "no_show";
     const copy = new Map(trialDirty);
     if (next === t.status) copy.delete(t.trialBookingId);
     else copy.set(t.trialBookingId, next);
@@ -298,11 +314,13 @@ export function AttendanceList({
       const res = await autoMarkNoShows(session.id);
       reflect(res);
       if (res.ok) {
-        // Refetch to keep state canonical.
+        // Refetch to keep state canonical (leden en proefgasten).
         const reload = await loadParticipants(session.id);
         if (reload.ok) {
           setParticipants(reload.participants);
+          setTrials(reload.trials);
           setDirty(new Map());
+          setTrialDirty(new Map());
         }
       }
     });
@@ -631,6 +649,7 @@ export function AttendanceList({
           canManage={canRefund}
           currentStatus={currentTrialStatus}
           onToggleAttended={toggleTrialAttended}
+          onToggleNoShow={toggleTrialNoShow}
           disabled={pending}
         />
       )}
@@ -710,7 +729,8 @@ export function AttendanceList({
           disabled={pending || !sessionEnded}
           title={
             sessionEnded
-              ? "Markeer alle resterende boekingen als no-show"
+              ? // COPY: confirm met Marlon
+                "Markeer alle resterende boekingen en niet-afgevinkte proefgasten als no-show"
               : "Kan pas na einde sessie"
           }
           className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
