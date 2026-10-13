@@ -224,7 +224,7 @@ export function ExerciseSlotForm({
         </div>
         {/* COPY: confirm met Marlon */}
         <p className="text-xs text-text-muted mt-2">
-          X (of 0) betekent explosief.
+          X betekent explosief, 0 betekent 0 seconden.
         </p>
       </div>
 
