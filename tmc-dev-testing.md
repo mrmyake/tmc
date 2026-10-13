@@ -1,6 +1,6 @@
 # TMC Member App — Testen met dummy leden
 
-Korte how-to voor het testen van de member-flows (guest passes, rentals,
+Korte how-to voor het testen van de member-flows (guest passes,
 booking, abonnement) met voorgebakken dummy leden.
 
 ---
@@ -63,21 +63,6 @@ cycle echt is en niet pas na een boeking begint.
 ---
 
 ## Test scenario's
-
-### Rentals (yoga/mobility)
-
-1. Log in als `yoga-unl@tmc.test`.
-2. `/app/rooster` → kies een Vinyasa Yoga of Mobility Reset sessie.
-3. Vink **Yogamat** en **Handdoek** aan in het booking panel.
-4. Boek.
-5. Promoveer je eigen account naar admin, log als admin in.
-6. `/app/admin/rooster` → klik die sessie aan.
-7. Check: "Huur vandaag" strip toont `1 mat · 1 handdoek`, chip op
-   deelnemer zegt **Mat** en **Handdoek**.
-8. Download CSV, check kolommen `Mat` en `Handdoek`.
-
-**Edge case**: boek een kettlebell-sessie — rental-checkboxes horen
-niet te verschijnen (pillar is niet yoga_mobility).
 
 ### Guest-pass happy path
 
@@ -154,10 +139,6 @@ dummy en begint vers.
 **Guest-pass teller klopt niet**  
 Check `public.guest_passes` in Supabase SQL editor — één rij per
 (profile_id, period_start). Re-seed om te resetten.
-
-**Rental checkboxes verschijnen niet**  
-Alleen op sessies met pillar `yoga_mobility`. Check `class_sessions.
-pillar` in SQL editor.
 
 ---
 

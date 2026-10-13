@@ -45,8 +45,6 @@ export function BookingSheet({
 }: BookingSheetProps) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<BookingActionResult | null>(null);
-  const [rentMat, setRentMat] = useState(false);
-  const [rentTowel, setRentTowel] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -57,16 +55,12 @@ export function BookingSheet({
   const lastFocusedRef = useRef<HTMLElement | null>(null);
 
   const open = Boolean(session);
-  const isYogaMobility = session?.pillar === "yoga_mobility";
-
   useEffect(() => {
     if (open && session) {
       lastFocusedRef.current = document.activeElement as HTMLElement;
     } else if (!open) {
       lastFocusedRef.current?.focus?.();
       setResult(null);
-      setRentMat(false);
-      setRentTowel(false);
       setGuestOpen(false);
       setGuestName("");
       setGuestEmail("");
@@ -102,12 +96,7 @@ export function BookingSheet({
     startTransition(async () => {
       let res: BookingActionResult;
       try {
-        res = await createBooking(session.id, {
-          rentals: isYogaMobility
-            ? { mat: rentMat, towel: rentTowel }
-            : undefined,
-          acknowledgeOverCap,
-        });
+        res = await createBooking(session.id, { acknowledgeOverCap });
       } catch {
         // De server action-fetch zelf kan falen (bv. offline in de PWA) —
         // dat is geen `{ ok: false }` van de action maar een thrown
@@ -353,35 +342,6 @@ export function BookingSheet({
                   }
                 />
               </dl>
-
-              {/* Rentals — only for yoga/mobility, only before booking. */}
-              {isYogaMobility && !isBooked && !isWaitlisted && !isFull && (
-                <div className="mb-10 pt-8 border-t border-[color:var(--ink-500)]/60">
-                  <span className="tmc-eyebrow block mb-3">
-                    Wil je iets huren?
-                  </span>
-                  <div className="flex flex-col gap-3">
-                    <RentalCheckbox
-                      label="Yogamat (€2,50)"
-                      checked={rentMat}
-                      onChange={setRentMat}
-                    />
-                    <RentalCheckbox
-                      label="Handdoek (€1,50)"
-                      checked={rentTowel}
-                      onChange={setRentTowel}
-                    />
-                    {rentMat && rentTowel && (
-                      <p className="text-xs text-text-muted">
-                        Combinatie: €3,50
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-muted/80 mt-3 italic">
-                    Verhuur wordt ter plekke afgerekend.
-                  </p>
-                </div>
-              )}
 
               {trainerBio && (
                 <div className="mb-10 pt-8 border-t border-[color:var(--ink-500)]/60">
@@ -681,39 +641,5 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="tmc-eyebrow">{label}</dt>
       <dd className="text-sm">{value}</dd>
     </div>
-  );
-}
-
-function RentalCheckbox({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="inline-flex items-center gap-3 cursor-pointer text-sm text-text">
-      <span
-        className={`w-4 h-4 border flex items-center justify-center transition-colors ${
-          checked
-            ? "border-accent bg-accent"
-            : "border-text-muted/40 bg-transparent"
-        }`}
-        aria-hidden
-      >
-        {checked && (
-          <span className="block w-2 h-2 bg-bg" />
-        )}
-      </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="sr-only"
-      />
-      {label}
-    </label>
   );
 }

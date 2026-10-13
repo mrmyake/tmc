@@ -84,7 +84,7 @@ create or replace function pg_temp.boek(n int, p_session uuid, p_start timestamp
 declare r jsonb;
 begin
   perform pg_temp.als('authenticated', pg_temp.lid(n));
-  r := tmc.book_class_session(p_session, false, false, p_start, p_minutes);
+  r := tmc.book_class_session(p_session, p_start, p_minutes);
   reset role;
   return r;
 end $$;

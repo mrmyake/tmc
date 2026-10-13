@@ -183,8 +183,6 @@ function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
 }
 
 export interface CreateBookingOptions {
-  /** Optional yoga/mobility-only rentals. Ignored on other pillars. */
-  rentals?: { mat?: boolean; towel?: boolean };
   /**
    * Lid heeft de "je zit over je weekcap" dialoog bevestigd. Vallen we in
    * de soft-warning pad terug, dan slaan we die deze keer over en committen
@@ -403,8 +401,6 @@ export async function createBooking(
   // aanroep voor gewone lessen gelijk blijft.
   const rpcResult = await supabase.rpc("book_class_session", {
     p_session_id: sessionId,
-    p_rental_mat: Boolean(options.rentals?.mat),
-    p_rental_towel: Boolean(options.rentals?.towel),
     ...(options.slot
       ? { p_slot_start_at: options.slot.startAt, p_slot_minutes: options.slot.minutes }
       : {}),

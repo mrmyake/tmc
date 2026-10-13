@@ -203,8 +203,6 @@ export type Database = {
           pillar: string
           profile_id: string
           reminder_sent_at: string | null
-          rental_mat: boolean
-          rental_towel: boolean
           session_date: string
           session_id: string
           status: string
@@ -225,8 +223,6 @@ export type Database = {
           pillar: string
           profile_id: string
           reminder_sent_at?: string | null
-          rental_mat?: boolean
-          rental_towel?: boolean
           session_date: string
           session_id: string
           status?: string
@@ -247,8 +243,6 @@ export type Database = {
           pillar?: string
           profile_id?: string
           reminder_sent_at?: string | null
-          rental_mat?: boolean
-          rental_towel?: boolean
           session_date?: string
           session_id?: string
           status?: string
@@ -1704,8 +1698,6 @@ export type Database = {
     Functions: {
       book_class_session: {
         Args: {
-          p_rental_mat?: boolean
-          p_rental_towel?: boolean
           p_session_id: string
         }
         Returns: Json

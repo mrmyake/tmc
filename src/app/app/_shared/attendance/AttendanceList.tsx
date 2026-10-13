@@ -140,20 +140,12 @@ export function AttendanceList({
     const noShowTrials = trials.filter(
       (t) => (trialDirty.get(t.trialBookingId) ?? t.status) === "no_show",
     ).length;
-    const mats = active.filter((p) => p.rentalMat).length;
-    const towels = active.filter((p) => p.rentalTowel).length;
     return {
       total: takenCount,
       attended: attendedMembers + attendedGuests + attendedTrials,
       noShow: noShowMembers + noShowGuests + noShowTrials,
-      mats,
-      towels,
     };
   }, [participants, dirty, guests, guestDirty, trials, trialDirty, takenCount]);
-
-  const showRentals = session.pillar === "yoga_mobility";
-  const hasAnyRentals =
-    showRentals && (stats.mats > 0 || stats.towels > 0);
 
   function currentStatus(p: ParticipantRow): AttendanceStatus {
     return dirty.get(p.bookingId) ?? p.status;
@@ -372,7 +364,6 @@ export function AttendanceList({
       "Geboekt op",
       "Aanwezig sinds",
       "Credits gebruikt",
-      ...(showRentals ? ["Mat", "Handdoek"] : []),
     ];
     const rows = participants.map((p) => [
       `${p.firstName} ${p.lastName}`.trim(),
@@ -381,9 +372,6 @@ export function AttendanceList({
       p.bookedAt,
       p.attendedAt ?? "",
       String(p.creditsUsed ?? 0),
-      ...(showRentals
-        ? [p.rentalMat ? "ja" : "nee", p.rentalTowel ? "ja" : "nee"]
-        : []),
     ]);
     const csv = [headers, ...rows]
       .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -453,21 +441,6 @@ export function AttendanceList({
         </div>
       </div>
 
-      {hasAnyRentals && (
-        <div className="mb-6 pb-5 border-b border-[color:var(--ink-500)]/60 flex flex-wrap items-baseline gap-x-8 gap-y-2">
-          <span className="tmc-eyebrow tmc-eyebrow--accent">Huur vandaag</span>
-          <span className="text-text text-sm">
-            {stats.mats} {stats.mats === 1 ? "mat" : "matten"}
-          </span>
-          <span className="text-text text-sm">
-            {stats.towels} {stats.towels === 1 ? "handdoek" : "handdoeken"}
-          </span>
-          <span className="text-text-muted text-xs">
-            Zet klaar vóór start. Afrekenen bij de balie.
-          </span>
-        </div>
-      )}
-
       {loading && (
         <div className="flex flex-col gap-2 mb-6">
           {[0, 1, 2].map((i) => (
@@ -524,16 +497,6 @@ export function AttendanceList({
                   {p.creditsUsed > 0 && (
                     <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
                       1 credit gebruikt
-                    </span>
-                  )}
-                  {showRentals && p.rentalMat && (
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-accent">
-                      Mat
-                    </span>
-                  )}
-                  {showRentals && p.rentalTowel && (
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-accent">
-                      Handdoek
                     </span>
                   )}
                 </div>
