@@ -63,8 +63,9 @@ export default function GuestConfirmation({
           margin: "0 0 28px 0",
         }}
       >
-        Kom tien minuten eerder zodat je rustig kunt omkleden. Voor yoga of
-        mobility-sessies is er mat en handdoek te huren aan de balie.
+        {/* COPY: confirm met Marlon */}
+        Kom tien minuten eerder zodat je rustig kunt omkleden. Yogamatjes liggen
+        gratis voor je klaar. Neem wel je eigen handdoek mee.
       </Text>
 
       <Button
