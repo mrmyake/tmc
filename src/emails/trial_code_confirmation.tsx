@@ -19,8 +19,8 @@ export interface TrialCodeConfirmationProps {
    */
   priceLabel?: string | null;
   /**
-   * "vrij_trainen" voor een proefuur vrij trainen (andere meeneemregel, geen
-   * huur van mat en handdoek); standaard de groepsles-variant.
+   * "vrij_trainen" voor een proefuur vrij trainen (andere meeneemregel);
+   * standaard de groepsles-variant.
    */
   variant?: "group" | "vrij_trainen";
   /**
@@ -111,7 +111,7 @@ export default function TrialCodeConfirmation({
           ? // COPY: confirm met Marlon
             "Kom tien minuten eerder zodat je rustig kunt omkleden. Neem sportkleding, schone schoenen en een eigen handdoek mee; matten en materiaal zijn aanwezig."
           : // COPY: confirm met Marlon
-            "Kom tien minuten eerder zodat je rustig kunt omkleden. Voor yoga of mobility-sessies is er mat en handdoek te huren aan de balie."}
+            "Kom tien minuten eerder zodat je rustig kunt omkleden. Yogamatjes liggen gratis voor je klaar. Neem wel je eigen handdoek mee."}
       </Text>
 
       <Button
