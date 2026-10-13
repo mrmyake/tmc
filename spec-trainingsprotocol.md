@@ -145,3 +145,9 @@ Volgorde is strikt: 1 → 2 → 3 → 4 → 5. PR 3 is het eerste moment waarop 
 - Templates/hergebruik van schema's tussen klanten (beslist in intake: elk schema is uniek).
 - Entitlement-koppeling aan PT of 12-wekentraject: Marlon bepaalt in de praktijk wie een schema krijgt.
 - Video's/instructies per oefening: kolom `video_url` bestaat alvast, UI en content later.
+
+---
+
+## Ledger
+
+- **PR #287 (2026-10-13)**: tempo X en 0 gescheiden (X opgeslagen als `-1`, `TEMPO_EXPLOSIVE` in `src/lib/training-tempo.ts`) en slots verruimd tot A1 t/m G2 (max 14 per dag) via `src/lib/training-slots.ts`; migratie `20261013120000` zet de tempo-checks op `>= -1`, de slot-check op `^[A-G][12]$` en converteert bestaande nullen in excentrisch en concentrisch naar -1. Bewust niet aangeraakt: `duplicate_training_program` en `log_set` (kopieren of lezen de kolommen zonder te rekenen), de pauzevelden bij de conversie, en `20260503`.
