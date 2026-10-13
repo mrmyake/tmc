@@ -1,12 +1,16 @@
 /**
  * Tempo-notatie voor trainingsschema's (spec-trainingsprotocol.md,
  * besluit 3): vier losse velden (excentrisch, pauze onder, concentrisch,
- * pauze boven), opgeslagen als integers; 0 betekent explosief en wordt
- * overal als "X" getoond, bv. "41X0".
+ * pauze boven), opgeslagen als integers. X (explosief) wordt opgeslagen
+ * als TEMPO_EXPLOSIVE (-1); 0 is letterlijk 0 seconden (bv. geen pauze).
+ * Nieuwe consumenten lezen tempo altijd via deze module, nooit rechtstreeks
+ * als seconden.
  */
 
+export const TEMPO_EXPLOSIVE = -1;
+
 export function tempoDigit(value: number): string {
-  return value === 0 ? "X" : String(value);
+  return value === TEMPO_EXPLOSIVE ? "X" : String(value);
 }
 
 export function tempoNotation(
@@ -21,20 +25,28 @@ export function tempoNotation(
 }
 
 /**
- * Invoer in de builder accepteert zowel cijfers als X (hoofdletter-
+ * Invoer in de builder accepteert cijfers 0 t/m 20 en X (hoofdletter-
  * ongevoelig). Geeft null terug bij ongeldige invoer.
  */
 export function parseTempoInput(raw: string): number | null {
   const v = raw.trim();
   if (v === "") return null;
-  if (v.toUpperCase() === "X") return 0;
+  if (v.toUpperCase() === "X") return TEMPO_EXPLOSIVE;
   if (!/^\d{1,2}$/.test(v)) return null;
-  return Number(v);
+  const n = Number(v);
+  return n <= 20 ? n : null;
 }
 
 // COPY: confirm met Marlon
-function secondsPhrase(value: number, zeroWord: string, unit: string): string {
-  return value === 0 ? zeroWord : `${value} sec ${unit}`;
+function secondsPhrase(
+  value: number,
+  explosiveWord: string,
+  zeroWord: string,
+  unit: string,
+): string {
+  if (value === TEMPO_EXPLOSIVE) return explosiveWord;
+  if (value === 0) return zeroWord;
+  return `${value} sec ${unit}`;
 }
 
 /**
@@ -49,9 +61,9 @@ export function tempoPlainLanguage(
   pauseTop: number,
 ): string {
   return [
-    secondsPhrase(eccentric, "explosief zakken", "zakken"),
-    secondsPhrase(pauseBottom, "geen pauze onder", "pauze onder"),
-    secondsPhrase(concentric, "explosief omhoog", "omhoog"),
-    secondsPhrase(pauseTop, "geen pauze boven", "pauze boven"),
+    secondsPhrase(eccentric, "explosief zakken", "0 sec zakken", "zakken"),
+    secondsPhrase(pauseBottom, "explosief", "geen pauze onder", "pauze onder"),
+    secondsPhrase(concentric, "explosief omhoog", "0 sec omhoog", "omhoog"),
+    secondsPhrase(pauseTop, "explosief", "geen pauze boven", "pauze boven"),
   ].join(", ");
 }

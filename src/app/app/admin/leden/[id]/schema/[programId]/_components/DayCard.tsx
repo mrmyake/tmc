@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin/training-programs-actions";
 import { AdminInput } from "@/components/ui/AdminField";
 import { tempoNotation } from "@/lib/training-tempo";
+import { ALL_SLOTS } from "@/lib/training-slots";
 import { ExerciseSlotForm } from "./ExerciseSlotForm";
 import type { ExerciseOption } from "./ProgramBuilder";
 
@@ -231,7 +232,7 @@ export function DayCard({ day, editable, exerciseOptions }: Props) {
           />
         )}
 
-        {editable && !showForm && day.exercises.length < 10 && (
+        {editable && !showForm && day.exercises.length < ALL_SLOTS.length && (
           <button
             type="button"
             onClick={() => setAddingExercise(true)}

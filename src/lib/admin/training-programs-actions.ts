@@ -3,14 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
+import { ALL_SLOTS, FIRST_SLOT, LAST_SLOT } from "@/lib/training-slots";
+import { TEMPO_EXPLOSIVE } from "@/lib/training-tempo";
 
 export type ProgramActionResult =
   | { ok: true; message: string; id?: string }
   | { ok: false; message: string };
-
-const SLOTS = [
-  "A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2", "E1", "E2",
-] as const;
 
 function revalidateFor(profileId: string, programId?: string) {
   revalidatePath(`/app/admin/leden/${profileId}`);
@@ -344,8 +342,8 @@ function validateExerciseInput(
   input: SaveExerciseInput,
 ): { ok: true } | { ok: false; message: string } {
   // COPY: confirm met Marlon (alle meldingen hieronder)
-  if (!(SLOTS as readonly string[]).includes(input.slot)) {
-    return { ok: false, message: "Kies een geldig slot (A1 t/m E2)." };
+  if (!ALL_SLOTS.includes(input.slot)) {
+    return { ok: false, message: `Kies een geldig slot (${FIRST_SLOT} t/m ${LAST_SLOT}).` };
   }
   if (!input.exerciseId) {
     return { ok: false, message: "Kies een oefening." };
@@ -370,10 +368,15 @@ function validateExerciseInput(
     input.tempoConcentric,
     input.tempoPauseTop,
   ];
-  if (tempos.some((t) => !Number.isInteger(t) || t < 0 || t > 20)) {
+  if (
+    tempos.some(
+      (t) =>
+        t !== TEMPO_EXPLOSIVE && (!Number.isInteger(t) || t < 0 || t > 20),
+    )
+  ) {
     return {
       ok: false,
-      message: "Tempo: hele seconden van 0 t/m 20 (0 telt als X, explosief).",
+      message: "Tempo: hele seconden van 0 t/m 20, of X voor explosief.",
     };
   }
   if (

@@ -4,7 +4,7 @@
 
 **DECIDED (2026-07-04), klaar als implementatieprompts, één per PR.** Alle open punten uit de intake zijn opgelost, zie decision log onderaan. Enige resterende punt is copy (routenaam en tempoweergave in begrijpelijke taal), dat volgt het standaardpatroon: tijdens implementatie draften en flaggen met `// COPY: confirm met Marlon`.
 
-Doel: Marlon kan per klant een trainingsprotocol maken en bijhouden (het Overload-model: dagen, supersets A1/A2 t/m E1/E2, sets, rep-range, tempo, rust). De klant ziet zijn actieve schema in de app en logt per workout gewicht en reps per set. Marlon ziet de historie en stuurt bij.
+Doel: Marlon kan per klant een trainingsprotocol maken en bijhouden (het Overload-model: dagen, supersets A1/A2 t/m G1/G2, sets, rep-range, tempo, rust). De klant ziet zijn actieve schema in de app en logt per workout gewicht en reps per set. Marlon ziet de historie en stuurt bij.
 
 ---
 
@@ -64,14 +64,14 @@ Versie-flow: Marlon bewerkt een `draft` vrij. Activeren zet een eventueel bestaa
 |---|---|---|
 | `id` | uuid pk | |
 | `day_id` | uuid fk | |
-| `slot` | text | check `slot ~ '^[A-E][12]$'`, uniek per dag; max 10 oefeningen per dag volgt hieruit vanzelf |
+| `slot` | text | check `slot ~ '^[A-G][12]$'`, uniek per dag; max 14 oefeningen per dag volgt hieruit vanzelf (was A t/m E en 10, verruimd in de tempo/slots-PR) |
 | `exercise_id` | uuid fk exercises | |
 | `sets` | int | |
 | `reps_min` / `reps_max` | int | |
-| `tempo_eccentric` | int | seconden omlaag |
-| `tempo_pause_bottom` | int | |
-| `tempo_concentric` | int | seconden omhoog; **0 = explosief, overal getoond als "X"** (bv. "41X0"). Geldt voor elk tempo-veld, invoer in de builder accepteert zowel 0 als X |
-| `tempo_pause_top` | int | |
+| `tempo_eccentric` | int | seconden omlaag; `-1` = X (explosief) |
+| `tempo_pause_bottom` | int | seconden; `-1` = X, `0` = geen pauze |
+| `tempo_concentric` | int | seconden omhoog; **`-1` = explosief, overal getoond als "X"** (bv. "20X0"); `0` is letterlijk 0 seconden. Geldt voor elk tempo-veld; de builder accepteert cijfers 0 t/m 20 en X, en alle code leest tempo via `src/lib/training-tempo.ts` (`TEMPO_EXPLOSIVE`) |
+| `tempo_pause_top` | int | seconden; `-1` = X, `0` = geen pauze |
 | `rest_seconds` | int | |
 | `notes` | text null | per-oefening aanwijzing van Marlon |
 
@@ -116,7 +116,7 @@ Uniek: `(session_id, program_exercise_id, set_number)`.
 Migratie met alle zes tabellen (logging-tabellen meteen mee, dan is het schema in één keer compleet en getest). Admin cockpit scherm "Oefeningen": lijst, toevoegen, hernoemen, deactiveren. Seed met de oefeningen uit het huidige Overload-schema.
 
 ### PR 2: programma-builder (admin)
-Nieuw cockpit-scherm per klant (ingang via bestaande member-detailpagina): schema aanmaken, dagen toevoegen, oefeningen in slots plaatsen met sets/reps/tempo/rust, draft opslaan, activeren. Dupliceren-naar-nieuwe-versie knop op een actief schema. Versie-historie per klant zichtbaar voor Marlon (gearchiveerde versies read-only inzien). Tempo-invoer als 4 velden met live preview in "41X0" notatie (0 wordt als X getoond).
+Nieuw cockpit-scherm per klant (ingang via bestaande member-detailpagina): schema aanmaken, dagen toevoegen, oefeningen in slots plaatsen met sets/reps/tempo/rust, draft opslaan, activeren. Dupliceren-naar-nieuwe-versie knop op een actief schema. Versie-historie per klant zichtbaar voor Marlon (gearchiveerde versies read-only inzien). Tempo-invoer als 4 velden met live preview in "41X0" notatie (X en 0 blijven gescheiden: X wordt als `-1` opgeslagen).
 
 ### PR 3: klant-view (member app, read-only)
 Nieuwe route `/app/schema` (of `/app/training`, copy check): toont het actieve schema per dag, met tempo uitgeschreven in begrijpelijke taal naast de "4140" notatie (bv. "4 sec zakken, 1 sec pauze, explosief omhoog"). Geen schema = vriendelijke lege staat. `// COPY: confirm met Marlon` op alle teksten.
@@ -135,7 +135,7 @@ Volgorde is strikt: 1 → 2 → 3 → 4 → 5. PR 3 is het eerste moment waarop 
 
 1. **PDF-export: nee.** Het schema leeft in de app; geen export-PR.
 2. **Routenaam en tempoweergave in begrijpelijke taal: copy-beslissing voor Marlon**, tijdens implementatie draften en flaggen met `// COPY: confirm met Marlon`. Werknaam in deze spec: `/app/schema`.
-3. **Explosief tempo: ja**, opslaan als 0, overal tonen als "X" (bv. "41X0"). Builder accepteert beide invoervormen.
+3. **Explosief tempo: ja**, opslaan als `-1` (`TEMPO_EXPLOSIVE`), overal tonen als "X" (bv. "20X0"). `0` blijft 0 seconden (bv. geen pauze), X en 0 zijn gescheiden. Eerder (2026-07-04) opgeslagen als 0; omgezet in de tempo/slots-PR (bestaande nullen in excentrisch en concentrisch werden -1, pauzevelden bleven 0).
 4. **Zichtbaarheid oude versies: klant ziet alleen het actieve schema.** Marlon ziet in de cockpit de volledige versie-historie per klant. Log-historie blijft voor de klant zelf altijd zichtbaar, ook tegen gearchiveerde versies.
 5. **RPE: weglaten.** Later toe te voegen als nullable kolom op `set_logs` zonder migratie-pijn.
 

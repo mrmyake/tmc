@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 import type { ProgramExerciseRow } from "@/lib/admin/training-programs-query";
 import { saveProgramExercise } from "@/lib/admin/training-programs-actions";
 import { AdminField, AdminInput, AdminSelect } from "@/components/ui/AdminField";
+import { ALL_SLOTS, FIRST_SLOT } from "@/lib/training-slots";
 import { parseTempoInput, tempoDigit, tempoNotation } from "@/lib/training-tempo";
 import type { ExerciseOption } from "./ProgramBuilder";
 
-const ALL_SLOTS = [
-  "A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2", "E1", "E2",
-] as const;
 
 interface Props {
   dayId: string;
@@ -32,7 +30,7 @@ export function ExerciseSlotForm({
   const [error, setError] = useState<string | null>(null);
 
   const freeSlots = ALL_SLOTS.filter((s) => !takenSlots.includes(s));
-  const [slot, setSlot] = useState(existing?.slot ?? freeSlots[0] ?? "A1");
+  const [slot, setSlot] = useState(existing?.slot ?? freeSlots[0] ?? FIRST_SLOT);
   const [exerciseId, setExerciseId] = useState(existing?.exerciseId ?? "");
   const [sets, setSets] = useState(String(existing?.sets ?? 3));
   const [repsMin, setRepsMin] = useState(String(existing?.repsMin ?? 8));
