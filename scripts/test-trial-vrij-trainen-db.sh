@@ -143,7 +143,7 @@ begin
   for i in 1..2 loop
     perform set_config('request.jwt.claims', json_build_object('sub', 'a9000000-0000-4000-8000-0000000000' || lpad(i::text, 2, '0'), 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
-    v := tmc.book_class_session('d9000000-0000-4000-8000-000000000004', false, false, pg_temp.slot(pg_temp.nm(), '10:00'), 60);
+    v := tmc.book_class_session('d9000000-0000-4000-8000-000000000004', pg_temp.slot(pg_temp.nm(), '10:00'), 60);
     execute 'reset role';
     if not (v ->> 'ok')::boolean then raise exception 'lid % kon niet boeken: %', i, v; end if;
   end loop;
@@ -167,7 +167,7 @@ select tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000004', 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a9000000-0000-4000-8000-000000000005","role":"authenticated"}', true) is not null as _;
 select pg_temp.check_('een lid krijgt slot_full op het volle kwartier',
-  tmc.book_class_session('d9000000-0000-4000-8000-000000000004', false, false, pg_temp.slot(pg_temp.nm(), '10:00'), 60) ->> 'reason' = 'slot_full');
+  tmc.book_class_session('d9000000-0000-4000-8000-000000000004', pg_temp.slot(pg_temp.nm(), '10:00'), 60) ->> 'reason' = 'slot_full');
 select pg_temp.check_('vrij_trainen_availability voor leden: booked 5, available 0 om 10:00',
   (select booked = 5 and available = 0 from tmc.vrij_trainen_availability(pg_temp.nm()::date) where quarter_start = pg_temp.slot(pg_temp.nm(), '10:00')));
 select pg_temp.check_('vrij_trainen_availability voor leden: 18:00 heeft 1 proefbezoeker',

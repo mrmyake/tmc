@@ -56,7 +56,7 @@ boek_sql() {
 set role authenticated;
 select set_config('request.jwt.claims',
   json_build_object('sub', 'a8000000-0000-4000-8000-0000000000$(printf %02d "$n")', 'role', 'authenticated')::text, false);
-select tmc.book_class_session('d8000000-0000-4000-8000-000000000001', false, false,
+select tmc.book_class_session('d8000000-0000-4000-8000-000000000001',
   ((current_date + 4)::text || ' $hhmm')::timestamp at time zone 'Europe/Amsterdam', $minutes) ->> 'reason';
 SQL
 }

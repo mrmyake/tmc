@@ -69,7 +69,7 @@ lid_sql() {
 set role authenticated;
 select set_config('request.jwt.claims',
   json_build_object('sub', 'a7000000-0000-4000-8000-0000000000$(printf %02d "$n")', 'role', 'authenticated')::text, false) is not null;
-select coalesce(tmc.book_class_session('$SID', false, false, ('$DAY $hhmm')::timestamp at time zone 'Europe/Amsterdam', 60) ->> 'reason', 'ok');
+select coalesce(tmc.book_class_session('$SID', ('$DAY $hhmm')::timestamp at time zone 'Europe/Amsterdam', 60) ->> 'reason', 'ok');
 SQL
 }
 # Proefbezoeker k boekt hetzelfde uur via redeem_trial_code (service-role-pad).

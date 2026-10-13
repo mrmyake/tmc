@@ -196,7 +196,7 @@ Gegroepeerd naar functie. De ACL-kolom is samengevat: "auth" betekent `EXECUTE` 
 
 | RPC | Args (kort) | ACL | Aangeroepen vanuit |
 |---|---|---|---|
-| `book_class_session` | session, rental_mat, rental_towel | auth | `createBooking` |
+| `book_class_session` | session, slot_start_at, slot_minutes | auth | `createBooking` |
 | `cancel_class_booking` | booking | auth | `cancelBooking` |
 | `book_guest_session` | session, guest_pass, naam, e-mail | auth | `bookGuest` |
 | `request_membership_cancellation` | membership | auth | `requestMembershipCancellation` |
