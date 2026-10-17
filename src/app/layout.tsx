@@ -76,8 +76,9 @@ export async function generateMetadata(): Promise<Metadata> {
       default: "The Movement Club | Boutique Training Studio Loosdrecht",
       template: "%s | The Movement Club",
     },
+    // COPY: confirm met Marlon
     description:
-      "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je gratis proefles.",
+      "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength. Boek je proefles.",
     metadataBase: new URL(SITE_URL),
     openGraph: {
       type: "website",

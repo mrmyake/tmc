@@ -1,38 +1,33 @@
 import type { Metadata } from "next";
-import { getOpeningTrialPeriod } from "@/lib/opening-trial/period";
-import { isOpeningPeriodActive } from "@/lib/opening-trial/rules";
 import { resolveAttribution } from "@/lib/attribution/params";
 import { ProeflesChoice } from "./ProeflesChoice";
 
+// COPY: confirm met Marlon
+// Title zonder merknaam: de layout-template (%s | The Movement Club) voegt die toe.
 export const metadata: Metadata = {
-  title: "Boek een Proefles | Gratis & Vrijblijvend",
+  title: "Boek een Proefles",
   description:
-    "Boek een gratis proefles bij The Movement Club in Loosdrecht. Ervaar onze boutique studio en persoonlijke aanpak. Vrijblijvend en zonder verplichtingen.",
+    "Maak kennis met The Movement Club in Loosdrecht. Boek een proefles, gebruik je proefcode of laat je bellen door Marlon.",
   alternates: { canonical: "/proefles" },
   openGraph: {
-    title: "Boek een Proefles | Gratis & Vrijblijvend | The Movement Club",
+    title: "Boek een Proefles | The Movement Club",
     description:
-      "Boek een gratis proefles bij The Movement Club in Loosdrecht. Ervaar onze boutique studio en persoonlijke aanpak.",
+      "Maak kennis met The Movement Club in Loosdrecht. Boek een proefles, gebruik je proefcode of laat je bellen door Marlon.",
   },
 };
 
-// Datumgestuurd: de kaarten volgen de gratis openingsperiode uit
-// tmc.booking_settings, dus geen statische render en geen deploy om te
-// wisselen (spec-community-growth.md par. 1 "Gratis openingsperiode").
+// Dynamisch vanwege de campagneparameters in searchParams. De gratis
+// openingsperiode speelt hier geen rol: die loopt alleen via /proefles/gratis
+// (spec-community-growth.md par. 1 "Gratis openingsperiode").
 export const dynamic = "force-dynamic";
 
 export default async function ProeflesPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [period, sp] = await Promise.all([getOpeningTrialPeriod(), props.searchParams]);
+  const sp = await props.searchParams;
   // Advertentie- en campagneparameters uit de URL (spec-marketing-attribution.md):
   // alleen gelezen en als props doorgegeven; de kaarten dragen ze mee in hun
   // links. Zonder parameters een leeg object en schone links.
   const attribution = resolveAttribution(sp, "/proefles");
-  return (
-    <ProeflesChoice
-      freePeriodActive={isOpeningPeriodActive(period)}
-      attribution={attribution}
-    />
-  );
+  return <ProeflesChoice attribution={attribution} />;
 }
