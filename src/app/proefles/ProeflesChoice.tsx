@@ -129,7 +129,8 @@ export function ProeflesChoice({
                 className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent"
               />
               <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
-                Gratis · Vrijblijvend
+                {/* COPY: confirm met Marlon */}
+                Vrijblijvend
               </span>
               <h2 className="text-2xl font-medium text-text mb-4 tracking-[-0.01em]">
                 {/* COPY: confirm with Marlon */}

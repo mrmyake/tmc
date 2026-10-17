@@ -75,15 +75,17 @@ export function ProeflesContent({ attribution = {} }: { attribution?: Attributio
             <ScrollReveal>
               <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
                 <span aria-hidden className="w-12 h-px bg-accent" />
-                Gratis · Vrijblijvend
+                {/* COPY: confirm met Marlon */}
+                Vrijblijvend
                 <span aria-hidden className="w-12 h-px bg-accent" />
               </span>
               <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-text mb-8 leading-[1.05] tracking-[-0.02em]">
                 Ervaar The Movement Club
               </h1>
               <p className="text-text-muted text-lg leading-relaxed mb-10">
-                Benieuwd of The Movement Club bij je past? Plan een gratis
-                proefles en ontdek het zelf. Geen verplichtingen, geen
+                {/* COPY: confirm met Marlon */}
+                Benieuwd of The Movement Club bij je past? Plan een moment dat
+                bij je past en ontdek het zelf. Geen verplichtingen, geen
                 verkooppraatje, gewoon een goede training.
               </p>
               <ul className="border-y border-bg-subtle divide-y divide-bg-subtle">
@@ -214,7 +216,8 @@ export function ProeflesContent({ attribution = {} }: { attribution?: Attributio
                     Plan mijn proefles
                   </Button>
                   <p className="text-text-muted text-xs text-center pt-2">
-                    Vrijblijvend en gratis. We nemen binnen 24 uur contact op.
+                    {/* COPY: confirm met Marlon */}
+                    Vrijblijvend. We nemen binnen 24 uur contact op.
                   </p>
                 </form>
               </div>

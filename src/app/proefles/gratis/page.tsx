@@ -10,7 +10,8 @@ import { resolveAttribution, withAttribution } from "@/lib/attribution/params";
 import { OpeningTrialFlow } from "./OpeningTrialFlow";
 
 export const metadata: Metadata = {
-  title: "Gratis proefles in onze openingsperiode | The Movement Club",
+  // Zonder merknaam: de layout-template voegt "| The Movement Club" toe.
+  title: "Gratis proefles in onze openingsperiode",
   description:
     "Boek een gratis proefles bij The Movement Club in Loosdrecht: een groepsles of een uur vrij trainen, zolang onze openingsperiode loopt.",
   // Alleen voor campagneverkeer: niet indexeren, niet in de sitemap, nergens
