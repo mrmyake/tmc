@@ -34,6 +34,8 @@ export interface PrijzenPricing {
   commit24mDiscountPercent: number | null;
   dropInCents: number | null;
   tenRideCardCents: number | null;
+  /** validity_months van ten_ride_card uit tmc.catalogue; null als de rij er geen heeft. */
+  tenRideCardValidityMonths: number | null;
   ptSingleCents: number | null;
   ptCardCents: number | null;
   ptCardCredits: number | null;
@@ -575,9 +577,12 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                 {/* COPY: confirm met Marlon */}
                 <span className="text-text">
                   10-rittenkaart
-                  <span className="block text-text-muted text-xs mt-0.5">
-                    4 maanden geldig
-                  </span>
+                  {pricing.tenRideCardValidityMonths !== null && (
+                    <span className="block text-text-muted text-xs mt-0.5">
+                      {/* COPY: confirm met Marlon */}
+                      {pricing.tenRideCardValidityMonths} maanden geldig
+                    </span>
+                  )}
                 </span>
                 <span className="text-right">
                   <span className="font-[family-name:var(--font-playfair)] text-lg text-text">

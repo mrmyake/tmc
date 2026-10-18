@@ -46,6 +46,7 @@ async function getPricing(): Promise<PrijzenPricing> {
 
   const allAccessUnl = catalogue.get("all_inclusive_unl");
   const signupFee = catalogue.get("signup_fee");
+  const tenRideCard = catalogue.get("ten_ride_card");
   const ptCard = catalogue.get("pt_10");
   const duoCard = catalogue.get("duo_10");
 
@@ -70,6 +71,9 @@ async function getPricing(): Promise<PrijzenPricing> {
     commit24mDiscountPercent: commit24mDiscountPercent(catalogue.get("groepslessen_2x")),
     dropInCents: price("drop_in"),
     tenRideCardCents: price("ten_ride_card"),
+    // Geldigheid komt uit dezelfde catalogue-rij; geen hardcoded fallback,
+    // bij null laat PrijzenContent de geldigheidsregel weg.
+    tenRideCardValidityMonths: tenRideCard?.validity_months ?? null,
     ptSingleCents: price("pt_single"),
     ptCardCents: ptCard?.price_cents ?? null,
     ptCardCredits: ptCard?.credits ?? null,
