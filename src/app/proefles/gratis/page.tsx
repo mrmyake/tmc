@@ -10,17 +10,22 @@ import { resolveAttribution, withAttribution } from "@/lib/attribution/params";
 import { OpeningTrialFlow } from "./OpeningTrialFlow";
 
 export const metadata: Metadata = {
-  title: "Gratis proefles in onze openingsperiode | The Movement Club",
+  // Zonder merknaam: de layout-template voegt "| The Movement Club" toe.
+  title: "Gratis proefles in onze openingsperiode",
   description:
     "Boek een gratis proefles bij The Movement Club in Loosdrecht: een groepsles of een uur vrij trainen, zolang onze openingsperiode loopt.",
+  // Alleen voor campagneverkeer: niet indexeren, niet in de sitemap, nergens
+  // intern gelinkt. De zelf-canonical blijft: zonder valt Next terug op de
+  // canonical van de layout (de homepage).
   alternates: { canonical: "/proefles/gratis" },
+  robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
 
 /**
  * Gratis proefles in de openingsperiode (spec-community-growth.md par. 1
- * "Gratis openingsperiode"). Datumgestuurd: buiten de periode uit
+ * "Gratis openingsperiode"), alleen bereikbaar via advertenties. Datumgestuurd: buiten de periode uit
  * tmc.booking_settings stuurt deze pagina terug naar /proefles (dat dan weer
  * de drie gewone kaarten toont). Twee takken via ?soort=: groepsles (de
  * sessielijst van de betaalde flow zonder prijzen, beperkt tot lessen met een
