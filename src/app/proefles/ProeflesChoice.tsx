@@ -101,7 +101,7 @@ export function ProeflesChoice({
               </span>
               <h2 className="text-2xl font-medium text-text mb-4 tracking-[-0.01em]">
                 {/* COPY: confirm met Marlon */}
-                Ik heb een proefcode
+                Ik heb een code
               </h2>
               <p className="text-text-muted text-sm leading-relaxed mb-6">
                 {/* COPY: confirm met Marlon */}

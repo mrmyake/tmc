@@ -57,7 +57,7 @@ Covers three build-from-scratch-or-partial workstreams (trial booking, attendanc
 
 ### Proefcodes (v2, `20260928130000_trial_codes_v2.sql`)
 
-`/proefles` toont drie gelijkwaardige kaarten (`ProeflesChoice.tsx`, op mobiel onder elkaar, op desktop naast elkaar): **Boek nu je proefles** (`/proefles/boeken`, drop-in-prijs uit `tmc.catalogue` betalen via Mollie, zonder codeveld), **Ik heb een proefcode** (`/proefles/code`, gratis) en **Liever gebeld worden** (het terugbelformulier, zie hieronder). De betaalde route kent geen proefcode meer.
+`/proefles` toont drie gelijkwaardige kaarten (`ProeflesChoice.tsx`, op mobiel onder elkaar, op desktop naast elkaar): **Boek nu je proefles** (`/proefles/boeken`, drop-in-prijs uit `tmc.catalogue` betalen via Mollie, zonder codeveld), **Ik heb een code** (`/proefles/code`, gratis) en **Liever gebeld worden** (het terugbelformulier, zie hieronder). De betaalde route kent geen proefcode meer.
 
 ### Proefles-aanvragen (terugbelformulier, `20261004120000_trial_requests.sql`)
 
