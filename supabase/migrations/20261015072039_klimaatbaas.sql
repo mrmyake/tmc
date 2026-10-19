@@ -1,0 +1,12 @@
+-- NO-OP placeholder. Niet verwijderen, niet hernoemen.
+--
+-- De remote migratie-historie van het gedeelde Supabase-project
+-- (xoivleieyfcxcfawgveh) bevat de versie 20261015072039 met de naam
+-- klimaatbaas. De echte migratie hoort bij het klimaatbaas-project, dat
+-- dezelfde database deelt; zij maakt het schema klimaatbaas aan en raakt
+-- schema tmc niet.
+--
+-- De Supabase CLI eist dat elke remote versie een lokaal bestand heeft,
+-- anders weigert supabase db push vanuit deze repo. Dit bestand bevat
+-- daarom bewust geen SQL-statements en wordt nooit uitgevoerd: de versie
+-- staat remote al als toegepast. Zelfde patroon als 20260503_gallery.sql.
