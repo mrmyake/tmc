@@ -128,6 +128,10 @@ export type EventType =
   | "trial_booking.refund_failed"
   | "payment.refund_created"
   | "payment.refunded"
+  // Chargeback-spiegel (src/lib/chargebacks/): een storno op een betaling
+  // en de terugdraaiing ervan door de bank. dedupe_key = "<payment_id>:<chargeback_id>".
+  | "payment.charged_back"
+  | "payment.chargeback_reversed"
   | "member.milestone_reached"
   // Deurtoegang (Akiles, spec-akiles-access.md; src/lib/access/)
   | "access.granted"

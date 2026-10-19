@@ -1031,6 +1031,42 @@ Zie sectie 6 van het discovery-rapport en de bevinding in 4.8. Het pad:
 6. De omzetrapportage trekt het terugbetaalde bedrag af in de periode van de refund, niet
    in de periode van de oorspronkelijke betaling. Zie 7.4.
 
+**Chargebacks (storno door de bank), de tegenhanger van dit pad** (branch
+`fix/mollie-chargeback-handling`, `src/lib/chargebacks/`). Een SEPA-storno gedraagt zich in
+API v2 precies als een refund: Mollie roept de webhook van de betaling aan met alleen het
+payment-id, de payment blijft `paid` en alleen `amountChargedBack` wordt gevuld (bij een
+reversal door de bank verdwijnt het veld weer). De chargeback zelf is een eigen resource
+(`chb_...`, met `reason.code` zoals MD06 en `reversedAt`), op te halen via
+`paymentChargebacks.page`. Het pad:
+
+1. De webhook (hoofdroute en proefles-route) schrijft of leest de payments-rij en geeft die
+   met `payment.amountChargedBack` aan `syncPaymentChargebacksFromMollie`.
+2. De spiegel is `payments.charged_back_amount_cents` plus `charged_back_at`; `status`
+   blijft `paid`. De poort voor alle bijwerkingen is een compare-and-swap van het oude naar
+   het nieuwe bedrag op de rij zelf: een herhaalde webhook ziet hetzelfde bedrag en doet
+   niets, twee gelijktijdige webhooks winnen er precies een. Pas daarna vuurt
+   `payment.charged_back` (`dedupe_key` = `<payment_id>:<chargeback_id>`).
+3. Recurring betalingen en de eerste betaling van een abonnement (`sequenceType` `first` op
+   een order met membership) worden behandeld als een mislukte incasso: membership van
+   `active` naar `payment_failed`, dezelfde mail en push naar het lid en dezelfde ntfy als
+   bij `failed`, event `membership.payment_failed` met `reason: "chargeback"`,
+   `chargeback_id` en `reason_code`. Staat de membership niet op `active`, dan wel spiegel,
+   event en ntfy, geen ledenmail. De staf-ntfy noemt de SEPA-reden en waarschuwt bij MD01 en
+   MD06 dat Mollie de subscription na drie storno's zelf annuleert zonder ons te
+   informeren (en bij AC01, AC04, AC06 en MD07 direct). Akiles volgt het bestaande
+   `payment_failed`-gedrag: de deur blijft open.
+4. Alle andere betalingen (product, PT-boeking, PT-order, proefles): alleen spiegel, event
+   en een ntfy aan de staf die noemt wat eraan hangt en dat niets automatisch is
+   teruggedraaid. Crediteren of annuleren blijft een beslissing van een mens, zoals bij 5.
+5. Reversal naar 0: event `payment.chargeback_reversed`. Staat de gekoppelde membership op
+   `payment_failed` met als laatste oorzaak deze chargeback (het jongste
+   `membership.payment_failed`-event draagt dit `chargeback_id`), dan terug naar `active`
+   met `membership.reactivated` (`reason: "chargeback_reversed"`) en een ntfy, zonder
+   ledenmail. Een andere oorzaak laat de status staan en meldt dat.
+6. Niet gebouwd, met opzet: chargebacks in `v_revenue_lines` en het omzetrapport (7.4),
+   een teller op het admin-dashboard, en detectie van een door Mollie geannuleerde
+   subscription (daar is geen webhook voor; dat is werk voor de reconciliatie-cron).
+
 ### 4.8 Bevinding: wat een refund in Mollie API v2 werkelijk doet
 
 Geverifieerd tegen `@mollie/api-client` versie 4.5.0 zoals geïnstalleerd
@@ -1072,6 +1108,16 @@ Consequenties voor het ontwerp:
 - `PaymentStatusBadge` in `src/app/app/facturen/_components/` heeft een label "Teruggestort"
   voor status `refunded`. Dat label wordt nooit getoond. De badge moet in plaats daarvan op
   `refunded_amount_cents > 0` reageren.
+- **Chargebacks volgen dezelfde regel** (besluit 37, branch `fix/mollie-chargeback-handling`):
+  `PaymentData.amountChargedBack` ("only available when the total charged back amount is
+  not zero") naast `amountRefunded`, de payment blijft `paid`. Daarom geen statuswaarde
+  `charged_back` in `payments_status_check` maar `charged_back_amount_cents` en
+  `charged_back_at` naast de refund-kolommen. Drie redenen: `v_revenue_lines` en de
+  factuurketen hangen aan `status = 'paid'` en zouden de brutoregel en de
+  creditnota-koppeling verliezen; een chargeback kan door de bank worden teruggedraaid
+  (`reversedAt`) en is dus geen eindstatus; en de constraint hoeft niet aangepast. De
+  badge toont "Gestorneerd" naast de statusbadge bij `charged_back_amount_cents > 0`,
+  zoals "Teruggestort" bij een restitutie.
 
 ### 4.9 Bevestigingsmail na betaling (geen factuur)
 
@@ -1412,7 +1458,10 @@ PR classificeert `route.ts` elke fout:
 - **Permanent blijft 200**, met een luide log en een `webhook.failed`-event: Mollie 404 door
   modus-mismatch of onbekende payment, overige 4xx (400, 422), een onparseerbare body,
   `PGRST1xx` en SQLSTATE 22, 23, 42 en P0. Herhalen geeft daar per definitie dezelfde
-  uitkomst.
+  uitkomst. Sinds `fix/mollie-chargeback-handling` stuurt ook het `payments_get`-pad een
+  ntfy (hooguit een per payment-id per 26 uur, dezelfde dedupe als de andere paden): een
+  404 is doorgaans een betaling uit een andere Mollie-organisatie of modus, zoals de
+  subscription van voor de organisatiewissel van 2026-09-29, en mag niet stil verdwijnen.
 - **Onbekend gaat naar 500.** De kosten zijn asymmetrisch: 26 uur herhalen met wat ruis is
   goedkoper dan een betaling definitief kwijtraken, en de reconciliatie van orders (PR 3)
   vangt op wat na 26 uur nog openstaat.
@@ -2653,6 +2702,7 @@ index staat er.
 | 34 | Fase 1 (read-only onderzoek, geen bouw) naar een beheerinterface voor `profiles.is_test` (6.10). Vier bevindingen. **Plek:** een nieuwe `ActionButton` plus dialoog in `ActionMenu.tsx` (admin-ledendetail), naast het bestaande `EmailCorrectionDialog`-patroon: profielattribuut wijzigen via een gerichte server action, met een waarschuwingstekst en `router.refresh()` erna. **Snapshot-gevolg, verrast in de praktijk:** `payments`, `invoices` en `trial_bookings` bevriezen `is_test` bij het schrijven (6.1) en een latere profielwijziging raakt bestaande rijen niet, dus de omzetrapportage en `/app/facturen` blijven historisch correct. Maar `orders` en `memberships` hebben helemaal geen eigen `is_test`-kolom (besluit 28: "modus woont op het profiel"); hun testmodus wordt overal live bepaald met een join naar `profiles.is_test`, zoals `vw_admin_kpis` doet (`join tmc.profiles p on ... and not p.is_test`). Een omzetting raakt dus met`payments`/`invoices` niet met terugwerkende kracht, maar met memberships wel: `active_members` en `mrr_cents` verspringen bij de eerstvolgende matview-refresh, met of zonder nieuwe activiteit. **Blokkade-voorstel:** alleen de richting fout naar test blokkeren, en dat alleen als het profiel al een niet-test `payments`- of gefinaliseerde `invoices`-rij draagt. De omgekeerde richting (test naar echt) blijft vrij: bestaande testrijen blijven `is_test = true` staan (6.1) en veranderen niet met terugwerkende kracht, dus daar valt niets te beschermen. De asymmetrie is opzettelijk: een profiel met echte betaalhistorie dat alsnog op test gezet wordt, zou door het opruimscript uit 6.9 (dat op `profiles.is_test = true` selecteert) gecascadeerd verwijderd kunnen worden -- exact het scenario waar 6.9 juist tegen beschermt voor facturen, nu via een omweg op profielniveau. **Signup-flow:** geen van beide aanmaakpaden (`ensureProfile` voor de publieke magic-link-flow, `findOrCreateCustomer` voor de admin-wizard) zet ooit `is_test`; een testprofiel ontstaat vandaag uitsluitend door een admin die de kolom achteraf zet, precies het gat dat deze fase dicht | Geen, dit is onderzoek. Fase 2 (de bouw) volgt met een apart akkoord |
 | 35 | **Herziening van 6.5 (PR #193, 2026-09-19):** transiënte fouten in de Mollie-webhook (netwerk, Mollie 5xx en timeouts, Supabase en PostgREST, en alles wat onbekend is) antwoorden 500 zodat Mollie tot 26 uur lang herhaalt; alleen fouten waarvan herhaling dezelfde uitkomst geeft (Mollie 404 en overige 4xx, onparseerbare body, SQLSTATE 22/23/42/P0) blijven 200 met een `webhook.failed`-event. Per pad en `mollie_payment_id` hooguit een ntfy per 26 uur, met de `webhook.failed`-rijen als bron. | De 200 op elke fout uit PR #172 ("Mollie mag niet gaan retryen"). Verworpen: de discovery op `fix/mollie-webhook-reliability` toonde drie 2xx-paden waarop een geslaagde betaling definitief verloren ging; 26 uur herhalen met ruis is goedkoper dan een betaling kwijtraken, en PR 3 (reconciliatie) vangt op wat na 26 uur openstaat. Ook verworpen: onbekende fouten op 200 houden, want dat is precies de klasse waarin een nieuw stil pad ontstaat. |
 | 36 | **De bevestigingsmail heeft sinds 3a-bis (PR #195, 2026-09-19) geen vangnet meer in de webhook.** Hij draait in `after()`, na de 200; mislukt hij daar (MailerSend down, timeout van 10 s), dan komt er geen tweede webhook die de retry-tak met `order.confirmation_sent` als poort bereikt. Vastgelegd, niet gebouwd: PR 3b (reconciliatie in `expire-orders`) controleert bij elke gereconcilieerde of al geactiveerde order ook `order.confirmation_sent` en verstuurt de mail alsnog via dezelfde `sendOrderConfirmation`, met dezelfde poort. | De mail synchroon vóór de respons houden. Verworpen: de mail is 1 tot 1,6 s op het happy path en tot 10 s bij een dode MailerSend, binnen Mollie's 15 s de grootste post na Akiles, en een mislukte mail mag de betaalbevestiging richting Mollie niet ophouden. |
+| 37 | **Chargebacks worden gespiegeld in kolommen, niet in een status, en behandeld als mislukte incasso op abonnementsbetalingen** (branch `fix/mollie-chargeback-handling`, 2026-10-20): `payments.charged_back_amount_cents` en `charged_back_at` naast de refund-kolommen, `status` blijft `paid`; recurring en de eerste abonnementsbetaling zetten de membership van `active` naar `payment_failed` met dezelfde mail, push en ntfy als bij `failed`; andere typen alleen spiegel, event en ntfy; reversal naar 0 reactiveert alleen als deze chargeback de laatste oorzaak was. De poort voor alle bijwerkingen is een compare-and-swap op het bedrag op de rij zelf. Daarnaast vuren `payment.received` en `payment.failed` alleen nog op een echte statusovergang (drie-stappen-write: overgang, nieuwe rij, herhaling) en reactiveert de recurring-tak niet meer op een herleverde paid-webhook. Zie 4.7 en 4.8. | Statuswaarde `charged_back`. Verworpen: `v_revenue_lines` en de factuurketen filteren op `paid`, een chargeback is omkeerbaar, en Mollie zelf houdt de status op `paid`. Ook verworpen: een losse read vóór de upsert als poort voor `payment.received`; dat is niet atomair onder twee gelijktijdige webhooks. Ook verworpen: automatisch annuleren na herhaalde storno's; Mollie doet dat zelf na drie keer, zonder webhook, en de staf wordt daarop gewezen. |
 
 ## 13. Open vragen
 

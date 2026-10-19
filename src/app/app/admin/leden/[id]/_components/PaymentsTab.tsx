@@ -37,6 +37,7 @@ export function PaymentsTab({ detail }: { detail: MemberDetail }) {
                 description: p.description,
                 method: p.method,
                 mollieId: p.mollieId,
+                chargedBackAmountCents: p.chargedBackAmountCents,
               }}
             />
             {p.status === "paid" && <MaakFactuurKnop paymentId={p.id} />}

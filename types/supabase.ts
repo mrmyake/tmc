@@ -2432,6 +2432,8 @@ export type Database = {
         Row: {
           amount_cents: number
           booking_id: string | null
+          charged_back_amount_cents: number
+          charged_back_at: string | null
           created_at: string
           description: string | null
           id: string
@@ -2456,6 +2458,8 @@ export type Database = {
         Insert: {
           amount_cents: number
           booking_id?: string | null
+          charged_back_amount_cents?: number
+          charged_back_at?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -2480,6 +2484,8 @@ export type Database = {
         Update: {
           amount_cents?: number
           booking_id?: string | null
+          charged_back_amount_cents?: number
+          charged_back_at?: string | null
           created_at?: string
           description?: string | null
           id?: string

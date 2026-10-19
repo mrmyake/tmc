@@ -16,6 +16,8 @@ interface PaymentStatusBadgeProps {
   status: PaymentStatus | string;
   /** > 0 toont "Teruggestort" naast (niet in plaats van) de statusbadge. */
   refundedAmountCents?: number;
+  /** > 0 toont "Gestorneerd" naast de statusbadge; status blijft "paid" (4.8). */
+  chargedBackAmountCents?: number;
 }
 
 const STATUS_CONFIG: Record<
@@ -66,6 +68,7 @@ function Dot({
 export function PaymentStatusBadge({
   status,
   refundedAmountCents,
+  chargedBackAmountCents,
 }: PaymentStatusBadgeProps) {
   const config =
     STATUS_CONFIG[status as PaymentStatus] ?? {
@@ -76,11 +79,15 @@ export function PaymentStatusBadge({
   // Restitutie staat los van status (een paid-payment kan gerestitueerd
   // zijn en blijft "paid", zie 4.8): naast de statusbadge, niet erin op.
   const isRefunded = (refundedAmountCents ?? 0) > 0;
+  // Een storno door de bank laat de status net zo ongemoeid als een
+  // restitutie; de spiegel is charged_back_amount_cents.
+  const isChargedBack = (chargedBackAmountCents ?? 0) > 0;
 
   return (
     <span className="inline-flex flex-col items-end gap-1">
       <Dot tone={config.tone} label={config.label} />
       {isRefunded && <Dot tone="muted" label="Teruggestort" />}
+      {isChargedBack && <Dot tone="danger" label="Gestorneerd" />}
     </span>
   );
 }

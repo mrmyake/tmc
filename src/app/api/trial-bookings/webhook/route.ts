@@ -5,6 +5,11 @@ import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { syncPaymentRefundsFromMollie } from "@/lib/refunds/process";
+import {
+  CHARGEBACK_ROW_SELECT,
+  syncPaymentChargebacksFromMollie,
+  type ChargebackRowDb,
+} from "@/lib/chargebacks/process";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 import { cancellationReasonForMollieStatus } from "@/lib/trial-expiry";
 
@@ -115,15 +120,31 @@ export async function POST(request: Request) {
     // bij, zodat v_revenue_lines en de retry-knop de werkelijkheid zien.
     const { data: paymentRow } = await admin
       .from("payments")
-      .select("id")
+      .select(CHARGEBACK_ROW_SELECT)
       .eq("mollie_payment_id", payment.id)
-      .maybeSingle();
+      .maybeSingle<ChargebackRowDb>();
     if (paymentRow) {
       await syncPaymentRefundsFromMollie({
         paymentRowId: paymentRow.id,
         molliePaymentId: payment.id,
         amountRefundedValue: payment.amountRefunded?.value ?? null,
         isTest: trial.is_test === true,
+      });
+      // Chargeback-spiegel (4.7, storno-tegenhanger): amountChargedBack
+      // naar charged_back_amount_cents, event en ntfy naar de staf. Een
+      // proefles heeft geen membership, dus nooit een statuswijziging;
+      // de boeking blijft staan en Marlon beoordeelt.
+      await syncPaymentChargebacksFromMollie({
+        mollie,
+        row: paymentRow,
+        view: {
+          amountChargedBackCents: payment.amountChargedBack
+            ? Math.round(parseFloat(payment.amountChargedBack.value) * 100)
+            : 0,
+          sequenceType: null,
+          subscriptionId: null,
+          metadataType: null,
+        },
       });
     }
 

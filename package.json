@@ -38,6 +38,7 @@
     "test:format": "node --import ./scripts/ts-loader.mjs --test scripts/format/*.test.mts",
     "test:trial-codes": "node --import ./scripts/ts-loader.mjs --test scripts/trial-codes/*.test.mts",
     "test:refunds": "node --import ./scripts/ts-loader.mjs --test scripts/refunds/*.test.mts",
+    "test:chargebacks": "node --import ./scripts/ts-loader.mjs --test scripts/chargebacks/*.test.mts",
     "test:trial-self-cancel": "node --import ./scripts/ts-loader.mjs --test scripts/trial-self-cancel/*.test.mts",
     "test:trial-expiry": "node --import ./scripts/ts-loader.mjs --test scripts/trial-expiry/*.test.mts",
     "test:vrij-trainen": "node --import ./scripts/ts-loader.mjs --test scripts/vrij-trainen/*.test.mts",
