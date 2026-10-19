@@ -82,6 +82,8 @@ export interface MemberPaymentRow {
   method: string | null;
   paidAt: string | null;
   createdAt: string;
+  /** Spiegel van Mollie amountChargedBack (storno); 0 = geen. */
+  chargedBackAmountCents: number;
 }
 
 export interface MemberNoteRow {
@@ -284,7 +286,7 @@ export async function loadMemberDetail(
       admin
         .from("payments")
         .select(
-          `id, mollie_payment_id, amount_cents, status, description, method, paid_at, created_at`,
+          `id, mollie_payment_id, amount_cents, status, description, method, paid_at, created_at, charged_back_amount_cents`,
         )
         .eq("profile_id", profileId)
         .order("created_at", { ascending: false })
@@ -455,6 +457,7 @@ export async function loadMemberDetail(
     method: p.method,
     paidAt: p.paid_at,
     createdAt: p.created_at,
+    chargedBackAmountCents: p.charged_back_amount_cents ?? 0,
   }));
 
   const notes: MemberNoteRow[] = (notesRes.data ?? []).map((n) => ({

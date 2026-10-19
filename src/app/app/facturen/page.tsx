@@ -72,7 +72,7 @@ export default async function FacturenPage(props: {
       supabase
         .from("payments")
         .select(
-          "id, paid_at, created_at, amount_cents, status, description, method, mollie_payment_id, order_id, membership_id, refunded_amount_cents",
+          "id, paid_at, created_at, amount_cents, status, description, method, mollie_payment_id, order_id, membership_id, refunded_amount_cents, charged_back_amount_cents",
         )
         .eq("profile_id", user.id)
         .eq("is_test", false)
@@ -203,6 +203,7 @@ export default async function FacturenPage(props: {
       method: p.method,
       mollieId: p.mollie_payment_id,
       refundedAmountCents: p.refunded_amount_cents,
+      chargedBackAmountCents: p.charged_back_amount_cents,
       invoiceId: invoiceIdByPaymentId.get(p.id) ?? null,
     };
   });

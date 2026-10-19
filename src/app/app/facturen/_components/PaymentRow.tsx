@@ -18,6 +18,8 @@ export interface PaymentRowData {
   /** Optioneel: bestaande consumers (bv. PaymentsTab in de admin
    * ledendetail) geven dit nog niet mee. Default 0 -- geen restitutie. */
   refundedAmountCents?: number;
+  /** Spiegel van Mollie amountChargedBack; default 0 -- geen storno. */
+  chargedBackAmountCents?: number;
   /** Alleen gezet als er een gefinaliseerde, niet-test factuur bestaat. */
   invoiceId?: string | null;
 }
@@ -60,11 +62,19 @@ export function PaymentRow({ row }: { row: PaymentRowData }) {
             Marlon even weten.
           </p>
         )}
+        {(row.chargedBackAmountCents ?? 0) > 0 && (
+          // COPY: confirm met Marlon
+          <p className="text-text-muted text-xs mt-1 max-w-prose">
+            Deze incasso is door je bank teruggeboekt. Marlon neemt contact
+            met je op om het af te ronden.
+          </p>
+        )}
       </div>
       <span className="hidden sm:flex flex-col items-end gap-2 pt-1">
         <PaymentStatusBadge
           status={row.status}
           refundedAmountCents={row.refundedAmountCents}
+          chargedBackAmountCents={row.chargedBackAmountCents}
         />
         {row.invoiceId && <InvoiceDownloadButton invoiceId={row.invoiceId} />}
       </span>
@@ -76,6 +86,7 @@ export function PaymentRow({ row }: { row: PaymentRowData }) {
           <PaymentStatusBadge
             status={row.status}
             refundedAmountCents={row.refundedAmountCents}
+            chargedBackAmountCents={row.chargedBackAmountCents}
           />
           {row.invoiceId && <InvoiceDownloadButton invoiceId={row.invoiceId} />}
         </span>
