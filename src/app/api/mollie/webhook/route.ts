@@ -6,6 +6,11 @@ import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { notifyMemberPaymentFailed } from "@/lib/payments/payment-failed-notify";
 import {
+  moneyFactEventFor,
+  recurringMembershipActionFor,
+  writePaymentWithTransition,
+} from "@/lib/payments/payment-write-core";
+import {
   CHARGEBACK_ROW_SELECT,
   syncPaymentChargebacksFromMollie,
   type ChargebackRowDb,
@@ -208,62 +213,64 @@ export async function POST(request: Request) {
       mollie_subscription_id: payment.subscriptionId ?? null,
       ...(isRecurring ? { kind: "recurring" } : {}),
     };
-    let paymentRow: ChargebackRowDb | null = null;
-    let transitioned = false;
-    {
-      const { data, error } = await supabase
-        .from("payments")
-        .update(paymentFields)
-        .eq("mollie_payment_id", payment.id)
-        .neq("status", payment.status)
-        .select(CHARGEBACK_ROW_SELECT)
-        .maybeSingle<ChargebackRowDb>();
-      if (error) {
-        console.error(
-          `[mollie/webhook] payments transition update failed (id=${paymentId}, mode=${mode})`,
-          error,
-        );
-      } else if (data) {
-        paymentRow = data;
-        transitioned = true;
-      }
-    }
-    if (!paymentRow) {
-      const { data, error } = await supabase
-        .from("payments")
-        .upsert(
-          { mollie_payment_id: payment.id, ...paymentFields },
-          { onConflict: "mollie_payment_id", ignoreDuplicates: true },
-        )
-        .select(CHARGEBACK_ROW_SELECT)
-        .maybeSingle<ChargebackRowDb>();
-      if (error) {
-        // Kan sinds PR 3 op payments_refunded_lte_amount_check klappen als
-        // Mollie ooit een amountRefunded boven het bedrag stuurt (7.4);
-        // leesbare log in plaats van een stilte in de buitenste catch.
-        console.error(
-          `[mollie/webhook] payments insert failed (id=${paymentId}, mode=${mode})`,
-          error,
-        );
-      } else if (data) {
-        paymentRow = data;
-        transitioned = true;
-      }
-    }
-    if (!paymentRow) {
-      const { data } = await supabase
-        .from("payments")
-        .select(CHARGEBACK_ROW_SELECT)
-        .eq("mollie_payment_id", payment.id)
-        .maybeSingle<ChargebackRowDb>();
-      paymentRow = data ?? null;
-    }
+    // De volgorde en de betekenis van `transitioned` staan in
+    // src/lib/payments/payment-write-core.ts (getest in
+    // scripts/chargebacks/payment-write.test.mts).
+    const { row: paymentRow, transitioned } = await writePaymentWithTransition<ChargebackRowDb>({
+      transition: async () => {
+        const { data, error } = await supabase
+          .from("payments")
+          .update(paymentFields)
+          .eq("mollie_payment_id", payment.id)
+          .neq("status", payment.status)
+          .select(CHARGEBACK_ROW_SELECT)
+          .maybeSingle<ChargebackRowDb>();
+        if (error) {
+          console.error(
+            `[mollie/webhook] payments transition update failed (id=${paymentId}, mode=${mode})`,
+            error,
+          );
+          return null;
+        }
+        return data ?? null;
+      },
+      insertIfAbsent: async () => {
+        const { data, error } = await supabase
+          .from("payments")
+          .upsert(
+            { mollie_payment_id: payment.id, ...paymentFields },
+            { onConflict: "mollie_payment_id", ignoreDuplicates: true },
+          )
+          .select(CHARGEBACK_ROW_SELECT)
+          .maybeSingle<ChargebackRowDb>();
+        if (error) {
+          // Kan sinds PR 3 op payments_refunded_lte_amount_check klappen als
+          // Mollie ooit een amountRefunded boven het bedrag stuurt (7.4);
+          // leesbare log in plaats van een stilte in de buitenste catch.
+          console.error(
+            `[mollie/webhook] payments insert failed (id=${paymentId}, mode=${mode})`,
+            error,
+          );
+          return null;
+        }
+        return data ?? null;
+      },
+      read: async () => {
+        const { data } = await supabase
+          .from("payments")
+          .select(CHARGEBACK_ROW_SELECT)
+          .eq("mollie_payment_id", payment.id)
+          .maybeSingle<ChargebackRowDb>();
+        return data ?? null;
+      },
+    });
 
     // Money-fact events, alleen op een echte overgang naar een terminale
     // status. dedupe_key = Mollie payment-id op een vaste plek in de payload
     // blijft staan voor lezers die ooit dedupliceren; een herlevering
     // (retry, refund- of chargeback-webhook) komt hier niet meer.
-    if (transitioned && payment.status === "paid") {
+    const moneyFact = moneyFactEventFor(transitioned, payment.status);
+    if (moneyFact === "payment.received") {
       await emitEvent({
         type: "payment.received",
         actorType: "system",
@@ -280,7 +287,7 @@ export async function POST(request: Request) {
           sequence: payment.sequenceType ?? null,
         },
       });
-    } else if (transitioned && ["failed", "expired", "canceled"].includes(payment.status)) {
+    } else if (moneyFact === "payment.failed") {
       await emitEvent({
         type: "payment.failed",
         actorType: "system",
@@ -496,9 +503,14 @@ export async function POST(request: Request) {
       // zojuist op payment_failed gezette membership niet terugzetten, en
       // een herleverde failed-webhook mag een intussen hersteld lid niet
       // opnieuw op payment_failed zetten.
+      const action = recurringMembershipActionFor({
+        transitioned,
+        paymentStatus: payment.status,
+        membershipStatus: membership.status,
+      });
       if (payment.status === "paid") {
         // Payment goed: als status was payment_failed, terug naar active
-        if (transitioned && membership.status === "payment_failed") {
+        if (action === "reactivate") {
           await supabase
             .from("memberships")
             .update({ status: "active" })
@@ -520,36 +532,34 @@ export async function POST(request: Request) {
           .from("payments")
           .update({ profile_id: membership.profile_id })
           .eq("mollie_payment_id", payment.id);
-      } else if (transitioned && ["failed", "expired", "canceled"].includes(payment.status)) {
-        if (membership.status === "active") {
-          await supabase
-            .from("memberships")
-            .update({ status: "payment_failed" })
-            .eq("id", membership.id);
-          await sendNotification(
-            "Incasso gefaald",
-            `Membership ${membership.id} (${membership.plan_variant}) — recurring ${payment.status}.`,
-            "warning"
-          );
-          // Fire-and-forget member email.
-          void notifyMemberPaymentFailed({
-            profileId: membership.profile_id,
-            amountCents: Math.round(Number(payment.amount?.value ?? "0") * 100),
-            planLabel: membership.plan_variant ?? "abonnement",
-          });
-          await emitEvent({
-            type: "membership.payment_failed",
-            actorType: "system",
-            subjectType: "membership",
-            subjectId: membership.id,
-            payload: {
-              profile_id: membership.profile_id,
-              membership_id: membership.id,
-              payment_id: payment.id,
-              sequence: "recurring",
-            },
-          });
-        }
+      } else if (action === "degrade") {
+        await supabase
+          .from("memberships")
+          .update({ status: "payment_failed" })
+          .eq("id", membership.id);
+        await sendNotification(
+          "Incasso gefaald",
+          `Membership ${membership.id} (${membership.plan_variant}): recurring ${payment.status}.`,
+          "warning"
+        );
+        // Fire-and-forget member email.
+        void notifyMemberPaymentFailed({
+          profileId: membership.profile_id,
+          amountCents: Math.round(Number(payment.amount?.value ?? "0") * 100),
+          planLabel: membership.plan_variant ?? "abonnement",
+        });
+        await emitEvent({
+          type: "membership.payment_failed",
+          actorType: "system",
+          subjectType: "membership",
+          subjectId: membership.id,
+          payload: {
+            profile_id: membership.profile_id,
+            membership_id: membership.id,
+            payment_id: payment.id,
+            sequence: "recurring",
+          },
+        });
       }
     }
 
