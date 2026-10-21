@@ -9,6 +9,7 @@ import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { clientIp } from "@/lib/trial-codes/server";
 import { getOpeningTrialPeriod } from "@/lib/opening-trial/period";
 import { recordLeadAttribution } from "@/lib/attribution/record";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 import type { LeadAttributionInput } from "@/lib/attribution/params";
 import {
   OPENING_GENERIC_ERROR,
@@ -164,6 +165,14 @@ export async function startOpeningTrialBooking(
     cancel_token: result.cancel_token ?? "",
     price_paid_cents: 0,
     source: "opening",
+  });
+
+  // Last-minute trainersmelding (spec-last-minute-alerts.md): fire-and-forget,
+  // de helper throwt nooit en slaat een proefuur vrij trainen zelf over.
+  void notifyTrainerLastMinuteBooking({
+    sessionId: input.sessionId,
+    source: "trial",
+    participantId: trialBookingId,
   });
 
   // Stafmelding zonder persoonsgegevens (het ntfy-topic is openbaar): alleen

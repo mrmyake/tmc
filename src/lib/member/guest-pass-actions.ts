@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import GuestConfirmation from "@/emails/guest_confirmation";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 import {
   allocationFor,
   currentPeriod,
@@ -350,6 +351,16 @@ export async function bookGuest(
         console.error("[bookGuest] geweigerd", result.reason);
         return { ok: false, message: "Gast toevoegen lukte niet." };
     }
+  }
+
+  // Last-minute trainersmelding (spec-last-minute-alerts.md): fire-and-forget,
+  // de helper throwt nooit; de gast staat al vast in de database.
+  if (result.guest_booking_id) {
+    void notifyTrainerLastMinuteBooking({
+      sessionId: input.sessionId,
+      source: "guest",
+      participantId: result.guest_booking_id,
+    });
   }
 
   // 4. Sessie-details puur voor de bevestigingsmail; de gate zat in de RPC.

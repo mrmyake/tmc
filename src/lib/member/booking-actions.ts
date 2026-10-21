@@ -14,6 +14,7 @@ import {
 } from "@/lib/format-date";
 import { planCovers } from "./plan-coverage";
 import { bookingTimes } from "./booking-times";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
@@ -254,6 +255,8 @@ type BookClassSessionResult = {
   session_date?: string;
   slot_start_at?: string | null;
   slot_end_at?: string | null;
+  /** True als deze boeking een open wachtlijstpromotie bevestigde. */
+  waitlist_confirmed?: boolean;
 };
 
 type CancelClassBookingResult = {
@@ -460,6 +463,17 @@ export async function createBooking(
     slotStartAt: result.slot_start_at ?? null,
     slotEndAt: result.slot_end_at ?? null,
   });
+
+  // Last-minute trainersmelding (spec-last-minute-alerts.md): fire-and-forget,
+  // de helper throwt nooit en slaat vrij trainen zelf over. Een bevestigde
+  // wachtlijstpromotie is in de mail een eigen soort.
+  if (result.booking_id) {
+    void notifyTrainerLastMinuteBooking({
+      sessionId,
+      source: result.waitlist_confirmed ? "waitlist" : "member",
+      participantId: result.booking_id,
+    });
+  }
 
   return {
     ok: true,

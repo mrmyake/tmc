@@ -12,6 +12,7 @@ import {
 } from "@/lib/chargebacks/process";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 import { cancellationReasonForMollieStatus } from "@/lib/trial-expiry";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 
 export async function POST(request: Request) {
   try {
@@ -253,6 +254,16 @@ export async function POST(request: Request) {
       // annuleerlink op cancel_token en het annuleringsvenster. Ontbrak
       // hiervoor volledig, zie src/lib/trial-booking-email.ts.
       await sendTrialBookingConfirmationEmail(trial);
+
+      // Last-minute trainersmelding (spec-last-minute-alerts.md): de proefles
+      // is nu pas definitief. Awaited zoals de bevestigingsmail hierboven;
+      // de helper throwt nooit en stempelt trainer_alerted_at, dus een
+      // dubbele webhook mailt niet dubbel.
+      await notifyTrainerLastMinuteBooking({
+        sessionId: trial.session_id,
+        source: "trial",
+        participantId: trial.id,
+      });
     } else {
       // Definitief niet betaald: de plek komt vrij, met de reden uit de
       // Mollie-status (payment_expired, payment_failed, payment_canceled).
