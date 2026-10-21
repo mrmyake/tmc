@@ -123,6 +123,11 @@ export type EventType =
   // trial_code.created/redeemed/revoked/released zelf; alleen de
   // misbruikmelding wordt vanuit TS gelogd.
   | "trial_code.abuse_alert_sent"
+  // Last-minute trainersmelding (spec-last-minute-alerts.md, src/lib/alerts/):
+  // een inschrijving minder dan drie uur voor de start is aan de trainer
+  // gemaild (recipient_kind trainer), aan de fallback (head trainer of
+  // admins) of buiten productie aan het omleidingsadres (redirect).
+  | "trainer.last_minute_alert_sent"
   // Annulering door de studio en terugbetaling (src/lib/refunds/); de
   // DB-kern schrijft trial_booking.cancelled en trial_booking.refund_requested zelf.
   | "trial_booking.refund_failed"

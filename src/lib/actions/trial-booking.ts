@@ -12,6 +12,7 @@ import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { bookingTimes } from "@/lib/member/booking-times";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 import {
   clearTrialCodeCookie,
   clientIp,
@@ -271,6 +272,14 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     email: args.email,
     cancel_token: cancelToken,
     price_paid_cents: 0,
+  });
+
+  // Last-minute trainersmelding (spec-last-minute-alerts.md): fire-and-forget,
+  // de helper throwt nooit en slaat een proefuur vrij trainen zelf over.
+  void notifyTrainerLastMinuteBooking({
+    sessionId: args.sessionId,
+    source: "trial",
+    participantId: trialBookingId,
   });
 
   // Staf-melding zonder persoonsgegevens (PR #205): het topic is openbaar.

@@ -6,6 +6,7 @@ import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
+import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 import {
   decideTrialExpiry,
   tripsCircuitBreaker,
@@ -221,6 +222,13 @@ export async function GET(req: Request) {
       // Dit is precies het scenario waarin de webhook nooit is aangekomen:
       // zonder deze mail zou de bezoeker zijn cancel_token nooit zien.
       await sendTrialBookingConfirmationEmail(trial);
+      // Last-minute trainersmelding (spec-last-minute-alerts.md), zelfde
+      // vervolg als de webhook; de stempel maakt het idempotent.
+      await notifyTrainerLastMinuteBooking({
+        sessionId: trial.session_id,
+        source: "trial",
+        participantId: trial.id,
+      });
       paid += 1;
       continue;
     }
