@@ -54,7 +54,7 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
-      className={`bg-bg border border-[color:var(--ink-500)] text-text p-8 ${widthClass} backdrop:bg-bg/55 backdrop:backdrop-blur-sm`}
+      className={`m-auto bg-bg border border-[color:var(--ink-500)] text-text p-8 ${widthClass} backdrop:bg-bg/55 backdrop:backdrop-blur-sm`}
     >
       <div className="flex items-start justify-between mb-5">
         <div>
