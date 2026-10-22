@@ -31,7 +31,8 @@ function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
     ? (statusRaw as TrialCodeStatusFilter)
     : "active";
   const scopeRaw = get("scope");
-  const scope: TrialCodeScopeFilter = isTrialCodeScope(scopeRaw) ? scopeRaw : "all";
+  // Geen of een onbekende scope-param = geen filter ("any"); "all" is een echte scope.
+  const scope: TrialCodeScopeFilter = isTrialCodeScope(scopeRaw) ? scopeRaw : "any";
   const q = get("q")?.trim() ?? "";
   return { status, scope, q };
 }

@@ -23,15 +23,25 @@ test("pillarsForScope: vrij trainen heeft geen sessielijst en group nooit vrij t
   assert.ok(!pillarsForScope("group").includes("vrij_trainen"));
 });
 
-test("scopes: vier in de database en alle vier kiesbaar (vrij trainen sinds PR 2)", () => {
-  assert.equal(TRIAL_CODE_SCOPES.length, 4);
-  assert.deepEqual([...SELECTABLE_TRIAL_CODE_SCOPES], ["yoga_mobility", "kettlebell", "group", "vrij_trainen"]);
+test("pillarsForScope: all geeft voor de lessenlijst dezelfde lijst als group", () => {
+  assert.deepEqual(pillarsForScope("all"), pillarsForScope("group"));
+  assert.ok(!pillarsForScope("all").includes("vrij_trainen"));
+});
+
+test("scopes: vijf in de database en alle vijf kiesbaar, all als laatste", () => {
+  assert.equal(TRIAL_CODE_SCOPES.length, 5);
+  assert.deepEqual(
+    [...SELECTABLE_TRIAL_CODE_SCOPES],
+    ["yoga_mobility", "kettlebell", "group", "vrij_trainen", "all"],
+  );
   for (const s of TRIAL_CODE_SCOPES) assert.ok(SCOPE_LABEL[s].length > 0);
 });
 
-test("isTrialCodeScope: alleen de vier bekende waarden", () => {
+test("isTrialCodeScope: alleen de vijf bekende waarden", () => {
   assert.equal(isTrialCodeScope("group"), true);
   assert.equal(isTrialCodeScope("vrij_trainen"), true);
+  assert.equal(isTrialCodeScope("all"), true);
+  assert.equal(isTrialCodeScope("any"), false);
   assert.equal(isTrialCodeScope("yoga"), false);
   assert.equal(isTrialCodeScope(null), false);
   assert.equal(isTrialCodeScope(undefined), false);

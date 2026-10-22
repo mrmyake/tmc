@@ -47,7 +47,7 @@ export function ProefcodesToolbar({ status, scope, q }: ProefcodesToolbarProps) 
     pushWith({ q: query.trim() || null });
   }
 
-  const hasFilters = Boolean(q) || status !== "active" || scope !== "all";
+  const hasFilters = Boolean(q) || status !== "active" || scope !== "any";
 
   return (
     <div className="flex flex-col gap-4 mb-8">
@@ -111,12 +111,12 @@ export function ProefcodesToolbar({ status, scope, q }: ProefcodesToolbarProps) 
           <span className="tmc-eyebrow">Geldig voor</span>
           <select
             value={scope}
-            onChange={(e) => pushWith({ scope: e.target.value === "all" ? null : e.target.value })}
+            onChange={(e) => pushWith({ scope: e.target.value === "any" ? null : e.target.value })}
             className="bg-bg-elevated border border-[color:var(--ink-500)] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-text focus:outline-none focus:border-accent cursor-pointer"
           >
-            <option value="all">
+            <option value="any">
               {/* COPY: confirm met Marlon */}
-              Alles
+              Alle scopes
             </option>
             {TRIAL_CODE_SCOPES.map((s) => (
               <option key={s} value={s}>

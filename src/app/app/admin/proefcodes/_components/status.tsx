@@ -15,10 +15,10 @@ export function StatusChip({ status }: { status: TrialCodeStatus }) {
   return <Chip tone={STATUS_CHIP[status].tone}>{STATUS_CHIP[status].label}</Chip>;
 }
 
-/** De scope als chip ("Geldig voor"). Vrij trainen krijgt de accenttoon. */
+/** De scope als chip ("Geldig voor"). Vrij trainen en alles krijgen de accenttoon. */
 export function ScopeChip({ scope }: { scope: TrialCodeScope }) {
   return (
-    <Chip tone={scope === "vrij_trainen" ? "accent" : "muted"} dot={false}>
+    <Chip tone={scope === "vrij_trainen" || scope === "all" ? "accent" : "muted"} dot={false}>
       {SCOPE_LABEL[scope]}
     </Chip>
   );
