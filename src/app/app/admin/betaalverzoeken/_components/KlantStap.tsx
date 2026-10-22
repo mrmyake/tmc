@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Search } from "lucide-react";
-import { AdminField, AdminInput } from "@/components/ui/AdminField";
 import {
   searchCustomers,
-  findOrCreateCustomer,
   type CustomerSearchRow,
 } from "@/lib/admin/customer-actions";
 import type { CustomerProfile } from "@/lib/admin/customer-core";
+import { NieuweKlantVelden } from "../../_components/NieuweKlantVelden";
+import { useNieuweKlantForm } from "../../_components/useNieuweKlantForm";
 
 interface KlantStapProps {
   onSelect: (profile: CustomerProfile) => void;
@@ -44,15 +44,7 @@ export function KlantStap({ onSelect }: KlantStapProps) {
   const [searching, startSearch] = useTransition();
 
   const [showNewForm, setShowNewForm] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [emailRepeat, setEmailRepeat] = useState("");
-  const [creating, startCreate] = useTransition();
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [foundExisting, setFoundExisting] = useState<CustomerProfile | null>(
-    null,
-  );
+  const form = useNieuweKlantForm({ onResolved: onSelect });
 
   // Debounced search, zelfde patroon als de tablet-zoekfunctie in
   // checkin/_components/AdminPanel.tsx.
@@ -70,39 +62,6 @@ export function KlantStap({ onSelect }: KlantStapProps) {
     }, 200);
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  const emailNormalized = email.trim().toLowerCase();
-  const emailRepeatNormalized = emailRepeat.trim().toLowerCase();
-  // Client-side spiegel van de server-side dubbel-invoer-eis in
-  // findOrCreateCustomerCore: pas actief bij exacte, genormaliseerde match.
-  const emailsMatch =
-    emailNormalized.length > 0 && emailNormalized === emailRepeatNormalized;
-  const canCreate =
-    firstName.trim().length > 0 && lastName.trim().length > 0 && emailsMatch;
-
-  function submitNewCustomer() {
-    setCreateError(null);
-    setFoundExisting(null);
-    startCreate(async () => {
-      const res = await findOrCreateCustomer({
-        firstName,
-        lastName,
-        email,
-        emailRepeat,
-      });
-      if (!res.ok) {
-        setCreateError(res.error);
-        return;
-      }
-      if (!res.created) {
-        // Server vond een bestaand profiel op dit e-mailadres: geen
-        // duplicaat gemaakt. Toon dat als resultaat, geen foutstaat.
-        setFoundExisting(res.profile);
-        return;
-      }
-      onSelect(res.profile);
-    });
-  }
 
   return (
     <div className="bg-bg-elevated border border-[color:var(--ink-500)] p-6">
@@ -203,86 +162,36 @@ export function KlantStap({ onSelect }: KlantStapProps) {
             een walk-in. Naam en e-mail volstaan om een betaallink te sturen.
           </p>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <AdminField label="Voornaam">
-              <AdminInput
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
-            </AdminField>
-            <AdminField label="Achternaam">
-              <AdminInput
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </AdminField>
-          </div>
-
-          <AdminField label="E-mail" className="mb-4">
-            <AdminInput
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </AdminField>
-
-          <AdminField
-            label="E-mail (nogmaals)"
-            className="mb-1"
-            // COPY: confirm met Marlon
-            hint="Moet exact overeenkomen, ter voorkoming van een tikfout naar andermans adres."
-            error={
-              email && emailRepeat && !emailsMatch
-                ? // COPY: confirm met Marlon
-                  "Komt niet overeen met het eerste e-mailadres."
-                : undefined
-            }
-          >
-            <AdminInput
-              type="email"
-              value={emailRepeat}
-              onChange={(e) => setEmailRepeat(e.target.value)}
-            />
-          </AdminField>
-
-          {foundExisting && (
-            // COPY: confirm met Marlon
-            <div
-              role="status"
-              className="mt-4 p-4 border border-accent/40 text-sm text-text"
-            >
-              Deze klant bestaat al: {foundExisting.firstName}{" "}
-              {foundExisting.lastName} ({foundExisting.email}).
-              <button
-                type="button"
-                onClick={() => onSelect(foundExisting)}
-                className="block mt-2 text-accent underline underline-offset-4"
+          <NieuweKlantVelden
+            form={form}
+            renderExisting={(existing) => (
+              // COPY: confirm met Marlon
+              <div
+                role="status"
+                className="mt-4 p-4 border border-accent/40 text-sm text-text"
               >
-                Verder met deze klant
-              </button>
-            </div>
-          )}
-
-          {createError && (
-            <div
-              role="alert"
-              className="mt-4 p-4 border border-[color:var(--danger)]/40 text-sm text-[color:var(--danger)]"
-            >
-              {createError}
-            </div>
-          )}
+                Deze klant bestaat al: {existing.firstName} {existing.lastName}{" "}
+                ({existing.email}).
+                <button
+                  type="button"
+                  onClick={() => onSelect(existing)}
+                  className="block mt-2 text-accent underline underline-offset-4"
+                >
+                  Verder met deze klant
+                </button>
+              </div>
+            )}
+          />
 
           <div className="mt-5">
             <button
               type="button"
-              onClick={submitNewCustomer}
-              disabled={!canCreate || creating}
+              onClick={form.submit}
+              disabled={!form.canCreate || form.creating}
               className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
             >
               {/* COPY: confirm met Marlon */}
-              {creating ? "Bezig..." : "Klant aanmaken"}
+              {form.creating ? "Bezig..." : "Klant aanmaken"}
             </button>
           </div>
         </div>

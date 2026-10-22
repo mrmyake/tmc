@@ -8,6 +8,7 @@ import {
 import { MembersToolbar } from "./_components/MembersToolbar";
 import { MembersTable } from "./_components/MembersTable";
 import { Pagination } from "./_components/Pagination";
+import { NieuwLidKnop } from "./_components/NieuwLidKnop";
 
 export const metadata = {
   title: "Admin · Leden | The Movement Club",
@@ -88,16 +89,19 @@ export default async function AdminMembersPage(props: {
 
   return (
     <div className="px-6 md:px-10 lg:px-12 py-10 md:py-14">
-      <header className="mb-12">
-        <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
-          Admin cockpit
-        </span>
-        <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
-          Leden.
-        </h1>
-        <p className="tmc-eyebrow mt-4">
-          {result.total} {result.total === 1 ? "lid" : "leden"} totaal
-        </p>
+      <header className="mb-12 flex items-start justify-between gap-6">
+        <div>
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+            Admin cockpit
+          </span>
+          <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-6xl text-text leading-[1.02] tracking-[-0.02em]">
+            Leden.
+          </h1>
+          <p className="tmc-eyebrow mt-4">
+            {result.total} {result.total === 1 ? "lid" : "leden"} totaal
+          </p>
+        </div>
+        <NieuwLidKnop />
       </header>
 
       <MembersToolbar

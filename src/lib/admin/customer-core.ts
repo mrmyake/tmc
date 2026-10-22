@@ -33,6 +33,12 @@ export interface CustomerProfile {
   lastName: string;
   email: string;
   memberCode: string;
+  /**
+   * Optioneel: alleen gevuld door findOrCreateCustomer, zodat de aanroeper
+   * kan zien of een gevonden profiel een lid, trainer of admin is. De wizard
+   * negeert het veld.
+   */
+  role?: string;
 }
 
 export interface FindOrCreateCustomerInput {

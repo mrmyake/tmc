@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AtSign,
@@ -9,6 +10,7 @@ import {
   Play,
   PlusCircle,
   Repeat,
+  Send,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -140,6 +142,14 @@ export function ActionMenu({
         aria-label="Lid-acties"
         className="flex flex-wrap gap-2"
       >
+        <Link
+          href={`/app/admin/betaalverzoeken?klant=${profileId}`}
+          className={`${ACTION_BASE} ${ACTION_NEUTRAL}`}
+        >
+          <Send size={14} strokeWidth={1.5} />
+          {/* COPY: confirm met Marlon */}
+          Betaalverzoek sturen
+        </Link>
         <ActionButton
           icon={<Pause size={14} strokeWidth={1.5} />}
           label="Pauze toekennen"
@@ -260,6 +270,11 @@ export function ActionMenu({
   );
 }
 
+const ACTION_BASE =
+  "inline-flex items-center gap-2 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-300 cursor-pointer";
+const ACTION_NEUTRAL =
+  "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent";
+
 function ActionButton({
   icon,
   label,
@@ -275,12 +290,11 @@ function ActionButton({
   tone?: "danger";
   title?: string;
 }) {
-  const base =
-    "inline-flex items-center gap-2 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] border transition-colors duration-300 cursor-pointer";
+  const base = ACTION_BASE;
   const toneClass =
     tone === "danger"
       ? "border-[color:var(--danger)]/40 text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10"
-      : "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent";
+      : ACTION_NEUTRAL;
   return (
     <button
       type="button"
