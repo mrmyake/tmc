@@ -1,20 +1,23 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Check, UserX } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { Check, UserPlus, UserX } from "lucide-react";
 import {
   autoMarkNoShows,
   markAttendance,
   markGuestAttendance,
   markTrialAttendance,
+  undoWalkIn,
   type GuestRow,
   type ParticipantRow,
   type SessionSummary,
   type TrialRow,
 } from "@/lib/admin/attendance-actions";
+import { walkInWindow, type WalkInWindow } from "@/lib/attendance/walk-in-core";
 import { formatTimeRange, formatWeekdayDate } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import { trialSourceLabel } from "@/lib/opening-trial/rules";
+import { WalkInSheet } from "./WalkInSheet";
 
 const CHECK_IN_TIME_FMT = new Intl.DateTimeFormat("nl-NL", {
   timeZone: "Europe/Amsterdam",
@@ -64,6 +67,71 @@ export function MobileAttendanceList({
   const [bulkMessage, setBulkMessage] = useState<
     { tone: "success" | "error"; text: string } | null
   >(null);
+  // Walk-in (check-in-spoor PR 3): bezetting lokaal bijhouden omdat een
+  // walk-in erbij komt zonder herlaad; venster pas na mount berekenen zodat
+  // server en client dezelfde eerste render geven.
+  const [taken, setTaken] = useState(takenCount);
+  const [walkInState, setWalkInState] = useState<WalkInWindow>("before");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmUndoFor, setConfirmUndoFor] = useState<string | null>(null);
+  const [undoPending, setUndoPending] = useState(false);
+
+  useEffect(() => {
+    const tick = () => setWalkInState(walkInWindow(session.startAt, new Date()));
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, [session.startAt]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const walkInAvailable =
+    walkInState === "open" &&
+    session.status === "scheduled" &&
+    session.pillar !== "vrij_trainen";
+
+  function onWalkInAdded(participant: ParticipantRow, alreadyBooked: boolean, newTaken: number) {
+    setRows((prev) => {
+      const without = prev.filter((r) => r.bookingId !== participant.bookingId);
+      return [...without, participant];
+    });
+    setTaken(newTaken);
+    setSheetOpen(false);
+    // COPY: confirm met Marlon
+    setToast(
+      alreadyBooked
+        ? `${participant.firstName} stond al op de lijst en is ingecheckt`
+        : `${participant.firstName} toegevoegd en ingecheckt`,
+    );
+  }
+
+  function runUndoWalkIn(row: ParticipantRow) {
+    if (undoPending) return;
+    setUndoPending(true);
+    void (async () => {
+      const res = await undoWalkIn(session.id, row.bookingId);
+      setUndoPending(false);
+      setConfirmUndoFor(null);
+      if (!res.ok) {
+        setErrorByBooking((e) => ({ ...e, [row.bookingId]: res.message }));
+        setSyncByBooking((s) => ({ ...s, [row.bookingId]: "error" }));
+        return;
+      }
+      setRows((prev) => prev.filter((r) => r.bookingId !== row.bookingId));
+      setTaken(res.takenCount);
+      // COPY: confirm met Marlon
+      setToast(
+        res.creditsRefunded > 0
+          ? `${row.firstName} verwijderd, rit teruggeboekt`
+          : `${row.firstName} verwijderd`,
+      );
+    })();
+  }
 
   const sessionEnded = hasEnded(session.endAt);
 
@@ -88,8 +156,8 @@ export function MobileAttendanceList({
       active.filter((r) => r.status === "no_show").length +
       activeGuests.filter((g) => g.status === "no_show").length +
       activeTrials.filter((t) => t.status === "no_show").length;
-    return { total: takenCount, attended, noShow };
-  }, [active, activeGuests, activeTrials, takenCount]);
+    return { total: taken, attended, noShow };
+  }, [active, activeGuests, activeTrials, taken]);
 
   function setStatusLocal(bookingId: string, status: LocalStatus) {
     setRows((prev) =>
@@ -143,6 +211,12 @@ export function MobileAttendanceList({
 
   function toggleAttended(row: ParticipantRow) {
     if (row.status === "cancelled") return;
+    // Een aangevinkte walk-in uitvinken is de boeking weghalen (rit terug);
+    // dat vraagt eerst om bevestiging.
+    if (row.walkIn && row.status === "attended") {
+      setConfirmUndoFor(row.bookingId);
+      return;
+    }
     const next: LocalStatus = row.status === "attended" ? "booked" : "attended";
     const previous = row.status as LocalStatus;
     setStatusLocal(row.bookingId, next);
@@ -333,6 +407,18 @@ export function MobileAttendanceList({
         <Stat label="No-show" value={String(stats.noShow)} tone="danger" />
       </div>
 
+      {walkInAvailable && (
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          className="mb-6 w-full min-h-12 inline-flex items-center justify-center gap-2 px-5 rounded-[4px] border border-accent/60 text-accent text-xs font-medium uppercase tracking-[0.18em] transition-colors duration-300 hover:bg-accent hover:text-bg cursor-pointer"
+        >
+          <UserPlus size={18} strokeWidth={1.8} aria-hidden />
+          {/* COPY: confirm met Marlon */}
+          Walk-in toevoegen
+        </button>
+      )}
+
       {active.length === 0 &&
       activeGuests.length === 0 &&
       activeTrials.length === 0 ? (
@@ -374,6 +460,12 @@ export function MobileAttendanceList({
                       planType={row.planType}
                       planVariant={row.planVariant}
                     />
+                    {row.walkIn && (
+                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-accent border border-accent/40 px-2 py-0.5">
+                        {/* COPY: confirm met Marlon */}
+                        Walk-in
+                      </span>
+                    )}
                     {row.checkedInAt && (
                       <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--success)]">
                         Ingecheckt{" "}
@@ -391,6 +483,38 @@ export function MobileAttendanceList({
                     </p>
                   )}
                   <SyncLine state={sync} error={error} />
+                  {confirmUndoFor === row.bookingId && (
+                    <div
+                      role="alertdialog"
+                      aria-label={`Walk-in ${row.firstName} verwijderen`}
+                      className="mt-3 p-3 rounded-[4px] bg-bg border border-[color:var(--warning)]/40"
+                    >
+                      <p className="text-[12px] text-text leading-snug mb-3">
+                        {/* COPY: confirm met Marlon */}
+                        Walk-in verwijderen? De rit wordt teruggeboekt.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={undoPending}
+                          onClick={() => runUndoWalkIn(row)}
+                          className="min-h-11 flex-1 px-3 rounded-[4px] bg-[color:var(--danger)] text-bg text-xs font-medium uppercase tracking-[0.16em] disabled:opacity-60 cursor-pointer"
+                        >
+                          {/* COPY: confirm met Marlon */}
+                          {undoPending ? "Bezig" : "Verwijderen"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={undoPending}
+                          onClick={() => setConfirmUndoFor(null)}
+                          className="min-h-11 flex-1 px-3 rounded-[4px] border border-text-muted/30 text-text-muted text-xs font-medium uppercase tracking-[0.16em] disabled:opacity-60 cursor-pointer"
+                        >
+                          {/* COPY: confirm met Marlon */}
+                          Annuleren
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-center gap-2">
@@ -695,6 +819,26 @@ export function MobileAttendanceList({
           </p>
         )}
       </div>
+
+      {sheetOpen && (
+        <WalkInSheet
+          sessionId={session.id}
+          capacity={session.capacity}
+          takenCount={taken}
+          onAdded={onWalkInAdded}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-4 right-4 bottom-6 z-40 mx-auto max-w-xl px-4 py-3 rounded-[8px] bg-bg-elevated border border-[color:var(--success)]/40 text-sm text-text shadow-xl"
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
