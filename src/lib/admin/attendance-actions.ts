@@ -6,6 +6,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
 import { setMemberAttendance } from "@/lib/attendance/core";
 import {
+  addWalkInCore,
+  searchWalkInMembersCore,
+  undoWalkInCore,
+  WALK_IN_REASON_COPY,
+  type WalkInCandidate,
+  type WalkInReason,
+} from "@/lib/attendance/walk-in-core";
+import {
   autoMarkTrialNoShowsCore,
   markTrialAttendanceCore,
   type TrialAttendanceInput,
@@ -50,6 +58,8 @@ export interface ParticipantRow {
    * zonder opt-in, ook als het lid iets heeft ingevuld.
    */
   injuryText: string | null;
+  /** Ter plekke toegevoegd door staf (bookings.walk_in_at, check-in-spoor PR 3). */
+  walkIn: boolean;
 }
 
 function parseInjuryText(raw: string | null): string | null {
@@ -246,7 +256,7 @@ export async function loadParticipants(
       .select(
         `
           id, profile_id, status, credits_used, membership_id, booked_at, attended_at,
-          no_show_at,
+          no_show_at, walk_in_at,
           profile:profiles(first_name, last_name, avatar_url, health_notes),
           membership:memberships(plan_type, plan_variant, credits_remaining)
         `,
@@ -330,8 +340,41 @@ export async function loadParticipants(
   // Een rij per lid: na annuleren en opnieuw boeken (partiele unique index,
   // vrij-trainen-slots) kan een lid een geannuleerde en een geboekte rij
   // hebben. De geboekte wint, anders de laatste annulering.
-  const bookingByProfile = new Map<string, NonNullable<typeof bookingsRes.data>[number]>();
-  for (const b of bookingsRes.data ?? []) {
+  type BookingQueryRow = {
+    id: string;
+    profile_id: string;
+    status: string;
+    credits_used: number | null;
+    membership_id: string | null;
+    booked_at: string;
+    attended_at: string | null;
+    no_show_at: string | null;
+    walk_in_at?: string | null;
+    profile: ProfileRef | ProfileRef[] | null;
+    membership: MembershipRef | MembershipRef[] | null;
+  };
+  let bookingRows = (bookingsRes.data ?? []) as BookingQueryRow[];
+  // Tot migratie 20261022120000 (walk-in) is gepusht bestaat
+  // bookings.walk_in_at nog niet; dan dezelfde query zonder die kolom.
+  if (bookingsRes.error && isMissingColumnError(bookingsRes.error)) {
+    const { data: legacy } = await admin
+      .from("bookings")
+      .select(
+        `
+          id, profile_id, status, credits_used, membership_id, booked_at, attended_at,
+          no_show_at,
+          profile:profiles(first_name, last_name, avatar_url, health_notes),
+          membership:memberships(plan_type, plan_variant, credits_remaining)
+        `,
+      )
+      .eq("session_id", sessionId)
+      .in("status", ["booked", "cancelled"])
+      .order("booked_at", { ascending: true });
+    bookingRows = (legacy ?? []) as BookingQueryRow[];
+  }
+
+  const bookingByProfile = new Map<string, BookingQueryRow>();
+  for (const b of bookingRows) {
     const prev = bookingByProfile.get(b.profile_id);
     if (!prev || prev.status !== "booked") bookingByProfile.set(b.profile_id, b);
   }
@@ -380,6 +423,7 @@ export async function loadParticipants(
       checkedInAt,
       hasInjury: injuryText !== null,
       injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
+      walkIn: Boolean(b.walk_in_at),
     };
   });
 
@@ -1048,5 +1092,161 @@ export async function refundCredit(
   return {
     ok: true,
     message: `Credit teruggezet. Nieuw saldo: ${adjusted.new_balance}.`,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Walk-in vanuit de deelnemerslijst (check-in-spoor PR 3,
+// fase-2-checkin-model.md). De regels staan in tmc.book_walk_in en
+// tmc.undo_walk_in; hier de gate (admin of trainer van deze sessie, zoals
+// elke actie in dit bestand), de RPC als de ingelogde gebruiker (auth.uid()
+// is de gate in de database), en de aanwezigheid via de gedeelde kern.
+// ----------------------------------------------------------------------------
+
+export type WalkInSearchResult =
+  | { ok: true; candidates: WalkInCandidate[] }
+  | { ok: false; message: string };
+
+/**
+ * Zoekt leden op voor- of achternaam (prefix, minimaal 2 tekens, maximaal 10)
+ * met per lid een statusregel. Geen e-mail, telefoon of member_code: een
+ * trainer zonder adminrol krijgt niet meer dan naam en dekking te zien.
+ */
+export async function searchWalkInMembers(
+  sessionId: string,
+  query: string,
+): Promise<WalkInSearchResult> {
+  const auth = await authorizeForSession(sessionId);
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const [sessionRes, bookedRes] = await Promise.all([
+    admin
+      .from("class_sessions")
+      .select("id, pillar, start_at")
+      .eq("id", sessionId)
+      .maybeSingle(),
+    admin
+      .from("bookings")
+      .select("profile_id")
+      .eq("session_id", sessionId)
+      .eq("status", "booked"),
+  ]);
+  const session = sessionRes.data as { id: string; pillar: string; start_at: string } | null;
+  if (!session) return { ok: false, message: "Sessie niet gevonden." };
+
+  const onList = new Set<string>(
+    ((bookedRes.data ?? []) as Array<{ profile_id: string }>).map((b) => b.profile_id),
+  );
+  const candidates = await searchWalkInMembersCore(admin, {
+    pillar: session.pillar,
+    // Zelfde datumberekening als booking_gate (UTC-datum van start_at).
+    sessionDateIso: new Date(session.start_at).toISOString().slice(0, 10),
+    query,
+    onListProfileIds: onList,
+  });
+  return { ok: true, candidates };
+}
+
+export type AddWalkInActionResult =
+  | {
+      ok: true;
+      participant: ParticipantRow;
+      /** Het lid stond al geboekt; alleen ingecheckt, geen nieuwe boeking. */
+      alreadyBooked: boolean;
+      takenCount: number;
+    }
+  | { ok: false; reason: WalkInReason; message: string };
+
+export async function addWalkIn(
+  sessionId: string,
+  profileId: string,
+): Promise<AddWalkInActionResult> {
+  if (!sessionId || !profileId) {
+    return { ok: false, reason: "profile_not_found", message: WALK_IN_REASON_COPY.profile_not_found };
+  }
+  const auth = await authorizeForSession(sessionId);
+  if (!auth.ok) return { ok: false, reason: "unauthorized", message: auth.message };
+
+  const user = await createClient();
+  const res = await addWalkInCore(
+    { admin: createAdminClient(), emit: emitEvent, user },
+    {
+      sessionId,
+      profileId,
+      actor: { userId: auth.ctx.userId, actorType: auth.ctx.role },
+    },
+  );
+  if (!res.ok) return res;
+
+  // Dezelfde rijvorm als de lijst zelf, zonder een tweede mapping.
+  const list = await loadParticipants(sessionId);
+  if (!list.ok) return { ok: false, reason: "db_error", message: list.message };
+  const participant = list.participants.find((p) => p.bookingId === res.bookingId);
+  if (!participant) {
+    return { ok: false, reason: "db_error", message: WALK_IN_REASON_COPY.db_error };
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rooster");
+  revalidatePath(`/app/admin/sessies/${sessionId}`);
+  revalidatePath(`/app/trainer/sessies/${sessionId}`);
+  revalidatePath("/kiosk");
+
+  return {
+    ok: true,
+    participant,
+    alreadyBooked: res.alreadyBooked,
+    takenCount: list.takenCount,
+  };
+}
+
+export type UndoWalkInActionResult =
+  | { ok: true; bookingId: string; creditsRefunded: number; takenCount: number }
+  | { ok: false; reason: WalkInReason; message: string };
+
+/**
+ * Walk-in ongedaan maken: check-in weg, boeking geannuleerd (walk_in_undone)
+ * en de rit teruggeboekt, alleen op dezelfde dag. Geen strike.
+ */
+export async function undoWalkIn(
+  sessionId: string,
+  bookingId: string,
+): Promise<UndoWalkInActionResult> {
+  if (!sessionId || !bookingId) {
+    return { ok: false, reason: "booking_not_found", message: WALK_IN_REASON_COPY.booking_not_found };
+  }
+  const auth = await authorizeForSession(sessionId);
+  if (!auth.ok) return { ok: false, reason: "unauthorized", message: auth.message };
+
+  const admin = createAdminClient();
+  const user = await createClient();
+  const res = await undoWalkInCore(
+    { admin, emit: emitEvent, user },
+    {
+      sessionId,
+      bookingId,
+      actor: { userId: auth.ctx.userId, actorType: auth.ctx.role },
+    },
+  );
+  if (!res.ok) return res;
+
+  const { data: availability } = await admin
+    .from("v_session_availability")
+    .select("taken_count")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rooster");
+  revalidatePath(`/app/admin/sessies/${sessionId}`);
+  revalidatePath(`/app/trainer/sessies/${sessionId}`);
+  revalidatePath("/kiosk");
+
+  return {
+    ok: true,
+    bookingId,
+    creditsRefunded: res.creditsRefunded,
+    takenCount: (availability as { taken_count: number | null } | null)?.taken_count ?? 0,
   };
 }
