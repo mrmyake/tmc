@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, UserPlus, UserX } from "lucide-react";
 import {
-  autoMarkNoShows,
   markAttendance,
   markGuestAttendance,
   markTrialAttendance,
@@ -32,10 +31,6 @@ import { InjuryFlag } from "./InjuryFlag";
 type LocalStatus = "booked" | "attended" | "no_show";
 type SyncState = "idle" | "saving" | "saved" | "error";
 
-function hasEnded(endAt: string): boolean {
-  return new Date(endAt).getTime() < Date.now();
-}
-
 export interface MobileAttendanceListProps {
   session: SessionSummary;
   initialParticipants: ParticipantRow[];
@@ -63,10 +58,6 @@ export function MobileAttendanceList({
   const [errorByBooking, setErrorByBooking] = useState<Record<string, string>>(
     {},
   );
-  const [bulkPending, startBulkTransition] = useTransition();
-  const [bulkMessage, setBulkMessage] = useState<
-    { tone: "success" | "error"; text: string } | null
-  >(null);
   // Walk-in (check-in-spoor PR 3): bezetting lokaal bijhouden omdat een
   // walk-in erbij komt zonder herlaad; venster pas na mount berekenen zodat
   // server en client dezelfde eerste render geven.
@@ -133,7 +124,9 @@ export function MobileAttendanceList({
     })();
   }
 
-  const sessionEnded = hasEnded(session.endAt);
+  // Afgesloten door de cron close-sessions (fase-2-checkin-model.md PR 4):
+  // wie niet als no-show stond telt als aanwezig. Corrigeren kan altijd.
+  const closed = Boolean(session.closedAt);
 
   const active = rows.filter((r) => r.status !== "cancelled");
   const cancelled = rows.filter((r) => r.status === "cancelled");
@@ -146,7 +139,9 @@ export function MobileAttendanceList({
   );
 
   // "Totaal" is de bezetting uit de view (zelfde getal als het rooster);
-  // aanwezig en no-show tellen leden, gasten en proeflessen samen.
+  // aanwezig en no-show tellen leden, gasten en proeflessen samen. Voor het
+  // afsluiten is "aanwezig" nog niet geteld (geboekt is aanwezig tenzij
+  // no-show), dus dan toont de middelste tegel "Verwacht": totaal min no-show.
   const stats = useMemo(() => {
     const attended =
       active.filter((r) => r.status === "attended").length +
@@ -350,25 +345,6 @@ export function MobileAttendanceList({
     })();
   }
 
-  function runAutoNoShows() {
-    setBulkMessage(null);
-    startBulkTransition(async () => {
-      const res = await autoMarkNoShows(session.id);
-      setBulkMessage({ tone: res.ok ? "success" : "error", text: res.message });
-      if (res.ok) {
-        setRows((prev) =>
-          prev.map((r) =>
-            r.status === "booked" ? { ...r, status: "no_show" } : r,
-          ),
-        );
-        // Niet-afgevinkte proefgasten zijn server-side ook no_show geworden.
-        setTrialRows((prev) =>
-          prev.map((t) => (t.status === "paid" ? { ...t, status: "no_show" } : t)),
-        );
-      }
-    });
-  }
-
   const start = new Date(session.startAt);
   const end = new Date(session.endAt);
 
@@ -399,13 +375,28 @@ export function MobileAttendanceList({
               : `${stats.total}/${session.capacity}`
           }
         />
-        <Stat
-          label="Aanwezig"
-          value={String(stats.attended)}
-          tone="success"
-        />
+        {closed ? (
+          <Stat label="Aanwezig" value={String(stats.attended)} tone="success" />
+        ) : (
+          // COPY: confirm met Marlon
+          <Stat label="Verwacht" value={String(Math.max(0, stats.total - stats.noShow))} />
+        )}
         <Stat label="No-show" value={String(stats.noShow)} tone="danger" />
       </div>
+
+      {session.status !== "cancelled" && (
+        <p
+          role="note"
+          className={`mb-6 text-sm leading-relaxed ${
+            closed ? "text-[color:var(--success)]" : "text-text-muted"
+          }`}
+        >
+          {/* COPY: confirm met Marlon */}
+          {closed
+            ? "Afgesloten. Corrigeren kan altijd."
+            : "Tik op wie er niet is. De rest telt na de les automatisch als aanwezig."}
+        </p>
+      )}
 
       {walkInAvailable && (
         <button
@@ -466,7 +457,7 @@ export function MobileAttendanceList({
                         Walk-in
                       </span>
                     )}
-                    {row.checkedInAt && (
+                    {row.checkedInAt && row.checkInMethod !== "auto_close" && (
                       <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--success)]">
                         Ingecheckt{" "}
                         {CHECK_IN_TIME_FMT.format(new Date(row.checkedInAt))}
@@ -790,35 +781,6 @@ export function MobileAttendanceList({
           </ul>
         </details>
       )}
-
-      <div className="pt-6 border-t border-[color:var(--ink-500)]/60 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={runAutoNoShows}
-          disabled={bulkPending || !sessionEnded}
-          title={
-            sessionEnded
-              ? // COPY: confirm met Marlon
-                "Markeer alle open boekingen en niet-afgevinkte proefgasten als no-show"
-              : "Kan pas na einde sessie"
-          }
-          className="inline-flex items-center justify-center px-7 py-4 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-        >
-          {bulkPending ? "Bezig" : "Auto-mark no-shows"}
-        </button>
-        {bulkMessage && (
-          <p
-            role={bulkMessage.tone === "success" ? "status" : "alert"}
-            className={`text-sm ${
-              bulkMessage.tone === "success"
-                ? "text-[color:var(--success)]"
-                : "text-[color:var(--danger)]"
-            }`}
-          >
-            {bulkMessage.text}
-          </p>
-        )}
-      </div>
 
       {sheetOpen && (
         <WalkInSheet

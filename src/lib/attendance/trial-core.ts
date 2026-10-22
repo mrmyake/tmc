@@ -17,7 +17,9 @@ import type { EmitEventInput } from "@/lib/events/emit";
  * aanwezig zetten). pending (betaling open) en cancelled zijn nooit af te
  * vinken. In de gratis openingsperiode telt attended en no_show als gebruikte
  * gratis proefles (tmc.book_opening_trial), dus een verkeerde no-show moet
- * terug te draaien zijn.
+ * terug te draaien zijn. Sinds PR 4 zet de cron close-sessions elke proefles
+ * die bij het afsluiten nog op paid staat op attended (source auto_close):
+ * geboekt is aanwezig, tenzij de trainer no-show heeft aangetikt.
  */
 
 export type TrialAttendanceTarget = "attended" | "paid" | "no_show";
@@ -27,10 +29,10 @@ export interface TrialAttendanceInput {
   status: TrialAttendanceTarget;
 }
 
-export interface TrialAttendanceActor {
-  userId: string;
-  role: "admin" | "trainer";
-}
+export type TrialAttendanceActor =
+  | { userId: string; role: "admin" | "trainer" }
+  /** De cron close-sessions (PR 4): paid wordt attended bij het afsluiten. */
+  | { userId: null; role: "system" };
 
 export interface TrialAttendanceDeps {
   admin: SupabaseClient;
@@ -58,7 +60,7 @@ export async function authorizeActorForSession(
   actor: TrialAttendanceActor,
   sessionId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  if (actor.role === "admin") return { ok: true };
+  if (actor.role === "admin" || actor.role === "system") return { ok: true };
   const { data: session } = await admin
     .from("class_sessions")
     .select("id, trainer:trainers!inner(profile_id)")
@@ -80,7 +82,7 @@ export async function markTrialAttendanceCore(
   actor: TrialAttendanceActor,
   sessionId: string,
   updates: TrialAttendanceInput[],
-  source: "attendance" | "kiosk" | "auto" = "attendance",
+  source: "attendance" | "kiosk" | "auto_close" = "attendance",
 ): Promise<TrialAttendanceResult> {
   if (updates.length === 0) {
     // COPY: confirm met Marlon
@@ -170,38 +172,4 @@ export async function markTrialAttendanceCore(
 
   // COPY: confirm met Marlon
   return { ok: true, message: "Aanwezigheid opgeslagen.", changed };
-}
-
-/**
- * Na afloop van een les: alle proefgasten die nog op paid staan (niet
- * afgevinkt) worden no_show. Gebruikt door autoMarkNoShows naast de
- * ledenboekingen. Testrijen tellen gewoon mee (is_test raakt alleen de
- * bezettingstelling). Geeft het aantal gemarkeerde rijen terug.
- */
-export async function autoMarkTrialNoShowsCore(
-  deps: TrialAttendanceDeps,
-  actor: TrialAttendanceActor,
-  sessionId: string,
-): Promise<{ ok: true; count: number } | { ok: false; message: string }> {
-  const { data: remaining, error } = await deps.admin
-    .from("trial_bookings")
-    .select("id")
-    .eq("session_id", sessionId)
-    .eq("status", "paid");
-  if (error) {
-    console.error("[autoMarkTrialNoShowsCore] fetch failed", error);
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Kon proeflessen niet laden." };
-  }
-  if (!remaining || remaining.length === 0) return { ok: true, count: 0 };
-
-  const res = await markTrialAttendanceCore(
-    deps,
-    actor,
-    sessionId,
-    remaining.map((r) => ({ trialBookingId: r.id, status: "no_show" as const })),
-    "auto",
-  );
-  if (!res.ok) return res;
-  return { ok: true, count: res.changed };
 }

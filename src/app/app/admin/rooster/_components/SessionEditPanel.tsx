@@ -718,5 +718,8 @@ function toSessionSummary(s: AdminSessionBlockData): SessionSummary {
     endAt: s.endAt,
     capacity: s.capacity,
     status: s.status,
+    // Het roosterblok kent closed_at niet; AttendanceList haalt hem zelf op
+    // via loadParticipants (selfFetch).
+    closedAt: null,
   };
 }

@@ -11,7 +11,10 @@ export interface KioskSession {
   className: string;
   trainerName: string;
   bookedCount: number;
-  checkedInCount: number;
+  /** Leden met no_show_at plus gasten en proeflessen met status no_show. */
+  noShowCount: number;
+  /** class_sessions.closed_at gezet door de cron close-sessions. */
+  closed: boolean;
   /** class_sessions.pillar; bepaalt de startzaal van "Licht en geluid". */
   pillar: string | null;
   /** Door de studio geannuleerd: zichtbaar als "Vervalt", niet klikbaar. */
@@ -121,10 +124,9 @@ function HeroSession({
   session: KioskSession;
   isActive: boolean;
 }) {
-  const pct =
-    session.bookedCount > 0
-      ? Math.round((session.checkedInCount / session.bookedCount) * 100)
-      : 0;
+  // Geboekt is aanwezig tenzij no-show (fase-2-checkin-model.md PR 4), dus
+  // de kiosk toont geboekt en no-shows, niet een incheckvoortgang.
+  const present = Math.max(0, session.bookedCount - session.noShowCount);
 
   return (
     <>
@@ -149,18 +151,17 @@ function HeroSession({
 
       <div className={styles.progressBlock}>
         <div className={styles.progressFigure}>
-          <div className={styles.progressCount}>
-            {session.checkedInCount}
-            <span className={styles.progressCountOf}>
-              {" "}
-              / {session.bookedCount}
-            </span>
-          </div>
+          <div className={styles.progressCount}>{session.bookedCount}</div>
           {/* COPY: confirm met Marlon */}
-          <div className={styles.progressLabel}>ingecheckt</div>
+          <div className={styles.progressLabel}>geboekt</div>
         </div>
-        <div className={styles.bar}>
-          <div className={styles.barFill} style={{ width: `${pct}%` }} />
+        {/* COPY: confirm met Marlon */}
+        <div className={styles.progressNote}>
+          {session.closed
+            ? `afgesloten · ${present} aanwezig`
+            : session.noShowCount > 0
+              ? `${session.noShowCount} no-show`
+              : "nog geen no-shows"}
         </div>
       </div>
 
@@ -182,8 +183,7 @@ function ClassRow({
   now: Date;
 }) {
   const isPast = session.endAt.getTime() <= now.getTime();
-  const isComplete =
-    session.bookedCount > 0 && session.checkedInCount >= session.bookedCount;
+  const isComplete = session.closed;
 
   const rowClass = [
     styles.classRow,
@@ -226,7 +226,14 @@ function ClassRow({
         </div>
       </div>
       <div className={countClass}>
-        {session.checkedInCount} / {session.bookedCount}
+        {session.bookedCount}
+        {session.noShowCount > 0 && (
+          <>
+            {/* COPY: confirm met Marlon */}
+            {" · "}
+            {session.noShowCount} no-show
+          </>
+        )}
       </div>
     </Link>
   );

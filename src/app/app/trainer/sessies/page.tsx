@@ -11,6 +11,12 @@ import {
   formatTimeRange,
 } from "@/lib/format-date";
 import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
+import { isMissingColumnError } from "@/lib/supabase/missing-column";
+import {
+  SESSION_PHASE_LABEL,
+  sessionPhase,
+  trainerSessionsWindow,
+} from "@/lib/trainer/sessions-window";
 
 export const metadata = {
   title: "Trainer · Sessies | The Movement Club",
@@ -62,22 +68,33 @@ export default async function TrainerSessiesPage(props: {
 
   const selectedTrainerId = scope.selectedTrainerId;
   const now = new Date();
-  const horizon = new Date(now.getTime() + 28 * 86_400_000);
+  const window = trainerSessionsWindow(now);
 
-  const { data: sessions } = await admin
-    .from("class_sessions")
-    .select(
-      `id, start_at, end_at, status, pillar, capacity,
-       class_type:class_types(name)`,
-    )
-    .eq("trainer_id", selectedTrainerId)
-    // Vrij trainen (dagsessie met eigen slots) is geen les van de trainer
-    // (spec-vrij-trainen-slots.md).
-    .neq("pillar", "vrij_trainen")
-    .gte("start_at", now.toISOString())
-    .lt("start_at", horizon.toISOString())
-    .order("start_at")
-    .returns<SessionRow[]>();
+  // Komende vier weken, plus de lessen van vandaag die al bezig of afgelopen
+  // zijn maar nog niet door de cron close-sessions zijn afgesloten: daar
+  // tikt de trainer de no-shows aan (fase-2-checkin-model.md PR 4). Tot
+  // migratie 20261023120000 is gepusht bestaat closed_at nog niet (42703);
+  // dan de oude lijst met alleen komende lessen.
+  const baseQuery = () =>
+    admin
+      .from("class_sessions")
+      .select(
+        `id, start_at, end_at, status, pillar, capacity,
+         class_type:class_types(name)`,
+      )
+      .eq("trainer_id", selectedTrainerId)
+      // Vrij trainen (dagsessie met eigen slots) is geen les van de trainer
+      // (spec-vrij-trainen-slots.md).
+      .neq("pillar", "vrij_trainen")
+      .lt("start_at", window.horizonIso);
+  let sessionsRes = await baseQuery().or(window.orFilter).order("start_at").returns<SessionRow[]>();
+  if (sessionsRes.error && isMissingColumnError(sessionsRes.error)) {
+    sessionsRes = await baseQuery()
+      .gte("start_at", window.nowIso)
+      .order("start_at")
+      .returns<SessionRow[]>();
+  }
+  const sessions = sessionsRes.data;
 
   // Totale bezetting (leden + proeflessen + gasten) per sessie.
   const ids = (sessions ?? []).map((s) => s.id);
@@ -174,6 +191,7 @@ export default async function TrainerSessiesPage(props: {
                   const end = new Date(s.end_at);
                   const taken = takenBy.get(s.id) ?? 0;
                   const cancelled = s.status === "cancelled";
+                  const phase = sessionPhase(s.start_at, s.end_at, now);
                   return (
                     <li
                       key={s.id}
@@ -197,6 +215,16 @@ export default async function TrainerSessiesPage(props: {
                               `${taken} geboekt`
                             : `${taken}/${s.capacity} geboekt`}
                         </p>
+                        {!cancelled && phase !== "upcoming" && (
+                          <p
+                            className={`text-[10px] font-medium uppercase tracking-[0.18em] mt-1.5 ${
+                              phase === "ongoing" ? "text-accent" : "text-[color:var(--warning)]"
+                            }`}
+                          >
+                            {/* COPY: confirm met Marlon */}
+                            {SESSION_PHASE_LABEL[phase]}
+                          </p>
+                        )}
                       </div>
                       <Link
                         href={`/app/trainer/sessies/${s.id}`}
