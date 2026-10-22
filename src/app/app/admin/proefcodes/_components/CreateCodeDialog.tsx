@@ -17,6 +17,7 @@ import {
   SCOPE_DESCRIPTION,
   SCOPE_LABEL,
   SELECTABLE_TRIAL_CODE_SCOPES,
+  scopeShowsPresence,
   type TrialCodeScope,
 } from "@/lib/trial-codes/scope";
 import { ScopeChip, kindLabel } from "./status";
@@ -302,7 +303,7 @@ export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string 
                     </span>
                     <span className="text-xs leading-snug text-text-muted">
                       {/* De vensters komen uit tmc.trainer_presence_windows, niet hardcoded. */}
-                      {s === "vrij_trainen" && presenceText
+                      {scopeShowsPresence(s) && presenceText
                         ? `${SCOPE_DESCRIPTION[s]}: ${presenceText}`
                         : SCOPE_DESCRIPTION[s]}
                     </span>

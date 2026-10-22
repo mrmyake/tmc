@@ -7,6 +7,7 @@ import type { TrialCodeScope } from "@/lib/trial-codes/scope";
 import { TrialBookingList } from "../boeken/TrialBookingList";
 import type { VisitorSlotData } from "@/lib/trial-codes/vrij-trainen-query";
 import { CodeEntry } from "./CodeEntry";
+import { CodeAllFlow } from "./CodeAllFlow";
 import { VisitorSlotPicker } from "./VisitorSlotPicker";
 import type { AttributionParams } from "@/lib/attribution/params";
 
@@ -18,20 +19,28 @@ import type { AttributionParams } from "@/lib/attribution/params";
  * bruikbare code bevat, en de lijst is al op die scope gefilterd. Na een
  * geslaagde codecheck vraagt deze component de server om de pagina opnieuw
  * te renderen, zodat lijst en scope uit de database komen en niet uit de
- * client.
+ * client. Bij scope all gaat het via CodeAllFlow: eerst de keuze groepsles of
+ * vrij trainen, daarna dezelfde lijst of slotkiezer.
  */
+
+/** De keuze van de bezoeker bij een code met scope all (?soort=les|vrij). */
+export type CodeSoort = "les" | "vrij";
+
 export function CodeFlow({
   options,
   slotData,
   code,
   scope,
+  soort = null,
   attribution = {},
 }: {
   options: TrialSessionOption[];
-  /** Alleen bij scope vrij trainen: dagstrip en kwartieren voor de slotkiezer. */
+  /** Alleen bij scope vrij trainen (of all met soort vrij): dagstrip en kwartieren voor de slotkiezer. */
   slotData: VisitorSlotData | null;
   code: string | null;
   scope: TrialCodeScope | null;
+  /** Alleen bij scope all: de gekozen tak uit de URL, null = nog niet gekozen. */
+  soort?: CodeSoort | null;
   /** Advertentie- en campagneparameters uit de URL; reizen mee in de dagstrip en de boeking. */
   attribution?: AttributionParams;
 }) {
@@ -61,6 +70,21 @@ export function CodeFlow({
     setForceEntry(true);
     startTransition(() => router.refresh());
   };
+
+  if (scope === "all") {
+    return (
+      <CodeAllFlow
+        key={code}
+        code={code}
+        soort={soort}
+        options={options}
+        slotData={slotData}
+        onChangeCode={() => setForceEntry(true)}
+        onCodeInvalid={invalid}
+        attribution={attribution}
+      />
+    );
+  }
 
   if (scope === "vrij_trainen" && slotData) {
     return (

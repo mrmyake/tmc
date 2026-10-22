@@ -39,12 +39,18 @@ type Props = {
   attribution?: AttributionParams;
 } & (
   | {
-      /** Codeflow (standaard): een code met scope vrij trainen uit het cookie. */
+      /** Codeflow (standaard): een code met scope vrij trainen (of all) uit het cookie. */
       variant?: "code";
       code: string;
       scope: TrialCodeScope;
       onChangeCode: () => void;
       onCodeInvalid: (message: string) => void;
+      /**
+       * Scope all (CodeAllFlow): de pagina heeft zelf al kop, codebanner en de
+       * keuze tussen groepsles en vrij trainen; de dagstrip houdt die keuze
+       * (?soort=vrij) in de URL.
+       */
+      embedded?: boolean;
     }
   | {
       /**
@@ -69,6 +75,13 @@ type Props = {
 export function VisitorSlotPicker(props: Props) {
   const { data, attribution = {} } = props;
   const isOpening = props.variant === "opening";
+  const embedded = props.variant === "opening" ? true : props.embedded === true;
+  const dayHref = (iso: string) =>
+    isOpening
+      ? `/proefles/gratis?soort=vrij&dag=${iso}`
+      : embedded
+        ? `/proefles/code?soort=vrij&dag=${iso}`
+        : `/proefles/code?dag=${iso}`;
   const router = useRouter();
   const [selection, setSelection] = useState<{ date: string; start: string } | null>(null);
   const [name, setName] = useState("");
@@ -190,7 +203,7 @@ export function VisitorSlotPicker(props: Props) {
 
   const body = (
     <>
-      {!isOpening && (
+      {!embedded && (
         <>
           <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
             <span aria-hidden className="w-12 h-px bg-accent" />
@@ -204,7 +217,7 @@ export function VisitorSlotPicker(props: Props) {
           </h1>
         </>
       )}
-      {props.variant !== "opening" && (
+      {props.variant !== "opening" && !props.embedded && (
         <CodeInfoBanner code={props.code} scope={props.scope} onChangeCode={props.onChangeCode} />
       )}
 
@@ -212,12 +225,7 @@ export function VisitorSlotPicker(props: Props) {
         <SlotDayStrip
           days={data.days}
           selectedDate={data.selectedDate}
-          hrefFor={(iso) =>
-            withAttribution(
-              isOpening ? `/proefles/gratis?soort=vrij&dag=${iso}` : `/proefles/code?dag=${iso}`,
-              attribution,
-            )
-          }
+          hrefFor={(iso) => withAttribution(dayHref(iso), attribution)}
         />
       </div>
 
@@ -329,7 +337,7 @@ export function VisitorSlotPicker(props: Props) {
     </>
   );
 
-  if (isOpening) return <div>{body}</div>;
+  if (embedded) return <div>{body}</div>;
 
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh]">

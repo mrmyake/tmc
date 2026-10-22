@@ -6,16 +6,17 @@
  * het boeken onder de sessielock (scope_mismatch).
  */
 
-export type TrialCodeScope = "yoga_mobility" | "kettlebell" | "group" | "vrij_trainen";
+export type TrialCodeScope = "yoga_mobility" | "kettlebell" | "group" | "vrij_trainen" | "all";
 
 export const TRIAL_CODE_SCOPES: readonly TrialCodeScope[] = [
   "yoga_mobility",
   "kettlebell",
   "group",
   "vrij_trainen",
+  "all",
 ];
 
-/** Scopes die de admin-UI aanbiedt: alle vier. */
+/** Scopes die de admin-UI aanbiedt: alle vijf, all als laatste kaart. */
 export const SELECTABLE_TRIAL_CODE_SCOPES: readonly TrialCodeScope[] = TRIAL_CODE_SCOPES;
 
 export function isTrialCodeScope(value: unknown): value is TrialCodeScope {
@@ -28,6 +29,7 @@ export const SCOPE_LABEL: Record<TrialCodeScope, string> = {
   kettlebell: "Kettlebell",
   group: "Alle groepslessen",
   vrij_trainen: "Vrij trainen",
+  all: "Alles (groepslessen en vrij trainen)",
 };
 
 // COPY: confirm met Marlon
@@ -38,13 +40,20 @@ export const SCOPE_DESCRIPTION: Record<TrialCodeScope, string> = {
   // De vensters van Marlon komen uit tmc.trainer_presence_windows en worden
   // er in de admin-UI achter gezet (formatPresenceWindows); niet hardcoded.
   vrij_trainen: "Vast 1 uur, alleen als Marlon er is",
+  all: "Een groepsles, of vast 1 uur vrij trainen als Marlon er is",
 };
+
+/** Scopes waarbij de admin-beschrijving de aanwezigheidsvensters van Marlon toont. */
+export function scopeShowsPresence(scope: TrialCodeScope): boolean {
+  return scope === "vrij_trainen" || scope === "all";
+}
 
 /**
  * De pillars waarvoor een proefles boekbaar is, per scope. Dezelfde regel
  * als in tmc.redeem_trial_code: group = alles behalve vrij trainen (dus ook
  * kids en senior, zoals in de betaalde flow). Vrij trainen heeft geen
- * sessielijst.
+ * sessielijst. All geeft voor de lessenlijst dezelfde lijst als group; de
+ * vrij-trainen-tak van all loopt via de slotkiezer, niet via deze lijst.
  */
 export function pillarsForScope(scope: TrialCodeScope): string[] {
   switch (scope) {
@@ -53,6 +62,7 @@ export function pillarsForScope(scope: TrialCodeScope): string[] {
     case "kettlebell":
       return ["kettlebell"];
     case "group":
+    case "all":
       return ["yoga_mobility", "kettlebell", "kids", "senior"];
     case "vrij_trainen":
       return [];
@@ -71,5 +81,7 @@ export function scopeValidityText(scope: TrialCodeScope): string {
       return "Je code is geldig voor een gratis groepsles.";
     case "vrij_trainen":
       return "Je code is geldig voor een gratis uur vrij trainen.";
+    case "all":
+      return "Je code is geldig voor een gratis groepsles of een gratis uur vrij trainen. Kies zelf.";
   }
 }

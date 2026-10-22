@@ -10,7 +10,8 @@ import { isTrialCodeScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
 
 export type TrialCodeStatus = "active" | "exhausted" | "revoked";
 export type TrialCodeStatusFilter = TrialCodeStatus | "all";
-export type TrialCodeScopeFilter = TrialCodeScope | "all";
+/** "any" = geen scope-filter; "all" is sinds de scope all een echte scope. */
+export type TrialCodeScopeFilter = TrialCodeScope | "any";
 
 export interface TrialCodeRow {
   id: string;
@@ -220,7 +221,7 @@ export async function listTrialCodes(params: {
   if (params.status !== "all") {
     mapped = mapped.filter((r) => r.status === params.status);
   }
-  if (params.scope && params.scope !== "all") {
+  if (params.scope && params.scope !== "any") {
     mapped = mapped.filter((r) => r.scope === params.scope);
   }
 

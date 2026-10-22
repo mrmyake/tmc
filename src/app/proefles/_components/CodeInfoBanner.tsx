@@ -35,7 +35,9 @@ export function CodeInfoBanner({
           <div className="text-sm text-text-muted">
             {scope === "vrij_trainen"
               ? `${SCOPE_LABEL[scope]}, 1 uur, gratis`
-              : `${SCOPE_LABEL[scope]}, gratis`}
+              : scope === "all"
+                ? "Groepsles of 1 uur vrij trainen, gratis"
+                : `${SCOPE_LABEL[scope]}, gratis`}
           </div>
         </div>
         <button

@@ -3,8 +3,10 @@
 # Amsterdamse tijd rond het einde van de zomertijd (25 oktober 2026), weekdag-
 # conventie, slotregels van redeem_trial_code, het maximum van 5 met
 # proefbezoekers (is_test telt niet mee), scope_mismatch in beide richtingen en
-# een proefbezoeker in vrij_trainen_availability voor leden. Alleen tegen een
-# LOKALE database (supabase db start in de worktree), nooit tegen productie.
+# een proefbezoeker in vrij_trainen_availability voor leden. Sectie 11: scope
+# all (groepsles of vrij trainen naar keuze), inclusief de grants van de vier
+# herbouwde functies. Alleen tegen een LOKALE database (supabase db start in
+# de worktree), nooit tegen productie.
 #
 # Gebruik: scripts/test-trial-vrij-trainen-db.sh <supabase_db_container>
 #
@@ -50,8 +52,11 @@ values ('d9000000-0000-4000-8000-000000000005', 'c9000000-0000-4000-8000-0000000
         (timestamp '2026-10-24 08:00') at time zone 'Europe/Amsterdam', (timestamp '2026-10-24 14:00') at time zone 'Europe/Amsterdam', null, 'scheduled',
         (timestamp '2026-10-24 08:00') at time zone 'Europe/Amsterdam');
 -- Een maandag dichtbij (binnen het boekvenster van leden) voor de mix van leden en proefbezoekers.
+-- Valt die maandag op 26 oktober 2026 (de vaste dagsessie hierboven, een
+-- vrij-trainen-sessie per dag), dan de dinsdag erna: ook een weekdag met aanwezigheid.
 create function pg_temp.nm() returns text language sql as
-$$ select ((current_date + 2) + ((8 - extract(isodow from (current_date + 2))::int) % 7))::text $$;
+$$ select (case when d = date '2026-10-26' then d + 1 else d end)::text
+   from (select (current_date + 2) + ((8 - extract(isodow from (current_date + 2))::int) % 7) as d) x $$;
 insert into tmc.class_sessions (id, class_type_id, trainer_id, pillar, age_category, start_at, end_at, capacity, status, occurrence_start_at)
 select 'd9000000-0000-4000-8000-000000000004', 'c9000000-0000-4000-8000-000000000001', 'b9000000-0000-4000-8000-000000000001', 'vrij_trainen', 'adult',
        (pg_temp.nm() || ' 07:00')::timestamp at time zone 'Europe/Amsterdam', (pg_temp.nm() || ' 21:00')::timestamp at time zone 'Europe/Amsterdam', null, 'scheduled',
@@ -63,7 +68,8 @@ values ('d9000000-0000-4000-8000-000000000003', 'c9000000-0000-4000-8000-0000000
 
 insert into tmc.trial_codes (code, label, max_uses, scope, created_by) values
   ('TVTVRIJ', 'tvt vrij', null, 'vrij_trainen', 'a9000000-0000-4000-8000-000000000006'),
-  ('TVTGROEP', 'tvt groep', null, 'group', 'a9000000-0000-4000-8000-000000000006');
+  ('TVTGROEP', 'tvt groep', null, 'group', 'a9000000-0000-4000-8000-000000000006'),
+  ('TVTALLES', 'tvt alles', null, 'all', 'a9000000-0000-4000-8000-000000000006');
 
 create function pg_temp.slot(d text, t text) returns timestamptz language sql as
 $$ select (d || ' ' || t)::timestamp at time zone 'Europe/Amsterdam' $$;
@@ -207,6 +213,72 @@ select pg_temp.check_('precies een redeem_trial_code',
   (select count(*) = 1 from pg_proc where pronamespace = 'tmc'::regnamespace and proname = 'redeem_trial_code'));
 select pg_temp.check_('zes benoemde argumenten werken',
   tmc.redeem_trial_code(p_code => 'BESTAATNIET', p_session_id => 'd9000000-0000-4000-8000-000000000002', p_name => 'x', p_email => 'x@test.invalid', p_phone => '1', p_is_test => true) ->> 'reason' = 'code_invalid');
+
+-- 11. Scope all: de sessie-pillar bepaalt het pad; de andere scopes zijn
+-- ongewijzigd. Testsessies, is_test true.
+select pg_temp.check_('constraint kent all',
+  (select scope = 'all' from tmc.trial_codes where code = 'TVTALLES'));
+select pg_temp.check_('all-code op groepsles zonder slot slaagt',
+  (tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000003', 'N', 'all1@test.invalid', '06', true) ->> 'ok')::boolean);
+select pg_temp.check_('all-code op groepsles: boeking zonder slot, gratis, paid',
+  (select slot_start_at is null and slot_end_at is null and price_paid_cents = 0 and status = 'paid' and source = 'code'
+   from tmc.trial_bookings where email = 'all1@test.invalid'));
+select pg_temp.check_('all-code op groepsles met slot geeft slot_not_allowed',
+  tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000003', 'N', 'all2@test.invalid', '06', true, pg_temp.slot('2026-10-26', '10:00')) ->> 'reason' = 'slot_not_allowed');
+create temp table r11 as select tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000002', 'N', 'all3@test.invalid', '06', true, pg_temp.slot('2026-10-26', '18:00')) j;
+select pg_temp.check_('all-code op vrij trainen met geldig slot binnen aanwezigheid slaagt', (select (j ->> 'ok')::boolean from r11));
+select pg_temp.check_('all-code op vrij trainen: slot precies 60 minuten in de boeking',
+  (select slot_start_at = pg_temp.slot('2026-10-26', '18:00') and slot_end_at - slot_start_at = interval '60 minutes' and price_paid_cents = 0
+   from tmc.trial_bookings where email = 'all3@test.invalid'));
+select pg_temp.check_('all-code op vrij trainen zonder slot geeft slot_required',
+  tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000002', 'N', 'all4@test.invalid', '06', true) ->> 'reason' = 'slot_required');
+select pg_temp.check_('all-code op vrij trainen buiten aanwezigheid (11:15) geeft outside_presence',
+  tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000002', 'N', 'all5@test.invalid', '06', true, pg_temp.slot('2026-10-26', '11:15')) ->> 'reason' = 'outside_presence');
+select pg_temp.check_('all-code op vrij trainen in het weekend geeft outside_presence',
+  tmc.redeem_trial_code('TVTALLES', 'd9000000-0000-4000-8000-000000000005', 'N', 'all6@test.invalid', '06', true, pg_temp.slot('2026-10-24', '09:00')) ->> 'reason' = 'outside_presence');
+select pg_temp.check_('group-code op vrij trainen geeft nog steeds scope_mismatch',
+  tmc.redeem_trial_code('TVTGROEP', 'd9000000-0000-4000-8000-000000000002', 'N', 'all7@test.invalid', '06', true) ->> 'reason' = 'scope_mismatch');
+select pg_temp.check_('group-code op vrij trainen met slot: slot_not_allowed gaat nog steeds voor (volgorde ongewijzigd)',
+  tmc.redeem_trial_code('TVTGROEP', 'd9000000-0000-4000-8000-000000000002', 'N', 'all7@test.invalid', '06', true, pg_temp.slot('2026-10-26', '18:00')) ->> 'reason' = 'slot_not_allowed');
+select pg_temp.check_('vrij_trainen-code op groepsles geeft nog steeds scope_mismatch',
+  tmc.redeem_trial_code('TVTVRIJ', 'd9000000-0000-4000-8000-000000000003', 'N', 'all8@test.invalid', '06', true) ->> 'reason' = 'scope_mismatch');
+select pg_temp.check_('all-code: twee gebruiken geteld, event per inwisseling met scope all',
+  (select uses_count = 2 from tmc.trial_codes where code = 'TVTALLES')
+  and (select count(*) = 2 from tmc.events e join tmc.trial_codes c on c.id = e.subject_id
+       where e.type = 'trial_code.redeemed' and c.code = 'TVTALLES' and e.payload ->> 'scope' = 'all'));
+-- De guard als backstop: een directe codeboeking op vrij trainen met een all-code en een geldig slot mag.
+insert into tmc.trial_bookings (session_id, name, email, phone, price_paid_cents, status, trial_code_id, is_test, slot_start_at, slot_end_at, source)
+select 'd9000000-0000-4000-8000-000000000002', 'G', 'allguard@test.invalid', '06', 0, 'paid', id, true, pg_temp.slot('2026-10-26', '09:00'), pg_temp.slot('2026-10-26', '10:00'), 'code'
+from tmc.trial_codes where code = 'TVTALLES';
+select 'PASS guard: directe codeboeking op vrij trainen met all-code toegestaan';
+do $$
+declare v_id uuid;
+begin
+  select id into v_id from tmc.trial_codes where code = 'TVTGROEP';
+  insert into tmc.trial_bookings (session_id, name, email, phone, price_paid_cents, status, trial_code_id, is_test, slot_start_at, slot_end_at, source)
+  values ('d9000000-0000-4000-8000-000000000002', 'G', 'groupguard@test.invalid', '06', 0, 'paid', v_id, true, pg_temp.slot('2026-10-26', '09:00'), pg_temp.slot('2026-10-26', '10:00'), 'code');
+  raise exception 'guard: group-code op vrij trainen had moeten falen';
+exception when raise_exception then
+  if sqlerrm <> 'session_not_eligible' then raise; end if;
+end $$;
+select 'PASS guard: directe codeboeking op vrij trainen met group-code geweigerd';
+-- Grants van de vier herbouwde functies: exact de uitgangssituatie.
+select pg_temp.check_('grants create_trial_code: authenticated en service_role, niet anon',
+  has_function_privilege('authenticated', 'tmc.create_trial_code(text, text, integer, text)', 'execute')
+  and has_function_privilege('service_role', 'tmc.create_trial_code(text, text, integer, text)', 'execute')
+  and not has_function_privilege('anon', 'tmc.create_trial_code(text, text, integer, text)', 'execute'));
+select pg_temp.check_('grants create_trial_codes_batch: authenticated en service_role, niet anon',
+  has_function_privilege('authenticated', 'tmc.create_trial_codes_batch(integer, text, integer, text)', 'execute')
+  and has_function_privilege('service_role', 'tmc.create_trial_codes_batch(integer, text, integer, text)', 'execute')
+  and not has_function_privilege('anon', 'tmc.create_trial_codes_batch(integer, text, integer, text)', 'execute'));
+select pg_temp.check_('grants redeem_trial_code: alleen service_role',
+  has_function_privilege('service_role', 'tmc.redeem_trial_code(text, uuid, text, text, text, boolean, timestamptz)', 'execute')
+  and not has_function_privilege('anon', 'tmc.redeem_trial_code(text, uuid, text, text, text, boolean, timestamptz)', 'execute')
+  and not has_function_privilege('authenticated', 'tmc.redeem_trial_code(text, uuid, text, text, text, boolean, timestamptz)', 'execute'));
+select pg_temp.check_('grants guard: niemand behalve de eigenaar',
+  not has_function_privilege('anon', 'tmc.guard_trial_booking_vrij_trainen()', 'execute')
+  and not has_function_privilege('authenticated', 'tmc.guard_trial_booking_vrij_trainen()', 'execute')
+  and not has_function_privilege('service_role', 'tmc.guard_trial_booking_vrij_trainen()', 'execute'));
 
 rollback;
 SQL
