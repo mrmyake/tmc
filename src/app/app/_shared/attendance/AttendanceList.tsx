@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Download, Undo2 } from "lucide-react";
 import {
-  autoMarkNoShows,
   loadParticipants,
   markAttendance,
   markGuestAttendance,
@@ -70,6 +69,11 @@ export function AttendanceList({
   const [guests, setGuests] = useState<GuestRow[]>(initialGuests);
   const [trials, setTrials] = useState<TrialRow[]>(initialTrials);
   const [takenCount, setTakenCount] = useState<number>(initialTakenCount);
+  // Afgesloten door de cron close-sessions (fase-2-checkin-model.md PR 4):
+  // wie niet als no-show stond telt als aanwezig. Corrigeren kan altijd.
+  // Bij selfFetch komt de waarde met de deelnemers mee (het roosterblok
+  // kent closed_at niet).
+  const [closedAt, setClosedAt] = useState<string | null>(session.closedAt);
   const [dirty, setDirty] = useState<DirtyMap>(new Map());
   const [guestDirty, setGuestDirty] = useState<DirtyMap>(new Map());
   const [trialDirty, setTrialDirty] = useState<TrialDirtyMap>(new Map());
@@ -95,6 +99,7 @@ export function AttendanceList({
         setGuests(res.guests);
         setTrials(res.trials);
         setTakenCount(res.takenCount);
+        setClosedAt(res.session.closedAt);
       } else {
         setMessage({ tone: "error", text: res.message });
       }
@@ -111,10 +116,7 @@ export function AttendanceList({
     }
   }, [refundFor]);
 
-  const sessionEnded = useMemo(
-    () => new Date(session.endAt).getTime() < Date.now(),
-    [session.endAt],
-  );
+  const closed = Boolean(closedAt);
 
   // "Totaal" is de bezetting uit de view (zelfde getal als het rooster);
   // aanwezig en no-show tellen leden, gasten en proeflessen samen.
@@ -300,24 +302,6 @@ export function AttendanceList({
     });
   }
 
-  function runAutoNoShows() {
-    setMessage(null);
-    startTransition(async () => {
-      const res = await autoMarkNoShows(session.id);
-      reflect(res);
-      if (res.ok) {
-        // Refetch to keep state canonical (leden en proefgasten).
-        const reload = await loadParticipants(session.id);
-        if (reload.ok) {
-          setParticipants(reload.participants);
-          setTrials(reload.trials);
-          setDirty(new Map());
-          setTrialDirty(new Map());
-        }
-      }
-    });
-  }
-
   function reflect(res: AttendanceActionResult) {
     setMessage({ tone: res.ok ? "success" : "error", text: res.message });
   }
@@ -425,7 +409,12 @@ export function AttendanceList({
               : `${stats.total}/${session.capacity}`
           }
         />
-        <SummaryStat label="Aanwezig" value={String(stats.attended)} tone="success" />
+        {closed ? (
+          <SummaryStat label="Aanwezig" value={String(stats.attended)} tone="success" />
+        ) : (
+          // COPY: confirm met Marlon
+          <SummaryStat label="Verwacht" value={String(Math.max(0, stats.total - stats.noShow))} />
+        )}
         <SummaryStat label="No-show" value={String(stats.noShow)} tone="danger" />
         <div className="ml-auto flex items-center gap-3">
           {canRefund && active.length > 0 && (
@@ -440,6 +429,20 @@ export function AttendanceList({
           )}
         </div>
       </div>
+
+      {session.status !== "cancelled" && (
+        <p
+          role="note"
+          className={`mb-6 text-sm leading-relaxed ${
+            closed ? "text-[color:var(--success)]" : "text-text-muted"
+          }`}
+        >
+          {/* COPY: confirm met Marlon */}
+          {closed
+            ? "Afgesloten. Corrigeren kan altijd."
+            : "Tik op wie er niet is. De rest telt na de les automatisch als aanwezig."}
+        </p>
+      )}
 
       {loading && (
         <div className="flex flex-col gap-2 mb-6">
@@ -488,7 +491,7 @@ export function AttendanceList({
                       status={currentStatus(p) as SessionStatus}
                     />
                   )}
-                  {p.checkedInAt && (
+                  {p.checkedInAt && p.checkInMethod !== "auto_close" && (
                     <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--success)]">
                       Ingecheckt{" "}
                       {CHECK_IN_TIME_FMT.format(new Date(p.checkedInAt))}
@@ -685,20 +688,6 @@ export function AttendanceList({
             : dirtyCount === 0
               ? "Opgeslagen"
               : `Opslaan (${dirtyCount})`}
-        </button>
-        <button
-          type="button"
-          onClick={runAutoNoShows}
-          disabled={pending || !sessionEnded}
-          title={
-            sessionEnded
-              ? // COPY: confirm met Marlon
-                "Markeer alle resterende boekingen en niet-afgevinkte proefgasten als no-show"
-              : "Kan pas na einde sessie"
-          }
-          className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-        >
-          Auto-mark no-shows
         </button>
       </div>
 

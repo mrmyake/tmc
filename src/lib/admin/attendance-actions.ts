@@ -14,10 +14,13 @@ import {
   type WalkInReason,
 } from "@/lib/attendance/walk-in-core";
 import {
-  autoMarkTrialNoShowsCore,
   markTrialAttendanceCore,
   type TrialAttendanceInput,
 } from "@/lib/attendance/trial-core";
+import {
+  setGuestAttendanceCore,
+  type GuestAttendanceInput,
+} from "@/lib/attendance/guest-core";
 import { isTrialBookingSource, type TrialBookingSource } from "@/lib/opening-trial/rules";
 import { isMissingColumnError } from "@/lib/supabase/missing-column";
 
@@ -33,6 +36,12 @@ export interface SessionSummary {
   /** NULL betekent onbeperkt (alleen kettlebell). */
   capacity: number | null;
   status: "scheduled" | "cancelled" | "completed";
+  /**
+   * Gezet door de cron close-sessions (fase-2-checkin-model.md PR 4): de les
+   * is afgesloten en wie niet als no-show stond telt als aanwezig. Null tot
+   * dan, en ook zolang migratie 20261023120000 nog niet is gepusht.
+   */
+  closedAt: string | null;
 }
 
 export interface ParticipantRow {
@@ -49,8 +58,14 @@ export interface ParticipantRow {
   status: AttendanceStatus;
   bookedAt: string;
   attendedAt: string | null;
-  /** ISO-timestamp van fysieke check-in bij de tablet, null als nooit ingecheckt. */
+  /** ISO-timestamp van de check_ins-rij, null als nooit ingecheckt. */
   checkedInAt: string | null;
+  /**
+   * check_ins.check_in_method: admin_web, admin_tablet of auto_close (door de
+   * cron bij het afsluiten gezet, PR 4). Null zonder check-in. De lijst toont
+   * bij auto_close geen "ingecheckt om"-regel.
+   */
+  checkInMethod: string | null;
   hasInjury: boolean;
   /**
    * Full injury text from the intake. Alleen ingevuld als caller admin is
@@ -108,7 +123,7 @@ export interface TrialRefundInfo {
  * Proefles van deze sessie (tmc.trial_bookings): betaald via Mollie, gratis
  * via een proefcode of gratis in de openingsperiode (source). Aanwezigheid
  * leeft in trial_bookings.status ('attended', 'no_show', via
- * markTrialAttendance en autoMarkNoShows), niet in check_ins:
+ * markTrialAttendance en de cron close-sessions), niet in check_ins:
  * check_ins.profile_id is NOT NULL en een bezoeker heeft geen profiel. Status
  * 'pending' (betaling nog open) komt alleen mee voor admins; de trainer- en
  * kioskweergave zien hem niet.
@@ -244,7 +259,7 @@ export async function loadParticipants(
       .from("class_sessions")
       .select(
         `
-          id, start_at, end_at, capacity, pillar, status,
+          id, start_at, end_at, capacity, pillar, status, closed_at,
           class_type:class_types(name),
           trainer:trainers(display_name)
         `,
@@ -266,7 +281,7 @@ export async function loadParticipants(
       .order("booked_at", { ascending: true }),
     admin
       .from("check_ins")
-      .select("profile_id, checked_in_at")
+      .select("profile_id, checked_in_at, check_in_method")
       .eq("session_id", sessionId),
     // Gasten van deze sessie. Bewust zonder guest_email/telefoon (zie
     // GuestRow); de uitnodiger komt mee voor de "gast van ..."-regel.
@@ -295,14 +310,46 @@ export async function loadParticipants(
       .maybeSingle(),
   ]);
 
-  const checkInByProfile = new Map<string, string>();
+  const checkInByProfile = new Map<string, { at: string; method: string | null }>();
   for (const ci of checkInsRes.data ?? []) {
     if (ci.profile_id && ci.checked_in_at) {
-      checkInByProfile.set(ci.profile_id, ci.checked_in_at);
+      checkInByProfile.set(ci.profile_id, {
+        at: ci.checked_in_at,
+        method: (ci.check_in_method as string | null) ?? null,
+      });
     }
   }
 
-  const row = sessionRes.data;
+  type SessionQueryRow = {
+    id: string;
+    start_at: string;
+    end_at: string;
+    capacity: number | null;
+    pillar: string;
+    status: SessionSummary["status"];
+    closed_at?: string | null;
+    class_type: unknown;
+    trainer: unknown;
+  };
+  let row = (sessionRes.data ?? null) as SessionQueryRow | null;
+  // Tot migratie 20261023120000 (close-sessions) is gepusht bestaat
+  // class_sessions.closed_at nog niet; dan dezelfde query zonder die kolom.
+  if (sessionRes.error && isMissingColumnError(sessionRes.error)) {
+    const { data: legacy } = await admin
+      .from("class_sessions")
+      .select(
+        `
+          id, start_at, end_at, capacity, pillar, status,
+          class_type:class_types(name),
+          trainer:trainers(display_name)
+        `,
+      )
+      .eq("id", sessionId)
+      .maybeSingle();
+    row = (legacy ?? null) as SessionQueryRow | null;
+  } else if (sessionRes.error) {
+    console.error("[loadParticipants] session query failed", sessionRes.error);
+  }
   if (!row) return { ok: false, message: "Sessie niet gevonden." };
 
   type ClassTypeRef = { name: string | null };
@@ -323,6 +370,7 @@ export async function loadParticipants(
     endAt: row.end_at,
     capacity: row.capacity,
     status: row.status,
+    closedAt: row.closed_at ?? null,
   };
 
   type ProfileRef = {
@@ -387,7 +435,8 @@ export async function loadParticipants(
       Array.isArray(b.membership) ? b.membership[0] : b.membership
     ) as MembershipRef | null;
     const injuryText = parseInjuryText(p?.health_notes ?? null);
-    const checkedInAt = checkInByProfile.get(b.profile_id) ?? null;
+    const checkIn = checkInByProfile.get(b.profile_id) ?? null;
+    const checkedInAt = checkIn?.at ?? null;
     const rawStatus = b.status as string;
     // Display-status derivation: check_in aanwezig wint, dan no_show_at,
     // anders valt de rauwe booking-status door (booked/cancelled/waitlisted).
@@ -421,6 +470,7 @@ export async function loadParticipants(
       bookedAt: b.booked_at,
       attendedAt: b.attended_at,
       checkedInAt,
+      checkInMethod: checkIn?.method ?? null,
       hasInjury: injuryText !== null,
       injuryText: auth.ctx.canSeeHealthDetail ? injuryText : null,
       walkIn: Boolean(b.walk_in_at),
@@ -717,13 +767,10 @@ export async function markAttendance(
 // profiel. Consequentie voor aggregaties: een aanwezigheids-KPI moet
 // check_ins/attended_at (leden) en guest_bookings.status (gasten) unioneren
 // en op de sessiedatum (class_sessions.start_at) filteren. Geen strikes voor
-// gasten; de 2x-per-kwartaal-rate-limit in bookGuest is de gast-rem.
+// gasten; de 2x-per-kwartaal-rate-limit in bookGuest is de gast-rem. De kern
+// staat in src/lib/attendance/guest-core.ts en wordt ook door de cron
+// close-sessions gebruikt (booked wordt attended bij het afsluiten).
 // ----------------------------------------------------------------------------
-
-interface GuestAttendanceInput {
-  guestBookingId: string;
-  status: "attended" | "booked" | "no_show";
-}
 
 export async function markGuestAttendance(
   sessionId: string,
@@ -738,76 +785,21 @@ export async function markGuestAttendance(
   const auth = await authorizeForSession(sessionId);
   if (!auth.ok) return auth;
 
-  const admin = createAdminClient();
-
-  const ids = updates.map((u) => u.guestBookingId);
-  const { data: rows, error: fetchErr } = await admin
-    .from("guest_bookings")
-    .select("id, session_id, status")
-    .in("id", ids);
-
-  if (fetchErr) {
-    console.error("[markGuestAttendance] fetch failed", fetchErr);
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Kon gastboekingen niet laden." };
-  }
-
-  const byId = new Map(
-    (rows ?? []).map((g) => [
-      g.id,
-      { sessionId: g.session_id as string, status: g.status as string },
-    ]),
+  const res = await setGuestAttendanceCore(
+    { admin: createAdminClient(), emit: emitEvent },
+    { userId: auth.ctx.userId, role: auth.ctx.role },
+    sessionId,
+    updates,
+    "attendance",
   );
-
-  for (const u of updates) {
-    const cur = byId.get(u.guestBookingId);
-    if (!cur) {
-      // COPY: confirm met Marlon
-      return { ok: false, message: "Gastboeking niet gevonden." };
-    }
-    if (cur.sessionId !== sessionId) {
-      // COPY: confirm met Marlon
-      return {
-        ok: false,
-        message: "Gastboeking hoort niet bij deze sessie.",
-      };
-    }
-    if (cur.status === "cancelled") continue;
-    if (cur.status === u.status) continue;
-
-    const { error: updateErr } = await admin
-      .from("guest_bookings")
-      .update({ status: u.status })
-      .eq("id", u.guestBookingId);
-
-    if (updateErr) {
-      console.error("[markGuestAttendance] update failed", updateErr);
-      // COPY: confirm met Marlon
-      return { ok: false, message: "Bijwerken lukte niet." };
-    }
-
-    // Geen gast-PII in de payload (zelfde afweging als guest.booked).
-    await emitEvent({
-      type: "guest.attendance_marked",
-      actorType: auth.ctx.role,
-      actorId: auth.ctx.userId,
-      subjectType: "guest_booking",
-      subjectId: u.guestBookingId,
-      payload: {
-        session_id: sessionId,
-        guest_booking_id: u.guestBookingId,
-        status: u.status,
-      },
-    });
-  }
+  if (!res.ok) return res;
 
   revalidatePath("/app/admin");
   revalidatePath("/app/admin/rooster");
   revalidatePath(`/app/admin/sessies/${sessionId}`);
   revalidatePath(`/app/trainer/sessies/${sessionId}`);
 
-  // COPY: confirm met Marlon
-  return { ok: true, message: "Aanwezigheid opgeslagen." };
+  return { ok: true, message: res.message };
 }
 
 // ----------------------------------------------------------------------------
@@ -851,140 +843,6 @@ export async function markTrialAttendance(
   revalidatePath("/kiosk/paneel");
 
   return { ok: true, message: res.message };
-}
-
-// ----------------------------------------------------------------------------
-// Auto-mark no-shows (all remaining `booked` on ended session)
-// ----------------------------------------------------------------------------
-
-export async function autoMarkNoShows(
-  sessionId: string,
-): Promise<AttendanceActionResult> {
-  const auth = await authorizeForSession(sessionId);
-  if (!auth.ok) return auth;
-
-  const admin = createAdminClient();
-
-  const { data: session } = await admin
-    .from("class_sessions")
-    .select("id, end_at, pillar")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session) return { ok: false, message: "Sessie niet gevonden." };
-  // Vrij trainen levert nooit no-shows of strikes op
-  // (spec-vrij-trainen-slots.md); de DB weigert het ook.
-  if (session.pillar === "vrij_trainen") {
-    // COPY: confirm met Marlon
-    return { ok: false, message: "Bij vrij trainen worden geen no-shows gemarkeerd." };
-  }
-  if (new Date(session.end_at).getTime() > Date.now()) {
-    return {
-      ok: false,
-      message: "Sessie is nog niet afgelopen.",
-    };
-  }
-
-  const { data: remaining } = await admin
-    .from("bookings")
-    .select("id, profile_id, status, no_show_at")
-    .eq("session_id", sessionId)
-    .eq("status", "booked")
-    .is("no_show_at", null);
-
-  // Proefgasten die niet zijn afgevinkt (nog paid) worden ook no_show; in de
-  // gratis openingsperiode telt dat als gebruikte gratis proefles. Een al
-  // afgevinkte (attended) proefgast blijft staan. Geen strikes: een bezoeker
-  // heeft geen profiel om er een aan te hangen.
-  const trialRes = await autoMarkTrialNoShowsCore(
-    { admin, emit: emitEvent },
-    { userId: auth.ctx.userId, role: auth.ctx.role },
-    sessionId,
-  );
-  if (!trialRes.ok) return trialRes;
-  const trialCount = trialRes.count;
-  // COPY: confirm met Marlon
-  const trialSuffix =
-    trialCount > 0 ? ` Plus ${trialCount} ${trialCount === 1 ? "proefgast" : "proefgasten"} als no-show.` : "";
-
-  if (!remaining || remaining.length === 0) {
-    revalidatePath(`/app/admin/sessies/${sessionId}`);
-    revalidatePath(`/app/trainer/sessies/${sessionId}`);
-    revalidatePath("/kiosk/paneel");
-    // COPY: confirm met Marlon
-    return { ok: true, message: `Geen open boekingen meer.${trialSuffix}` };
-  }
-
-  // Filter op wie geen check_in heeft (die waren wel aanwezig).
-  const { data: checkIns } = await admin
-    .from("check_ins")
-    .select("profile_id")
-    .eq("session_id", sessionId);
-  const checkedInProfiles = new Set(
-    (checkIns ?? []).map((c) => c.profile_id).filter(Boolean),
-  );
-  const trulyNoShow = remaining.filter(
-    (r) => !checkedInProfiles.has(r.profile_id),
-  );
-
-  if (trulyNoShow.length === 0) {
-    revalidatePath(`/app/admin/sessies/${sessionId}`);
-    revalidatePath(`/app/trainer/sessies/${sessionId}`);
-    revalidatePath("/kiosk/paneel");
-    // COPY: confirm met Marlon
-    return { ok: true, message: `Alle aanwezigen ingecheckt.${trialSuffix}` };
-  }
-
-  const nowIso = new Date().toISOString();
-
-  const { error } = await admin
-    .from("bookings")
-    .update({ no_show_at: nowIso, attended_at: null })
-    .in(
-      "id",
-      trulyNoShow.map((r) => r.id),
-    );
-
-  if (error) {
-    console.error("[autoMarkNoShows] update failed", error);
-    return { ok: false, message: "Kon geen no-shows markeren." };
-  }
-
-  await writeStrikesForNewNoShows(
-    admin,
-    trulyNoShow.map((r) => ({
-      id: r.id,
-      profile_id: r.profile_id,
-      prevStatus: r.status,
-    })),
-  );
-
-  for (const r of trulyNoShow) {
-    await emitEvent({
-      type: "attendance.no_show_marked",
-      actorType: auth.ctx.role,
-      actorId: auth.ctx.userId,
-      subjectType: "booking",
-      subjectId: r.id,
-      payload: {
-        profile_id: r.profile_id,
-        session_id: sessionId,
-        booking_id: r.id,
-        strike_issued: r.status !== "no_show",
-        source: "auto",
-      },
-    });
-  }
-
-  revalidatePath(`/app/admin/sessies/${sessionId}`);
-  revalidatePath(`/app/trainer/sessies/${sessionId}`);
-  revalidatePath("/kiosk/paneel");
-
-  return {
-    ok: true,
-    // COPY: confirm met Marlon
-    message: `${trulyNoShow.length} boeking(en) als no-show gemarkeerd.${trialSuffix}`,
-  };
 }
 
 // ----------------------------------------------------------------------------

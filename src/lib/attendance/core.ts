@@ -5,15 +5,18 @@ import type { EmitEventInput } from "@/lib/events/emit";
  * Schrijfkern voor de aanwezigheid van een lid bij een les (fase-2-checkin-
  * model.md, check-in-spoor PR 1; discovery-kiosk-checkin.md §D). Eén ingang
  * voor de deelnemerslijst (markAttendance), de admin-override (overrideNoShow)
- * en de tablet (checkInByProfileId met sessie); straks ook de kiosk en de
- * cron. Geen auth: de aanroeper doet de gate en geeft de actor door.
+ * en de tablet (checkInByProfileId met sessie), en sinds PR 4 de cron
+ * close-sessions (actor system, method auto_close). Geen auth: de aanroeper
+ * doet de gate en geeft de actor door.
  *
  * Model: bookings.status kent alleen booked, cancelled en waitlisted.
  * Aanwezigheid is een check_ins-rij plus bookings.attended_at; afwezigheid
  * na afloop is bookings.no_show_at plus een no_show_strikes-rij. Deze kern
  * zet en wist de aanwezigheid; no-show markeren blijft bij de aanroepers
- * (en straks bij de cron close-sessions), maar loopt voor het verwijderen
- * van een eerdere check-in wel door deze kern (keepStrike).
+ * (de trainer tikt aan wie er niet was), maar loopt voor het verwijderen
+ * van een eerdere check-in wel door deze kern (keepStrike). Wie bij het
+ * afsluiten niet als no-show is gemarkeerd, zet de cron via deze kern op
+ * aanwezig (fase-2-checkin-model.md PR 4).
  *
  * De vijf verschillen tussen de oude paden, hier vastgelegd:
  *  1. booking_id is altijd gekoppeld: een booked booking is verplicht; een
@@ -41,8 +44,16 @@ export interface AttendanceDeps {
   emit: (input: EmitEventInput) => Promise<boolean>;
 }
 
-export type AttendanceActor = { userId: string; actorType: "admin" | "trainer" };
-export type AttendanceMethod = "admin_web" | "admin_tablet";
+/**
+ * Wie schrijft: een ingelogd staflid uit de gate, of het systeem (de cron
+ * close-sessions, PR 4) met userId null. checked_in_by is nullable en
+ * tmc.events kent actor_type 'system'.
+ */
+export type AttendanceActor =
+  | { userId: string; actorType: "admin" | "trainer" }
+  | { userId: null; actorType: "system" };
+/** auto_close: aanwezig gezet door de cron close-sessions bij het afsluiten. */
+export type AttendanceMethod = "admin_web" | "admin_tablet" | "auto_close";
 export type BookingAccessType = "membership" | "credit" | "drop_in";
 
 export type SetMemberAttendanceInput = {
@@ -51,7 +62,7 @@ export type SetMemberAttendanceInput = {
   actor: AttendanceActor;
   /** Herkomst op de check_ins-rij. Default admin_web. */
   method?: AttendanceMethod;
-  /** Alleen voor de event-payload: attendance, override, kiosk, undo, no_show_correction. */
+  /** Alleen voor de event-payload: attendance, override, kiosk, undo, no_show_correction, walk_in, auto_close. */
   source?: string;
   /** present: false laat de strike staan (de aanroeper zet direct no_show). */
   keepStrike?: boolean;

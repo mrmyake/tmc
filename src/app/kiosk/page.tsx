@@ -5,6 +5,7 @@ import {
   amsterdamYmd,
   zonedWallClockToUtc,
 } from "@/lib/scheduling/amsterdam-time";
+import { isMissingColumnError } from "@/lib/supabase/missing-column";
 import { KioskFrame, type KioskSession } from "./_components/KioskFrame";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ interface SessionRow {
   pillar: string | null;
   rescheduled_at: string | null;
   occurrence_start_at: string;
+  /** Ontbreekt tot migratie 20261023120000 (close-sessions) is gepusht. */
+  closed_at?: string | null;
   class_type: { name: string | null } | { name: string | null }[] | null;
   trainer:
     | { display_name: string | null }
@@ -27,7 +30,9 @@ interface SessionRow {
 /**
  * /kiosk: vandaag-weergave voor de muurtablet, tweede ingang naar
  * dezelfde deelnemerslijst/markAttendance() als /app/trainer/sessies/[id].
- * Geen nieuwe incheck-logica hier. Sinds check-in PR 2 komt de actor uit
+ * Geen nieuwe incheck-logica hier. Per les staat het aantal geboekt en het
+ * aantal no-shows (niet meer "ingecheckt": geboekt is aanwezig tenzij
+ * no-show, fase-2-checkin-model.md PR 4), en of de les is afgesloten. Sinds check-in PR 2 komt de actor uit
  * de kiosk-gate (staff-login óf apparaat plus kiosk-sessie); een admin ziet
  * alle sessies van vandaag, een trainer de eigen (via de trainers-rij op
  * het staflid-id). Renderen verlengt de sessie niet.
@@ -61,41 +66,51 @@ export default async function KioskPage() {
   let sessions: KioskSession[] = [];
 
   if (!skipQuery) {
-    let query = admin
-      .from("class_sessions")
-      .select(
-        `id, start_at, end_at, status, pillar, rescheduled_at, occurrence_start_at,
-         class_type:class_types(name),
-         trainer:trainers(display_name)`,
-      )
-      .gte("start_at", dayStart.toISOString())
-      .lt("start_at", dayEnd.toISOString())
-      // Vrij trainen is een dagsessie met eigen slots en hoort niet op de
-      // kiosk (spec-vrij-trainen-slots.md); check-in loopt via /kiosk/paneel.
-      .neq("pillar", "vrij_trainen")
-      // Geannuleerde lessen blijven zichtbaar als "Vervalt"
-      // (spec-session-overrides.md); KioskFrame maakt ze niet klikbaar.
-      .order("start_at", { ascending: true });
+    const buildQuery = (withClosedAt: boolean) => {
+      let query = admin
+        .from("class_sessions")
+        .select(
+          `id, start_at, end_at, status, pillar, rescheduled_at, occurrence_start_at${
+            withClosedAt ? ", closed_at" : ""
+          },
+           class_type:class_types(name),
+           trainer:trainers(display_name)`,
+        )
+        .gte("start_at", dayStart.toISOString())
+        .lt("start_at", dayEnd.toISOString())
+        // Vrij trainen is een dagsessie met eigen slots en hoort niet op de
+        // kiosk (spec-vrij-trainen-slots.md); check-in loopt via /kiosk/paneel.
+        .neq("pillar", "vrij_trainen")
+        // Geannuleerde lessen blijven zichtbaar als "Vervalt"
+        // (spec-session-overrides.md); KioskFrame maakt ze niet klikbaar.
+        .order("start_at", { ascending: true });
+      if (trainerFilterId) {
+        query = query.eq("trainer_id", trainerFilterId);
+      }
+      return query.returns<SessionRow[]>();
+    };
 
-    if (trainerFilterId) {
-      query = query.eq("trainer_id", trainerFilterId);
+    // Tot migratie 20261023120000 (close-sessions) is gepusht bestaat
+    // class_sessions.closed_at nog niet; dan dezelfde query zonder die kolom.
+    let sessionRes = await buildQuery(true);
+    if (sessionRes.error && isMissingColumnError(sessionRes.error)) {
+      sessionRes = await buildQuery(false);
     }
-
-    const { data: sessionRows } = await query.returns<SessionRow[]>();
-    const rows = sessionRows ?? [];
+    const rows = sessionRes.data ?? [];
     const sessionIds = rows.map((r) => r.id);
 
     // Geboekt: de totale bezetting uit tmc.v_session_availability (leden,
     // proeflessen, gasten, open promoties), zelfde getal als rooster en
     // deelnemerslijst. Een geannuleerde sessie staat niet in de view en
     // blijft op 0; KioskFrame toont die als "Vervalt".
-    // Ingecheckt: leden uit tmc.check_ins (sessie-gebonden check-ins
-    // ontstaan uitsluitend via de kern uit #214) plus aanwezige gasten en
-    // proeflessen, die hun aanwezigheid in de eigen tabel dragen.
+    // No-show: sinds de cron close-sessions (fase-2-checkin-model.md PR 4)
+    // is geboekt aanwezig tenzij de trainer no-show heeft aangetikt, dus de
+    // kiosk telt geen check-ins meer maar no-shows: leden uit
+    // bookings.no_show_at, gasten en proeflessen uit de eigen statuskolom.
     const none = Promise.resolve({ data: [] as { session_id: string | null }[] });
     const [
       { data: availabilityRows },
-      { data: checkinRows },
+      { data: noShowBookingRows },
       { data: guestRows },
       { data: trialRows },
     ] = await Promise.all([
@@ -106,21 +121,26 @@ export default async function KioskPage() {
             .in("id", sessionIds)
         : Promise.resolve({ data: [] as { id: string; taken_count: number | null }[] }),
       sessionIds.length
-        ? admin.from("check_ins").select("session_id").in("session_id", sessionIds)
+        ? admin
+            .from("bookings")
+            .select("session_id")
+            .in("session_id", sessionIds)
+            .eq("status", "booked")
+            .not("no_show_at", "is", null)
         : none,
       sessionIds.length
         ? admin
             .from("guest_bookings")
             .select("session_id")
             .in("session_id", sessionIds)
-            .eq("status", "attended")
+            .eq("status", "no_show")
         : none,
       sessionIds.length
         ? admin
             .from("trial_bookings")
             .select("session_id")
             .in("session_id", sessionIds)
-            .eq("status", "attended")
+            .eq("status", "no_show")
             .eq("is_test", false)
         : none,
     ]);
@@ -129,17 +149,14 @@ export default async function KioskPage() {
     for (const r of availabilityRows ?? []) {
       if (r.id) bookedCounts.set(r.id, r.taken_count ?? 0);
     }
-    const checkedInCounts = new Map<string, number>();
+    const noShowCounts = new Map<string, number>();
     for (const c of [
-      ...(checkinRows ?? []),
+      ...(noShowBookingRows ?? []),
       ...(guestRows ?? []),
       ...(trialRows ?? []),
     ]) {
       if (!c.session_id) continue;
-      checkedInCounts.set(
-        c.session_id,
-        (checkedInCounts.get(c.session_id) ?? 0) + 1,
-      );
+      noShowCounts.set(c.session_id, (noShowCounts.get(c.session_id) ?? 0) + 1);
     }
 
     sessions = rows.map((r) => {
@@ -154,7 +171,8 @@ export default async function KioskPage() {
         className: classType?.name ?? "Sessie",
         trainerName: trainer?.display_name ?? "",
         bookedCount: bookedCounts.get(r.id) ?? 0,
-        checkedInCount: checkedInCounts.get(r.id) ?? 0,
+        noShowCount: noShowCounts.get(r.id) ?? 0,
+        closed: Boolean(r.closed_at),
         pillar: r.pillar ?? null,
         cancelled: r.status === "cancelled",
         rescheduledFrom:

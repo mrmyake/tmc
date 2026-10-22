@@ -90,6 +90,9 @@ export type EventType =
   | "session.cancelled"
   | "session.rescheduled"
   | "session.trainer_replaced"
+  // Cron close-sessions (fase-2-checkin-model.md PR 4): les afgesloten,
+  // open boekingen, gasten en proeflessen op aanwezig gezet.
+  | "session.closed"
   // Recurring series (admin, schedule_templates)
   | "series.created"
   | "series.updated"
