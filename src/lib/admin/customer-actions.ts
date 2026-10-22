@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { requirePtTrainerOrAdmin } from "@/lib/admin/require-pt-trainer-or-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -35,7 +36,7 @@ import {
  * tweede account, geen split.
  */
 
-const PROFILE_COLUMNS = "id, first_name, last_name, email, member_code";
+const PROFILE_COLUMNS = "id, first_name, last_name, email, member_code, role";
 
 interface ProfileRow {
   id: string;
@@ -43,6 +44,7 @@ interface ProfileRow {
   last_name: string;
   email: string;
   member_code: string;
+  role: string;
 }
 
 function toCustomerProfile(row: ProfileRow): CustomerProfile {
@@ -52,6 +54,7 @@ function toCustomerProfile(row: ProfileRow): CustomerProfile {
     lastName: row.last_name,
     email: row.email,
     memberCode: row.member_code,
+    role: row.role,
   };
 }
 
@@ -169,6 +172,9 @@ export async function findOrCreateCustomer(
       }
       return { ok: false, error: FAIL_COPY[result.reason] ?? FAIL_COPY.generic };
     }
+    // Het ledenoverzicht is force-dynamic; dit is een vangnet voor als er
+    // ooit een cache bijkomt.
+    if (result.created) revalidatePath("/app/admin/leden");
     return result;
   } catch (e) {
     console.error("[findOrCreateCustomer]", e);

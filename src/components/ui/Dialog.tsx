@@ -9,8 +9,9 @@ import { X } from "lucide-react";
  * so each dialog consumer only owns its body + footer buttons.
  *
  * Call sites open it by toggling `open` from the parent — the component
- * calls `showModal()` / `close()` internally. Closing via Esc, backdrop
- * click, or an in-body close-button all route through `onClose`.
+ * calls `showModal()` / `close()` internally. Closing via Esc or a button
+ * in the dialog (the X or a footer button) routes through `onClose`. A
+ * click on the backdrop does not close the dialog.
  */
 
 export interface DialogProps {
@@ -54,7 +55,7 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
-      className={`bg-bg border border-[color:var(--ink-500)] text-text p-8 ${widthClass} backdrop:bg-bg/55 backdrop:backdrop-blur-sm`}
+      className={`m-auto bg-bg border border-[color:var(--ink-500)] text-text p-8 ${widthClass} backdrop:bg-bg/55 backdrop:backdrop-blur-sm`}
     >
       <div className="flex items-start justify-between mb-5">
         <div>

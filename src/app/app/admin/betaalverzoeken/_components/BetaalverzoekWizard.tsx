@@ -26,6 +26,8 @@ export type ProductSelection =
   | { kind: "product"; slug: ProductSlug };
 
 interface BetaalverzoekWizardProps {
+  /** Voorgeselecteerde klant (?klant=): wizard start dan bij Product. */
+  initialCustomer?: CustomerProfile | null;
   plans: Record<string, CatalogueRow>;
   products: Record<string, CatalogueRow>;
   extendedAccessAddon: CatalogueRow | null;
@@ -48,13 +50,16 @@ function initials(firstName: string, lastName: string): string {
  * prijzen en maakt geen klanten of orders buiten die server-acties om.
  */
 export function BetaalverzoekWizard({
+  initialCustomer,
   plans,
   products,
   extendedAccessAddon,
   signupFee,
 }: BetaalverzoekWizardProps) {
-  const [step, setStep] = useState<WizardStep>("klant");
-  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [step, setStep] = useState<WizardStep>(initialCustomer ? "product" : "klant");
+  const [customer, setCustomer] = useState<CustomerProfile | null>(
+    initialCustomer ?? null,
+  );
   const [track, setTrack] = useState<Track | null>(null);
   const [selection, setSelection] = useState<ProductSelection | null>(null);
   const [voorwaarden, setVoorwaarden] = useState<Voorwaarden>(

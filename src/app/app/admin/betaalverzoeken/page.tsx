@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/admin/require-admin";
+import { getCustomerProfileById, isUuid } from "@/lib/admin/customer-query";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
 import { BetaalverzoekWizard } from "./_components/BetaalverzoekWizard";
 import { BetaalverzoekTabs, type BetaalverzoekTab } from "./_components/BetaalverzoekTabs";
@@ -22,7 +24,7 @@ function parseTab(value: string | undefined): BetaalverzoekTab {
 // als /app/producten (?tab=kopen|tegoed) — de wizard hieronder is
 // ongewijzigd, alleen de Tabs-balk staat ernaast.
 export default async function BetaalverzoekenPage(props: {
-  searchParams: Promise<{ tab?: string; group?: string }>;
+  searchParams: Promise<{ tab?: string; group?: string; klant?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const tab = parseTab(searchParams.tab);
@@ -36,6 +38,16 @@ export default async function BetaalverzoekenPage(props: {
         <OverzichtPanel groupParam={searchParams.group} />
       </>
     );
+  }
+
+  // ?klant=<profile_id>: klant voorgeselecteerd, wizard start bij Product.
+  // Alleen een geldige UUID van een bestaand profiel telt; anders gewoon
+  // starten bij stap Klant. De layout houdt non-admins al buiten, de gate
+  // hier is nodig omdat de lookup via de service-role-client loopt.
+  let initialCustomer = null;
+  if (isUuid(searchParams.klant)) {
+    const gate = await requireAdmin();
+    if (gate.ok) initialCustomer = await getCustomerProfileById(searchParams.klant);
   }
 
   const catalogue = await getCatalogue();
@@ -64,6 +76,7 @@ export default async function BetaalverzoekenPage(props: {
         <BetaalverzoekTabs active={tab} />
       </div>
       <BetaalverzoekWizard
+        initialCustomer={initialCustomer}
         plans={plans}
         products={products}
         extendedAccessAddon={extendedAccessAddon}
