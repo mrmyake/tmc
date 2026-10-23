@@ -1,0 +1,15 @@
+{
+  "confirmation": "Je aanmeldcode voor The Movement Club",
+  "email_change": "Confirm Email Change",
+  "email_changed_notification": "Your email address has been changed",
+  "identity_linked_notification": "A new identity has been linked",
+  "identity_unlinked_notification": "An identity has been unlinked",
+  "invite": "Je trainersaccount bij The Movement Club",
+  "magic_link": "Inloggen bij The Movement Club",
+  "mfa_factor_enrolled_notification": "A new MFA factor has been enrolled",
+  "mfa_factor_unenrolled_notification": "An MFA factor has been unenrolled",
+  "password_changed_notification": "Your password has been changed",
+  "phone_changed_notification": "Your phone number has been changed",
+  "reauthentication": "Confirm Reauthentication",
+  "recovery": "Reset Your Password"
+}

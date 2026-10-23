@@ -1,4 +1,4 @@
-import { Heading, Text } from "@react-email/components";
+import { Button, Heading, Text } from "@react-email/components";
 import * as React from "react";
 import { EmailLayout, emailTokens } from "./_layout";
 
@@ -81,18 +81,27 @@ export default function TrialBookingCancelledByStudio({
         </Text>
       )}
 
-      <Text
+      <Text style={{ color: emailTokens.STONE_100, margin: "0 0 20px 0" }}>
+        {/* COPY: confirm met Marlon */}
+        Wil je een andere sessie proberen? Vragen? Antwoord gerust op deze mail.
+      </Text>
+
+      <Button
+        href={`${siteUrl}/proefles/boeken`}
         style={{
-          color: emailTokens.STONE_500,
-          fontSize: 13,
-          margin: "0 0 28px 0",
-          lineHeight: 1.6,
+          backgroundColor: emailTokens.CHAMPAGNE,
+          color: emailTokens.INK_900,
+          fontSize: 12,
+          fontWeight: 500,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          padding: "14px 28px",
+          textDecoration: "none",
         }}
       >
         {/* COPY: confirm met Marlon */}
-        Wil je een andere sessie proberen? Kies een nieuwe datum op{" "}
-        {siteUrl}/proefles/boeken. Vragen? Antwoord gerust op deze mail.
-      </Text>
+        Kies een nieuwe datum
+      </Button>
     </EmailLayout>
   );
 }
