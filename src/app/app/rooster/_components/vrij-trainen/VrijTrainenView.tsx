@@ -128,7 +128,8 @@ async function CheckInView({
           </p>
           {capReached && (
             <p className="mt-3 text-[color:var(--warning)] text-sm">
-              Je weekcap is bereikt. Volgende week weer.
+              {/* COPY: confirm met Marlon */}
+              Je weektegoed is op.
             </p>
           )}
         </div>

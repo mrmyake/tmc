@@ -48,8 +48,6 @@ export function SlotPicker({
   // De keuze onthoudt bij welke dag hij hoort; op een andere dag telt hij niet.
   const [selection, setSelection] = useState<{ date: string; start: string } | null>(null);
   const [message, setMessage] = useState<Message>(null);
-  // "Toch boeken" hoort bij precies de start waarvoor de weekcap-melding kwam.
-  const [confirmOverCapFor, setConfirmOverCapFor] = useState<string | null>(null);
   // Direct na boeken toont de kaart "Geboekt" in plaats van "Je traint".
   const [justBookedDate, setJustBookedDate] = useState<string | null>(null);
   const { nowMs, rows, selected, selectedStartMs, slotQuarterMs } = useSlotSelection({
@@ -58,8 +56,6 @@ export function SlotPicker({
     selectedDate: data.selectedDate,
     selection,
   });
-  const confirmOverCap = selected !== null && confirmOverCapFor === selected;
-
   const dayDate = parseIsoDateToAmsterdamMidnight(data.selectedDate)!;
   const weekday = amsterdamParts(dayDate).weekday;
   const dayPresence = { name: presence.name, ...presenceForWeekday(presence.rows, weekday) };
@@ -67,11 +63,10 @@ export function SlotPicker({
 
   function onSelect(cell: QuarterCell) {
     setMessage(null);
-    setConfirmOverCapFor(null);
     setSelection({ date: data.selectedDate, start: cell.quarterStart });
   }
 
-  function book(acknowledgeOverCap = false) {
+  function book() {
     if (!data.session || !selected) return;
     const sessionId = data.session.id;
     const startAt = selected;
@@ -81,7 +76,6 @@ export function SlotPicker({
       try {
         res = await createBooking(sessionId, {
           slot: { startAt, minutes: duration },
-          acknowledgeOverCap,
         });
       } catch {
         // COPY: confirm met Marlon
@@ -89,15 +83,9 @@ export function SlotPicker({
         return;
       }
       if (res.ok) {
-        setConfirmOverCapFor(null);
         setSelection(null);
         setJustBookedDate(data.selectedDate);
         router.refresh();
-        return;
-      }
-      if (res.needsConfirmation) {
-        setConfirmOverCapFor(startAt);
-        setMessage({ tone: "error", text: res.message });
         return;
       }
       if (res.reason === "slot_full" || res.reason === "slot_blocked") {
@@ -196,7 +184,6 @@ export function SlotPicker({
                 value={duration}
                 onChange={(m) => {
                   setMessage(null);
-                  setConfirmOverCapFor(null);
                   if (selected && !isStartBookable(data.quarters, selected, m, nowMs)) {
                     setSelection(null);
                   }
@@ -211,7 +198,7 @@ export function SlotPicker({
                 summary={summary}
                 selection={footerSelection}
                 pending={pending}
-                onBook={() => book(false)}
+                onBook={book}
               />
             </div>
           </aside>
@@ -226,24 +213,12 @@ export function SlotPicker({
               onSelect={onSelect}
             />
 
-            {confirmOverCap && selected && (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => book(true)}
-                className="mt-5 min-h-11 rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] border border-accent text-accent cursor-pointer disabled:opacity-40"
-              >
-                {/* COPY: confirm met Marlon */}
-                Toch boeken
-              </button>
-            )}
-
             <div className="lg:hidden">
               <SlotFooter
                 summary={summary}
                 selection={footerSelection}
                 pending={pending}
-                onBook={() => book(false)}
+                onBook={book}
               />
             </div>
           </div>

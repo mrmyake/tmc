@@ -65,6 +65,7 @@ type MembershipRow = {
   id: string;
   plan_type: string;
   frequency_cap: number | null;
+  covered_pillars: string[] | null;
   credits_remaining: number | null;
   credits_expires_at: string | null;
   status: string;
@@ -91,9 +92,7 @@ const REASON_TO_STATUS: Record<string, SessionStatus> = {
   session_in_past: "past",
 };
 
-// Zelfde ISO-week/jaar-berekening als src/lib/member/booking-actions.ts (softWeeklyCapCheck), bewust een derde
-// kopie in plaats van een nieuwe gedeelde util, om deze wijziging chirurgisch
-// te houden. Zelfde UTC-basis als book_class_session's eigen
+// Zelfde ISO-week/jaar-berekening als tmc.booking_gate: UTC-basis,
 // extract(isoyear/week from (start_at at time zone 'utc')::date), dus de
 // bucketing hier komt overeen met hoe bookings.iso_week/iso_year al gezet zijn.
 function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
@@ -123,9 +122,9 @@ function mondayOfIso(iso: string): string {
 
 /**
  * Welke memberships dekken op datum `sessionDateIso`. Zelfde filter als
- * booking-actions.ts's softWeeklyCapCheck (en book_class_session zelf): een
- * lopende opzegging telt nog mee tot en met de effectieve datum, gepauzeerd
- * telt nooit mee. Geen nieuwe regel, herhaalt een al bestaande.
+ * tmc.booking_gate: een lopende opzegging telt nog mee tot en met de
+ * effectieve datum, gepauzeerd telt nooit mee. Geen nieuwe regel, herhaalt
+ * een al bestaande.
  */
 function eligibleMembershipsForDate(
   memberships: MembershipRow[],
@@ -314,7 +313,7 @@ export default async function RoosterPage(props: {
     supabase
       .from("booking_settings")
       .select(
-        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, check_in_enabled, check_in_pillars, vrij_trainen_booking_enabled",
+        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, vrij_trainen_booking_enabled",
       )
       .limit(1)
       .maybeSingle(),
@@ -379,12 +378,14 @@ export default async function RoosterPage(props: {
         .gte("checked_in_at", todayUtcStart.toISOString());
     })(),
     // Eigen memberships voor coverage/frequency_cap/credits (canBook-input).
-    // "paused" bewust buiten deze set: een gepauzeerd abonnement dekt niets,
-    // dus zo'n lid ziet correct "buiten abonnement" tot het hervat is.
+    // covered_pillars bepaalt welke pillars samen onder de weekcap vallen
+    // (spec-weekcap-extra-les.md). "paused" bewust buiten deze set: een
+    // gepauzeerd abonnement dekt niets, dus zo'n lid ziet correct "buiten
+    // abonnement" tot het hervat is.
     supabase
       .from("memberships")
       .select(
-        "id, plan_type, frequency_cap, credits_remaining, credits_expires_at, status, cancellation_effective_date",
+        "id, plan_type, frequency_cap, covered_pillars, credits_remaining, credits_expires_at, status, cancellation_effective_date",
       )
       .eq("profile_id", user.id)
       .in("status", ["active", "cancellation_requested"])
@@ -395,14 +396,17 @@ export default async function RoosterPage(props: {
       .select("strike_count, last_strike_at")
       .eq("profile_id", user.id)
       .maybeSingle(),
-    // Eigen boekingen in de overlappende ISO-week(en), voor de weeklimiet
-    // per pillar. Zelfde iso_week/iso_year-kolommen als book_class_session
-        // zelf al op elke booking zet; hier alleen groeperen, niet herrekenen.
+    // Eigen boekingen in de overlappende ISO-week(en), voor de weekcap.
+    // Zelfde iso_week/iso_year-kolommen als book_class_session zelf al op
+    // elke booking zet; hier alleen groeperen per pillar, canBook() telt de
+    // capped pillars op. Bijgekochte extra lessen (drop_in_payment_id, PR B)
+    // tellen niet mee, zoals in tmc.booking_gate.
     supabase
       .from("bookings")
       .select("pillar, iso_week, iso_year")
       .eq("profile_id", user.id)
       .eq("status", "booked")
+      .is("drop_in_payment_id", null)
       .gte("session_date", weekRangeStartIso)
       .lt("session_date", weekRangeEndIso),
     // Alleen voor het vrij-trainen-kaartje (lid dat beide weergaven heeft).
@@ -475,12 +479,6 @@ export default async function RoosterPage(props: {
     fairUseDailyMax: settingsResult.data?.fair_use_daily_max ?? 2,
     noShowStrikeThreshold: settingsResult.data?.no_show_strike_threshold ?? 3,
     noShowBlockDays: settingsResult.data?.no_show_block_days ?? 7,
-    checkInEnabled: settingsResult.data?.check_in_enabled ?? true,
-    checkInPillars: settingsResult.data?.check_in_pillars ?? [
-      "yoga_mobility",
-      "kettlebell",
-      "vrij_trainen",
-    ],
   };
 
   const ageCategory = profileResult.data?.age_category ?? null;
@@ -494,11 +492,15 @@ export default async function RoosterPage(props: {
 
   const allMemberships = membershipsResult.data ?? [];
 
-  // Eigen boekingen per (iso_year, iso_week, pillar), voor de weeklimiet.
-  const weeklyPillarCount = new Map<string, number>();
+  // Eigen boekingen per (iso_year, iso_week), uitgesplitst per pillar, voor
+  // de weekcap. canBook() telt de capped pillars van het dekkende abonnement
+  // op (groepslessen samen; vrij trainen bij All Access telt niet).
+  const weeklyCountByPillar = new Map<string, Record<string, number>>();
   for (const row of weeklyPillarCountResult.data ?? []) {
-    const key = `${row.iso_year}-${row.iso_week}-${row.pillar}`;
-    weeklyPillarCount.set(key, (weeklyPillarCount.get(key) ?? 0) + 1);
+    const key = `${row.iso_year}-${row.iso_week}`;
+    const byPillar = weeklyCountByPillar.get(key) ?? {};
+    byPillar[row.pillar] = (byPillar[row.pillar] ?? 0) + 1;
+    weeklyCountByPillar.set(key, byPillar);
   }
 
   // Map van session_id → checked_in_at voor hint-rendering op vandaag.
@@ -579,15 +581,13 @@ export default async function RoosterPage(props: {
           id: m.id,
           plan_type: m.plan_type,
           frequency_cap: m.frequency_cap,
+          covered_pillars: m.covered_pillars ?? [],
           credits_remaining: m.credits_remaining,
           credits_expires_at: m.credits_expires_at,
         }),
       );
       const isoWeek = getIsoWeekYear(start);
-      const weekKey = `${isoWeek.isoYear}-${isoWeek.isoWeek}-${s.pillar}`;
-      const checkInEnabledForPillar =
-        bookingSettings.checkInEnabled &&
-        bookingSettings.checkInPillars.includes(s.pillar);
+      const weekKey = `${isoWeek.isoYear}-${isoWeek.isoWeek}`;
 
       const result = canBook({
         session: {
@@ -607,19 +607,13 @@ export default async function RoosterPage(props: {
         usage: {
           takenCountThisSession: takenCount,
           bookingsSameDay: bookingCountByDate.get(sessionIso) ?? 0,
-          bookingsSamePillarThisWeek: weeklyPillarCount.get(weekKey) ?? 0,
-          // Alleen relevant binnen de soft-cap-tak (checkInEnabledForPillar),
-          // die nooit "niet boekbaar" teruggeeft — zie can-book.ts. Voor deze
-          // prefilter maakt de exacte waarde dus niet uit; 0 is veilig en
-          // bespaart een check-ins-per-week-query.
-          checkInsSamePillarThisWeek: 0,
+          bookingsThisWeekByPillar: weeklyCountByPillar.get(weekKey) ?? {},
         },
         settings: {
           booking_window_days: bookingSettings.bookingWindowDays,
           fair_use_daily_max: bookingSettings.fairUseDailyMax,
           no_show_strike_threshold: bookingSettings.noShowStrikeThreshold,
           no_show_block_days: bookingSettings.noShowBlockDays,
-          checkInEnabledForPillar,
         },
         now,
       });

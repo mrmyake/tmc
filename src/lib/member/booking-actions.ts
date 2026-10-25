@@ -12,8 +12,8 @@ import {
   formatTimeRange,
   formatWeekdayDate,
 } from "@/lib/format-date";
-import { planCovers } from "./plan-coverage";
 import { bookingTimes } from "./booking-times";
+import { WEEKLY_CAP_REACHED_COPY } from "./can-book";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 
 function siteUrl(): string {
@@ -157,39 +157,9 @@ export type BookingActionResult =
        * De slotkiezer laadt bij slot_full en slot_blocked het raster opnieuw.
        */
       reason?: string;
-      /**
-       * Gezet wanneer de user over de weekly cap zou gaan op een pillar met
-       * check-in aan. Client kan dit als "soft warning" gebruiken: dialoog
-       * tonen met combined/cap + knop "Toch boeken" die createBooking
-       * opnieuw aanroept met `acknowledgeOverCap: true`.
-       */
-      needsConfirmation?: {
-        kind: "weekly_cap_combined";
-        combined: number;
-        cap: number;
-      };
     };
 
-function getIsoWeekYear(date: Date): { isoWeek: number; isoYear: number } {
-  const target = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil(
-    ((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
-  );
-  return { isoWeek, isoYear: target.getUTCFullYear() };
-}
-
 export interface CreateBookingOptions {
-  /**
-   * Lid heeft de "je zit over je weekcap" dialoog bevestigd. Vallen we in
-   * de soft-warning pad terug, dan slaan we die deze keer over en committen
-   * we direct.
-   */
-  acknowledgeOverCap?: boolean;
   /**
    * Alleen vrij trainen: het gekozen slot (spec-vrij-trainen-slots.md).
    * Zonder slot geeft de RPC op vrij trainen slot_required.
@@ -212,8 +182,9 @@ const BOOK_REASON_COPY: Record<string, string> = {
   capacity_full: "Vol. Je kunt je op de wachtlijst zetten.",
   strike_blocked:
     "Door meerdere no-shows is boeken tijdelijk geblokkeerd. Neem contact op als je vragen hebt.",
-  weekly_cap_reached:
-    "Je weekcap voor deze discipline is bereikt. Volgende week weer.",
+  // Harde weekcap per abonnement (spec-weekcap-extra-les.md); dezelfde
+  // tekst als REASON_COPY in can-book.ts.
+  weekly_cap_reached: WEEKLY_CAP_REACHED_COPY,
   daily_cap_reached: "Maximaal twee sessies per dag.",
   no_coverage: "Deze sessie valt buiten je huidige abonnement.",
   already_booked: "Je hebt deze sessie al geboekt.",
@@ -270,111 +241,6 @@ type CancelClassBookingResult = {
   credits_refunded?: boolean;
 };
 
-/**
- * Zachte weekly-cap check (besluit #1, optie B): puur een UX-nudge vóór de
- * RPC-call, voor pillars mét check-in. Geeft de bevestig-dialoog terug als
- * bookings + check-ins deze week op of over de cap zitten. De hárde cap
- * (pillars zonder check-in) wordt server-side in tmc.book_class_session
- * afgedwongen; deze check handhaaft niets.
- */
-async function softWeeklyCapCheck(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  sessionId: string,
-): Promise<{ combined: number; cap: number } | null> {
-  const [sessionResult, settingsResult, membershipsResult] =
-    await Promise.all([
-      supabase
-        .from("class_sessions")
-        .select("start_at, pillar")
-        .eq("id", sessionId)
-        .maybeSingle(),
-      supabase
-        .from("booking_settings")
-        .select("check_in_enabled, check_in_pillars, vrij_trainen_booking_enabled")
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("memberships")
-        .select(
-          "plan_type, frequency_cap, status, cancellation_effective_date",
-        )
-        .eq("profile_id", userId)
-        .in("status", ["active", "cancellation_requested"]),
-    ]);
-
-  const session = sessionResult.data;
-  if (!session) return null; // RPC geeft zo de echte foutmelding
-
-  const settings = settingsResult.data ?? {
-    check_in_enabled: true,
-    check_in_pillars: ["yoga_mobility", "kettlebell", "vrij_trainen"],
-    vrij_trainen_booking_enabled: false,
-  };
-  // Vrij trainen in boekmodus: elke training is een boeking, en de
-  // kiosk-check-in bij binnenkomst hoort bij diezelfde training. Alleen
-  // boekingen tellen, anders telt een training dubbel
-  // (spec-vrij-trainen-slots.md).
-  const countCheckIns = !(
-    session.pillar === "vrij_trainen" && settings.vrij_trainen_booking_enabled
-  );
-  const checkInEnabledForPillar =
-    Boolean(settings.check_in_enabled) &&
-    Array.isArray(settings.check_in_pillars) &&
-    settings.check_in_pillars.includes(session.pillar);
-  if (!checkInEnabledForPillar) return null;
-
-  const sessionStart = new Date(session.start_at);
-  const sessionDateStr = sessionStart.toISOString().slice(0, 10);
-  const covering = (membershipsResult.data ?? [])
-    .filter(
-      (m) =>
-        m.status === "active" ||
-        (m.status === "cancellation_requested" &&
-          m.cancellation_effective_date != null &&
-          m.cancellation_effective_date >= sessionDateStr),
-    )
-    .find((m) => planCovers(m.plan_type, session.pillar));
-  if (!covering || covering.frequency_cap == null) return null;
-
-  const sessionIso = getIsoWeekYear(sessionStart);
-  // Maandag 00:00 UTC → volgende maandag 00:00 UTC van de sessie-week
-  // (check_ins heeft geen iso_week-kolom, dus datum-range).
-  const weekStart = new Date(sessionStart);
-  weekStart.setUTCHours(0, 0, 0, 0);
-  const weekDow = weekStart.getUTCDay() || 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - (weekDow - 1));
-  const weekEnd = new Date(weekStart);
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
-
-  const [pillarWeekCountResult, checkInWeekCountResult] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", userId)
-      .eq("status", "booked")
-      .eq("pillar", session.pillar)
-      .eq("iso_week", sessionIso.isoWeek)
-      .eq("iso_year", sessionIso.isoYear),
-    countCheckIns
-      ? supabase
-          .from("check_ins")
-          .select("id", { count: "exact", head: true })
-          .eq("profile_id", userId)
-          .eq("pillar", session.pillar)
-          .gte("checked_in_at", weekStart.toISOString())
-          .lt("checked_in_at", weekEnd.toISOString())
-      : Promise.resolve({ count: 0 }),
-  ]);
-
-  const combined =
-    (pillarWeekCountResult.count ?? 0) + (checkInWeekCountResult.count ?? 0);
-  if (combined >= covering.frequency_cap) {
-    return { combined, cap: covering.frequency_cap };
-  }
-  return null;
-}
-
 export async function createBooking(
   sessionId: string,
   options: CreateBookingOptions = {},
@@ -385,21 +251,10 @@ export async function createBooking(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Je bent uitgelogd." };
 
-  // Zachte weekcap-nudge (alleen check-in-pillars) vóór de RPC. Server-side
-  // wordt deze bewust niet gehandhaafd — besluit #1, optie B.
-  if (!options.acknowledgeOverCap) {
-    const overCap = await softWeeklyCapCheck(supabase, user.id, sessionId);
-    if (overCap) {
-      return {
-        ok: false,
-        message: `Je hebt deze week al ${overCap.combined} van ${overCap.cap} trainingen voor deze discipline. Toch doorgaan?`,
-        needsConfirmation: { kind: "weekly_cap_combined", ...overCap },
-      };
-    }
-  }
-
-  // Alle harde regels (capaciteit, caps, dekking, credits) + de insert en
-  // credit-aftrek zitten atomair in de SECURITY DEFINER RPC (audit-fix #3).
+  // Alle harde regels (capaciteit, weekcap per abonnement, dekking, credits)
+  // plus de insert en credit-aftrek zitten atomair in de SECURITY DEFINER
+  // RPC (audit-fix #3; weekcap hard sinds spec-weekcap-extra-les.md PR A,
+  // de zachte TS-nudge van voorheen is weg).
   // Slotparameters alleen meesturen als er een slot is gekozen, zodat de
   // aanroep voor gewone lessen gelijk blijft.
   const rpcResult = await supabase.rpc("book_class_session", {

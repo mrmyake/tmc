@@ -27,6 +27,7 @@ import {
 } from "./dashboard";
 import type { EntitlementRow, EntitlementUpsell } from "../_components/DashboardEntitlements";
 import { bookingTimes } from "@/lib/member/booking-times";
+import { cappedPillars } from "@/lib/member/plan-coverage";
 
 // Zelfde vijf statussen als /app/abonnement's currentResult (ACTIVE_STATUSES).
 const ACTIVE_STATUSES = [
@@ -332,6 +333,10 @@ export async function loadDashboardData(): Promise<DashboardData> {
       membership.frequency_cap === null
         ? "Onbeperkt"
         : `${membership.frequency_cap}x per week`;
+    // De weekcap telt alleen de pillars uit cappedPillars(): bij een
+    // abonnement met groepslessen valt vrij trainen erbuiten en is het
+    // onbeperkt (spec-weekcap-extra-les.md).
+    const capped = cappedPillars(coveredPillars);
 
     if (hasGroepslessen) {
       entitlementRows.push({
@@ -349,7 +354,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
           membership.plan_type === "all_inclusive"
             ? "Altijd inbegrepen"
             : "Los toegevoegd aan je lidmaatschap",
-        value: freqValue,
+        value: capped.includes("vrij_trainen") ? freqValue : "Onbeperkt",
       });
     }
     if (membership.extended_access) {
