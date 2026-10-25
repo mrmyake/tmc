@@ -9,6 +9,8 @@ export interface BookingConfirmationProps {
   whenLabel: string; // "woensdag 23 april · 06:30 – 07:30"
   locationLabel?: string;
   siteUrl: string;
+  /** Bijgekochte extra les: "Betaald als extra les: 15,00 euro" (spec-weekcap-extra-les.md). */
+  paidLabel?: string | null;
 }
 
 export default function BookingConfirmation({
@@ -18,6 +20,7 @@ export default function BookingConfirmation({
   whenLabel,
   locationLabel = "Industrieweg 14P, Loosdrecht",
   siteUrl,
+  paidLabel = null,
 }: BookingConfirmationProps) {
   return (
     <EmailLayout preview={`Je sessie staat: ${className} · ${whenLabel}`}>
@@ -50,6 +53,12 @@ export default function BookingConfirmation({
       <Text style={{ color: emailTokens.STONE_100, margin: "0 0 28px 0" }}>
         {className} met {trainerName}, {whenLabel}.
       </Text>
+
+      {paidLabel && (
+        <Text style={{ color: emailTokens.STONE_100, margin: "0 0 28px 0" }}>
+          {paidLabel}
+        </Text>
+      )}
 
       <Text
         style={{

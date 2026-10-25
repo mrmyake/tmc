@@ -53,6 +53,8 @@
     "test:waitlist": "node --import ./scripts/ts-loader.mjs --test scripts/waitlist/waitlist.test.mts",
     "test:weekcap": "node --import ./scripts/ts-loader.mjs --test scripts/weekcap/*.test.mts",
     "test:weekcap-db": "scripts/test-weekcap-db.sh",
+    "test:extra-class": "node --import ./scripts/ts-loader.mjs --test scripts/extra-class/*.test.mts",
+    "test:extra-class-db": "scripts/test-extra-class-db.sh",
     "test:waitlist-db": "node --import tsx --import ./scripts/waitlist/hooks.mjs --test scripts/waitlist/waitlist.db.test.mts",
     "test:last-minute-alerts": "node --import ./scripts/ts-loader.mjs --test scripts/last-minute-alerts/core.test.mts && node --import tsx --test scripts/last-minute-alerts/email.test.mts"
   },

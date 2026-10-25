@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { finalizeTrialBookingCancellation, type CancelCoreResult } from "@/lib/trial-booking-cancel";
+import { processPaymentRefund } from "@/lib/refunds/process";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { amsterdamYmd, zonedWallClockToUtc } from "@/lib/scheduling/amsterdam-time";
@@ -243,6 +244,16 @@ async function afterSessionsCancelled(
     trials.cancelled += t.cancelled;
     trials.refundsRequested += t.refundsRequested;
     trials.refundsFailed += t.refundsFailed;
+
+    // Bijgekochte extra lessen: de RPC maakte per boeking een refund-
+    // intentie; hier bij Mollie indienen (spec-weekcap-extra-les.md). Een
+    // mislukte indiening blijft als requested/failed staan voor een retry.
+    for (const b of r.bookings) {
+      if (!b.refund_id) continue;
+      const outcome = await processPaymentRefund(b.refund_id);
+      if (outcome.ok) trials.refundsRequested += 1;
+      else trials.refundsFailed += 1;
+    }
   }
 
   const bookings = results.reduce((n, r) => n + r.bookings.length, 0);

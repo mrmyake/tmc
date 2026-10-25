@@ -59,7 +59,7 @@ export async function createInvoiceFromPayment(
   const { data: payment } = await admin
     .from("payments")
     .select(
-      "id, profile_id, order_id, amount_cents, status, is_test, vat_rate_bp, description",
+      "id, profile_id, order_id, amount_cents, status, is_test, vat_rate_bp, description, kind",
     )
     .eq("id", paymentId)
     .maybeSingle();
@@ -134,15 +134,19 @@ export async function createInvoiceFromPayment(
     }
   }
   if (lines.length === 0) {
+    // Zonder order: een regel uit de betaalregel zelf. Een bijgekochte extra
+    // les (kind extra_class) hoort bij het lestegoed, zoals de rittenkaart
+    // waar de prijs vandaan komt (spec-weekcap-extra-les.md).
+    const isExtraClass = payment.kind === "extra_class";
     lines.push({
       lineNo: 1,
-      catalogueSlug: null,
+      catalogueSlug: isExtraClass ? "ten_ride_card" : null,
       // COPY: confirm met Marlon
-      description: payment.description ?? "Betaling",
+      description: payment.description ?? (isExtraClass ? "Extra les" : "Betaling"),
       quantity: 1,
       grossCents: payment.amount_cents,
       vatRateBp: payment.vat_rate_bp ?? 900,
-      revenueCategory: null,
+      revenueCategory: isExtraClass ? "les_tegoed" : null,
     });
   }
 

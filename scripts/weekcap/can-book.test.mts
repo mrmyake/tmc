@@ -92,6 +92,7 @@ const settings: CanBookSettings = {
   fair_use_daily_max: 2,
   no_show_strike_threshold: 3,
   no_show_block_days: 7,
+  extraClassPriceCents: 1500,
 };
 const usageOpen: CanBookUsage = {
   takenCountThisSession: 0,
@@ -227,4 +228,45 @@ test("Dagcap gaat voor de weekcap, zoals in de gate", () => {
 test("Copy: weekly_cap_reached is 'Je weektegoed is op.'", () => {
   assert.equal(REASON_COPY.weekly_cap_reached, WEEKLY_CAP_REACHED_COPY);
   assert.equal(WEEKLY_CAP_REACHED_COPY, "Je weektegoed is op.");
+});
+
+// --- Extra les bijkopen (spec-weekcap-extra-les.md, PR B) ---------------------
+
+test("extra les: weekly_cap_reached draagt het aanbod met de serverprijs", () => {
+  const r = run(yoga, [groepslessen2x], { bookingsThisWeekByPillar: { yoga_mobility: 2 } });
+  assert.equal(reasonOf(r), "weekly_cap_reached");
+  if (!r.allowed) assert.deepEqual(r.extraClass, { available: true, priceCents: 1500 });
+});
+
+test("extra les: no_coverage met actief abonnement draagt het aanbod", () => {
+  const r = run(yoga, [vrijTrainen2x]);
+  assert.equal(reasonOf(r), "no_coverage");
+  if (!r.allowed) assert.deepEqual(r.extraClass, { available: true, priceCents: 1500 });
+});
+
+test("extra les: zonder abonnement (alleen rittenkaart of niets) geen aanbod", () => {
+  const r1 = run(vrij, [tenRideCard]);
+  assert.equal(reasonOf(r1), "no_coverage");
+  if (!r1.allowed) assert.deepEqual(r1.extraClass, { available: false, priceCents: null });
+  const r2 = run(yoga, []);
+  if (!r2.allowed) assert.deepEqual(r2.extraClass, { available: false, priceCents: null });
+});
+
+test("extra les: zonder prijs (kids of senior zonder actieve rittenkaart) geen aanbod", () => {
+  const r = canBook({
+    session: yoga,
+    profile,
+    memberships: [groepslessen2x],
+    usage: { ...usageOpen, bookingsThisWeekByPillar: { kettlebell: 2 } },
+    settings: { ...settings, extraClassPriceCents: null },
+    now: NOW,
+  });
+  assert.equal(reasonOf(r), "weekly_cap_reached");
+  if (!r.allowed) assert.deepEqual(r.extraClass, { available: false, priceCents: null });
+});
+
+test("extra les: andere weigeringen dragen geen aanbod", () => {
+  const r = run(yoga, [groepslessen2x], { bookingsSameDay: 2 });
+  assert.equal(reasonOf(r), "daily_cap_reached");
+  if (!r.allowed) assert.equal(r.extraClass, undefined);
 });

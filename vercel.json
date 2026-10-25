@@ -57,6 +57,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/expire-extra-class-bookings",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/cleanup-pt-holds",
       "schedule": "55 4 * * *"
     },

@@ -61,6 +61,36 @@ export interface CanBookSettings {
   fair_use_daily_max: number;
   no_show_strike_threshold: number;
   no_show_block_days: number;
+  /**
+   * Prijs van een extra les in centen uit tmc.extra_class_price voor de
+   * leeftijdscategorie van het lid (spec-weekcap-extra-les.md); null als
+   * bijkopen voor die categorie uit staat. Alleen weergave: de RPC bepaalt
+   * de prijs opnieuw bij het afrekenen.
+   */
+  extraClassPriceCents: number | null;
+}
+
+/** Of een lid mag bijkopen, en voor hoeveel; op weekly_cap_reached en no_coverage. */
+export interface ExtraClassOffer {
+  available: boolean;
+  priceCents: number | null;
+}
+
+/**
+ * Een actief abonnement (geen rittenkaart of PT-pakket) is de voorwaarde
+ * om een extra les te mogen bijkopen. De lijst is al gefilterd op status,
+ * effective date en pauze, zoals de gate.
+ */
+export function hasActiveSubscription(memberships: readonly Pick<CanBookMembership, "plan_type">[]): boolean {
+  return memberships.some((m) => m.plan_type !== "ten_ride_card" && m.plan_type !== "pt_package");
+}
+
+export function extraClassOffer(
+  memberships: readonly Pick<CanBookMembership, "plan_type">[],
+  priceCents: number | null,
+): ExtraClassOffer {
+  const available = hasActiveSubscription(memberships) && priceCents !== null;
+  return { available, priceCents: available ? priceCents : null };
 }
 
 export type CanBookResult =
@@ -83,6 +113,8 @@ export type CanBookResult =
         | "daily_cap_reached"
         | "no_coverage";
       canJoinWaitlist?: boolean;
+      /** Gezet bij weekly_cap_reached en no_coverage: bijkopen mogelijk en de prijs. */
+      extraClass?: ExtraClassOffer;
     };
 
 /**
@@ -186,7 +218,11 @@ export function canBook(params: {
         weeklyUsage(usage.bookingsThisWeekByPillar, capped) >=
           covering.frequency_cap
       ) {
-        return { allowed: false, reason: "weekly_cap_reached" };
+        return {
+          allowed: false,
+          reason: "weekly_cap_reached",
+          extraClass: extraClassOffer(memberships, settings.extraClassPriceCents),
+        };
       }
     }
     if (full) return capacityFull;
@@ -217,11 +253,17 @@ export function canBook(params: {
     };
   }
 
-  return { allowed: false, reason: "no_coverage" };
+  return {
+    allowed: false,
+    reason: "no_coverage",
+    extraClass: extraClassOffer(memberships, settings.extraClassPriceCents),
+  };
 }
 
 // COPY: confirm met Marlon
 export const WEEKLY_CAP_REACHED_COPY = "Je weektegoed is op.";
+// COPY: confirm met Marlon
+export const NO_COVERAGE_COPY = "Deze les valt buiten je abonnement.";
 
 export const REASON_COPY: Record<
   Exclude<Extract<CanBookResult, { allowed: false }>["reason"], never>,
@@ -236,5 +278,6 @@ export const REASON_COPY: Record<
     "Door meerdere no-shows is boeken tijdelijk geblokkeerd. Neem contact op als je vragen hebt.",
   weekly_cap_reached: WEEKLY_CAP_REACHED_COPY,
   daily_cap_reached: "Maximaal twee sessies per dag.",
-  no_coverage: "Deze sessie valt buiten je huidige abonnement.",
+  // COPY: confirm met Marlon
+  no_coverage: NO_COVERAGE_COPY,
 };

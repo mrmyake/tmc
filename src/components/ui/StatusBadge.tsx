@@ -7,6 +7,9 @@ export type SessionStatus =
   // Open wachtlijstpromotie: plek gereserveerd tot de deadline
   // (spec-community-growth.md, sectie Wachtlijst).
   | "promoted"
+  // Bijgekochte extra les waarvan de betaling nog loopt
+  // (spec-weekcap-extra-les.md).
+  | "pending_payment"
   | "open"
   | "full"
   | "ongoing"
@@ -110,6 +113,19 @@ export function StatusBadge({
       <Chip tone="accent" title={reasonText ?? undefined}>
         {/* COPY: confirm met Marlon */}
         Plek vrij
+      </Chip>
+    );
+  }
+  if (status === "pending_payment") {
+    return (
+      <Chip
+        tone="muted"
+        icon={<Clock size={12} strokeWidth={1.5} />}
+        className="normal-case tracking-normal"
+        title={reasonText ?? undefined}
+      >
+        {/* COPY: confirm met Marlon */}
+        Betaling open
       </Chip>
     );
   }

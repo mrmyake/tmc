@@ -79,6 +79,7 @@ const settings: CanBookSettings = {
   fair_use_daily_max: 2,
   no_show_strike_threshold: 3,
   no_show_block_days: 7,
+  extraClassPriceCents: 1500,
 };
 const usageFull: CanBookUsage = {
   takenCountThisSession: 6,
