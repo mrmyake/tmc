@@ -1,0 +1,13 @@
+-- NO-OP placeholder. Niet verwijderen, niet hernoemen.
+--
+-- De remote migratie-historie van het gedeelde Supabase-project
+-- (xoivleieyfcxcfawgveh) bevat de versie 20261023104744 met de naam
+-- 0012_ads_dedupe_e164. De echte migratie hoort bij het montagebaas-project, dat
+-- dezelfde database deelt tot de verhuizing (verhuizing-overige-apps);
+-- zij raakt alleen schema montagebaas en niet schema tmc.
+--
+-- De Supabase CLI eist dat elke remote versie een lokaal bestand heeft,
+-- anders weigert supabase db push vanuit deze repo. Dit bestand bevat
+-- daarom bewust geen SQL-statements en wordt nooit uitgevoerd: de versie
+-- staat remote al als toegepast. Zelfde patroon als 20260503_gallery.sql
+-- en 20261015072039_klimaatbaas.sql.
