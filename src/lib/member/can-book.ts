@@ -1,4 +1,4 @@
-import { planCovers, type PlanType } from "./plan-coverage";
+import { cappedPillars, planCovers, type PlanType } from "./plan-coverage";
 
 export interface CanBookSession {
   id: string;
@@ -19,6 +19,13 @@ export interface CanBookMembership {
   id: string;
   plan_type: string;
   frequency_cap: number | null;
+  /**
+   * Gedekte pillars van deze rij (memberships.covered_pillars). Bepaalt via
+   * cappedPillars() welke pillars samen onder de weekcap vallen
+   * (spec-weekcap-extra-les.md). Rittenkaarten hebben een lege lijst en
+   * geen cap.
+   */
+  covered_pillars: readonly string[];
   credits_remaining: number | null;
   /** Optioneel voor bestaande callers; ontbreekt = geen vervaldatum. */
   credits_expires_at?: string | null;
@@ -40,13 +47,13 @@ export interface CanBookUsage {
   takenCountThisSession: number;
   /** Geboekte sessies op dezelfde dag, exclusief vrij trainen (telt niet mee). */
   bookingsSameDay: number;
-  bookingsSamePillarThisWeek: number;
   /**
-   * Aantal `check_ins` van deze user in de ISO-week van de sessie voor
-   * dezelfde pillar. Alleen relevant als `settings.checkInEnabledForPillar`
-   * aanstaat; anders blijft 0 en telt 'ie dus niet mee.
+   * Eigen boekingen met status booked in de ISO-week van de sessie, per
+   * pillar, zonder bijgekochte extra lessen (drop_in_payment_id gevuld).
+   * canBook() telt hieruit de capped pillars van de dekkende membership op,
+   * zoals tmc.booking_gate. Geen check-ins: die hangen aan dezelfde boeking.
    */
-  checkInsSamePillarThisWeek: number;
+  bookingsThisWeekByPillar: Readonly<Record<string, number>>;
 }
 
 export interface CanBookSettings {
@@ -54,12 +61,6 @@ export interface CanBookSettings {
   fair_use_daily_max: number;
   no_show_strike_threshold: number;
   no_show_block_days: number;
-  /**
-   * True wanneer `booking_settings.check_in_enabled` én de pillar van deze
-   * sessie in `booking_settings.check_in_pillars` zit. Pas dan schakelen we
-   * over naar het combined-count cap-model met soft-warning.
-   */
-  checkInEnabledForPillar: boolean;
 }
 
 export type CanBookResult =
@@ -68,17 +69,6 @@ export type CanBookResult =
       coveringMembership: CanBookMembership | null;
       /** True when paying via drop-in is required (no covering membership). */
       requiresPayment: boolean;
-      /**
-       * Gezet wanneer de user op-of-over de weekly cap zit voor een pillar
-       * met check-in aan. Caller moet een bevestig-dialoog tonen en
-       * vervolgens opnieuw canBook aanroepen met `acknowledgeOverCap: true`
-       * om de boeking te committen.
-       */
-      confirmation?: {
-        kind: "weekly_cap_combined";
-        combined: number;
-        cap: number;
-      };
     }
   | {
       allowed: false;
@@ -95,6 +85,28 @@ export type CanBookResult =
       canJoinWaitlist?: boolean;
     };
 
+/**
+ * Pillars waarover de weekcap van deze membership telt voor deze sessie.
+ * Spiegel van de tak in tmc.booking_gate, inclusief het vangnet voor een rij
+ * zonder covered_pillars maar met een cap: dan geldt de cap op de pillar
+ * zelf.
+ */
+export function cappedPillarsFor(
+  membership: Pick<CanBookMembership, "covered_pillars">,
+  sessionPillar: string,
+): string[] {
+  const capped = cappedPillars(membership.covered_pillars);
+  return capped.length === 0 ? [sessionPillar] : capped;
+}
+
+/** Som van de weektelling over de capped pillars. */
+export function weeklyUsage(
+  byPillar: Readonly<Record<string, number>>,
+  capped: readonly string[],
+): number {
+  return capped.reduce((sum, p) => sum + (byPillar[p] ?? 0), 0);
+}
+
 export function canBook(params: {
   session: CanBookSession;
   profile: CanBookProfile;
@@ -102,22 +114,8 @@ export function canBook(params: {
   usage: CanBookUsage;
   settings: CanBookSettings;
   now: Date;
-  /**
-   * Wanneer true: soft-warning voor combined-count cap wordt overgeslagen.
-   * De hard cap-check (bij pillars zonder check-in) blijft in alle gevallen
-   * actief.
-   */
-  acknowledgeOverCap?: boolean;
 }): CanBookResult {
-  const {
-    session,
-    profile,
-    memberships,
-    usage,
-    settings,
-    now,
-    acknowledgeOverCap = false,
-  } = params;
+  const { session, profile, memberships, usage, settings, now } = params;
 
   if (profile.age_category !== session.age_category) {
     return { allowed: false, reason: "age_mismatch" };
@@ -142,9 +140,10 @@ export function canBook(params: {
   // geen waitlist-pad. Zelfde overslag-tak als in de book_class_session RPC.
   // Een volle les is pas "vol, wachtlijst" als de overige checks slagen:
   // tmc.join_waitlist doet dezelfde checks als book_class_session (via
-  // booking_gate) en weigert bijvoorbeeld zonder dekking met no_coverage.
-  // Daarom onthouden we "vol" hier en beslissen we onderaan, zodat de
-  // prefilter dezelfde reden toont als de RPC zou geven.
+  // booking_gate) en weigert bijvoorbeeld zonder dekking met no_coverage of
+  // boven de weekcap met weekly_cap_reached. Daarom onthouden we "vol" hier
+  // en beslissen we onderaan, zodat de prefilter dezelfde reden toont als de
+  // RPC zou geven.
   const full =
     session.capacity !== null &&
     usage.takenCountThisSession >= session.capacity;
@@ -176,32 +175,17 @@ export function canBook(params: {
   );
 
   if (covering) {
+    // Weekcap, hard en per abonnement (spec-weekcap-extra-les.md): telt de
+    // eigen boekingen in de ISO-week over de capped pillars van de dekkende
+    // membership (groepslessen samen; vrij trainen bij All Access valt
+    // erbuiten en heeft geen cap). Zelfde tak als tmc.booking_gate.
     if (covering.frequency_cap !== null) {
-      if (settings.checkInEnabledForPillar) {
-        // Soft check: bookings + check-ins dit week. Over-cap = bevestigen, niet
-        // weigeren. Zo kan het lid expliciet kiezen om een extra sessie te
-        // boeken (bv. trial-week, inhalen) zonder dat de cap in de weg zit.
-        // Op een volle les is de nudge niet aan de orde: inschrijven op de
-        // wachtlijst kent geen weekcap-dialoog (de harde cap hieronder wel).
-        const combined =
-          usage.bookingsSamePillarThisWeek +
-          usage.checkInsSamePillarThisWeek;
-        if (combined >= covering.frequency_cap && !acknowledgeOverCap && !full) {
-          return {
-            allowed: true,
-            coveringMembership: covering,
-            requiresPayment: false,
-            confirmation: {
-              kind: "weekly_cap_combined",
-              combined,
-              cap: covering.frequency_cap,
-            },
-          };
-        }
-      } else if (
-        usage.bookingsSamePillarThisWeek >= covering.frequency_cap
+      const capped = cappedPillarsFor(covering, session.pillar);
+      if (
+        capped.includes(session.pillar) &&
+        weeklyUsage(usage.bookingsThisWeekByPillar, capped) >=
+          covering.frequency_cap
       ) {
-        // Hard check blijft voor pillars zonder check-in (huidige gedrag).
         return { allowed: false, reason: "weekly_cap_reached" };
       }
     }
@@ -236,6 +220,9 @@ export function canBook(params: {
   return { allowed: false, reason: "no_coverage" };
 }
 
+// COPY: confirm met Marlon
+export const WEEKLY_CAP_REACHED_COPY = "Je weektegoed is op.";
+
 export const REASON_COPY: Record<
   Exclude<Extract<CanBookResult, { allowed: false }>["reason"], never>,
   string
@@ -247,8 +234,7 @@ export const REASON_COPY: Record<
   capacity_full: "Vol. Je kunt je op de wachtlijst zetten.",
   strike_blocked:
     "Door meerdere no-shows is boeken tijdelijk geblokkeerd. Neem contact op als je vragen hebt.",
-  weekly_cap_reached:
-    "Je weekcap voor deze discipline is bereikt. Volgende week weer.",
+  weekly_cap_reached: WEEKLY_CAP_REACHED_COPY,
   daily_cap_reached: "Maximaal twee sessies per dag.",
   no_coverage: "Deze sessie valt buiten je huidige abonnement.",
 };

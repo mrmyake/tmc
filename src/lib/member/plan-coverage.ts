@@ -48,3 +48,22 @@ export const PILLAR_LABELS: Record<Pillar, string> = {
   kids: "Kids",
   senior: "Senior",
 };
+
+/** De twee groepslespillars; samen geteld onder een weekcap. */
+export const GROUP_PILLARS: readonly Pillar[] = ["yoga_mobility", "kettlebell"];
+
+/**
+ * Pillars die onder de weekcap van een membership vallen, afgeleid uit
+ * covered_pillars (spec-weekcap-extra-les.md). Bevat de dekking een
+ * groepspillar, dan zijn alleen de groepspillars capped en worden ze samen
+ * geteld; vrij_trainen valt dan buiten de cap (All Access: vrij trainen
+ * onbeperkt). Anders zijn alle gedekte pillars capped (Vrij Trainen 2x/3x
+ * houdt zijn cap). Spiegel van tmc.capped_pillars(text[]); de volgorde is
+ * alfabetisch, zoals in SQL.
+ */
+export function cappedPillars(covered: readonly string[] | null | undefined): string[] {
+  const list = covered ?? [];
+  const groups = list.filter((p) => (GROUP_PILLARS as readonly string[]).includes(p));
+  if (groups.length > 0) return [...new Set(groups)].sort();
+  return [...list];
+}

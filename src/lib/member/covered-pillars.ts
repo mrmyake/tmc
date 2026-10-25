@@ -1,5 +1,6 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
+import { cappedPillars } from "./plan-coverage";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -10,7 +11,12 @@ export interface CoveredPillars {
   coversVrijTrainen: boolean;
   /** Alle rijen die vrij_trainen dekken zijn gepauzeerd. */
   vrijTrainenPaused: boolean;
-  /** Weekcap van de nieuwste rij die vrij_trainen dekt (check-in-weergave). */
+  /**
+   * Weekcap op vrij trainen van de nieuwste rij die vrij_trainen dekt
+   * (check-in-weergave). Null als die rij geen cap heeft of als vrij trainen
+   * buiten de cap valt (All Access: de cap telt alleen de groepslessen,
+   * spec-weekcap-extra-les.md).
+   */
   vrijTrainenFrequencyCap: number | null;
 }
 
@@ -37,10 +43,14 @@ export async function loadCoveredPillars(
   for (const r of rows) for (const p of r.covered_pillars ?? []) pillars.add(p);
 
   const vrijRows = rows.filter((r) => (r.covered_pillars ?? []).includes("vrij_trainen"));
+  const newestVrij = vrijRows[0];
+  const vrijCapped =
+    newestVrij !== undefined &&
+    cappedPillars(newestVrij.covered_pillars).includes("vrij_trainen");
   return {
     pillars,
     coversVrijTrainen: vrijRows.length > 0,
     vrijTrainenPaused: vrijRows.length > 0 && vrijRows.every((r) => r.status === "paused"),
-    vrijTrainenFrequencyCap: vrijRows[0]?.frequency_cap ?? null,
+    vrijTrainenFrequencyCap: vrijCapped ? (newestVrij.frequency_cap ?? null) : null,
   };
 }

@@ -71,6 +71,7 @@ const allInclusive: CanBookMembership = {
   id: "m1",
   plan_type: "all_inclusive",
   frequency_cap: null,
+  covered_pillars: ["vrij_trainen", "yoga_mobility", "kettlebell"],
   credits_remaining: null,
 };
 const settings: CanBookSettings = {
@@ -78,13 +79,11 @@ const settings: CanBookSettings = {
   fair_use_daily_max: 2,
   no_show_strike_threshold: 3,
   no_show_block_days: 7,
-  checkInEnabledForPillar: false,
 };
 const usageFull: CanBookUsage = {
   takenCountThisSession: 6,
   bookingsSameDay: 0,
-  bookingsSamePillarThisWeek: 0,
-  checkInsSamePillarThisWeek: 0,
+  bookingsThisWeekByPillar: {},
 };
 
 function run(over: {
@@ -92,7 +91,6 @@ function run(over: {
   usage?: Partial<CanBookUsage>;
   profile?: Partial<CanBookProfile>;
   settings?: Partial<CanBookSettings>;
-  acknowledgeOverCap?: boolean;
 }) {
   return canBook({
     session,
@@ -101,7 +99,6 @@ function run(over: {
     usage: { ...usageFull, ...over.usage },
     settings: { ...settings, ...over.settings },
     now: NOW,
-    acknowledgeOverCap: over.acknowledgeOverCap,
   });
 }
 
@@ -132,20 +129,19 @@ test("canBook: vol met daglimiet bereikt geeft daily_cap_reached", () => {
   if (!r.allowed) assert.equal(r.reason, "daily_cap_reached");
 });
 
-test("canBook: vol met harde weekcap bereikt geeft weekly_cap_reached", () => {
+test("canBook: vol met weekcap bereikt geeft weekly_cap_reached, geen wachtlijst", () => {
   const r = run({
-    memberships: [{ ...allInclusive, plan_type: "yoga_mobility", frequency_cap: 2 }],
-    usage: { bookingsSamePillarThisWeek: 2 },
+    memberships: [{ ...allInclusive, frequency_cap: 2 }],
+    usage: { bookingsThisWeekByPillar: { yoga_mobility: 1, kettlebell: 1 } },
   });
   assert.equal(r.allowed, false);
   if (!r.allowed) assert.equal(r.reason, "weekly_cap_reached");
 });
 
-test("canBook: vol met zachte weekcap over geeft capacity_full zonder bevestigdialoog", () => {
+test("canBook: vol en onder de weekcap geeft capacity_full met wachtlijstoptie", () => {
   const r = run({
-    memberships: [{ ...allInclusive, plan_type: "yoga_mobility", frequency_cap: 2 }],
-    usage: { bookingsSamePillarThisWeek: 2 },
-    settings: { checkInEnabledForPillar: true },
+    memberships: [{ ...allInclusive, frequency_cap: 2 }],
+    usage: { bookingsThisWeekByPillar: { yoga_mobility: 1, vrij_trainen: 3 } },
   });
   assert.equal(r.allowed, false);
   if (!r.allowed) assert.equal(r.reason, "capacity_full");
@@ -153,7 +149,7 @@ test("canBook: vol met zachte weekcap over geeft capacity_full zonder bevestigdi
 
 test("canBook: vol met geldige rittenkaart geeft capacity_full", () => {
   const r = run({
-    memberships: [{ id: "m2", plan_type: "ten_ride_card", frequency_cap: null, credits_remaining: 3 }],
+    memberships: [{ id: "m2", plan_type: "ten_ride_card", frequency_cap: null, covered_pillars: [], credits_remaining: 3 }],
   });
   assert.equal(r.allowed, false);
   if (!r.allowed) {

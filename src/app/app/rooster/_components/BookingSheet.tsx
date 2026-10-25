@@ -91,12 +91,12 @@ export function BookingSheet({
     };
   }, [open]);
 
-  function runBook(acknowledgeOverCap: boolean) {
+  function doBook() {
     if (!session) return;
     startTransition(async () => {
       let res: BookingActionResult;
       try {
-        res = await createBooking(session.id, { acknowledgeOverCap });
+        res = await createBooking(session.id);
       } catch {
         // De server action-fetch zelf kan falen (bv. offline in de PWA) —
         // dat is geen `{ ok: false }` van de action maar een thrown
@@ -117,19 +117,6 @@ export function BookingSheet({
       }
     });
   }
-
-  function doBook() {
-    runBook(false);
-  }
-
-  function confirmOverCap() {
-    runBook(true);
-  }
-
-  const needsConfirmation =
-    result && !result.ok && result.needsConfirmation
-      ? result.needsConfirmation
-      : null;
 
   function doCancel() {
     if (!session?.bookingId) return;
@@ -463,7 +450,7 @@ export function BookingSheet({
             </div>
 
             <div className="p-10 pt-6 border-t border-[color:var(--ink-500)]/60 flex flex-col gap-4">
-              {result && !needsConfirmation && (
+              {result && (
                 <div
                   role={result.ok ? "status" : "alert"}
                   className={`text-sm p-4 border ${
@@ -476,18 +463,7 @@ export function BookingSheet({
                 </div>
               )}
 
-              {needsConfirmation && (
-                <div
-                  role="alert"
-                  className="text-sm p-4 border border-[color:var(--warning)]/50 text-[color:var(--warning)]"
-                >
-                  Je hebt deze week al {needsConfirmation.combined} van{" "}
-                  {needsConfirmation.cap} trainingen voor deze discipline.
-                  Toch een extra sessie boeken?
-                </div>
-              )}
-
-              {!isBooked && !isWaitlisted && !isPromoted && !isFull && !needsConfirmation && (
+              {!isBooked && !isWaitlisted && !isPromoted && !isFull && (
                 <>
                   <p className="text-xs text-text-muted leading-relaxed">
                     Annuleren kan tot {cancellationWindowHours} uur voor de
@@ -504,7 +480,7 @@ export function BookingSheet({
                 </>
               )}
 
-              {isPromoted && !needsConfirmation && (
+              {isPromoted && (
                 <>
                   <p className="text-xs text-text-muted leading-relaxed">
                     {/* COPY: confirm met Marlon */}
@@ -531,27 +507,6 @@ export function BookingSheet({
                     {pending ? "Bezig" : "Plek opgeven"}
                   </button>
                 </>
-              )}
-
-              {needsConfirmation && (
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={confirmOverCap}
-                    disabled={pending}
-                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                  >
-                    {pending ? "Bezig" : "Toch boeken"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setResult(null)}
-                    disabled={pending}
-                    className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted hover:text-text transition-colors px-2 py-2 cursor-pointer"
-                  >
-                    Annuleren
-                  </button>
-                </div>
               )}
 
               {isFull && (
