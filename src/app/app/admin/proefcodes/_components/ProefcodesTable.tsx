@@ -6,7 +6,15 @@ import { Copy } from "lucide-react";
 import type { TrialCodeRow } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear } from "@/lib/format-date";
 import { RevokeCodeButton } from "./RevokeCodeButton";
-import { ScopeChip, StatusChip, batchLabel, kindLabel, usageLabel } from "./status";
+import {
+  RuleChips,
+  ScopeChip,
+  StatusChip,
+  batchLabel,
+  kindLabel,
+  usageLabel,
+  validThroughLabel,
+} from "./status";
 
 function CopyCodeButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
@@ -129,9 +137,15 @@ export function ProefcodesTable({ rows }: { rows: TrialCodeRow[] }) {
                 </td>
                 <td className="py-4 px-4 align-middle text-sm text-text-muted">
                   {kindLabel(row.maxUses)}
+                  {validThroughLabel(row.validThrough) && (
+                    <span className="block mt-0.5 text-xs">{validThroughLabel(row.validThrough)}</span>
+                  )}
                 </td>
                 <td className="py-4 px-4 align-middle">
-                  <ScopeChip scope={row.scope} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <ScopeChip scope={row.scope} />
+                    <RuleChips row={row} />
+                  </div>
                 </td>
                 <td className="py-4 px-4 align-middle text-sm text-text">
                   {usageLabel(row)}
@@ -185,7 +199,14 @@ export function ProefcodesTable({ rows }: { rows: TrialCodeRow[] }) {
             )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
               <ScopeChip scope={row.scope} />
+              <RuleChips row={row} />
               <span>{kindLabel(row.maxUses)}</span>
+              {validThroughLabel(row.validThrough) && (
+                <>
+                  <span>·</span>
+                  <span>{validThroughLabel(row.validThrough)}</span>
+                </>
+              )}
               <span>·</span>
               {/* COPY: confirm met Marlon */}
               <span>Gebruikt {usageLabel(row)}</span>

@@ -7,27 +7,26 @@ import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { YogaComparisonTable } from "@/components/blocks/yoga/YogaComparisonTable";
 import { YogaTeacherStrip } from "@/components/blocks/yoga/YogaTeacherStrip";
-import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { YogaTrialCta, YOGA_ROOSTER_HREF } from "@/components/blocks/yoga/YogaTrialCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   getBreadcrumbSchema,
   getYogaItemListSchema,
 } from "@/lib/structuredData";
-import { SITE } from "@/lib/constants";
+import { CLASS_CAPACITY, SITE } from "@/lib/constants";
 import { getYogaStyles, getYogaTeachers } from "../../../sanity/lib/fetch";
 
 export const revalidate = 60;
 
+// COPY: confirm met Marlon
 export const metadata: Metadata = {
   // Brand-free: de layout-template voegt " | The Movement Club" toe.
   title: "Yoga in Loosdrecht, vlakbij Hilversum",
-  description:
-    "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum en het Gooi. Van diepe rust tot dynamische beweging. Schrijf je in voor de wachtlijst.",
+  description: `Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum en het Gooi. Maximaal ${CLASS_CAPACITY.yogaMobility} personen per les. Plan je proefles.`,
   alternates: { canonical: "/yoga" },
   openGraph: {
     title: "Yoga in Loosdrecht, vlakbij Hilversum | The Movement Club",
-    description:
-      "Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum. Schrijf je in voor de wachtlijst.",
+    description: `Yin, Restorative, Yoga Nidra, iRest en Flow in een kleine, persoonlijke studio in Loosdrecht, op tien minuten van Hilversum. Maximaal ${CLASS_CAPACITY.yogaMobility} personen per les. Plan je proefles.`,
   },
 };
 
@@ -62,13 +61,16 @@ export default async function YogaHubPage() {
               Binnen yoga zijn er verschillende vormen, elk met een eigen doel
               en gevoel. Sommige lessen zijn vooral gericht op diepe ontspanning
               en herstel, andere op beweging, kracht en energie. In onze kleine,
-              persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow.
+              persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow,
+              {/* COPY: confirm met Marlon */}
+              {" "}met maximaal {CLASS_CAPACITY.yogaMobility} personen per les.
               We zitten in Loosdrecht, op zo&apos;n tien minuten van Hilversum,
               en zijn goed bereikbaar vanuit het hele Gooi.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
-              <Button href="#wachtlijst">Zet me op de wachtlijst</Button>
-              <QuietLink href="/yoga/rooster">Bekijk het rooster</QuietLink>
+              {/* COPY: confirm met Marlon */}
+              <Button href="/proefles">Plan je proefles</Button>
+              <QuietLink href={YOGA_ROOSTER_HREF}>Bekijk het rooster</QuietLink>
             </div>
           </ScrollReveal>
         </Container>
@@ -150,8 +152,8 @@ export default async function YogaHubPage() {
         </Container>
       </Section>
 
-      {/* Wachtlijst-CTA */}
-      <YogaWaitlistCta bg="elevated" />
+      {/* Proefles-CTA */}
+      <YogaTrialCta bg="elevated" />
     </>
   );
 }

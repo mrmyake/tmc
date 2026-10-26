@@ -10,6 +10,8 @@ import { checkTrialCode } from "@/lib/actions/trial-code";
 import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 
 interface Props {
+  /** Vooraf ingevulde code (uit ?code=), al genormaliseerd; de bezoeker bevestigt zelf. */
+  initialCode?: string;
   /** Melding uit een eerdere stap (bv. de code bleek bij het boeken ongeldig). */
   initialMessage?: string;
   /** De pagina wordt opnieuw opgehaald na een geldige code: knop blijft bezig. */
@@ -20,10 +22,17 @@ interface Props {
 /**
  * Stap 1 van de codeflow: de code invoeren. De server beslist of de code
  * geldig is (checkTrialCode) en zet dan het httpOnly-cookie; deze
- * component onthoudt zelf niets over de geldigheid.
+ * component onthoudt zelf niets over de geldigheid. Een vooraf ingevulde
+ * code (campagnelink) wordt bewust niet automatisch gecontroleerd: de klik
+ * op "Code controleren" blijft de enige poging op de IP-teller.
  */
-export function CodeEntry({ initialMessage = "", finishing = false, onValid }: Props) {
-  const [code, setCode] = useState("");
+export function CodeEntry({
+  initialCode = "",
+  initialMessage = "",
+  finishing = false,
+  onValid,
+}: Props) {
+  const [code, setCode] = useState(initialCode);
   const [error, setError] = useState(initialMessage);
   const [busy, setBusy] = useState(false);
 

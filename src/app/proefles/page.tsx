@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { resolveAttribution } from "@/lib/attribution/params";
+import { lookupPromotedTrialCode } from "@/lib/trial-codes/lookup";
 import { ProeflesChoice } from "./ProeflesChoice";
 
 // COPY: confirm met Marlon
@@ -29,5 +30,9 @@ export default async function ProeflesPage(props: {
   // alleen gelezen en als props doorgegeven; de kaarten dragen ze mee in hun
   // links. Zonder parameters een leeg object en schone links.
   const attribution = resolveAttribution(sp, "/proefles");
-  return <ProeflesChoice attribution={attribution} />;
+  // De aangeprezen campagnecode (PROMOTED_TRIAL_CODE) uit de database: alleen
+  // als hij nu bruikbaar is, met zijn einddatum. Null = de kaart "Ik heb een
+  // code" toont de gewone tekst.
+  const promotedCode = await lookupPromotedTrialCode();
+  return <ProeflesChoice attribution={attribution} promotedCode={promotedCode} />;
 }

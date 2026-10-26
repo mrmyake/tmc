@@ -9,6 +9,7 @@ import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
 import { ProeflesContent } from "./ProeflesContent";
 import { trackCTA } from "@/lib/analytics";
 import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
+import { promotedCodeText, type PromotedTrialCode } from "@/lib/trial-codes/promoted";
 
 /**
  * Drieweg-keuze vóór alles (spec-community-growth.md §1): direct boeken
@@ -24,13 +25,24 @@ import { withAttribution, type AttributionParams } from "@/lib/attribution/param
  * (spec-marketing-attribution.md). De kaarten dragen ze mee in hun links en
  * het terugbelformulier stuurt ze mee; zonder parameters blijven de links
  * precies zoals ze waren.
+ *
+ * promotedCode: de campagnecode die de site zelf noemt (Google Ads, MOVENOW),
+ * door de server opgezocht en alleen gezet als de code nu bruikbaar is. De
+ * kaart "Ik heb een code" noemt dan de code met zijn voorwaarden en linkt
+ * naar /proefles/code?code=..., zodat het veld al ingevuld staat. Zonder
+ * promotedCode blijft de kaart zoals hij was.
  */
 export function ProeflesChoice({
   attribution = {},
+  promotedCode = null,
 }: {
   attribution?: AttributionParams;
+  promotedCode?: PromotedTrialCode | null;
 }) {
   const [choice, setChoice] = useState<"none" | "call">("none");
+  const codeHref = promotedCode
+    ? `/proefles/code?code=${encodeURIComponent(promotedCode.code)}`
+    : "/proefles/code";
 
   if (choice === "call") {
     return <ProeflesContent attribution={attribution} />;
@@ -87,7 +99,7 @@ export function ProeflesChoice({
 
           <ScrollReveal delay={0.075}>
             <Link
-              href={withAttribution("/proefles/code", attribution)}
+              href={withAttribution(codeHref, attribution)}
               onClick={() => trackCTA("Ik heb een proefcode", "/proefles")}
               className="group block h-full bg-bg-elevated p-8 md:p-10 relative transition-colors duration-300 hover:bg-bg-elevated/80"
             >
@@ -97,20 +109,27 @@ export function ProeflesChoice({
               />
               <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
                 {/* COPY: confirm met Marlon */}
-                Gratis · Uitgenodigd
+                {promotedCode ? "Gratis · Nieuwe leden" : "Gratis · Uitgenodigd"}
               </span>
               <h2 className="text-2xl font-medium text-text mb-4 tracking-[-0.01em]">
                 {/* COPY: confirm met Marlon */}
                 Ik heb een code
               </h2>
-              <p className="text-text-muted text-sm leading-relaxed mb-6">
-                {/* COPY: confirm met Marlon */}
-                Heb je een proefcode gekregen? Vul die in, kies zelf een
-                sessie en boek je gratis proefles.
-              </p>
+              {promotedCode ? (
+                <p className="text-text-muted text-sm leading-relaxed mb-6">
+                  {/* COPY: confirm met Marlon, tekst uit promotedCodeText */}
+                  {promotedCodeText(promotedCode)}
+                </p>
+              ) : (
+                <p className="text-text-muted text-sm leading-relaxed mb-6">
+                  {/* COPY: confirm met Marlon */}
+                  Heb je een proefcode gekregen? Vul die in, kies zelf een
+                  sessie en boek je gratis proefles.
+                </p>
+              )}
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent group-hover:underline">
                 {/* COPY: confirm met Marlon */}
-                Code invoeren
+                {promotedCode ? `Gebruik code ${promotedCode.code}` : "Code invoeren"}
               </span>
             </Link>
           </ScrollReveal>

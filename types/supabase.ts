@@ -3507,6 +3507,8 @@ export type Database = {
           code_id: string
           email_normalized: string
           id: string
+          one_per_person: boolean
+          phone_e164: string | null
           redeemed_at: string
           released_at: string | null
           session_id: string
@@ -3516,6 +3518,8 @@ export type Database = {
           code_id: string
           email_normalized: string
           id?: string
+          one_per_person?: boolean
+          phone_e164?: string | null
           redeemed_at?: string
           released_at?: string | null
           session_id: string
@@ -3525,6 +3529,8 @@ export type Database = {
           code_id?: string
           email_normalized?: string
           id?: string
+          one_per_person?: boolean
+          phone_e164?: string | null
           redeemed_at?: string
           released_at?: string | null
           session_id?: string
@@ -3570,10 +3576,13 @@ export type Database = {
           id: string
           label: string
           max_uses: number | null
+          new_customers_only: boolean
+          one_per_person: boolean
           revoked_at: string | null
           revoked_by: string | null
           scope: string
           uses_count: number
+          valid_through: string | null
         }
         Insert: {
           batch_id?: string | null
@@ -3583,10 +3592,13 @@ export type Database = {
           id?: string
           label: string
           max_uses?: number | null
+          new_customers_only?: boolean
+          one_per_person?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           scope?: string
           uses_count?: number
+          valid_through?: string | null
         }
         Update: {
           batch_id?: string | null
@@ -3596,10 +3608,13 @@ export type Database = {
           id?: string
           label?: string
           max_uses?: number | null
+          new_customers_only?: boolean
+          one_per_person?: boolean
           revoked_at?: string | null
           revoked_by?: string | null
           scope?: string
           uses_count?: number
+          valid_through?: string | null
         }
         Relationships: [
           {
@@ -4220,7 +4235,10 @@ export type Database = {
           p_code: string
           p_label: string
           p_max_uses: number
+          p_new_customers_only?: boolean
+          p_one_per_person?: boolean
           p_scope?: string
+          p_valid_through?: string
         }
         Returns: Json
       }
@@ -4403,6 +4421,7 @@ export type Database = {
       }
       register_opening_trial_attempt: { Args: { p_ip: string }; Returns: Json }
       register_trial_code_attempt: { Args: { p_ip: string }; Returns: Json }
+      register_trial_code_failure: { Args: { p_ip: string }; Returns: Json }
       replace_checkout_intent_payment: {
         Args: {
           p_intent_id: string

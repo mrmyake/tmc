@@ -15,15 +15,27 @@ export type CheckTrialCodeResult =
   | { ok: false; message: string };
 
 /**
- * Codestap op /proefles/code. Alleen lezen: telt als poging op de IP-teller
- * (tmc.register_trial_code_attempt) en reset die teller nooit. Alleen een
- * geslaagde boeking via tmc.redeem_trial_code wist de teller, anders kon
- * iemand met een geldige code de teller steeds resetten en onbeperkt codes
- * raden. De voorwaarden spiegelen de live tmc.redeem_trial_code: bestaat,
- * niet ingetrokken en (max_uses IS NULL OR uses_count < max_uses). De
- * uitkomst is een momentopname; bij het boeken beslist de RPC opnieuw.
- * De scope komt uit deze server-side opzoeking van de code en gaat nooit
- * mee in het cookie; de pagina zoekt hem bij elke render opnieuw op.
+ * Een mislukte codepoging op de IP-teller zetten (tmc.register_trial_code_failure).
+ * Alleen missers tellen: na 10 in 30 minuten gaat het IP 15 minuten op slot.
+ * Een geslaagde controle of boeking laat de teller met rust, zodat bezoekers
+ * achter een gedeeld mobiel IP elkaar niet blokkeren. Logt en gaat door bij
+ * een fout; de weigering zelf staat al vast.
+ */
+export async function registerTrialCodeFailure(ip: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("register_trial_code_failure", { p_ip: ip });
+  if (error) console.error("[trial-code] register_trial_code_failure failed", error);
+}
+
+/**
+ * Codestap op /proefles/code. Eerst de poortcheck (tmc.register_trial_code_attempt,
+ * alleen lezen: staat dit IP op slot?), dan de opzoeking. Alleen een
+ * afgewezen code telt als misser (registerTrialCodeFailure). De voorwaarden
+ * spiegelen de live tmc.redeem_trial_code: bestaat, niet ingetrokken,
+ * (max_uses IS NULL OR uses_count < max_uses) en de einddatum nog niet
+ * voorbij. De uitkomst is een momentopname; bij het boeken beslist de RPC
+ * opnieuw. De scope komt uit deze server-side opzoeking van de code en gaat
+ * nooit mee in het cookie; de pagina zoekt hem bij elke render opnieuw op.
  */
 export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeResult> {
   const admin = createAdminClient();
@@ -43,11 +55,13 @@ export async function checkTrialCode(rawCode: string): Promise<CheckTrialCodeRes
 
   const code = normalizeTrialCode(rawCode);
   if (!isValidTrialCodeFormat(code)) {
+    await registerTrialCodeFailure(ip);
     return { ok: false, message: CODE_INVALID_MESSAGE };
   }
 
   const scope = await lookupUsableTrialCodeScope(code);
   if (!scope) {
+    await registerTrialCodeFailure(ip);
     return { ok: false, message: CODE_INVALID_MESSAGE };
   }
   if (!(await setTrialCodeCookie(code))) {

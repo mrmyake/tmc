@@ -18,7 +18,7 @@ export async function GET() {
   const lines: string[] = [
     "# The Movement Club — Yoga in Loosdrecht",
     "",
-    "> Boutique yogastudio in Loosdrecht (Wijdemeren). Vijf vormen, van diepe rust tot dynamische beweging: Yin, Restorative, Yoga Nidra, iRest en Flow. Kleine groepen, persoonlijke begeleiding. De studio opent binnenkort; inschrijven kan via de wachtlijst.",
+    "> Boutique yogastudio in Loosdrecht (Wijdemeren). Vijf vormen, van diepe rust tot dynamische beweging: Yin, Restorative, Yoga Nidra, iRest en Flow. Kleine groepen van maximaal 8 personen, persoonlijke begeleiding. Kennismaken kan met een proefles via /proefles.",
     "",
     "## Yoga",
     `- [Yoga in Loosdrecht](${SITE.url}/yoga): overzicht van alle vormen, docenten en het rooster.`,

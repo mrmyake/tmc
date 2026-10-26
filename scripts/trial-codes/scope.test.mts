@@ -62,6 +62,9 @@ test("trialCodesCsv: kolommen code, label, soort, scope, aangemaakt op; aanhalin
       maxUses: 1,
       scope: "yoga_mobility",
       createdAt: "2026-09-30T20:00:00.000Z",
+      validThrough: null,
+      newCustomersOnly: false,
+      onePerPerson: false,
     },
     {
       id: "2",
@@ -70,6 +73,9 @@ test("trialCodesCsv: kolommen code, label, soort, scope, aangemaakt op; aanhalin
       maxUses: null,
       scope: "group",
       createdAt: "2026-09-30T20:00:00.000Z",
+      validThrough: "2026-11-30",
+      newCustomersOnly: true,
+      onePerPerson: true,
     },
   ]);
   const lines = csv.split("\n");

@@ -11,6 +11,7 @@ import { SCOPE_LABEL, TRIAL_CODE_SCOPES } from "@/lib/trial-codes/scope";
 const STATUS_LABEL: Record<TrialCodeStatusFilter, string> = {
   active: "Actief",
   exhausted: "Op",
+  expired: "Verlopen",
   revoked: "Ingetrokken",
   all: "Alles",
 };

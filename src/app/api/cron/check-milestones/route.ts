@@ -64,8 +64,8 @@ interface MilestonePayload {
  * bijgehouden via bookings.attended_at (not null), status blijft
  * 'booked'. De telling gebruikt daarom attended_at is not null in
  * plaats van de spec-letterlijke status-check, anders zou de teller
- * altijd op 0 blijven staan. Bij TMC's schaal (boutique studio, max 6
- * per groep) is dit triviaal, geen aparte tellerkolom nodig.
+ * altijd op 0 blijven staan. Bij TMC's schaal (boutique studio, groepen
+ * van maximaal 8 tot 12) is dit triviaal, geen aparte tellerkolom nodig.
  *
  * Dedup: leest bestaande member.milestone_reached-events per lid om
  * te bepalen welke drempels/jaren al gemeld zijn, zodat een lid niet

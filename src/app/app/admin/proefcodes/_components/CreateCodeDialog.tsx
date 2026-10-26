@@ -43,6 +43,12 @@ export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string 
   const [kind, setKind] = useState<TrialCodeKind>("single");
   const [maxUses, setMaxUses] = useState(5);
   const [scope, setScope] = useState<TrialCodeScope>("group");
+  // Campagnevelden, alleen voor een eigen (gedeelde) code: einddatum
+  // (YYYY-MM-DD, leeg = geen), alleen nieuwe klanten, een keer per persoon.
+  // De batch-RPC kent ze niet; een batch krijgt ze op hun default (uit).
+  const [validThrough, setValidThrough] = useState("");
+  const [newCustomersOnly, setNewCustomersOnly] = useState(false);
+  const [onePerPerson, setOnePerPerson] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedTrialCode[]>([]);
   const [copied, setCopied] = useState(false);
@@ -57,6 +63,9 @@ export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string 
     setKind("single");
     setMaxUses(5);
     setScope("group");
+    setValidThrough("");
+    setNewCustomersOnly(false);
+    setOnePerPerson(false);
     setCreated([]);
     setCopied(false);
     setOpen(true);
@@ -81,7 +90,13 @@ export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string 
         scope,
       };
       if (own) {
-        const res = await createTrialCode({ ...common, code });
+        const res = await createTrialCode({
+          ...common,
+          code,
+          validThrough: validThrough || undefined,
+          newCustomersOnly,
+          onePerPerson,
+        });
         if (!res.ok) {
           setError(res.message);
           return;
@@ -311,6 +326,67 @@ export function CreateCodeDialog({ presenceText = "" }: { presenceText?: string 
                 ))}
               </div>
             </AdminField>
+
+            {own && (
+              <>
+                {/* COPY: confirm met Marlon */}
+                <AdminField
+                  label="Geldig tot en met"
+                  hint="Laatste dag waarop de code ingewisseld kan worden. Leeg = geen einddatum."
+                >
+                  <AdminInput
+                    type="date"
+                    value={validThrough}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setValidThrough(e.target.value)}
+                    className="max-w-[220px]"
+                  />
+                </AdminField>
+
+                {/* COPY: confirm met Marlon */}
+                <AdminField
+                  label="Regels voor een gedeelde code"
+                  hint="Voor een code die je openbaar deelt, bijvoorbeeld in een advertentie."
+                >
+                  <div className="flex flex-col gap-3">
+                    <label className="flex items-start gap-3 text-sm text-text cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newCustomersOnly}
+                        onChange={(e) => setNewCustomersOnly(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-[color:var(--accent)] cursor-pointer"
+                      />
+                      <span>
+                        {/* COPY: confirm met Marlon */}
+                        Alleen voor nieuwe klanten
+                        <span className="block text-xs text-text-muted">
+                          {/* COPY: confirm met Marlon */}
+                          Geen leden of klanten, en niemand die al een proefles had of gepland heeft
+                          staan (op e-mailadres en telefoonnummer).
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 text-sm text-text cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onePerPerson}
+                        onChange={(e) => setOnePerPerson(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-[color:var(--accent)] cursor-pointer"
+                      />
+                      <span>
+                        {/* COPY: confirm met Marlon */}
+                        Een keer per persoon
+                        <span className="block text-xs text-text-muted">
+                          {/* COPY: confirm met Marlon */}
+                          Elk e-mailadres en elk telefoonnummer kan deze code een keer gebruiken. Wie
+                          op tijd annuleert, kan opnieuw.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </AdminField>
+              </>
+            )}
 
             <button
               type="button"

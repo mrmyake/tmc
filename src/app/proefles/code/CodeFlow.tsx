@@ -32,6 +32,7 @@ export function CodeFlow({
   code,
   scope,
   soort = null,
+  initialCode = "",
   attribution = {},
 }: {
   options: TrialSessionOption[];
@@ -41,6 +42,8 @@ export function CodeFlow({
   scope: TrialCodeScope | null;
   /** Alleen bij scope all: de gekozen tak uit de URL, null = nog niet gekozen. */
   soort?: CodeSoort | null;
+  /** Vooraf ingevulde code uit ?code= (genormaliseerd); de bezoeker bevestigt zelf. */
+  initialCode?: string;
   /** Advertentie- en campagneparameters uit de URL; reizen mee in de dagstrip en de boeking. */
   attribution?: AttributionParams;
 }) {
@@ -54,6 +57,7 @@ export function CodeFlow({
   if (!scope || !code || forceEntry) {
     return (
       <CodeEntry
+        initialCode={initialCode}
         initialMessage={message}
         finishing={refreshing}
         onValid={() => {

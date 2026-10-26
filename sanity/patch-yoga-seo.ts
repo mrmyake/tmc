@@ -1,6 +1,8 @@
 /**
  * Patch-script: zet regionale SEO-velden (seoTitle/seoDescription) op de
  * bestaande yogaStyle-documenten, gericht op Loosdrecht + regio Hilversum.
+ * Sinds fix/ads-landingspaginas-movenow (2026-10-26) zonder wachtlijst en met
+ * de groepsgrootte (maximaal 8); opnieuw gedraaid op die datum.
  *
  * Run met: SANITY_TOKEN=xxx npx tsx sanity/patch-yoga-seo.ts
  *   (token met schrijfrechten via sanity.io/manage → API → Tokens,
@@ -36,35 +38,35 @@ const SEO: Array<{
     slug: "yoga-nidra",
     seoTitle: "Yoga Nidra in Loosdrecht, vlakbij Hilversum",
     seoDescription:
-      "Yoga nidra in Loosdrecht: diepe ontspanning door geleide meditatie in lig. Kleine groepen, op tien minuten van Hilversum. Zet je op de wachtlijst.",
+      "Yoga nidra in Loosdrecht: diepe ontspanning door geleide meditatie in lig. Maximaal 8 personen per les, op tien minuten van Hilversum. Plan je proefles.",
   },
   {
     id: "yogaStyle-irest",
     slug: "irest",
     seoTitle: "iRest Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
-      "iRest yoga nidra in Loosdrecht: meditatieve diepe rust en herstel. Kleine lessen vlakbij Hilversum en het Gooi. Schrijf je in voor de wachtlijst.",
+      "iRest yoga nidra in Loosdrecht: meditatieve diepe rust en herstel. Kleine lessen van maximaal 8 personen vlakbij Hilversum en het Gooi. Plan je proefles.",
   },
   {
     id: "yogaStyle-restorative-yoga",
     slug: "restorative-yoga",
     seoTitle: "Restorative Yoga in Loosdrecht, regio Hilversum",
     seoDescription:
-      "Restorative yoga in Loosdrecht: volledig tot rust komen met ondersteunde houdingen. Kleine lessen vlakbij Hilversum en het Gooi. Zet je op de wachtlijst.",
+      "Restorative yoga in Loosdrecht: volledig tot rust komen met ondersteunde houdingen. Kleine lessen van maximaal 8 personen vlakbij Hilversum en het Gooi. Plan je proefles.",
   },
   {
     id: "yogaStyle-yin-yoga",
     slug: "yin-yoga",
     seoTitle: "Yin Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
-      "Yin yoga in Loosdrecht: rustige, lang vastgehouden houdingen voor diepe ontspanning en soepelheid. Kleine groepen, op tien minuten van Hilversum.",
+      "Yin yoga in Loosdrecht: rustige, lang vastgehouden houdingen voor diepe ontspanning en soepelheid. Maximaal 8 personen per les, op tien minuten van Hilversum. Plan je proefles.",
   },
   {
     id: "yogaStyle-flow-yoga",
     slug: "flow-yoga",
     seoTitle: "Flow Yoga in Loosdrecht, vlakbij Hilversum",
     seoDescription:
-      "Flow yoga in Loosdrecht: dynamische beweging op je adem, voor kracht en mobiliteit. Kleine groepen vlakbij Hilversum. Zet je op de wachtlijst.",
+      "Flow yoga in Loosdrecht: dynamische beweging op je adem, voor kracht en mobiliteit. Maximaal 8 personen per les, vlakbij Hilversum. Plan je proefles.",
   },
 ];
 

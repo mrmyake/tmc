@@ -8,7 +8,8 @@ import { isTrialCodeScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
  * in trial-codes-actions.ts.
  */
 
-export type TrialCodeStatus = "active" | "exhausted" | "revoked";
+/** expired: de einddatum (valid_through) is voorbij; niet ingetrokken en niet op. */
+export type TrialCodeStatus = "active" | "exhausted" | "expired" | "revoked";
 export type TrialCodeStatusFilter = TrialCodeStatus | "all";
 /** "any" = geen scope-filter; "all" is sinds de scope all een echte scope. */
 export type TrialCodeScopeFilter = TrialCodeScope | "any";
@@ -30,6 +31,10 @@ export interface TrialCodeRow {
   revokedByName: string | null;
   /** Aantal inwisselingen ooit, inclusief teruggegeven (geannuleerde). */
   redemptionsTotal: number;
+  /** Laatste geldige kalenderdag (YYYY-MM-DD, Europe/Amsterdam) of null zonder einddatum. */
+  validThrough: string | null;
+  newCustomersOnly: boolean;
+  onePerPerson: boolean;
 }
 
 export interface TrialCodeRedemptionRow {
@@ -69,13 +74,20 @@ function firstOf<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
+/** Vandaag als YYYY-MM-DD in Europe/Amsterdam; dezelfde kalenderdag als tmc.redeem_trial_code. */
+function amsterdamToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam" }).format(new Date());
+}
+
 export function deriveStatus(row: {
   revoked_at: string | null;
   max_uses: number | null;
   uses_count: number;
+  valid_through: string | null;
 }): TrialCodeStatus {
   if (row.revoked_at) return "revoked";
   if (row.max_uses !== null && row.uses_count >= row.max_uses) return "exhausted";
+  if (row.valid_through !== null && row.valid_through < amsterdamToday()) return "expired";
   return "active";
 }
 
@@ -91,6 +103,9 @@ type RawTrialCodeRow = {
   batch_id: string | null;
   created_at: string;
   revoked_at: string | null;
+  valid_through: string | null;
+  new_customers_only: boolean;
+  one_per_person: boolean;
   created_by_profile: RawProfile;
   revoked_by_profile: RawProfile;
 };
@@ -99,6 +114,7 @@ type RawTrialCodeRow = {
 // PostgREST kan de relatie niet raden zonder de expliciete FK-naam.
 const TRIAL_CODE_SELECT = `
   id, code, label, max_uses, uses_count, scope, batch_id, created_at, revoked_at,
+  valid_through, new_customers_only, one_per_person,
   created_by_profile:profiles!trial_codes_created_by_fkey(first_name),
   revoked_by_profile:profiles!trial_codes_revoked_by_fkey(first_name)
 `;
@@ -161,14 +177,17 @@ function mapRow(
     revokedAt: r.revoked_at,
     revokedByName: firstOf(r.revoked_by_profile)?.first_name ?? null,
     redemptionsTotal,
+    validThrough: r.valid_through,
+    newCustomersOnly: r.new_customers_only,
+    onePerPerson: r.one_per_person,
   };
 }
 
-/** Altijd over de volledige tabel geteld, ongeacht de filters eronder. */
+/** Altijd over de volledige tabel geteld, ongeacht de filters eronder. Verlopen codes tellen bij "op". */
 export async function getTrialCodeKpis(): Promise<TrialCodeKpis> {
   const admin = createAdminClient();
   const [codesRes, openRes] = await Promise.all([
-    admin.from("trial_codes").select("revoked_at, max_uses, uses_count"),
+    admin.from("trial_codes").select("revoked_at, max_uses, uses_count, valid_through"),
     admin
       .from("trial_code_redemptions")
       .select("id", { count: "exact", head: true })
@@ -184,7 +203,7 @@ export async function getTrialCodeKpis(): Promise<TrialCodeKpis> {
   for (const row of codesRes.data ?? []) {
     const status = deriveStatus(row);
     if (status === "active") kpis.activeNow += 1;
-    else if (status === "exhausted") kpis.exhausted += 1;
+    else if (status === "exhausted" || status === "expired") kpis.exhausted += 1;
     else kpis.revoked += 1;
   }
   return kpis;

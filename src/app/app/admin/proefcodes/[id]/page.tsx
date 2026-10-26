@@ -4,7 +4,15 @@ import { ChevronLeft } from "lucide-react";
 import { getTrialCodeDetail } from "@/lib/admin/trial-codes-query";
 import { formatShortDateWithYear } from "@/lib/format-date";
 import { RevokeCodeButton } from "../_components/RevokeCodeButton";
-import { ScopeChip, StatusChip, batchLabel, kindLabel, usageLabel } from "../_components/status";
+import {
+  RuleChips,
+  ScopeChip,
+  StatusChip,
+  batchLabel,
+  kindLabel,
+  usageLabel,
+  validThroughLabel,
+} from "../_components/status";
 import { RedemptionsTable } from "./_components/RedemptionsTable";
 
 export const metadata = {
@@ -49,7 +57,14 @@ export default async function TrialCodeDetailPage(props: {
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-muted">
             <StatusChip status={detail.status} />
             <ScopeChip scope={detail.scope} />
+            <RuleChips row={detail} />
             <span>{kindLabel(detail.maxUses)}</span>
+            {validThroughLabel(detail.validThrough) && (
+              <>
+                <span>·</span>
+                <span>{validThroughLabel(detail.validThrough)}</span>
+              </>
+            )}
             {batchLabel(detail.batchSize) && (
               <>
                 <span>·</span>
