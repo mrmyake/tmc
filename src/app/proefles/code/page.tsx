@@ -7,8 +7,9 @@ import { resolveAttribution } from "@/lib/attribution/params";
 import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { CodeFlow, type CodeSoort } from "./CodeFlow";
 
+// Title zonder merknaam: de layout-template (%s | The Movement Club) voegt die toe.
 export const metadata: Metadata = {
-  title: "Proefles met proefcode | The Movement Club",
+  title: "Proefles met proefcode",
   description:
     "Heb je een proefcode gekregen? Vul die in en boek gratis je proefles bij The Movement Club in Loosdrecht.",
   alternates: { canonical: "/proefles/code" },

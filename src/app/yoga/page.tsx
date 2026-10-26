@@ -63,7 +63,7 @@ export default async function YogaHubPage() {
               en herstel, andere op beweging, kracht en energie. In onze kleine,
               persoonlijke studio vind je ze allemaal, van Yoga Nidra tot Flow,
               {/* COPY: confirm met Marlon */}
-              {" "}met maximaal {CLASS_CAPACITY.yogaMobility} personen per les.
+              {` met maximaal ${CLASS_CAPACITY.yogaMobility} personen per les. `}
               We zitten in Loosdrecht, op zo&apos;n tien minuten van Hilversum,
               en zijn goed bereikbaar vanuit het hele Gooi.
             </p>
