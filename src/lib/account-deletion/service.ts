@@ -194,7 +194,7 @@ function buildDb(admin: SupabaseClient): DeletionDeps["db"] {
           cancellation_reason: reason,
         })
         .eq("profile_id", profileId)
-        .in("status", ["booked", "waitlisted"])
+        .in("status", ["booked", "waitlisted", "pending_payment"])
         .gte("session_date", todayIso)
         .select("id");
       if (error) throw new Error(`bookings annuleren: ${error.message}`);

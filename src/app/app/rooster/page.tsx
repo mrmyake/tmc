@@ -9,6 +9,7 @@ import {
   canBook,
   REASON_COPY,
   type CanBookMembership,
+  type ExtraClassOffer,
 } from "@/lib/member/can-book";
 import {
   addDaysIsoAmsterdam,
@@ -305,7 +306,9 @@ export default async function RoosterPage(props: {
       .eq("profile_id", user.id)
       .gte("session_date", fromIso)
       .lt("session_date", addDaysIsoAmsterdam(fromIso, WINDOW_DAYS))
-      .in("status", ["booked", "cancelled"]),
+      // pending_payment: bijgekochte extra les waarvan de betaling nog loopt
+      // (spec-weekcap-extra-les.md); telt als eigen rij.
+      .in("status", ["booked", "cancelled", "pending_payment"]),
     // Eigen open wachtlijstentries met rang en promotiestatus
     // (SECURITY DEFINER: de rang telt over andermans rijen). Alleen
     // geplande, toekomstige lessen; een verlopen promotie blijft weg.
@@ -425,7 +428,7 @@ export default async function RoosterPage(props: {
     { id: string; status: string; bookedAt: string }
   >();
   for (const b of bookingsResult.data ?? []) {
-    if (b.status === "booked") {
+    if (b.status === "booked" || b.status === "pending_payment") {
       bookingsBySession.set(b.session_id, {
         id: b.id,
         status: b.status,
@@ -482,6 +485,17 @@ export default async function RoosterPage(props: {
   };
 
   const ageCategory = profileResult.data?.age_category ?? null;
+  // Prijs van een extra les voor deze leeftijdscategorie, uit de ene
+  // prijsfunctie (spec-weekcap-extra-les.md). Alleen weergave; de RPC rekent
+  // bij het afrekenen opnieuw. Null betekent: bijkopen uit.
+  const extraPriceResult = await supabase.rpc("extra_class_price", {
+    p_age_category: ageCategory ?? "adult",
+  });
+  const extraClassPriceCents: number | null = (() => {
+    const rows = extraPriceResult.data as Array<{ price_cents: number | null }> | null;
+    const cents = rows?.[0]?.price_cents;
+    return typeof cents === "number" && cents > 0 ? cents : null;
+  })();
   const activeStrikes = strikesResult.data?.strike_count ?? 0;
   const strikesBlockUntil = strikesResult.data?.last_strike_at
     ? new Date(
@@ -550,6 +564,7 @@ export default async function RoosterPage(props: {
 
     let status: SessionStatus;
     let reasonText: string | null = null;
+    let extraClass: ExtraClassOffer | null = null;
 
     // Geannuleerd gaat voor geboekt en wachtlijst: een open wachtlijstplek
     // van voor de annulering mocht de les niet als "Wachtlijst" tonen
@@ -567,6 +582,8 @@ export default async function RoosterPage(props: {
       status = "cancelled";
     } else if (isOngoing(start, end, now)) {
       status = "ongoing";
+    } else if (booking?.status === "pending_payment") {
+      status = "pending_payment";
     } else if (ownStatus) {
       status = ownStatus;
     } else {
@@ -614,6 +631,7 @@ export default async function RoosterPage(props: {
           fair_use_daily_max: bookingSettings.fairUseDailyMax,
           no_show_strike_threshold: bookingSettings.noShowStrikeThreshold,
           no_show_block_days: bookingSettings.noShowBlockDays,
+          extraClassPriceCents,
         },
         now,
       });
@@ -623,6 +641,7 @@ export default async function RoosterPage(props: {
       } else {
         status = REASON_TO_STATUS[result.reason] ?? "no_coverage";
         reasonText = REASON_COPY[result.reason] ?? null;
+        extraClass = result.extraClass ?? null;
       }
     }
 
@@ -670,6 +689,8 @@ export default async function RoosterPage(props: {
       spotsAvailable,
       status,
       reasonText,
+      extraClassAvailable: extraClass?.available ?? false,
+      extraClassPriceCents: extraClass?.priceCents ?? null,
       bookingId: booking?.id ?? null,
       isoDate: sessionIso,
       checkInHint,

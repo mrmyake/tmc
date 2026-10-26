@@ -16,6 +16,7 @@ export function BookedSlotCard({
   nowMs,
   pending,
   onCancel,
+  onResume,
 }: {
   booking: OwnSlotBooking;
   justBooked: boolean;
@@ -23,9 +24,53 @@ export function BookedSlotCard({
   nowMs: number;
   pending: boolean;
   onCancel: () => void;
+  /** Pending extra les: terug naar de open betaling (spec-weekcap-extra-les.md). */
+  onResume?: () => void;
 }) {
   const start = Date.parse(booking.slotStartAt);
   const end = Date.parse(booking.slotEndAt);
+
+  if (booking.pendingPayment) {
+    return (
+      <section className="rounded-lg border border-[color:var(--ink-500)] bg-bg-elevated p-6">
+        <span className="tmc-eyebrow block mb-3">
+          {/* COPY: confirm met Marlon */}
+          Betaling open
+        </span>
+        <p className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl text-text leading-none tracking-[-0.02em] tabular-nums whitespace-nowrap">
+          {amsterdamClock(start)}
+          <span className="text-text-muted"> tot </span>
+          {amsterdamClock(end)}
+        </p>
+        <p className="mt-3 text-text-muted first-letter:uppercase">{formatWeekdayDate(new Date(start))}</p>
+        <p className="mt-5 text-sm text-text-muted leading-relaxed">
+          {/* COPY: confirm met Marlon */}
+          Je betaling voor deze extra les is nog niet afgerond. De plek staat
+          even voor je vast; rond de betaling af of breek hem af.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            disabled={pending || !onResume}
+            onClick={onResume}
+            className="rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] bg-accent text-bg border border-accent transition-opacity duration-300 disabled:opacity-40 cursor-pointer"
+          >
+            {/* COPY: confirm met Marlon */}
+            {pending ? "Bezig" : "Ga verder met betalen"}
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onCancel}
+            className="rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] border border-[color:var(--ink-500)] text-text hover:border-[color:var(--danger)] hover:text-[color:var(--danger)] transition-colors duration-300 disabled:opacity-40 cursor-pointer"
+          >
+            {/* COPY: confirm met Marlon */}
+            Betaling afbreken
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-lg border border-accent/60 bg-bg-elevated p-6">

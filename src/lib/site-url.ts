@@ -51,3 +51,14 @@ export function trialWebhookUrl(mode: "live" | "test"): string {
   }
   return params.size ? `${base}?${params}` : base;
 }
+
+/** Idem voor de webhook van een bijgekochte extra les (spec-weekcap-extra-les.md). */
+export function extraClassWebhookUrl(mode: "live" | "test"): string {
+  const base = `${siteUrl()}/api/bookings/extra-class/webhook`;
+  const params = new URLSearchParams();
+  if (mode === "test") params.set("mode", "test");
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    params.set("x-vercel-protection-bypass", process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
+  }
+  return params.size ? `${base}?${params}` : base;
+}

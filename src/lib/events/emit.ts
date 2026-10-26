@@ -22,6 +22,11 @@ export type EventType =
   // schrijven de wachtlijst-RPC's zelf (join_waitlist, promote_waitlist_entries,
   // leave_waitlist; spec-community-growth.md). Hier voor het volledige domein.
   | "booking.waitlisted"
+  // Extra les bijkopen (spec-weekcap-extra-les.md). booking.extra_class_started
+  // en booking.refund_requested schrijven de RPC's zelf.
+  | "booking.extra_class_confirmed"
+  | "booking.extra_class_released"
+  | "booking.extra_class_refunded"
   | "waitlist.promoted"
   | "waitlist.expired"
   | "waitlist.left"

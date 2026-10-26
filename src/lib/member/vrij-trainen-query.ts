@@ -38,6 +38,8 @@ export interface OwnSlotBooking {
   id: string;
   slotStartAt: string;
   slotEndAt: string;
+  /** Bijgekochte extra les waarvan de betaling nog loopt (spec-weekcap-extra-les.md). */
+  pendingPayment: boolean;
 }
 
 export interface VrijTrainenPickerData {
@@ -93,12 +95,12 @@ export async function loadVrijTrainenPicker(
   const { data: bookingRows } = sessionIds.length
     ? await supabase
         .from("bookings")
-        .select("id, session_id, slot_start_at, slot_end_at")
+        .select("id, session_id, slot_start_at, slot_end_at, status")
         .eq("profile_id", userId)
         .eq("pillar", "vrij_trainen")
-        .eq("status", "booked")
+        .in("status", ["booked", "pending_payment"])
         .in("session_id", sessionIds)
-    : { data: [] as Array<{ id: string; session_id: string; slot_start_at: string | null; slot_end_at: string | null }> };
+    : { data: [] as Array<{ id: string; session_id: string; slot_start_at: string | null; slot_end_at: string | null; status: string }> };
 
   const bookingBySession = new Map<string, OwnSlotBooking>();
   for (const b of bookingRows ?? []) {
@@ -107,6 +109,7 @@ export async function loadVrijTrainenPicker(
         id: b.id,
         slotStartAt: b.slot_start_at,
         slotEndAt: b.slot_end_at,
+        pendingPayment: b.status === "pending_payment",
       });
     }
   }

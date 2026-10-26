@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { cancelBooking } from "@/lib/member/booking-actions";
+import { resumeExtraClassCheckout } from "@/lib/member/extra-class-actions";
+import { openCheckout } from "@/lib/native/checkout";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   amsterdamParts,
@@ -17,7 +20,7 @@ export interface UpcomingRowData {
   endAt: string;
   className: string;
   trainerName: string;
-  status: "booked" | "waitlisted";
+  status: "booked" | "waitlisted" | "pending_payment";
   /**
    * Annuleertermijn in minuten voor deze boeking: vrij trainen heeft een
    * eigen termijn, gerekend vanaf het slot (spec-vrij-trainen-slots.md).
@@ -41,17 +44,41 @@ function isLateCancel(startMs: number, windowMinutes: number): boolean {
 }
 
 export function UpcomingRow({ row }: UpcomingRowProps) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const start = new Date(row.startAt);
   const end = new Date(row.endAt);
+  const isPendingPayment = row.status === "pending_payment";
+
+  // Pending extra les: terug naar de open Mollie-betaling
+  // (spec-weekcap-extra-les.md).
+  function doResume() {
+    setError(null);
+    startTransition(async () => {
+      let res;
+      try {
+        res = await resumeExtraClassCheckout(row.bookingId);
+      } catch {
+        setError("Geen verbinding. Controleer je internet en probeer het opnieuw.");
+        return;
+      }
+      if (res.ok) {
+        await openCheckout(res.checkoutUrl);
+        return;
+      }
+      setError(res.message);
+      router.refresh();
+    });
+  }
 
   function doCancel() {
-    const note =
-      !row.freeCancel && isLateCancel(start.getTime(), row.cancelWindowMinutes)
-      ? "Je annuleert binnen het cancel-venster. Deze sessie telt mee. Weet je het zeker?"
-      : null;
+    const note = isPendingPayment
+      ? null
+      : !row.freeCancel && isLateCancel(start.getTime(), row.cancelWindowMinutes)
+        ? "Je annuleert binnen het cancel-venster. Deze sessie telt mee. Weet je het zeker?"
+        : null;
     if (note && !window.confirm(note)) return;
     startTransition(async () => {
       let res;
@@ -121,13 +148,25 @@ export function UpcomingRow({ row }: UpcomingRowProps) {
       </div>
       <div className="flex flex-col items-end gap-4">
         <StatusBadge status={row.status} />
+        {isPendingPayment && (
+          <button
+            type="button"
+            onClick={doResume}
+            disabled={pending}
+            className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-text disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          >
+            {/* COPY: confirm met Marlon */}
+            {pending ? "Bezig" : "Ga verder met betalen"}
+          </button>
+        )}
         <button
           type="button"
           onClick={doCancel}
           disabled={pending}
           className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted transition-colors duration-300 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
         >
-          {pending ? "Bezig" : "Annuleer"}
+          {/* COPY: confirm met Marlon */}
+          {pending ? "Bezig" : isPendingPayment ? "Betaling afbreken" : "Annuleer"}
         </button>
       </div>
     </article>

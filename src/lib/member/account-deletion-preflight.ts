@@ -92,7 +92,7 @@ export async function getDeletionPreflight(
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .eq("profile_id", userId)
-        .in("status", ["booked", "waitlisted"])
+        .in("status", ["booked", "waitlisted", "pending_payment"])
         .gte("session_date", today),
       supabase
         .from("waitlist_entries")

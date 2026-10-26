@@ -28,6 +28,12 @@ export interface SessionRowData {
    * op de badge.
    */
   reasonText?: string | null;
+  /**
+   * Bij limit_reached en no_coverage: het lid kan deze les bijkopen als
+   * extra les, voor deze prijs uit de server (spec-weekcap-extra-les.md).
+   */
+  extraClassAvailable?: boolean;
+  extraClassPriceCents?: number | null;
   /** Oude starttijd ("18:00") als de studio de les eenmalig verschoof. */
   rescheduledFrom?: string | null;
   /** Geboekt voor de verschuiving: kosteloos annuleren tot de start. */
@@ -59,6 +65,11 @@ const TEMPORARY_STATUSES: SessionStatus[] = [
 export function SessionRow({ session, onOpen }: SessionRowProps) {
   const isStructural = STRUCTURAL_STATUSES.includes(session.status);
   const isTemporaryReason = TEMPORARY_STATUSES.includes(session.status);
+  // Bijkopen mogelijk: de rij blijft klikbaar, de sheet biedt de knop.
+  const canBuyExtra =
+    (session.status === "limit_reached" || session.status === "no_coverage") &&
+    session.extraClassAvailable === true &&
+    session.extraClassPriceCents != null;
 
   // Niet-klikbaar: de bestaande past/cancelled/ongoing, plus alle nieuwe
   // redenen behalve "full" (die behoudt de wachtlijst-actie in de sheet).
@@ -67,11 +78,12 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
   // zitten in een <button> (ongeldige HTML, en een disabled button vuurt
   // sowieso geen klik- of toetsenbord-events af).
   const disabled =
-    session.status === "past" ||
-    session.status === "cancelled" ||
-    session.status === "ongoing" ||
-    isStructural ||
-    isTemporaryReason;
+    !canBuyExtra &&
+    (session.status === "past" ||
+      session.status === "cancelled" ||
+      session.status === "ongoing" ||
+      isStructural ||
+      isTemporaryReason);
 
   // Twee dim-tiers, niet één: structureel (+ de bestaande past/cancelled/
   // ongoing) blijft de donkerste stone-600, precies zoals vandaag. Tijdelijke
@@ -94,7 +106,8 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
   const lit =
     session.status === "booked" ||
     session.status === "open" ||
-    session.status === "promoted";
+    session.status === "promoted" ||
+    session.status === "pending_payment";
 
   const sharedClassName = `w-full grid grid-cols-[72px_1fr_auto_auto] items-center gap-6 text-left transition-colors duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] ${
     lit
@@ -161,7 +174,7 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
         {/* Structureel maar wel iets aan te doen: bij no_coverage (niet bij
             age_mismatch, dat verandert niet met een ander abonnement) een
             stille, niet-champagne verwijzing naar het abonnement. */}
-        {session.status === "no_coverage" && (
+        {session.status === "no_coverage" && !canBuyExtra && (
           <a
             href="/app/abonnement"
             className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium tracking-[0.06em] text-text-muted hover:text-text transition-colors w-fit"

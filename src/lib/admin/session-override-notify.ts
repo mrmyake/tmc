@@ -60,7 +60,14 @@ export interface CancelledSessionResult {
   session_id: string;
   start_at: string;
   end_at: string;
-  bookings: Array<{ booking_id: string; profile_id: string; credits_refunded: boolean }>;
+  bookings: Array<{
+    booking_id: string;
+    profile_id: string;
+    credits_refunded: boolean;
+    /** Refund-intentie voor een bijgekochte extra les (spec-weekcap-extra-les.md). */
+    refund_id?: string | null;
+    refund_amount_cents?: number | null;
+  }>;
   waitlist: Array<{ waitlist_entry_id: string; profile_id: string }>;
   guests: Array<{
     guest_booking_id: string;

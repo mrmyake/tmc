@@ -13,6 +13,7 @@ import { bookingTimes, cancelWindowMinutes } from "@/lib/member/booking-times";
 import { HistoryRow, type HistoryRowData } from "./_components/HistoryRow";
 import { PtUpcomingRow, type PtUpcomingRowData } from "./_components/PtUpcomingRow";
 import { WaitlistRow, type WaitlistRowData } from "./_components/WaitlistRow";
+import { ExtraClassReturnNotice } from "./_components/ExtraClassReturnNotice";
 import type { MyWaitlistEntry } from "@/lib/member/waitlist";
 
 export const metadata = {
@@ -128,9 +129,12 @@ function logIfError(tag: string, error: { message: string } | null) {
 }
 
 export default async function BoekingenPage(props: {
-  searchParams: Promise<{ view?: string; page?: string }>;
+  searchParams: Promise<{ view?: string; page?: string; extra?: string }>;
 }) {
-  const { view: viewParam, page: pageParam } = await props.searchParams;
+  const { view: viewParam, page: pageParam, extra: extraParam } = await props.searchParams;
+  // Terugkeer van de Mollie-checkout van een extra les (spec-weekcap-extra-les.md).
+  const extraReturnId =
+    extraParam && /^[0-9a-f-]{36}$/i.test(extraParam) ? extraParam : null;
   const view = parseView(viewParam);
   const page = parsePage(pageParam);
 
@@ -178,7 +182,9 @@ export default async function BoekingenPage(props: {
               `,
             )
             .eq("profile_id", user.id)
-            .eq("status", "booked")
+            // pending_payment: bijgekochte extra les waarvan de betaling nog
+            // loopt (spec-weekcap-extra-les.md).
+            .in("status", ["booked", "pending_payment"])
             // Op end_at: een vrij-trainen-slot hoort bij een dagsessie die om
             // 07:00 al begonnen kan zijn. De echte start (slot of sessie)
             // filtert en sorteert hieronder (spec-vrij-trainen-slots.md).
@@ -384,7 +390,11 @@ export default async function BoekingenPage(props: {
         const sessionIso = isoDateAmsterdam(start);
         const isToday = sessionIso === todayIsoForHint;
         const status =
-          b.status === "waitlisted" ? ("waitlisted" as const) : ("booked" as const);
+          b.status === "waitlisted"
+            ? ("waitlisted" as const)
+            : b.status === "pending_payment"
+              ? ("pending_payment" as const)
+              : ("booked" as const);
         const checkedInAt = checkInBySession.get(b.session!.id);
         let checkInHint: string | null = null;
         let checkedIn = false;
@@ -574,6 +584,10 @@ export default async function BoekingenPage(props: {
           historyHref="/app/boekingen?view=historie"
         />
       </div>
+
+      {view === "komend" && extraReturnId && (
+        <ExtraClassReturnNotice bookingId={extraReturnId} />
+      )}
 
       {view === "komend" && (
         <div

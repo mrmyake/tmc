@@ -9,6 +9,12 @@ import {
 } from "@/lib/format-date";
 import { cancelBooking, createBooking } from "@/lib/member/booking-actions";
 import {
+  resumeExtraClassCheckout,
+  startExtraClassCheckout,
+} from "@/lib/member/extra-class-actions";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
+import { euroShort } from "@/lib/extra-class/core";
+import {
   DEFAULT_SLOT_DURATION,
   durationLabel,
   amsterdamClock,
@@ -48,6 +54,9 @@ export function SlotPicker({
   // De keuze onthoudt bij welke dag hij hoort; op een andere dag telt hij niet.
   const [selection, setSelection] = useState<{ date: string; start: string } | null>(null);
   const [message, setMessage] = useState<Message>(null);
+  // Bijkopen aangeboden voor precies deze start (weektegoed op of buiten het
+  // abonnement), met de prijs uit de server-respons (spec-weekcap-extra-les.md).
+  const [extraOffer, setExtraOffer] = useState<{ startAt: string; priceCents: number } | null>(null);
   // Direct na boeken toont de kaart "Geboekt" in plaats van "Je traint".
   const [justBookedDate, setJustBookedDate] = useState<string | null>(null);
   const { nowMs, rows, selected, selectedStartMs, slotQuarterMs } = useSlotSelection({
@@ -63,7 +72,55 @@ export function SlotPicker({
 
   function onSelect(cell: QuarterCell) {
     setMessage(null);
+    setExtraOffer(null);
     setSelection({ date: data.selectedDate, start: cell.quarterStart });
+  }
+
+  function buyExtra() {
+    if (!data.session || !selected) return;
+    const sessionId = data.session.id;
+    const startAt = selected;
+    setMessage(null);
+    startTransition(async () => {
+      let res;
+      try {
+        res = await startExtraClassCheckout(sessionId, {
+          slot: { startAt, minutes: duration },
+          returnTarget: returnTargetForThisClient(),
+        });
+      } catch {
+        // COPY: confirm met Marlon
+        setMessage({ tone: "error", text: "Geen verbinding. Controleer je internet en probeer het opnieuw." });
+        return;
+      }
+      if (!res.ok) {
+        setExtraOffer(null);
+        setMessage({ tone: "error", text: res.message });
+        router.refresh();
+        return;
+      }
+      await openCheckout(res.checkoutUrl);
+    });
+  }
+
+  function resumePending(bookingId: string) {
+    setMessage(null);
+    startTransition(async () => {
+      let res;
+      try {
+        res = await resumeExtraClassCheckout(bookingId);
+      } catch {
+        // COPY: confirm met Marlon
+        setMessage({ tone: "error", text: "Geen verbinding. Controleer je internet en probeer het opnieuw." });
+        return;
+      }
+      if (res.ok) {
+        await openCheckout(res.checkoutUrl);
+        return;
+      }
+      setMessage({ tone: res.state === "booked" ? "success" : "error", text: res.message });
+      router.refresh();
+    });
   }
 
   function book() {
@@ -86,6 +143,15 @@ export function SlotPicker({
         setSelection(null);
         setJustBookedDate(data.selectedDate);
         router.refresh();
+        return;
+      }
+      if (
+        (res.reason === "weekly_cap_reached" || res.reason === "no_coverage") &&
+        res.extraClass?.available &&
+        res.extraClass.priceCents !== null
+      ) {
+        setExtraOffer({ startAt, priceCents: res.extraClass.priceCents });
+        setMessage({ tone: "error", text: res.message });
         return;
       }
       if (res.reason === "slot_full" || res.reason === "slot_blocked") {
@@ -156,6 +222,7 @@ export function SlotPicker({
           nowMs={nowMs}
           pending={pending}
           onCancel={() => cancel(data.ownBooking!.id)}
+          onResume={() => resumePending(data.ownBooking!.id)}
         />
       ) : (
         <div className="lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-10">
@@ -212,6 +279,18 @@ export function SlotPicker({
               slotQuarterMs={slotQuarterMs}
               onSelect={onSelect}
             />
+
+            {extraOffer && selected === extraOffer.startAt && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={buyExtra}
+                className="mt-5 min-h-11 rounded px-4 py-3 text-xs font-medium uppercase tracking-[0.14em] border border-accent text-accent cursor-pointer disabled:opacity-40"
+              >
+                {/* COPY: confirm met Marlon */}
+                {pending ? "Bezig" : `Boek als extra les (${euroShort(extraOffer.priceCents)})`}
+              </button>
+            )}
 
             <div className="lg:hidden">
               <SlotFooter

@@ -13,7 +13,9 @@ import {
   formatWeekdayDate,
 } from "@/lib/format-date";
 import { bookingTimes } from "./booking-times";
-import { WEEKLY_CAP_REACHED_COPY } from "./can-book";
+import { NO_COVERAGE_COPY, WEEKLY_CAP_REACHED_COPY, type ExtraClassOffer } from "./can-book";
+import { processPaymentRefund } from "@/lib/refunds/process";
+import { euroLabel } from "@/lib/extra-class/core";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 
 function siteUrl(): string {
@@ -157,6 +159,12 @@ export type BookingActionResult =
        * De slotkiezer laadt bij slot_full en slot_blocked het raster opnieuw.
        */
       reason?: string;
+      /**
+       * Bij weekly_cap_reached en no_coverage: of het lid een extra les kan
+       * bijkopen en voor hoeveel, uit tmc.book_class_session
+       * (spec-weekcap-extra-les.md). De prijs komt nooit van de client.
+       */
+      extraClass?: ExtraClassOffer;
     };
 
 export interface CreateBookingOptions {
@@ -186,7 +194,7 @@ const BOOK_REASON_COPY: Record<string, string> = {
   // tekst als REASON_COPY in can-book.ts.
   weekly_cap_reached: WEEKLY_CAP_REACHED_COPY,
   daily_cap_reached: "Maximaal twee sessies per dag.",
-  no_coverage: "Deze sessie valt buiten je huidige abonnement.",
+  no_coverage: NO_COVERAGE_COPY,
   already_booked: "Je hebt deze sessie al geboekt.",
   // Vrij trainen met slots (spec-vrij-trainen-slots.md).
   // COPY: confirm met Marlon
@@ -228,6 +236,8 @@ type BookClassSessionResult = {
   slot_end_at?: string | null;
   /** True als deze boeking een open wachtlijstpromotie bevestigde. */
   waitlist_confirmed?: boolean;
+  extra_class_available?: boolean;
+  extra_class_price_cents?: number | null;
 };
 
 type CancelClassBookingResult = {
@@ -239,6 +249,13 @@ type CancelClassBookingResult = {
   /** Kosteloos door een verschuiving van de les (spec-session-overrides.md). */
   free_after_reschedule?: boolean;
   credits_refunded?: boolean;
+  /** Een pending extra les is afgebroken voordat er betaald was. */
+  aborted_pending?: boolean;
+  /** Bijgekochte extra les (spec-weekcap-extra-les.md). */
+  paid_extra_class?: boolean;
+  refund_id?: string | null;
+  refund_amount_cents?: number | null;
+  refund_skipped?: string | null;
 };
 
 export async function createBooking(
@@ -287,6 +304,14 @@ export async function createBooking(
       message:
         BOOK_REASON_COPY[result.reason ?? ""] ??
         "Boeken lukte niet. Probeer het opnieuw.",
+      ...(result.reason === "weekly_cap_reached" || result.reason === "no_coverage"
+        ? {
+            extraClass: {
+              available: result.extra_class_available === true,
+              priceCents: result.extra_class_price_cents ?? null,
+            },
+          }
+        : {}),
     };
   }
 
@@ -509,6 +534,34 @@ export async function cancelBooking(
   const withinWindow = Boolean(result.within_window);
   const sessionId = result.session_id as string;
 
+  // Pending extra les afgebroken: geen geld onderweg, geen mail.
+  if (result.aborted_pending) {
+    revalidatePath("/app/rooster");
+    revalidatePath("/app");
+    revalidatePath("/app/boekingen");
+    // COPY: confirm met Marlon
+    return { ok: true, action: "cancelled", message: "De betaling is afgebroken en de plek is weer vrij." };
+  }
+
+  // Betaalde extra les binnen het venster: de RPC maakte een refund-intentie,
+  // hier wordt die bij Mollie ingediend (zelfde pad als de proefles). Een
+  // mislukte indiening draait de annulering niet terug; de intentie blijft
+  // staan voor een nieuwe poging.
+  let refundLabel: string | null = null;
+  if (result.paid_extra_class) {
+    if (result.refund_id) {
+      const refund = await processPaymentRefund(result.refund_id);
+      const cents = refund.ok ? refund.amountCents : (result.refund_amount_cents ?? null);
+      refundLabel = cents !== null
+        ? // COPY: confirm met Marlon
+          ` We storten ${euroLabel(cents)} terug.`
+        : null;
+    } else if (result.refund_skipped === "refund_already_active") {
+      // COPY: confirm met Marlon
+      refundLabel = " De terugbetaling loopt al.";
+    }
+  }
+
   await emitEvent({
     type: "booking.cancelled",
     actorType: "member",
@@ -533,10 +586,13 @@ export async function cancelBooking(
 
   // De vrij-trainen-termijn is instelbaar en rekent vanaf het eigen slot
   // (spec-vrij-trainen-slots.md), dus geen vast aantal minuten in de tekst.
-  const lateMessage = isVrijTrainen
+  const lateMessage = result.paid_extra_class
     ? // COPY: confirm met Marlon
-      "Je boeking is geannuleerd. Deze sessie telt mee, omdat je vlak voor de start van je tijdslot annuleerde."
-    : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.";
+      "Je boeking is geannuleerd. Omdat je binnen het annuleringsvenster annuleerde, storten we het bedrag van de extra les niet terug."
+    : isVrijTrainen
+      ? // COPY: confirm met Marlon
+        "Je boeking is geannuleerd. Deze sessie telt mee, omdat je vlak voor de start van je tijdslot annuleerde."
+      : "Je boeking is geannuleerd. Omdat je binnen het cancel-venster zit telt deze sessie mee.";
 
   // Fire-and-forget confirmation mail. Catch inside helper.
   void sendBookingCancelledEmail({
@@ -550,6 +606,6 @@ export async function cancelBooking(
   return {
     ok: true,
     action: "cancelled",
-    message: withinWindow ? "Je boeking is geannuleerd." : lateMessage,
+    message: withinWindow ? `Je boeking is geannuleerd.${refundLabel ?? ""}` : lateMessage,
   };
 }

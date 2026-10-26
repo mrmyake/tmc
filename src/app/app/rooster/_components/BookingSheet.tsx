@@ -12,6 +12,13 @@ import {
 } from "@/lib/member/booking-actions";
 import { confirmDeadlineLabel } from "@/lib/member/waitlist";
 import {
+  resumeExtraClassCheckout,
+  startExtraClassCheckout,
+} from "@/lib/member/extra-class-actions";
+import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
+import { euroShort } from "@/lib/extra-class/core";
+import { NO_COVERAGE_COPY, WEEKLY_CAP_REACHED_COPY } from "@/lib/member/can-book";
+import {
   bookGuest,
   getGuestPassStatus,
   type GuestPassStatus,
@@ -52,6 +59,10 @@ export function BookingSheet({
     { tone: "success" | "error"; text: string } | null
   >(null);
   const [passStatus, setPassStatus] = useState<GuestPassStatus | null>(null);
+  // Bijkopen aangeboden door de boek-RPC (weektegoed op of buiten het
+  // abonnement, met de prijs uit de server-respons). Op het rooster zelf
+  // komt het aanbod al mee met de sessie (spec-weekcap-extra-les.md).
+  const [extraOfferCents, setExtraOfferCents] = useState<number | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
 
   const open = Boolean(session);
@@ -66,6 +77,7 @@ export function BookingSheet({
       setGuestEmail("");
       setGuestMsg(null);
       setPassStatus(null);
+      setExtraOfferCents(null);
     }
   }, [open, session]);
 
@@ -114,7 +126,64 @@ export function BookingSheet({
       setResult(res);
       if (res.ok) {
         window.setTimeout(onClose, 1200);
+      } else if (res.extraClass?.available && res.extraClass.priceCents !== null) {
+        setExtraOfferCents(res.extraClass.priceCents);
       }
+    });
+  }
+
+  // Extra les bijkopen: de RPC maakt de pending rij en de server action de
+  // Mollie-betaling; het bedrag komt uit de RPC. Na betalen landt het lid op
+  // /app/boekingen met een bevestiging (webhook zet de rij op booked).
+  function doBuyExtra() {
+    if (!session) return;
+    const target = session;
+    startTransition(async () => {
+      let res;
+      try {
+        res = await startExtraClassCheckout(target.id, {
+          returnTarget: returnTargetForThisClient(),
+        });
+      } catch {
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
+      if (!res.ok) {
+        setExtraOfferCents(null);
+        setResult({ ok: false, message: res.message, reason: res.reason });
+        return;
+      }
+      await openCheckout(res.checkoutUrl);
+    });
+  }
+
+  function doResumePayment() {
+    if (!session?.bookingId) return;
+    const bookingId = session.bookingId;
+    startTransition(async () => {
+      let res;
+      try {
+        res = await resumeExtraClassCheckout(bookingId);
+      } catch {
+        setResult({
+          ok: false,
+          message: "Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        });
+        return;
+      }
+      if (res.ok) {
+        await openCheckout(res.checkoutUrl);
+        return;
+      }
+      setResult(
+        res.state === "booked"
+          ? { ok: true, action: "booked", message: res.message }
+          : { ok: false, message: res.message },
+      );
+      if (res.state !== "pending") window.setTimeout(onClose, 1600);
     });
   }
 
@@ -227,6 +296,21 @@ export function BookingSheet({
       ? confirmDeadlineLabel(new Date(session.waitlistDeadline))
       : null;
   const isFull = session?.status === "full";
+  // Pending extra les: de betaling loopt nog (spec-weekcap-extra-les.md).
+  const isPendingPayment = session?.status === "pending_payment";
+  // Bijkopen: op het rooster al bekend, of net door de boek-RPC gemeld.
+  const extraPriceCents =
+    extraOfferCents ??
+    ((session?.status === "limit_reached" || session?.status === "no_coverage") &&
+    session?.extraClassAvailable &&
+    session.extraClassPriceCents != null
+      ? session.extraClassPriceCents
+      : null);
+  const canBuyExtra = extraPriceCents !== null && !isBooked && !isPendingPayment;
+  const extraReason =
+    session?.status === "no_coverage" || (result && !result.ok && result.reason === "no_coverage")
+      ? NO_COVERAGE_COPY
+      : WEEKLY_CAP_REACHED_COPY;
   // Verschoven les en geboekt van voor de verschuiving: kosteloos tot de
   // start, dus geen waarschuwing (zelfde regel als cancel_class_booking).
   const freeCancel = Boolean(isBooked && session?.freeCancel);
@@ -274,7 +358,13 @@ export function BookingSheet({
                     : isPromoted
                       ? // COPY: confirm met Marlon
                         "Plek vrij"
-                      : "Sessie boeken"}
+                      : isPendingPayment
+                        ? // COPY: confirm met Marlon
+                          "Betaling open"
+                        : canBuyExtra
+                          ? // COPY: confirm met Marlon
+                            "Extra les"
+                          : "Sessie boeken"}
               </span>
               <button
                 type="button"
@@ -463,7 +553,56 @@ export function BookingSheet({
                 </div>
               )}
 
-              {!isBooked && !isWaitlisted && !isPromoted && !isFull && (
+              {isPendingPayment && (
+                <>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {/* COPY: confirm met Marlon */}
+                    Je betaling voor deze extra les is nog niet afgerond. De
+                    plek staat even voor je vast; rond de betaling af of breek
+                    hem af.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={doResumePayment}
+                    disabled={pending}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : "Ga verder met betalen"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={doCancel}
+                    disabled={pending}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] border border-text-muted/30 text-text-muted transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:border-accent hover:text-accent disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : "Betaling afbreken"}
+                  </button>
+                </>
+              )}
+
+              {canBuyExtra && (
+                <>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {extraReason}{" "}
+                    {/* COPY: confirm met Marlon */}
+                    Je kunt deze les los bijkopen. Annuleer je op tijd, dan
+                    storten we het bedrag terug.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={doBuyExtra}
+                    disabled={pending}
+                    className="inline-flex items-center justify-center px-7 py-3.5 text-xs font-medium uppercase tracking-[0.18em] bg-accent text-bg border border-accent transition-all duration-500 ease-[cubic-bezier(0.2,0.7,0.1,1)] hover:bg-accent-hover hover:border-accent-hover active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    {pending ? "Bezig" : `Boek als extra les (${euroShort(extraPriceCents)})`}
+                  </button>
+                </>
+              )}
+
+              {!isBooked && !isWaitlisted && !isPromoted && !isFull && !isPendingPayment && !canBuyExtra && (
                 <>
                   <p className="text-xs text-text-muted leading-relaxed">
                     Annuleren kan tot {cancellationWindowHours} uur voor de
