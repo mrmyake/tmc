@@ -19,7 +19,7 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-const VALID_STATUSES: TrialCodeStatusFilter[] = ["active", "exhausted", "revoked", "all"];
+const VALID_STATUSES: TrialCodeStatusFilter[] = ["active", "exhausted", "expired", "revoked", "all"];
 
 function parseSearchParams(sp: Record<string, string | string[] | undefined>) {
   const get = (k: string) => {
@@ -64,8 +64,9 @@ export default async function AdminProefcodesPage(props: {
           <p className="text-text-muted text-sm mt-4 max-w-xl">
             {/* COPY: confirm met Marlon */}
             Een code maakt een proefles gratis en blijft geldig tot je hem
-            intrekt. Per code bepaal je waarvoor hij geldt. Bezoekers vullen
-            de code in op /proefles/code.
+            intrekt of tot de einddatum. Per code bepaal je waarvoor hij geldt,
+            of hij alleen voor nieuwe klanten is en of elke persoon hem een keer
+            mag gebruiken. Bezoekers vullen de code in op /proefles/code.
           </p>
         </div>
         <CreateCodeDialog presenceText={formatPresenceWindows(presence)} />
@@ -74,7 +75,7 @@ export default async function AdminProefcodesPage(props: {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-10">
         {/* COPY: confirm met Marlon */}
         <KpiCard label="Actief" value={kpis.activeNow.toString()} />
-        <KpiCard label="Op" value={kpis.exhausted.toString()} />
+        <KpiCard label="Op of verlopen" value={kpis.exhausted.toString()} />
         <KpiCard label="Ingetrokken" value={kpis.revoked.toString()} />
         <KpiCard
           label="Open inwisselingen"

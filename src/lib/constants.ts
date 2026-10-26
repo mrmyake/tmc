@@ -28,15 +28,17 @@ export const STUDIO_OPENING_DATE = new Date("2026-09-15T00:00:00+02:00");
  * Groepsgrootte per discipline. Bron van waarheid is
  * tmc.class_sessions.capacity (gekopieerd uit tmc.schedule_templates.capacity
  * bij het genereren van sessies, zie migratie
- * 20260812000000_capacity_business_rule_values.sql). Er is geen enkel getal
- * dat overal geldt, dus geen losse scalar: kettlebell heeft een hogere
+ * 20260812000000_capacity_business_rule_values.sql; yoga en mobility van 10
+ * naar 8 in 20261026180000_trial_codes_shared_campaign.sql). Er is geen enkel
+ * getal dat overal geldt, dus geen losse scalar: kettlebell heeft een hogere
  * capaciteit dan de rest. Marketingpagina's zijn statisch (geen live
  * DB-read), dus deze constante en tmc.schedule_templates.capacity moeten
- * samen bijgewerkt worden bij een capaciteitswijziging.
+ * samen bijgewerkt worden bij een capaciteitswijziging. Besluit 2026-10-26:
+ * yoga en mobility maximaal 8, kettlebell maximaal 12.
  */
 export const CLASS_CAPACITY = {
   yogaMobility: 8,
-  kettlebell: 20,
+  kettlebell: 12,
   kids: 8,
   senior: 6,
 } as const;

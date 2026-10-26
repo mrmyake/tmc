@@ -116,7 +116,7 @@ async function seed() {
       _id: "offering-small-group",
       title: "Small Group Training",
       slug: { _type: "slug", current: "small-group" },
-      subtitle: "Maximaal 6 personen",
+      subtitle: "Yoga & Mobility maximaal 8, Kettlebell maximaal 12 personen",
       targetAudience:
         "Voor wie de balans zoekt tussen persoonlijke aandacht en groepsdynamiek.",
       features: [
@@ -183,7 +183,7 @@ async function seed() {
   const faqs = [
     { q: "Heb ik ervaring nodig om te starten?", a: "Nee. Of je nu beginner bent of gevorderd, we passen elke training aan op jouw niveau. Tijdens de intake brengen we je huidige staat in kaart.", page: "aanbod", order: 1 },
     { q: "Kan ik verschillende trainingsvormen combineren?", a: "Absoluut. Veel leden combineren bijvoorbeeld small group training met een maandelijkse personal training sessie of mobility sessions.", page: "aanbod", order: 2 },
-    { q: "Hoe groot zijn de groepen bij Small Group Training?", a: "Maximaal 6 personen. Zo garanderen we dat iedereen persoonlijke aandacht krijgt en de techniek correct wordt uitgevoerd.", page: "aanbod", order: 3 },
+    { q: "Hoe groot zijn de groepen bij Small Group Training?", a: "Yoga en mobility maximaal 8 personen, kettlebell maximaal 12. Zo garanderen we dat iedereen persoonlijke aandacht krijgt en de techniek correct wordt uitgevoerd.", page: "aanbod", order: 3 },
     { q: "Wat als ik een blessure heb?", a: "Bij een blessure passen we het programma aan. We werken samen met fysiotherapeuten in de regio voor een geïntegreerde aanpak.", page: "aanbod", order: 4 },
     { q: "Zijn er vaste contracten?", a: "We werken met flexibele lidmaatschappen. Neem contact op voor de mogelijkheden die bij jou passen.", page: "aanbod", order: 5 },
     { q: "Is het echt gratis?", a: "Ja, volledig vrijblijvend. Geen verplichtingen, geen verkooppraatje.", page: "mobility-check", order: 1 },

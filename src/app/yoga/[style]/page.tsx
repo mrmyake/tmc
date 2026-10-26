@@ -7,7 +7,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { YogaFaqAccordion } from "@/components/blocks/yoga/YogaFaqAccordion";
-import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { YogaTrialCta } from "@/components/blocks/yoga/YogaTrialCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   getBreadcrumbSchema,
@@ -204,11 +204,11 @@ export default async function YogaStylePage(props: {
         </Section>
       )}
 
-      {/* Wachtlijst-CTA */}
-      <YogaWaitlistCta
+      {/* Proefles-CTA */}
+      <YogaTrialCta
         bg="elevated"
+        // COPY: confirm met Marlon
         heading={`Klaar voor ${data.title}?`}
-        subtext="De studio opent binnenkort. Schrijf je in voor de wachtlijst en je krijgt als eerste bericht zodra de lessen starten."
       />
     </>
   );

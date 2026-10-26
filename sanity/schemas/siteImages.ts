@@ -40,7 +40,7 @@ export default defineType({
       type: "image",
       options: { hotspot: true },
       description:
-        "Foto bij Small Group Training. Kleine groep (2-6 personen) in actie. 1200×900px (4:3 verhouding). Landscape formaat.",
+        "Foto bij Small Group Training. Kleine groep (maximaal 8 bij yoga en mobility, 12 bij kettlebell) in actie. 1200×900px (4:3 verhouding). Landscape formaat.",
     }),
     defineField({
       name: "offeringMobility",

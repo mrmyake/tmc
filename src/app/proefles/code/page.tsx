@@ -4,10 +4,12 @@ import { readTrialCodeCookie } from "@/lib/trial-codes/server";
 import { lookupUsableTrialCodeScope } from "@/lib/trial-codes/lookup";
 import { loadVisitorSlotPicker } from "@/lib/trial-codes/vrij-trainen-query";
 import { resolveAttribution } from "@/lib/attribution/params";
+import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { CodeFlow, type CodeSoort } from "./CodeFlow";
 
+// Title zonder merknaam: de layout-template (%s | The Movement Club) voegt die toe.
 export const metadata: Metadata = {
-  title: "Proefles met proefcode | The Movement Club",
+  title: "Proefles met proefcode",
   description:
     "Heb je een proefcode gekregen? Vul die in en boek gratis je proefles bij The Movement Club in Loosdrecht.",
   alternates: { canonical: "/proefles/code" },
@@ -37,6 +39,12 @@ export default async function TrialCodePage(props: {
   // Advertentie- en campagneparameters uit de URL (spec-marketing-attribution.md);
   // de codestap ververst dezelfde URL, dus ze blijven staan tot de boeking.
   const attribution = resolveAttribution(sp, "/proefles/code");
+  // ?code=MOVENOW (kaart op /proefles, advertenties): alleen om het veld van
+  // de codestap vooraf in te vullen. De bezoeker bevestigt zelf met "Code
+  // controleren"; hier wordt niets gecontroleerd en geen cookie gezet, dus
+  // een link met een gegokte code kost geen poging op de IP-teller.
+  const codeParamRaw = Array.isArray(sp.code) ? sp.code[0] : sp.code;
+  const initialCode = normalizeTrialCode(codeParamRaw ?? "").slice(0, 32);
 
   const code = await readTrialCodeCookie();
   const scope = code ? await lookupUsableTrialCodeScope(code) : null;
@@ -59,6 +67,7 @@ export default async function TrialCodePage(props: {
       code={scope ? code : null}
       scope={scope}
       soort={soort}
+      initialCode={initialCode}
       attribution={attribution}
     />
   );

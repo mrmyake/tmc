@@ -19,10 +19,16 @@ import {
   readTrialCodeCookie,
 } from "@/lib/trial-codes/server";
 import {
+  CODE_ALREADY_CUSTOMER_MESSAGE,
+  CODE_ALREADY_USED_MESSAGE,
+  CODE_INVALID_EMAIL_MESSAGE,
   CODE_INVALID_MESSAGE,
+  CODE_INVALID_PHONE_MESSAGE,
   CODE_NOT_AVAILABLE_MESSAGE,
   CODE_RATE_LIMITED_MESSAGE,
 } from "@/lib/trial-codes/messages";
+import { registerTrialCodeFailure } from "@/lib/actions/trial-code";
+import { parsePhone } from "@/lib/phone-parse";
 import { processPaymentRefund } from "@/lib/refunds/process";
 import {
   isCancelTokenFormat,
@@ -106,14 +112,20 @@ interface StartTrialBookingInput {
 const CODE_EMAIL_ALREADY_BOOKED_MESSAGE =
   "Dit e-mailadres staat al ingeschreven voor deze les.";
 // Weigeringen van tmc.redeem_trial_code (jsonb-reason, conventie
-// book_class_session). Bestaat-niet, ingetrokken en op komen alle drie als
-// code_invalid terug: de bezoeker mag niet kunnen afleiden welke codes
-// bestaan. Alleen een dubbele inschrijving op dezelfde les krijgt een
-// eigen tekst.
+// book_class_session). Bestaat-niet, ingetrokken, op en verlopen komen alle
+// vier als code_invalid terug: de bezoeker mag niet kunnen afleiden welke
+// codes bestaan. Een dubbele inschrijving op dezelfde les, een code voor
+// nieuwe klanten (already_customer) en een code die deze persoon al gebruikte
+// (already_used_code) krijgen wel een eigen tekst; de code blijft dan geldig
+// en de bezoeker blijft op de sessiekiezer.
 // COPY: confirm met Marlon
 const REDEEM_REASON_MESSAGE: Record<string, string> = {
   code_invalid: CODE_INVALID_MESSAGE,
   email_already_booked: CODE_EMAIL_ALREADY_BOOKED_MESSAGE,
+  already_customer: CODE_ALREADY_CUSTOMER_MESSAGE,
+  already_used_code: CODE_ALREADY_USED_MESSAGE,
+  invalid_phone: CODE_INVALID_PHONE_MESSAGE,
+  invalid_email: CODE_INVALID_EMAIL_MESSAGE,
   missing_fields: "Vul alle velden in.",
   capacity_full: "Deze sessie is helaas vol.",
   session_not_found: "Deze sessie bestaat niet (meer).",
@@ -178,13 +190,16 @@ interface RedeemArgs {
 }
 
 /**
- * Gratis pad: rate limiting per IP (tmc.register_trial_code_attempt, het
- * patroon van register_kiosk_pin_attempt), daarna de atomaire
- * inwissel-RPC. Bij succes wordt de pogingenteller gewist, de bezoeker
- * krijgt dezelfde bevestigingsmail als een betaalde proefles (zonder
- * prijsregel) en bij een herhaalde gratis proefles van hetzelfde
- * e-mailadres gaat de misbruikmelding naar Marlon en Ilja. Mail en
- * melding lopen na de commit van de boeking en draaien die nooit terug.
+ * Gratis pad: poortcheck per IP (tmc.register_trial_code_attempt, alleen
+ * lezen: staat dit IP op slot?), telefoonnummer naar E.164 (parsePhone,
+ * zoals de openingsflow; de RPC eist dat formaat voor de
+ * een-per-persoon-regel), daarna de atomaire inwissel-RPC. Alleen een
+ * afgewezen code telt als misser op de teller; een geslaagde boeking laat
+ * hem met rust. Bij succes krijgt de bezoeker dezelfde bevestigingsmail als
+ * een betaalde proefles (zonder prijsregel) en bij een herhaalde gratis
+ * proefles van hetzelfde e-mailadres gaat de misbruikmelding naar Marlon en
+ * Ilja. Mail en melding lopen na de commit van de boeking en draaien die
+ * nooit terug.
  */
 async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBookingResult> {
   const admin = createAdminClient();
@@ -202,12 +217,17 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     return { ok: false, error: CODE_RATE_LIMITED_MESSAGE };
   }
 
+  const phone = parsePhone(args.phone);
+  if (!phone.ok) {
+    return { ok: false, error: CODE_INVALID_PHONE_MESSAGE };
+  }
+
   const { data, error } = await admin.rpc("redeem_trial_code", {
     p_code: args.code,
     p_session_id: args.sessionId,
     p_name: args.name,
     p_email: args.email,
-    p_phone: args.phone,
+    p_phone: phone.e164,
     p_is_test: args.isTest,
     p_slot_start_at: args.slotStartAt,
   });
@@ -234,8 +254,12 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
   if (!result.ok) {
     const step = stepForReason(result.reason);
     // Code niet (meer) geldig: cookie weg, de bezoeker begint bij de
-    // codestap. Bij capacity_full en session_* blijft het cookie staan.
-    if (step === "code") await clearTrialCodeCookie();
+    // codestap, en dit telt als misser op de IP-teller. Bij capacity_full en
+    // session_* blijft het cookie staan.
+    if (step === "code") {
+      await clearTrialCodeCookie();
+      await registerTrialCodeFailure(ip);
+    }
     return {
       ok: false,
       error:

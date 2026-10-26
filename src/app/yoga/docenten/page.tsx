@@ -4,7 +4,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { YogaTeacherStrip } from "@/components/blocks/yoga/YogaTeacherStrip";
-import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { YogaTrialCta } from "@/components/blocks/yoga/YogaTrialCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getBreadcrumbSchema } from "@/lib/structuredData";
 import { SITE } from "@/lib/constants";
@@ -52,7 +52,7 @@ export default async function YogaTeachersPage() {
         </Container>
       </Section>
 
-      <YogaWaitlistCta bg="elevated" />
+      <YogaTrialCta bg="elevated" />
     </>
   );
 }

@@ -8,7 +8,7 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { Button } from "@/components/ui/Button";
-import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { YogaTrialCta } from "@/components/blocks/yoga/YogaTrialCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   getBreadcrumbSchema,
@@ -174,8 +174,8 @@ export default async function YogaTeacherPage(props: {
         </Section>
       )}
 
-      {/* Wachtlijst-CTA */}
-      <YogaWaitlistCta bg="elevated" />
+      {/* Proefles-CTA */}
+      <YogaTrialCta bg="elevated" />
     </>
   );
 }

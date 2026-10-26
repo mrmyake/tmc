@@ -29,6 +29,10 @@ export interface CreatedTrialCode {
   maxUses: number | null;
   scope: TrialCodeScope;
   createdAt: string;
+  /** Laatste geldige kalenderdag (YYYY-MM-DD) of null zonder einddatum. */
+  validThrough: string | null;
+  newCustomersOnly: boolean;
+  onePerPerson: boolean;
 }
 
 export type CreateTrialCodeResult =
@@ -48,6 +52,8 @@ const CREATE_REASON_COPY: Record<string, string> = {
   code_exists: "Deze code bestaat al. Kies een andere.",
   // COPY: confirm met Marlon
   max_uses_invalid: "Aantal keer moet minstens 1 zijn.",
+  // COPY: confirm met Marlon
+  valid_through_past: "De einddatum ligt in het verleden. Kies vandaag of later.",
   // COPY: confirm met Marlon
   scope_invalid: "Kies waarvoor de code geldt.",
   // COPY: confirm met Marlon
@@ -79,6 +85,9 @@ type RawCreated = {
   max_uses?: number | null;
   scope?: string;
   created_at?: string;
+  valid_through?: string | null;
+  new_customers_only?: boolean;
+  one_per_person?: boolean;
 };
 
 function mapCreated(raw: RawCreated, fallback: { label: string; scope: TrialCodeScope }): CreatedTrialCode {
@@ -89,7 +98,18 @@ function mapCreated(raw: RawCreated, fallback: { label: string; scope: TrialCode
     maxUses: raw.max_uses ?? null,
     scope: isTrialCodeScope(raw.scope) ? raw.scope : fallback.scope,
     createdAt: raw.created_at ?? new Date().toISOString(),
+    validThrough: raw.valid_through ?? null,
+    newCustomersOnly: raw.new_customers_only ?? false,
+    onePerPerson: raw.one_per_person ?? false,
   };
+}
+
+/** Alleen een kale kalenderdatum (YYYY-MM-DD); de RPC weigert een datum in het verleden. */
+function validDateInput(value: string | undefined): string | null | undefined {
+  const v = value?.trim() ?? "";
+  if (!v) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) return undefined;
+  return v;
 }
 
 export async function createTrialCode(input: {
@@ -98,6 +118,10 @@ export async function createTrialCode(input: {
   kind: TrialCodeKind;
   maxUses?: number;
   scope: TrialCodeScope;
+  /** Laatste geldige kalenderdag (YYYY-MM-DD, Europe/Amsterdam); leeg = geen einddatum. */
+  validThrough?: string;
+  newCustomersOnly?: boolean;
+  onePerPerson?: boolean;
 }): Promise<CreateTrialCodeResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
@@ -113,6 +137,11 @@ export async function createTrialCode(input: {
   const uses = resolveMaxUses(input.kind, input.maxUses);
   if (!uses.ok) return uses;
   if (!validScope(input.scope)) return { ok: false, message: CREATE_REASON_COPY.scope_invalid };
+  const validThrough = validDateInput(input.validThrough);
+  if (validThrough === undefined) {
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Kies een geldige einddatum." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_trial_code", {
@@ -120,6 +149,9 @@ export async function createTrialCode(input: {
     p_label: label,
     p_max_uses: uses.maxUses,
     p_scope: input.scope,
+    p_valid_through: validThrough ?? undefined,
+    p_new_customers_only: Boolean(input.newCustomersOnly),
+    p_one_per_person: Boolean(input.onePerPerson),
   });
 
   if (error) {

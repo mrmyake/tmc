@@ -3,7 +3,7 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { amsterdamParts, DAY_SHORT_NL, MONTH_SHORT_NL } from "@/lib/format-date";
-import { YogaWaitlistCta } from "@/components/blocks/yoga/YogaWaitlistCta";
+import { YogaTrialCta } from "@/components/blocks/yoga/YogaTrialCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getBreadcrumbSchema } from "@/lib/structuredData";
 import { SITE } from "@/lib/constants";
@@ -153,12 +153,13 @@ export default async function YogaRoosterPage() {
           {totalSessions === 0 ? (
             <section className="py-20 text-center">
               <span className="tmc-eyebrow tmc-eyebrow--accent block mb-4">
-                Binnenkort
+                {/* COPY: confirm met Marlon */}
+                Even geen lessen
               </span>
               <p className="text-text-muted text-base max-w-md mx-auto">
-                Het yogarooster wordt op dit moment ingepland. Schrijf je in
-                voor de wachtlijst, dan laten we het als eerste weten zodra de
-                lessen starten.
+                {/* COPY: confirm met Marlon */}
+                Er staan de komende twee weken geen yogalessen in het rooster.
+                Plan een proefles, dan kijken we samen naar een moment dat past.
               </p>
             </section>
           ) : (
@@ -174,7 +175,7 @@ export default async function YogaRoosterPage() {
         </Container>
       </Section>
 
-      <YogaWaitlistCta bg="elevated" />
+      <YogaTrialCta bg="elevated" />
     </>
   );
 }
