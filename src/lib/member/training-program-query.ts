@@ -132,8 +132,8 @@ export interface MemberProgramProgress {
 
 /**
  * Laatste gelogde workout-sessie voor het actieve programma. Zelfde
- * RLS-scoped tabel (workout_sessions) als training-history-query.ts, hier
- * geaggregeerd op programmaniveau i.p.v. per oefening — voor de
+ * RLS-scoped tabel (workout_sessions) als src/lib/training-history/query.ts,
+ * hier geaggregeerd op programmaniveau in plaats van per oefening, voor de
  * schema-teaser ("volgende workout" + "laatst gelogd").
  */
 export async function loadProgramProgressForMember(

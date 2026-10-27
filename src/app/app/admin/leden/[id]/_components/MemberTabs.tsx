@@ -21,6 +21,7 @@ interface MemberTabsProps {
   detail: MemberDetail;
   activeTab: MemberTab;
   selectedExerciseId?: string;
+  historyViewParam?: string;
 }
 
 const TABS: Array<{ slug: MemberTab; label: string; count?: keyof MemberDetail }> = [
@@ -35,7 +36,12 @@ const TABS: Array<{ slug: MemberTab; label: string; count?: keyof MemberDetail }
   { slug: "notities", label: "Notities" },
 ];
 
-export function MemberTabs({ detail, activeTab, selectedExerciseId }: MemberTabsProps) {
+export function MemberTabs({
+  detail,
+  activeTab,
+  selectedExerciseId,
+  historyViewParam,
+}: MemberTabsProps) {
   const counts: Record<MemberTab, number | null> = {
     overzicht: null,
     boekingen: detail.upcomingBookings.length + detail.pastBookings.length,
@@ -88,6 +94,7 @@ export function MemberTabs({ detail, activeTab, selectedExerciseId }: MemberTabs
       {activeTab === "historie" && (
         <HistoryTab
           profileId={detail.profile.id}
+          view={historyViewParam === "workout" ? "workout" : "oefening"}
           selectedExerciseId={selectedExerciseId}
         />
       )}
