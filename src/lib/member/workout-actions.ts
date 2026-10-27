@@ -10,6 +10,8 @@ export type LogSetResult = { ok: true } | { ok: false; message: string };
 
 export type CompleteWorkoutResult = { ok: true } | { ok: false; message: string };
 
+export type DeleteSetResult = { ok: true } | { ok: false; message: string };
+
 // COPY: confirm met Marlon
 const START_REASON_COPY: Record<string, string> = {
   day_not_found: "Deze trainingsdag hoort niet bij je actieve schema.",
@@ -22,6 +24,12 @@ const LOG_SET_REASON_COPY: Record<string, string> = {
   exercise_not_in_session: "Deze oefening hoort niet bij deze workout.",
   set_number_out_of_range: "Ongeldig setnummer voor deze oefening.",
   invalid_values: "Vul een geldig gewicht en aantal reps in.",
+};
+
+// COPY: confirm met Marlon
+const DELETE_SET_REASON_COPY: Record<string, string> = {
+  session_not_found: "Deze workout-sessie is niet gevonden.",
+  session_completed: "Deze workout is al afgerond.",
 };
 
 // COPY: confirm met Marlon
@@ -98,6 +106,48 @@ export async function logSet(input: {
       message:
         LOG_SET_REASON_COPY[result.reason ?? ""] ??
         "Set loggen lukte niet. Probeer het opnieuw.",
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * fix/workout-logging: autosave verwijdert een set zodra het lid beide
+ * velden van een al opgeslagen rij leegmaakt. tmc.delete_set_log is
+ * idempotent (ok, ook als de rij al weg was) en weigert op een gesloten
+ * of andermans sessie.
+ */
+export async function deleteSetLog(input: {
+  sessionId: string;
+  programExerciseId: string;
+  setNumber: number;
+}): Promise<DeleteSetResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Je bent uitgelogd." };
+
+  const rpcResult = await supabase.rpc("delete_set_log", {
+    p_session_id: input.sessionId,
+    p_program_exercise_id: input.programExerciseId,
+    p_set_number: input.setNumber,
+  });
+
+  if (rpcResult.error) {
+    console.error("[deleteSetLog] rpc failed", rpcResult.error);
+    // COPY: confirm met Marlon
+    return { ok: false, message: "Set verwijderen lukte niet. Probeer het opnieuw." };
+  }
+
+  const result = rpcResult.data as RpcResult;
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        DELETE_SET_REASON_COPY[result.reason ?? ""] ??
+        "Set verwijderen lukte niet. Probeer het opnieuw.",
     };
   }
 
