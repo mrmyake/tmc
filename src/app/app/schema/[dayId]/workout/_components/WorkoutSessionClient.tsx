@@ -9,12 +9,16 @@ import {
   startWorkoutSession,
 } from "@/lib/member/workout-actions";
 import { tempoNotation, tempoPlainLanguage } from "@/lib/training-tempo";
+import { formatShortDate } from "@/lib/format-date";
+import type { PreviousExerciseLog } from "@/lib/training-history/types";
+import { formatSet } from "@/components/training-history/formatSet";
 
 interface Props {
   day: WorkoutDay;
   initialSessionId: string | null;
   initialLoggedSets: LoggedSet[];
-  previousSets: Record<string, LoggedSet[]>;
+  /** Vorige-keer-referentie per program_exercise_id, uit training-history/aggregate.ts (gematcht op exercise_id). */
+  previousLogs: Record<string, PreviousExerciseLog>;
 }
 
 interface RowState {
@@ -43,7 +47,7 @@ export function WorkoutSessionClient({
   day,
   initialSessionId,
   initialLoggedSets,
-  previousSets,
+  previousLogs,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -191,11 +195,30 @@ export function WorkoutSessionClient({
 
             {sessionId && (
               <div className="px-6 py-5 flex flex-col gap-3">
+                {(() => {
+                  const prevLog = previousLogs[ex.id];
+                  return (
+                    <div className="flex items-baseline justify-between gap-3 text-xs text-text-muted -mt-1 mb-1">
+                      {/* COPY: confirm met Marlon */}
+                      <span>
+                        {prevLog ? (
+                          <>
+                            Vorige keer: {formatShortDate(new Date(prevLog.startedAt))}
+                            {prevLog.isArchivedVersion ? `, versie ${prevLog.programVersion}` : ""}
+                          </>
+                        ) : (
+                          "Nog niet eerder gelogd"
+                        )}
+                      </span>
+                      {prevLog && <span>{prevLog.sets.length} sets</span>}
+                    </div>
+                  );
+                })()}
                 {Array.from({ length: ex.sets }, (_, i) => i + 1).map(
                   (setNumber) => {
                     const key = rowKey(ex.id, setNumber);
                     const row = rows[key] ?? { weightKg: "", reps: "", saved: false };
-                    const prev = previousSets[ex.id]?.find(
+                    const prev = previousLogs[ex.id]?.sets.find(
                       (s) => s.setNumber === setNumber,
                     );
                     return (
@@ -248,7 +271,7 @@ export function WorkoutSessionClient({
                         {prev && (
                           // COPY: confirm met Marlon
                           <span className="text-text-muted text-xs">
-                            Vorige keer: {prev.weightKg} kg × {prev.reps}
+                            Vorige keer: {formatSet(prev)}
                           </span>
                         )}
                         {rowErrors[key] && (

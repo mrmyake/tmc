@@ -1,13 +1,15 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { createClient } from "@/lib/supabase/server";
+import { loadHistoryRows, loadCompletedSessions } from "@/lib/training-history/query";
 import {
-  listLoggedExercisesForSelf,
-  loadOwnExerciseHistory,
-} from "@/lib/member/training-history-query";
-import { ProgressionBarChart } from "@/components/ui/ProgressionBarChart";
-import { formatShortDate } from "@/lib/format-date";
+  buildExerciseHistory,
+  buildExerciseOptions,
+  buildWorkoutSessions,
+} from "@/lib/training-history/aggregate";
+import { ExerciseHistory } from "@/components/training-history/ExerciseHistory";
+import { WorkoutHistory } from "@/components/training-history/WorkoutHistory";
+import { ViewSwitch, type HistoryView } from "@/components/training-history/ViewSwitch";
 
 export const metadata = {
   title: "Voortgang | The Movement Club",
@@ -16,8 +18,12 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+function isHistoryView(v: string | undefined): v is HistoryView {
+  return v === "oefening" || v === "workout";
+}
+
 export default async function GeschiedenisPage(props: {
-  searchParams: Promise<{ exercise?: string }>;
+  searchParams: Promise<{ view?: string; exercise?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -25,23 +31,32 @@ export default async function GeschiedenisPage(props: {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { exercise: exerciseParam } = await props.searchParams;
-  const exercises = await listLoggedExercisesForSelf();
+  const { view: viewParam, exercise: exerciseParam } = await props.searchParams;
+  const view: HistoryView = isHistoryView(viewParam) ? viewParam : "oefening";
+
+  const [rows, sessions] = await Promise.all([
+    loadHistoryRows(supabase),
+    loadCompletedSessions(supabase),
+  ]);
+
+  const options = buildExerciseOptions(rows);
+  // Een afgeronde sessie zonder gelogde sets telt mee: zie discovery FASE A
+  // (afronden zonder loggen komt in productie voor). Alleen als er
+  // helemaal niets afgerond is, tonen we de lege staat voor de hele pagina.
+  const hasAnyHistory = sessions.length > 0;
 
   const activeExerciseId =
-    (exerciseParam &&
-      exercises.some((e) => e.exerciseId === exerciseParam) &&
-      exerciseParam) ||
-    exercises[0]?.exerciseId;
+    (exerciseParam && options.some((o) => o.exerciseId === exerciseParam) && exerciseParam) ||
+    options[0]?.exerciseId;
 
-  const sessions = activeExerciseId
-    ? await loadOwnExerciseHistory(activeExerciseId)
-    : [];
-
-  const chartPoints = sessions.map((s) => ({
-    label: formatShortDate(new Date(s.startedAt)),
-    value: s.topWeightKg,
-  }));
+  function hrefForView(v: HistoryView): string {
+    const params = new URLSearchParams({ view: v });
+    if (v === "oefening" && activeExerciseId) params.set("exercise", activeExerciseId);
+    return `/app/schema/geschiedenis?${params.toString()}`;
+  }
+  function hrefForExercise(exerciseId: string): string {
+    return `/app/schema/geschiedenis?view=oefening&exercise=${exerciseId}`;
+  }
 
   return (
     <Container className="py-16 md:py-20 max-w-3xl">
@@ -56,7 +71,7 @@ export default async function GeschiedenisPage(props: {
         </h1>
       </header>
 
-      {exercises.length === 0 ? (
+      {!hasAnyHistory ? (
         // COPY: confirm met Marlon
         <p className="text-text-muted text-sm">
           Nog geen afgeronde workouts gelogd. Rond een workout af om hier je
@@ -64,58 +79,24 @@ export default async function GeschiedenisPage(props: {
         </p>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 mb-8">
-            {exercises.map((ex) => (
-              <Link
-                key={ex.exerciseId}
-                href={`/app/schema/geschiedenis?exercise=${ex.exerciseId}`}
-                className={`px-3 py-2 text-xs font-medium border transition-colors ${
-                  ex.exerciseId === activeExerciseId
-                    ? "border-accent text-accent"
-                    : "border-text-muted/30 text-text-muted hover:border-accent hover:text-accent"
-                }`}
-              >
-                {ex.name}
-              </Link>
-            ))}
-          </div>
-
-          <section className="mb-10 bg-bg-elevated p-6 border border-[color:var(--ink-500)]">
-            {/* COPY: confirm met Marlon */}
-            <span className="tmc-eyebrow block mb-4">
-              Topgewicht per sessie
-            </span>
-            <ProgressionBarChart points={chartPoints} unit="kg" />
-          </section>
-
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-[color:var(--ink-500)]/60 text-left">
-                  {/* COPY: confirm met Marlon (kolomkoppen) */}
-                  <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Datum</th>
-                  <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Sets</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions
-                  .slice()
-                  .reverse()
-                  .map((s) => (
-                    <tr key={s.sessionId} className="border-b border-[color:var(--ink-500)]/30">
-                      <td className="py-3 pr-4 text-text whitespace-nowrap">
-                        {formatShortDate(new Date(s.startedAt))}
-                      </td>
-                      <td className="py-3 pr-4 text-text-muted">
-                        {s.sets
-                          .map((set) => `${set.weightKg} kg × ${set.reps}`)
-                          .join(" · ")}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+          <ViewSwitch active={view} hrefFor={hrefForView} />
+          {view === "oefening" ? (
+            activeExerciseId ? (
+              <ExerciseHistory
+                options={options}
+                activeExerciseId={activeExerciseId}
+                result={buildExerciseHistory(rows, activeExerciseId)}
+                hrefFor={hrefForExercise}
+              />
+            ) : (
+              // COPY: confirm met Marlon
+              <p className="text-text-muted text-sm">
+                Nog geen oefening gelogd in een afgeronde workout.
+              </p>
+            )
+          ) : (
+            <WorkoutHistory sessions={buildWorkoutSessions(sessions, rows)} />
+          )}
         </>
       )}
     </Container>

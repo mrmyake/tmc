@@ -595,6 +595,8 @@ Een expliciete interne `next`-param in de magic-link wordt gehonoreerd (m.u.v. b
 - `/app/trainer/**` → `TrainerNav`
 - `/app/admin/**` → `AdminSidebar` + `AdminHeader`; `AdminMobileBlock` op <lg
 
+**Member-detailpagina (admin) en trainer-klantpagina (`spec-trainingsprotocol.md`):** `/app/admin/leden/[id]` heeft tabs Overzicht · Boekingen · Facturen · Schema · Historie · Health intake · Notities. Schema toont de versie-historie van het trainingsschema; Historie toont de trainingshistorie (per oefening met grafiek, per workout met inklapbare sessies), gedeeld met `/app/schema/geschiedenis` via `src/components/training-history/`. `/app/trainer/klant/[id]` (PT-agenda C4) toont dezelfde Historie-sectie onder het actieve schema, binnen de bestaande gating (`resolveTrainerScope` + `trainerHasClient`; admin mag elk profiel): de oorspronkelijke C4-regel "naam + contact + trainingsschema, niet meer" is sindsdien verruimd met trainingshistorie.
+
 **Avatar-dropdown (`src/components/nav/AvatarDropdown.tsx`):**
 - Altijd: "Mijn profiel" + "Uitloggen"
 - Admin in admin-cockpit: "Schakel naar" → Trainer view / Member view

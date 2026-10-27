@@ -5,9 +5,11 @@ import {
   loadDayForMember,
   loadLoggedSetsForSession,
   loadOpenSessionForDay,
-  loadPreviousSetLogs,
   type LoggedSet,
 } from "@/lib/member/workout-query";
+import { loadHistoryRows } from "@/lib/training-history/query";
+import { buildPreviousLogsByExercise } from "@/lib/training-history/aggregate";
+import type { PreviousExerciseLog } from "@/lib/training-history/types";
 import { WorkoutSessionClient } from "./_components/WorkoutSessionClient";
 
 export const metadata = {
@@ -33,17 +35,19 @@ export default async function WorkoutPage(props: {
 
   const openSession = await loadOpenSessionForDay(dayId);
 
-  const [loggedSets, previousSetsMap] = await Promise.all([
+  const [loggedSets, historyRows] = await Promise.all([
     openSession ? loadLoggedSetsForSession(openSession.id) : Promise.resolve<LoggedSet[]>([]),
-    loadPreviousSetLogs(
-      day.exercises.map((e) => e.id),
-      openSession?.id ?? "",
-    ),
+    loadHistoryRows(supabase),
   ]);
 
-  const previousSets: Record<string, LoggedSet[]> = {};
-  for (const [exerciseId, sets] of previousSetsMap) {
-    previousSets[exerciseId] = sets;
+  // Weergave 1 matcht op exercise_id (niet program_exercise_id): de
+  // referentie blijft zo staan als Marlon het schema dupliceert naar een
+  // nieuwe versie, zie training-history/aggregate.ts.
+  const previousByExercise = buildPreviousLogsByExercise(historyRows);
+  const previousLogs: Record<string, PreviousExerciseLog> = {};
+  for (const ex of day.exercises) {
+    const prev = previousByExercise.get(ex.exerciseId);
+    if (prev) previousLogs[ex.id] = prev;
   }
 
   return (
@@ -52,7 +56,7 @@ export default async function WorkoutPage(props: {
         day={day}
         initialSessionId={openSession?.id ?? null}
         initialLoggedSets={loggedSets}
-        previousSets={previousSets}
+        previousLogs={previousLogs}
       />
     </Container>
   );

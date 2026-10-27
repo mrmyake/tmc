@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trainingshistorie mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /*
+    Mockup trainingshistorie (feat/trainingshistorie). Visuele states, geen werkende code.
+    Schermen: 1. Weergave 1, "Vorige keer" inline tijdens het loggen
+              2. Weergave 2 en 3, /app/schema/geschiedenis met schakelaar
+              3. Sectie Historie op de trainer-klantpagina (/app/trainer/klant/[id])
+    Tokens uit src/app/tokens.css. Mobiel-eerst, telefoonbreedte 390px.
+    De balk onderaan is alleen voor de mockup.
+  */
+  :root {
+    --ink-900: #0E0C0B;
+    --ink-800: #17140F;
+    --ink-700: #1F1A14;
+    --ink-600: #2A241C;
+    --ink-500: #3A342B;
+    --stone-100: #F4EFE6;
+    --stone-300: #D8D0C1;
+    --stone-400: #B3AC9E;
+    --stone-500: #8B8478;
+    --champagne: #B9986A;
+    --champagne-deep: #8A6E47;
+    --champagne-wash: rgba(185,152,106,0.12);
+    --danger: #C47A6E;
+    --warning: #CC9146;
+    --card-radius: 8px;
+    --control-radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--ink-900); color: var(--stone-100); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 24px 0 88px; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+  svg { display: block; }
+  a { color: inherit; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .phone { width: 390px; max-width: 100%; margin: 0 auto; padding: 0 20px; }
+  .note { max-width: 390px; margin: 0 auto 20px; padding: 0 20px; font-size: 12px; line-height: 1.5; color: var(--stone-500); }
+  .note b { color: var(--stone-400); font-weight: 500; }
+
+  .serif { font-family: Fraunces, Georgia, serif; font-weight: 400; }
+  .muted { color: var(--stone-400); }
+  .dim { color: var(--stone-500); }
+  .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--stone-400); }
+  .eyebrow.accent { color: var(--champagne); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  h1 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 40px; line-height: 1.02; letter-spacing: -0.02em; margin: 14px 0 18px; }
+  h2 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 24px; line-height: 1.1; }
+  .page-head { margin-bottom: 28px; }
+  .backlink { display: inline-block; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--stone-400); text-decoration: none; margin-bottom: 22px; }
+
+  .card { background: var(--ink-800); border: 1px solid var(--ink-500); border-radius: var(--card-radius); }
+  .card + .card { margin-top: 16px; }
+  .card-head { padding: 14px 16px; border-bottom: 1px solid rgba(58,52,43,0.6); }
+  .card-body { padding: 16px; }
+  .slot { color: var(--champagne); font-weight: 500; font-size: 13px; margin-right: 10px; }
+  .exname { font-weight: 500; }
+  .target { font-size: 12px; color: var(--stone-400); margin-top: 4px; }
+
+  /* ---------- Weergave 1: loggen ---------- */
+  .setrow { display: grid; grid-template-columns: 44px 64px 64px 1fr; gap: 8px; align-items: center; }
+  .setrow + .setrow { margin-top: 10px; }
+  .setrow .lab { font-size: 12px; color: var(--stone-400); }
+  .input { height: 38px; width: 100%; padding: 0 8px; background: var(--ink-900); color: var(--stone-100); border: 1px solid var(--ink-500); border-radius: var(--control-radius); font: inherit; font-size: 14px; }
+  .input::placeholder { color: var(--stone-500); }
+  .logbtn { height: 38px; padding: 0 10px; border: 1px solid rgba(179,172,158,0.3); border-radius: var(--control-radius); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--stone-400); white-space: nowrap; }
+  .logbtn.saved { border-color: rgba(185,152,106,0.5); color: var(--champagne); }
+  .prev { grid-column: 2 / span 3; font-size: 12px; color: var(--stone-400); margin-top: -2px; }
+  .prev b { color: var(--stone-300); font-weight: 500; }
+  .prev.none { color: var(--stone-500); }
+  .prevhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; font-size: 12px; color: var(--stone-500); }
+  .pri { height: 48px; padding: 0 24px; border-radius: var(--control-radius); background: var(--champagne); color: var(--ink-900); font-weight: 600; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+
+  /* ---------- Schakelaar ---------- */
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--ink-900); border: 1px solid var(--ink-500); border-radius: var(--control-radius); margin-bottom: 20px; }
+  .seg button { height: 40px; border-radius: 3px; font-size: 13px; color: var(--stone-400); }
+  .seg button.on { background: var(--ink-700); color: var(--stone-100); box-shadow: inset 0 0 0 1px var(--champagne); }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  /* ---------- Weergave 2: per oefening ---------- */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .chip { height: 34px; padding: 0 12px; border: 1px solid rgba(179,172,158,0.3); border-radius: var(--control-radius); font-size: 12px; font-weight: 500; color: var(--stone-400); }
+  .chip.on { border-color: var(--champagne); color: var(--champagne); }
+  .exview { display: none; }
+  .exview.on { display: block; }
+
+  .chart { padding: 16px; }
+  .chart .eyebrow { display: block; margin-bottom: 14px; }
+  .chart svg { width: 100%; height: auto; }
+  .chart .grid { stroke: var(--ink-600); stroke-width: 1; }
+  .chart .base { stroke: var(--ink-500); stroke-width: 1; }
+  .chart .bar { fill: var(--champagne); }
+  .chart .bar.lo { fill: var(--champagne-deep); }
+  .chart .bar:hover { fill: var(--stone-300); }
+  .chart .lbl { fill: var(--stone-500); font-size: 9px; font-family: Inter, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+  .chart .val { fill: var(--stone-300); font-size: 11px; font-family: Inter, system-ui, sans-serif; font-weight: 500; }
+  .chart .ax { fill: var(--stone-500); font-size: 9px; font-family: Inter, system-ui, sans-serif; }
+  .chart-foot { font-size: 11px; color: var(--stone-500); margin-top: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--stone-400); padding: 8px 0; border-bottom: 1px solid rgba(58,52,43,0.6); }
+  td { padding: 12px 0; border-bottom: 1px solid rgba(58,52,43,0.3); vertical-align: top; }
+  td.date { white-space: nowrap; padding-right: 14px; }
+  td.sets { color: var(--stone-400); line-height: 1.6; }
+  td.sets b { color: var(--stone-100); font-weight: 500; }
+  .arch { display: inline-block; margin-left: 8px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone-500); border: 1px solid var(--ink-500); border-radius: 999px; padding: 2px 7px; vertical-align: middle; }
+
+  /* ---------- Weergave 3: per workout ---------- */
+  details.session { background: var(--ink-800); border: 1px solid var(--ink-500); border-radius: var(--card-radius); }
+  details.session + details.session { margin-top: 12px; }
+  details.session summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+  details.session summary::-webkit-details-marker { display: none; }
+  .s-date { font-weight: 500; }
+  .s-meta { font-size: 12px; color: var(--stone-400); margin-top: 3px; }
+  .chev { width: 18px; height: 18px; flex: none; color: var(--stone-500); transition: transform .2s; }
+  details[open] .chev { transform: rotate(180deg); }
+  .s-body { border-top: 1px solid rgba(58,52,43,0.6); padding: 4px 16px 14px; }
+  .s-ex { display: grid; grid-template-columns: 1fr; gap: 3px; padding: 11px 0; border-bottom: 1px solid rgba(58,52,43,0.3); }
+  .s-ex:last-child { border-bottom: none; }
+  .s-ex .line { font-size: 13px; color: var(--stone-400); }
+  .s-ex .line b { color: var(--stone-100); font-weight: 500; }
+  .empty { padding: 14px 16px; font-size: 13px; color: var(--stone-500); border-top: 1px solid rgba(58,52,43,0.6); }
+  .empty-inline { font-size: 12px; color: var(--stone-500); }
+
+  /* ---------- Trainer-klantpagina ---------- */
+  .klant-head { margin-bottom: 28px; }
+  .klant-head h1 { font-size: 34px; }
+  .schema-compact { padding: 14px 16px; }
+  .schema-compact .row { display: flex; gap: 10px; align-items: baseline; font-size: 13px; padding: 7px 0; border-bottom: 1px solid rgba(58,52,43,0.3); }
+  .schema-compact .row:last-child { border-bottom: none; }
+  .schema-compact .row .slot { display: inline-block; width: 26px; margin-right: 0; }
+  .schema-compact .row .t { margin-left: auto; color: var(--stone-500); white-space: nowrap; }
+  .section-gap { height: 36px; }
+
+  /* ---------- Mockup-balk ---------- */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--ink-800); border-top: 1px solid var(--ink-500); display: flex; justify-content: center; gap: 6px; padding: 12px 16px; z-index: 9; }
+  .bar button { height: 40px; padding: 0 14px; border-radius: var(--control-radius); border: 1px solid var(--ink-500); font-size: 13px; color: var(--stone-400); }
+  .bar button.on { color: var(--champagne); border-color: var(--champagne); }
+  @media (max-width: 420px) { .bar button { padding: 0 10px; font-size: 12px; } }
+</style>
+</head>
+<body>
+
+<!-- ===================================================================== -->
+<!-- Scherm 1: weergave 1, "Vorige keer" inline tijdens het loggen         -->
+<!-- ===================================================================== -->
+<section class="screen active" id="s-workout">
+  <p class="note"><b>Weergave 1.</b> Route /app/schema/[dayId]/workout, lopende sessie. "Vorige keer" matcht op exercise_id, dus Front Squat laat de sets uit versie 1 zien ook al is dit versie 2. Chin-up is een bodyweight-oefening (gewicht 0 toont reps). Hip Thrust is nieuw in versie 2 en heeft geen historie.</p>
+  <div class="phone">
+    <header class="page-head">
+      <!-- COPY: confirm met Marlon -->
+      <span class="eyebrow accent">Workout</span>
+      <!-- COPY: confirm met Marlon -->
+      <h1>Dag 1: onderlichaam</h1>
+      <!-- COPY: confirm met Marlon -->
+      <p class="dim" style="font-size:12px">Versie 2 · gestart om 18:42</p>
+    </header>
+
+    <div class="card">
+      <div class="card-head">
+        <div><span class="slot">A1</span><span class="exname">Front Squat</span></div>
+        <!-- COPY: confirm met Marlon -->
+        <p class="target">4 sets · 6-8 reps · Tempo 4010 · Rust 90s</p>
+      </div>
+      <div class="card-body">
+        <!-- COPY: confirm met Marlon -->
+        <div class="prevhead"><span>Vorige keer: zo 19 okt, versie 1</span><span>4 sets</span></div>
+        <div class="setrow">
+          <!-- COPY: confirm met Marlon -->
+          <span class="lab">Set 1</span>
+          <input class="input num" type="number" value="80" aria-label="Gewicht in kg">
+          <input class="input num" type="number" value="8" aria-label="Reps">
+          <!-- COPY: confirm met Marlon -->
+          <button class="logbtn saved">Gelogd</button>
+          <!-- COPY: confirm met Marlon -->
+          <span class="prev">Vorige keer: <b>80 kg × 8</b></span>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 2</span>
+          <input class="input num" type="number" value="82.5" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <!-- COPY: confirm met Marlon -->
+          <button class="logbtn">Log set</button>
+          <span class="prev">Vorige keer: <b>80 kg × 7</b></span>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 3</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+          <span class="prev">Vorige keer: <b>80 kg × 6</b></span>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 4</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+          <span class="prev">Vorige keer: <b>77,5 kg × 6</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><span class="slot">A2</span><span class="exname">Chin-up</span></div>
+        <!-- COPY: confirm met Marlon -->
+        <p class="target">3 sets · 8-10 reps · Tempo 3010 · Rust 90s</p>
+      </div>
+      <div class="card-body">
+        <!-- COPY: confirm met Marlon -->
+        <div class="prevhead"><span>Vorige keer: zo 19 okt, versie 1</span><span>3 sets</span></div>
+        <div class="setrow">
+          <span class="lab">Set 1</span>
+          <input class="input num" type="number" value="0" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+          <!-- COPY: confirm met Marlon -->
+          <span class="prev">Vorige keer: <b>10 reps</b></span>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 2</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+          <span class="prev">Vorige keer: <b>9 reps</b></span>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 3</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+          <!-- Gewicht > 0 op een bodyweight-oefening: toegevoegde last, zelfde notatie als elke andere oefening -->
+          <span class="prev">Vorige keer: <b>5 kg × 8</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><span class="slot">B1</span><span class="exname">Hip Thrust</span></div>
+        <!-- COPY: confirm met Marlon -->
+        <p class="target">3 sets · 10-12 reps · Tempo 2011 · Rust 60s</p>
+      </div>
+      <div class="card-body">
+        <!-- COPY: confirm met Marlon -->
+        <div class="prevhead"><span>Nog niet eerder gelogd</span></div>
+        <div class="setrow">
+          <span class="lab">Set 1</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 2</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+        </div>
+        <div class="setrow">
+          <span class="lab">Set 3</span>
+          <input class="input num" type="number" placeholder="kg" aria-label="Gewicht in kg">
+          <input class="input num" type="number" placeholder="reps" aria-label="Reps">
+          <button class="logbtn">Log set</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:28px">
+      <!-- COPY: confirm met Marlon -->
+      <button class="pri">Workout afronden</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<!-- Scherm 2: weergave 2 en 3 op /app/schema/geschiedenis                 -->
+<!-- ===================================================================== -->
+<section class="screen" id="s-historie">
+  <p class="note"><b>Weergave 2 en 3.</b> Eén pagina /app/schema/geschiedenis, schakelaar via queryparam (?view=oefening of ?view=workout). Klik op de chips om de bodyweight-variant (Chin-up) te zien. Zelfde componenten draaien in de admin-tab Historie en op de trainer-klantpagina.</p>
+  <div class="phone">
+    <a class="backlink" href="#">&larr; Terug naar je schema</a>
+    <header class="page-head" style="margin-bottom:22px">
+      <!-- COPY: confirm met Marlon -->
+      <span class="eyebrow accent">Voortgang</span>
+      <!-- COPY: confirm met Marlon -->
+      <h1>Jouw historie.</h1>
+    </header>
+
+    <div class="seg" role="tablist" aria-label="Weergave">
+      <!-- COPY: confirm met Marlon -->
+      <button class="on" data-view="v-oefening" role="tab" aria-selected="true">Per oefening</button>
+      <!-- COPY: confirm met Marlon -->
+      <button data-view="v-workout" role="tab" aria-selected="false">Per workout</button>
+    </div>
+
+    <!-- ---------- Per oefening ---------- -->
+    <div class="view on" id="v-oefening">
+      <div class="chips" role="tablist" aria-label="Oefening">
+        <button class="chip on" data-ex="ex-squat">Front Squat</button>
+        <button class="chip" data-ex="ex-chinup">Chin-up</button>
+        <button class="chip">Romanian Deadlift</button>
+        <button class="chip">Leg Press</button>
+        <button class="chip">Seated Row</button>
+      </div>
+
+      <!-- Front Squat: gewichtsvariant -->
+      <div class="exview on" id="ex-squat">
+        <div class="card chart">
+          <!-- COPY: confirm met Marlon -->
+          <span class="eyebrow">Topgewicht per sessie</span>
+          <svg viewBox="0 0 326 150" role="img" aria-label="Topgewicht per sessie, Front Squat, zes sessies van 70 tot 82,5 kg">
+            <line class="grid" x1="28" x2="326" y1="20" y2="20"/>
+            <line class="grid" x1="28" x2="326" y1="66" y2="66"/>
+            <line class="grid" x1="28" x2="326" y1="112" y2="112"/>
+            <text class="ax" x="0" y="23">90</text>
+            <text class="ax" x="0" y="69">60</text>
+            <text class="ax" x="0" y="115">30</text>
+            <!-- bars: schaal 0 tot 90 kg over 112 px, basislijn y=128 -->
+            <g class="bars">
+              <rect class="bar lo" x="34"  y="47" width="22" height="81" rx="4" ry="4"><title>ma 21 sep: 70 kg</title></rect>
+              <rect class="bar lo" x="84"  y="43" width="22" height="85" rx="4" ry="4"><title>ma 28 sep: 72,5 kg</title></rect>
+              <rect class="bar lo" x="134" y="40" width="22" height="88" rx="4" ry="4"><title>ma 5 okt: 75 kg</title></rect>
+              <rect class="bar lo" x="184" y="40" width="22" height="88" rx="4" ry="4"><title>ma 12 okt: 75 kg</title></rect>
+              <rect class="bar lo" x="234" y="34" width="22" height="94" rx="4" ry="4"><title>zo 19 okt: 80 kg</title></rect>
+              <rect class="bar"    x="284" y="31" width="22" height="97" rx="4" ry="4"><title>ma 26 okt: 82,5 kg</title></rect>
+            </g>
+            <!-- Rounded top only: bedek de onderste hoeken met de basislijn-vlakken -->
+            <rect x="28" y="124" width="298" height="6" fill="#17140F"/>
+            <line class="base" x1="28" x2="326" y1="128" y2="128"/>
+            <text class="val" x="295" y="24" text-anchor="middle">82,5</text>
+            <text class="lbl" x="45"  y="144" text-anchor="middle">21 sep</text>
+            <text class="lbl" x="95"  y="144" text-anchor="middle">28 sep</text>
+            <text class="lbl" x="145" y="144" text-anchor="middle">5 okt</text>
+            <text class="lbl" x="195" y="144" text-anchor="middle">12 okt</text>
+            <text class="lbl" x="245" y="144" text-anchor="middle">19 okt</text>
+            <text class="lbl" x="295" y="144" text-anchor="middle">26 okt</text>
+          </svg>
+          <!-- COPY: confirm met Marlon -->
+          <p class="chart-foot">In kg. Laatste sessie uitgelicht. Tik op een balk voor de waarde.</p>
+        </div>
+
+        <table style="margin-top:20px">
+          <thead><tr>
+            <!-- COPY: confirm met Marlon (kolomkoppen) -->
+            <th>Datum</th><th>Sets</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="date">ma 26 okt</td><td class="sets"><b>82,5 kg × 8</b> · 82,5 kg × 7 · 80 kg × 7 · 80 kg × 6</td></tr>
+            <tr><td class="date">zo 19 okt<span class="arch">v1</span></td><td class="sets"><b>80 kg × 8</b> · 80 kg × 7 · 80 kg × 6 · 77,5 kg × 6</td></tr>
+            <tr><td class="date">ma 12 okt<span class="arch">v1</span></td><td class="sets"><b>75 kg × 8</b> · 75 kg × 8 · 75 kg × 7 · 72,5 kg × 7</td></tr>
+            <tr><td class="date">ma 5 okt<span class="arch">v1</span></td><td class="sets"><b>75 kg × 7</b> · 72,5 kg × 7 · 72,5 kg × 6 · 70 kg × 6</td></tr>
+            <tr><td class="date">ma 28 sep<span class="arch">v1</span></td><td class="sets"><b>72,5 kg × 8</b> · 70 kg × 8 · 70 kg × 8 · 70 kg × 7</td></tr>
+            <tr><td class="date">ma 21 sep<span class="arch">v1</span></td><td class="sets"><b>70 kg × 8</b> · 70 kg × 8 · 70 kg × 7 · 67,5 kg × 7</td></tr>
+          </tbody>
+        </table>
+        <!-- COPY: confirm met Marlon -->
+        <p class="dim" style="font-size:11px;margin-top:10px">Zwaarste set vetgedrukt. v1 = gelogd tegen een eerdere schemaversie.</p>
+      </div>
+
+      <!-- Chin-up: bodyweight-variant -->
+      <div class="exview" id="ex-chinup">
+        <div class="card chart">
+          <!-- COPY: confirm met Marlon -->
+          <span class="eyebrow">Meeste reps per sessie</span>
+          <svg viewBox="0 0 326 150" role="img" aria-label="Meeste reps per sessie, Chin-up, vijf sessies van 7 tot 10 reps">
+            <line class="grid" x1="28" x2="326" y1="20" y2="20"/>
+            <line class="grid" x1="28" x2="326" y1="66" y2="66"/>
+            <line class="grid" x1="28" x2="326" y1="112" y2="112"/>
+            <text class="ax" x="0" y="23">12</text>
+            <text class="ax" x="0" y="69">8</text>
+            <text class="ax" x="0" y="115">4</text>
+            <!-- schaal 0 tot 12 reps over 112 px, basislijn y=128 -->
+            <g class="bars">
+              <rect class="bar lo" x="46"  y="63" width="22" height="65" rx="4" ry="4"><title>ma 28 sep: 7 reps</title></rect>
+              <rect class="bar lo" x="106" y="54" width="22" height="74" rx="4" ry="4"><title>ma 5 okt: 8 reps</title></rect>
+              <rect class="bar lo" x="166" y="54" width="22" height="74" rx="4" ry="4"><title>ma 12 okt: 8 reps</title></rect>
+              <rect class="bar lo" x="226" y="35" width="22" height="93" rx="4" ry="4"><title>zo 19 okt: 10 reps</title></rect>
+              <rect class="bar"    x="286" y="35" width="22" height="93" rx="4" ry="4"><title>ma 26 okt: 10 reps</title></rect>
+            </g>
+            <rect x="28" y="124" width="298" height="6" fill="#17140F"/>
+            <line class="base" x1="28" x2="326" y1="128" y2="128"/>
+            <text class="val" x="297" y="28" text-anchor="middle">10</text>
+            <text class="lbl" x="57"  y="144" text-anchor="middle">28 sep</text>
+            <text class="lbl" x="117" y="144" text-anchor="middle">5 okt</text>
+            <text class="lbl" x="177" y="144" text-anchor="middle">12 okt</text>
+            <text class="lbl" x="237" y="144" text-anchor="middle">19 okt</text>
+            <text class="lbl" x="297" y="144" text-anchor="middle">26 okt</text>
+          </svg>
+          <!-- COPY: confirm met Marlon -->
+          <p class="chart-foot">Bodyweight-oefening: alle sets zonder gewicht, dus de grafiek toont reps.</p>
+        </div>
+
+        <table style="margin-top:20px">
+          <thead><tr><th>Datum</th><th>Sets</th></tr></thead>
+          <tbody>
+            <tr><td class="date">ma 26 okt</td><td class="sets"><b>10 reps</b> · 9 reps · 8 reps</td></tr>
+            <tr><td class="date">zo 19 okt<span class="arch">v1</span></td><td class="sets"><b>10 reps</b> · 9 reps · 5 kg × 8</td></tr>
+            <tr><td class="date">ma 12 okt<span class="arch">v1</span></td><td class="sets"><b>8 reps</b> · 8 reps · 7 reps</td></tr>
+            <tr><td class="date">ma 5 okt<span class="arch">v1</span></td><td class="sets"><b>8 reps</b> · 7 reps · 6 reps</td></tr>
+            <tr><td class="date">ma 28 sep<span class="arch">v1</span></td><td class="sets"><b>7 reps</b> · 6 reps · 6 reps</td></tr>
+          </tbody>
+        </table>
+        <!-- COPY: confirm met Marlon -->
+        <p class="dim" style="font-size:11px;margin-top:10px">Set met de meeste reps vetgedrukt. Een set met gewicht op deze oefening (5 kg × 8) is toegevoegde last en telt als gewichtsset: zodra er een gewichtsset is, schakelt de grafiek naar topgewicht.</p>
+      </div>
+    </div>
+
+    <!-- ---------- Per workout ---------- -->
+    <div class="view" id="v-workout">
+      <details class="session" open>
+        <summary>
+          <div>
+            <div class="s-date">ma 26 okt</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="s-meta">Dag 1, versie 2 · 5 oefeningen · 44 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="s-ex"><div><span class="slot">A1</span><span class="exname">Front Squat</span></div><div class="line"><b>82,5 kg × 8</b> · 82,5 kg × 7 · 80 kg × 7 · 80 kg × 6</div></div>
+          <div class="s-ex"><div><span class="slot">A2</span><span class="exname">Chin-up</span></div><div class="line"><b>10 reps</b> · 9 reps · 8 reps</div></div>
+          <div class="s-ex"><div><span class="slot">B1</span><span class="exname">Hip Thrust</span></div><div class="line"><b>60 kg × 12</b> · 60 kg × 12 · 60 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">B2</span><span class="exname">Seated Row</span></div><div class="line"><b>45 kg × 10</b> · 45 kg × 10 · 40 kg × 10</div></div>
+          <!-- COPY: confirm met Marlon -->
+          <div class="s-ex"><div><span class="slot">C1</span><span class="exname">Plank</span></div><div class="line empty-inline">Geen sets gelogd</div></div>
+        </div>
+      </details>
+
+      <details class="session">
+        <summary>
+          <div>
+            <div class="s-date">zo 19 okt</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="s-meta">Dag 2, versie 2 · 4 oefeningen · 35 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="s-ex"><div><span class="slot">A1</span><span class="exname">Romanian Deadlift</span></div><div class="line"><b>90 kg × 8</b> · 90 kg × 8 · 85 kg × 8</div></div>
+          <div class="s-ex"><div><span class="slot">A2</span><span class="exname">Leg Press</span></div><div class="line"><b>140 kg × 12</b> · 140 kg × 11 · 130 kg × 12</div></div>
+          <div class="s-ex"><div><span class="slot">B1</span><span class="exname">Dumbbell Press</span></div><div class="line"><b>20 kg × 10</b> · 20 kg × 9 · 18 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">B2</span><span class="exname">Lat Pulldown</span></div><div class="line"><b>50 kg × 10</b> · 50 kg × 10 · 45 kg × 10</div></div>
+        </div>
+      </details>
+
+      <!-- Sessie tegen een gearchiveerde versie: dag en versie blijven leesbaar dankzij de nieuwe self_logged-policies -->
+      <details class="session">
+        <summary>
+          <div>
+            <div class="s-date">zo 19 okt</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="s-meta">Dag 1, versie 1 (gearchiveerd) · 4 oefeningen · 38 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="s-ex"><div><span class="slot">A1</span><span class="exname">Front Squat</span></div><div class="line"><b>80 kg × 8</b> · 80 kg × 7 · 80 kg × 6 · 77,5 kg × 6</div></div>
+          <div class="s-ex"><div><span class="slot">A2</span><span class="exname">Chin-up</span></div><div class="line"><b>10 reps</b> · 9 reps · 5 kg × 8</div></div>
+          <div class="s-ex"><div><span class="slot">B1</span><span class="exname">Bulgarian Split Squat</span></div><div class="line"><b>16 kg × 10</b> · 16 kg × 10 · 14 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">B2</span><span class="exname">Seated Row</span></div><div class="line"><b>40 kg × 10</b> · 40 kg × 10 · 40 kg × 9</div></div>
+        </div>
+      </details>
+
+      <!-- Lege sessie: afgerond zonder sets. Tonen, niet verbergen. -->
+      <details class="session">
+        <summary>
+          <div>
+            <div class="s-date">zo 19 okt</div>
+            <!-- COPY: confirm met Marlon -->
+            <div class="s-meta">Dag 2, versie 1 (gearchiveerd) · Geen sets gelogd · 12 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <!-- COPY: confirm met Marlon -->
+        <div class="empty">Deze workout is afgerond zonder gelogde sets.</div>
+      </details>
+
+      <details class="session">
+        <summary>
+          <div>
+            <div class="s-date">ma 12 okt</div>
+            <div class="s-meta">Dag 1, versie 1 (gearchiveerd) · 4 oefeningen · 41 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="s-ex"><div><span class="slot">A1</span><span class="exname">Front Squat</span></div><div class="line"><b>75 kg × 8</b> · 75 kg × 8 · 75 kg × 7 · 72,5 kg × 7</div></div>
+          <div class="s-ex"><div><span class="slot">A2</span><span class="exname">Chin-up</span></div><div class="line"><b>8 reps</b> · 8 reps · 7 reps</div></div>
+          <div class="s-ex"><div><span class="slot">B1</span><span class="exname">Bulgarian Split Squat</span></div><div class="line"><b>14 kg × 10</b> · 14 kg × 10 · 14 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">B2</span><span class="exname">Seated Row</span></div><div class="line"><b>40 kg × 10</b> · 37,5 kg × 10 · 37,5 kg × 10</div></div>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<!-- Scherm 3: trainer-klantpagina met sectie Historie onder het schema     -->
+<!-- ===================================================================== -->
+<section class="screen" id="s-trainer">
+  <p class="note"><b>Trainer-klantpagina.</b> Route /app/trainer/klant/[id], read-only, zelfde gating als nu (resolveTrainerScope plus trainerHasClient, admin mag elk profiel). Het schema staat er al; de sectie Historie komt eronder met dezelfde schakelaar en componenten. De admin-tab Historie op /app/admin/leden/[id] krijgt exact deze sectie.</p>
+  <div class="phone">
+    <a class="backlink" href="#">&larr; Terug naar de agenda</a>
+    <header class="klant-head">
+      <!-- COPY: confirm met Marlon -->
+      <span class="eyebrow accent">Klant</span>
+      <h1 style="margin-top:12px">Fernanda de Vries</h1>
+      <p class="muted" style="font-size:13px">fernanda@example.com · 06 12 34 56 78</p>
+    </header>
+
+    <!-- COPY: confirm met Marlon -->
+    <span class="eyebrow" style="display:block;margin-bottom:14px">Trainingsschema</span>
+    <div class="card">
+      <div class="card-head"><span class="eyebrow accent">Dag 1</span> <span style="font-size:13px;font-weight:500;margin-left:10px">Onderlichaam</span></div>
+      <div class="schema-compact">
+        <div class="row"><span class="slot">A1</span>Front Squat<span class="t">4 × 6-8 · 4010 · 90s</span></div>
+        <div class="row"><span class="slot">A2</span>Chin-up<span class="t">3 × 8-10 · 3010 · 90s</span></div>
+        <div class="row"><span class="slot">B1</span>Hip Thrust<span class="t">3 × 10-12 · 2011 · 60s</span></div>
+        <div class="row"><span class="slot">B2</span>Seated Row<span class="t">3 × 10 · 3011 · 60s</span></div>
+        <div class="row"><span class="slot">C1</span>Plank<span class="t">3 × 45s · 60s</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="eyebrow accent">Dag 2</span> <span style="font-size:13px;font-weight:500;margin-left:10px">Bovenlichaam</span></div>
+      <div class="schema-compact">
+        <div class="row"><span class="slot">A1</span>Romanian Deadlift<span class="t">3 × 8 · 3010 · 90s</span></div>
+        <div class="row"><span class="slot">A2</span>Leg Press<span class="t">3 × 12 · 2010 · 90s</span></div>
+        <div class="row"><span class="slot">B1</span>Dumbbell Press<span class="t">3 × 10 · 3010 · 60s</span></div>
+        <div class="row"><span class="slot">B2</span>Lat Pulldown<span class="t">3 × 10 · 3011 · 60s</span></div>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- COPY: confirm met Marlon -->
+    <span class="eyebrow" style="display:block;margin-bottom:6px">Historie</span>
+    <!-- COPY: confirm met Marlon -->
+    <p class="dim" style="font-size:12px;margin-bottom:16px">Laatste workout ma 26 okt · 11 afgeronde workouts sinds 21 sep</p>
+
+    <div class="seg" role="tablist" aria-label="Weergave">
+      <!-- COPY: confirm met Marlon -->
+      <button class="on" data-view="t-oefening" role="tab" aria-selected="true">Per oefening</button>
+      <!-- COPY: confirm met Marlon -->
+      <button data-view="t-workout" role="tab" aria-selected="false">Per workout</button>
+    </div>
+
+    <div class="view on" id="t-oefening">
+      <div class="chips">
+        <button class="chip on">Front Squat</button>
+        <button class="chip">Chin-up</button>
+        <button class="chip">Romanian Deadlift</button>
+        <button class="chip">Leg Press</button>
+      </div>
+      <div class="card chart">
+        <!-- COPY: confirm met Marlon -->
+        <span class="eyebrow">Topgewicht per sessie</span>
+        <svg viewBox="0 0 326 150" role="img" aria-label="Topgewicht per sessie, Front Squat">
+          <line class="grid" x1="28" x2="326" y1="20" y2="20"/>
+          <line class="grid" x1="28" x2="326" y1="66" y2="66"/>
+          <line class="grid" x1="28" x2="326" y1="112" y2="112"/>
+          <text class="ax" x="0" y="23">90</text>
+          <text class="ax" x="0" y="69">60</text>
+          <text class="ax" x="0" y="115">30</text>
+          <g class="bars">
+            <rect class="bar lo" x="34"  y="47" width="22" height="81" rx="4" ry="4"><title>ma 21 sep: 70 kg</title></rect>
+            <rect class="bar lo" x="84"  y="43" width="22" height="85" rx="4" ry="4"><title>ma 28 sep: 72,5 kg</title></rect>
+            <rect class="bar lo" x="134" y="40" width="22" height="88" rx="4" ry="4"><title>ma 5 okt: 75 kg</title></rect>
+            <rect class="bar lo" x="184" y="40" width="22" height="88" rx="4" ry="4"><title>ma 12 okt: 75 kg</title></rect>
+            <rect class="bar lo" x="234" y="34" width="22" height="94" rx="4" ry="4"><title>zo 19 okt: 80 kg</title></rect>
+            <rect class="bar"    x="284" y="31" width="22" height="97" rx="4" ry="4"><title>ma 26 okt: 82,5 kg</title></rect>
+          </g>
+          <rect x="28" y="124" width="298" height="6" fill="#17140F"/>
+          <line class="base" x1="28" x2="326" y1="128" y2="128"/>
+          <text class="val" x="295" y="24" text-anchor="middle">82,5</text>
+          <text class="lbl" x="45"  y="144" text-anchor="middle">21 sep</text>
+          <text class="lbl" x="95"  y="144" text-anchor="middle">28 sep</text>
+          <text class="lbl" x="145" y="144" text-anchor="middle">5 okt</text>
+          <text class="lbl" x="195" y="144" text-anchor="middle">12 okt</text>
+          <text class="lbl" x="245" y="144" text-anchor="middle">19 okt</text>
+          <text class="lbl" x="295" y="144" text-anchor="middle">26 okt</text>
+        </svg>
+      </div>
+      <table style="margin-top:20px">
+        <thead><tr><th>Datum</th><th>Sets</th></tr></thead>
+        <tbody>
+          <tr><td class="date">ma 26 okt</td><td class="sets"><b>82,5 kg × 8</b> · 82,5 kg × 7 · 80 kg × 7 · 80 kg × 6</td></tr>
+          <tr><td class="date">zo 19 okt<span class="arch">v1</span></td><td class="sets"><b>80 kg × 8</b> · 80 kg × 7 · 80 kg × 6 · 77,5 kg × 6</td></tr>
+          <tr><td class="date">ma 12 okt<span class="arch">v1</span></td><td class="sets"><b>75 kg × 8</b> · 75 kg × 8 · 75 kg × 7 · 72,5 kg × 7</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="view" id="t-workout">
+      <details class="session" open>
+        <summary>
+          <div>
+            <div class="s-date">ma 26 okt</div>
+            <div class="s-meta">Dag 1, versie 2 · 5 oefeningen · 44 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="s-ex"><div><span class="slot">A1</span><span class="exname">Front Squat</span></div><div class="line"><b>82,5 kg × 8</b> · 82,5 kg × 7 · 80 kg × 7 · 80 kg × 6</div></div>
+          <div class="s-ex"><div><span class="slot">A2</span><span class="exname">Chin-up</span></div><div class="line"><b>10 reps</b> · 9 reps · 8 reps</div></div>
+          <div class="s-ex"><div><span class="slot">B1</span><span class="exname">Hip Thrust</span></div><div class="line"><b>60 kg × 12</b> · 60 kg × 12 · 60 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">B2</span><span class="exname">Seated Row</span></div><div class="line"><b>45 kg × 10</b> · 45 kg × 10 · 40 kg × 10</div></div>
+          <div class="s-ex"><div><span class="slot">C1</span><span class="exname">Plank</span></div><div class="line empty-inline">Geen sets gelogd</div></div>
+        </div>
+      </details>
+      <details class="session">
+        <summary>
+          <div>
+            <div class="s-date">zo 19 okt</div>
+            <div class="s-meta">Dag 2, versie 1 (gearchiveerd) · Geen sets gelogd · 12 min</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="empty">Deze workout is afgerond zonder gelogde sets.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- Mockup-balk, alleen voor navigatie tussen de schermen -->
+<nav class="bar" aria-label="Mockup schermen">
+  <button class="on" data-screen="s-workout">1 Loggen</button>
+  <button data-screen="s-historie">2+3 Geschiedenis</button>
+  <button data-screen="s-trainer">Trainer</button>
+</nav>
+
+<script>
+  // Schermwissel
+  document.querySelectorAll('.bar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.bar button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      document.querySelectorAll('.screen').forEach(function (s) { s.classList.toggle('active', s.id === b.dataset.screen); });
+      window.scrollTo(0, 0);
+    });
+  });
+  // Schakelaar "Per oefening | Per workout" (per scherm)
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    seg.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        seg.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); x.setAttribute('aria-selected', 'false'); });
+        b.classList.add('on'); b.setAttribute('aria-selected', 'true');
+        var phone = seg.closest('.phone');
+        phone.querySelectorAll('.view').forEach(function (v) { v.classList.toggle('on', v.id === b.dataset.view); });
+      });
+    });
+  });
+  // Chips met een gekoppelde oefeningweergave
+  document.querySelectorAll('.chip[data-ex]').forEach(function (c) {
+    c.addEventListener('click', function () {
+      var wrap = c.closest('.view');
+      wrap.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('on'); });
+      c.classList.add('on');
+      wrap.querySelectorAll('.exview').forEach(function (v) { v.classList.toggle('on', v.id === c.dataset.ex); });
+    });
+  });
+  // Deep-links voor review: ?screen=s-historie&view=v-workout&ex=ex-chinup
+  (function () {
+    var q = new URLSearchParams(location.search);
+    function click(sel) { var el = document.querySelector(sel); if (el) el.click(); }
+    if (q.get('screen')) click('.bar button[data-screen="' + q.get('screen') + '"]');
+    if (q.get('view')) click('.seg button[data-view="' + q.get('view') + '"]');
+    if (q.get('ex')) click('.chip[data-ex="' + q.get('ex') + '"]');
+  })();
+</script>
+</body>
+</html>
