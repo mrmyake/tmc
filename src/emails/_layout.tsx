@@ -108,7 +108,13 @@ export function EmailLayout({ preview, children }: EmailLayoutProps) {
               The Movement Club · Industrieweg 14P · Loosdrecht
             </Text>
             <Text style={{ color: STONE_500, fontSize: 12, marginTop: 8 }}>
-              themovementclub.nl
+              {/* COPY: confirm met Marlon */}
+              <a
+                href="https://www.themovementclub.nl"
+                style={{ color: STONE_500, textDecoration: "underline" }}
+              >
+                Onze website
+              </a>
             </Text>
           </Section>
         </Container>

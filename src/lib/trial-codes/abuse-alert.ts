@@ -104,6 +104,7 @@ export async function sendTrialCodeAbuseAlert(input: AbuseAlertInput): Promise<v
           to,
           // COPY: confirm met Marlon
           subject: `Herhaalde gratis proefles: ${input.email}`,
+          replyTo: null, // stafmail
           react,
         }),
       ),

@@ -1,0 +1,12 @@
+<div style="background:#F4EFE6;padding:32px 16px;font-family:Inter,Helvetica,Arial,sans-serif;color:#0E0C0B;">
+  <div style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:8px;padding:32px;">
+    <p style="font-family:Georgia,serif;font-size:22px;margin:0 0 24px;">The Movement <span style="color:#B9986A;">Club</span></p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 16px;">Hoi {{ .Data.first_name }},</p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 24px;">Welkom bij het team van The Movement Club. Je bent uitgenodigd als trainer. Met je account zie je je agenda en lessen, check je deelnemers in en houd je je uren bij.</p>
+    <p style="margin:0 0 24px;"><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite" style="display:inline-block;background:#B9986A;color:#0E0C0B;text-decoration:none;font-weight:600;font-size:16px;padding:14px 28px;border-radius:4px;">Account activeren</a></p>
+    <!-- COPY: confirm met Marlon -->
+    <p style="font-size:14px;line-height:1.6;color:#5C5650;margin:0 0 16px;">Deze link werkt één keer. Daarna log je in via de <a href="{{ .SiteURL }}/login" style="color:#8A6D3F;">inlogpagina</a> met dit e-mailadres; je krijgt dan een inlogcode per mail.</p>
+    <p style="font-size:14px;line-height:1.6;color:#5C5650;margin:0 0 24px;">Had je deze uitnodiging niet verwacht? Dan kun je deze mail negeren.</p>
+    <p style="font-size:16px;line-height:1.6;margin:0;">Tot in de studio,<br>Marlon<br>The Movement Club</p>
+  </div>
+</div>

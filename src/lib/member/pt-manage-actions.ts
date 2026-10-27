@@ -116,6 +116,7 @@ async function notifyTrainerOfChange(args: {
         args.kind === "cancelled"
           ? "PT-sessie geannuleerd" // COPY: confirm met Marlon
           : "PT-sessie verzet", // COPY: confirm met Marlon
+      replyTo: null, // stafmail
       react: PtTrainerChange({
         trainerName: trainerProfile.first_name ?? trainer?.display_name ?? "coach",
         memberLabel,
