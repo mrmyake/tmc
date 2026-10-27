@@ -23,6 +23,13 @@ interface SerializedSession {
   checkInHint: string | null;
   checkedIn: boolean;
   reasonText: string | null;
+  /**
+   * Bijkopen als extra les (spec-weekcap-extra-les.md): beide velden gaan
+   * verplicht mee, zodat de compiler een vergeten doorgifte vangt. Zonder
+   * deze doorgifte bleef de koopknop op het rooster onbereikbaar (#318).
+   */
+  extraClassAvailable: boolean;
+  extraClassPriceCents: number | null;
   rescheduledFrom: string | null;
   freeCancel: boolean;
   waitlistEntryId: string | null;
@@ -65,6 +72,8 @@ export function SessionList({
         spotsAvailable: openSerialized.spotsAvailable,
         status: openSerialized.status,
         bookingId: openSerialized.bookingId,
+        extraClassAvailable: openSerialized.extraClassAvailable,
+        extraClassPriceCents: openSerialized.extraClassPriceCents,
         rescheduledFrom: openSerialized.rescheduledFrom,
         freeCancel: openSerialized.freeCancel,
         waitlistEntryId: openSerialized.waitlistEntryId,
@@ -106,6 +115,8 @@ export function SessionList({
               checkInHint: s.checkInHint,
               checkedIn: s.checkedIn,
               reasonText: s.reasonText,
+              extraClassAvailable: s.extraClassAvailable,
+              extraClassPriceCents: s.extraClassPriceCents,
               rescheduledFrom: s.rescheduledFrom,
               freeCancel: s.freeCancel,
               waitlistEntryId: s.waitlistEntryId,

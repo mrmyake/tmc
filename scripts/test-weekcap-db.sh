@@ -129,15 +129,15 @@ $$ select exists (select 1 from tmc.bookings where profile_id = pg_temp.uid(n)::
 select pg_temp.check_('0 capped_pillars All Access = groepspillars', tmc.capped_pillars(array['vrij_trainen', 'yoga_mobility', 'kettlebell']) = array['kettlebell', 'yoga_mobility']);
 select pg_temp.check_('0 capped_pillars vrij trainen = vrij trainen', tmc.capped_pillars(array['vrij_trainen']) = array['vrij_trainen']);
 select pg_temp.check_('0 booking_gate niet uitvoerbaar voor app-rollen',
-  not has_function_privilege('anon', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean)', 'execute')
-  and not has_function_privilege('authenticated', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean)', 'execute')
-  and not has_function_privilege('service_role', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean)', 'execute'));
+  not has_function_privilege('anon', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean, boolean)', 'execute')
+  and not has_function_privilege('authenticated', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean, boolean)', 'execute')
+  and not has_function_privilege('service_role', 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean, boolean)', 'execute'));
 select pg_temp.check_('0 capped_pillars niet uitvoerbaar voor app-rollen',
   not has_function_privilege('anon', 'tmc.capped_pillars(text[])', 'execute')
   and not has_function_privilege('authenticated', 'tmc.capped_pillars(text[])', 'execute'));
 select pg_temp.check_('0 booking_gate gebruikt capped_pillars en kent check_in_pillars niet meer',
-  (select prosrc from pg_proc where oid = 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean)'::regprocedure) ilike '%capped_pillars%'
-  and (select prosrc from pg_proc where oid = 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean)'::regprocedure) not ilike '%check_in_pillars%');
+  (select prosrc from pg_proc where oid = 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean, boolean)'::regprocedure) ilike '%capped_pillars%'
+  and (select prosrc from pg_proc where oid = 'tmc.booking_gate(uuid, uuid, timestamptz, integer, boolean, boolean, boolean)'::regprocedure) not ilike '%check_in_pillars%');
 
 -- 1. Groepslessen 2x: yoga plus kettlebell lukt, derde groepsles niet, volgende week wel.
 select pg_temp.check_('1a Y1 ma', pg_temp.book(1, 'd5000000-0000-4000-8000-000000000001') = 'ok');

@@ -203,8 +203,11 @@ select pg_temp.check_('6 start lid 3 op YS (cap 1)', (pg_temp.startj(3, 'd600000
 select pg_temp.attach(pg_temp.pending_of(3, 'd6000000-0000-4000-8000-000000000005'), 'tr_d');
 create temp table t6 as select pg_temp.pending_of(3, 'd6000000-0000-4000-8000-000000000005') as b;
 select pg_temp.check_('6 lid breekt af, lid 7 vult de plek', (pg_temp.cancelj(3, 'd6000000-0000-4000-8000-000000000005') ->> 'ok')::boolean and pg_temp.book(7, 'd6000000-0000-4000-8000-000000000005') = 'ok');
-select pg_temp.check_('6 late betaling: refund_needed capacity_full',
-  (select (j ->> 'result', j ->> 'reason') = ('refund_needed', 'capacity_full') from pg_temp.confirmj((select b from t6), 'tr_d', 'paid') j));
+-- De rij is door het lid afgebroken (payment_canceled): het geld gaat terug
+-- ongeacht de plek, de gate komt er niet aan te pas (fix PR 319).
+select pg_temp.check_('6 late betaling op een afgebroken pending: refund_needed payment_canceled, rij blijft geannuleerd',
+  (select (j ->> 'result', j ->> 'reason') = ('refund_needed', 'payment_canceled') from pg_temp.confirmj((select b from t6), 'tr_d', 'paid') j)
+  and pg_temp.status_of((select b from t6)) = 'cancelled:payment_canceled');
 select pg_temp.paid_row((select b from t6), 'tr_d', 3);
 -- De insert in de functie is binnen dezelfde statement nog niet zichtbaar
 -- voor een losse subquery; daarom eerst de aanroep, dan de controle.
@@ -244,6 +247,28 @@ select pg_temp.check_('8 cancel_class_session_core: refund_id voor de betaalde e
    from tmc.cancel_class_session_core('d6000000-0000-4000-8000-000000000004', 'test', pg_temp.uid(9)) j));
 select pg_temp.check_('8 pending van lid 1 is vervallen met session_cancelled',
   exists (select 1 from tmc.bookings where profile_id = pg_temp.uid(1) and session_id = 'd6000000-0000-4000-8000-000000000004' and status = 'cancelled' and cancellation_reason = 'session_cancelled'));
+
+-- 10. Herhaalde webhook met paid op een geannuleerde rij (fix PR 319): Mollie
+-- meldt zich ook bij een refund, met status paid. Alleen payment_expired mag
+-- alsnog bevestigen (scenario 5); de rest blijft geannuleerd.
+select pg_temp.check_('10 door lid geannuleerd met refund-intentie (tr_a): ignored refund_exists, blijft cancelled:within_window',
+  (select (j ->> 'result', j ->> 'reason') = ('ignored', 'refund_exists') from pg_temp.confirmj((select id from tmc.bookings where drop_in_payment_id = 'tr_a'), 'tr_a', 'paid') j)
+  and pg_temp.status_of((select id from tmc.bookings where drop_in_payment_id = 'tr_a')) = 'cancelled:within_window');
+select pg_temp.check_('10 geen tweede refund-intentie voor tr_a', (select count(*) from tmc.payment_refunds r join tmc.payments p on p.id = r.payment_id where p.mollie_payment_id = 'tr_a') = 1);
+select pg_temp.check_('10 buiten het venster geannuleerd zonder refund (tr_e): ignored cancelled_after_confirmation, blijft cancelled:late',
+  (select (j ->> 'result', j ->> 'reason') = ('ignored', 'cancelled_after_confirmation') from pg_temp.confirmj((select id from tmc.bookings where drop_in_payment_id = 'tr_e'), 'tr_e', 'paid') j)
+  and pg_temp.status_of((select id from tmc.bookings where drop_in_payment_id = 'tr_e')) = 'cancelled:late');
+select pg_temp.check_('10 geen refund-intentie voor tr_e na de herhaling', not exists (select 1 from tmc.payment_refunds r join tmc.payments p on p.id = r.payment_id where p.mollie_payment_id = 'tr_e'));
+select pg_temp.check_('10 les geannuleerd door de studio, betaald met refund-intentie (tr_f): ignored refund_exists',
+  (select (j ->> 'result', j ->> 'reason') = ('ignored', 'refund_exists') from pg_temp.confirmj((select id from tmc.bookings where drop_in_payment_id = 'tr_f'), 'tr_f', 'paid') j)
+  and pg_temp.status_of((select id from tmc.bookings where drop_in_payment_id = 'tr_f')) = 'cancelled:session_cancelled');
+-- Pending van lid 1 op Y3 verviel met de les voordat er geld was: komt de
+-- betaling alsnog, dan moet die terug.
+select pg_temp.attach((select id from tmc.bookings where profile_id = pg_temp.uid(1) and session_id = 'd6000000-0000-4000-8000-000000000004' and cancellation_reason = 'session_cancelled'), 'tr_g');
+select pg_temp.check_('10 les geannuleerd voordat de pending betaald was (tr_g): refund_needed session_cancelled, blijft geannuleerd',
+  (select (j ->> 'result', j ->> 'reason') = ('refund_needed', 'session_cancelled') from pg_temp.confirmj((select id from tmc.bookings where drop_in_payment_id = 'tr_g'), 'tr_g', 'paid') j)
+  and pg_temp.status_of((select id from tmc.bookings where drop_in_payment_id = 'tr_g')) = 'cancelled:session_cancelled');
+select pg_temp.check_('10 payment_expired blijft de enige weg naar confirmed_late (scenario 5 staat nog)', pg_temp.status_of((select old_id from t5)) = 'booked:-');
 
 -- 9. Omzetview en rechten.
 select pg_temp.check_('9 v_revenue_lines: extra_class valt onder les_tegoed', (select revenue_category from tmc.v_revenue_lines where payment_id = (select id from tmc.payments where mollie_payment_id = 'tr_a')) = 'les_tegoed');

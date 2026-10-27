@@ -139,8 +139,14 @@ export async function startExtraClassCheckout(
       description: "The Movement Club | Extra les",
       redirectUrl: buildReturnUrl(siteUrl(), `/app/boekingen?extra=${bookingId}`, returnTarget),
       webhookUrl: extraClassWebhookUrl(mode),
-      // iDEAL en kaart verlopen zelf binnen 15 en 30 minuten; samen met de
-      // houdtijd van de rij blijft een plek nooit lang vast (core.ts).
+      // Geen expiresAt: de Payments API accepteert die niet bij het aanmaken
+      // (alleen in de respons) en dueDate is een datum voor banktransfer,
+      // minimaal morgen. Geen van beide methoden hieronder kan de houdtijd
+      // van 20 minuten (hold_expires_at) overnemen. iDEAL en kaart verlopen
+      // zelf binnen 15 en 30 minuten; de houdtijd van de rij en de cron
+      // expire-extra-class-bookings houden de plek nooit langer vast
+      // (core.ts, decideHoldExpiry). Komt banktransfer er ooit bij, geef dan
+      // dueDate mee.
       method: [PaymentMethod.ideal, PaymentMethod.creditcard],
       metadata: { type: "extra_class", bookingId, profileId: user.id, sessionId },
       idempotencyKey: `extra-${bookingId}-p1`,

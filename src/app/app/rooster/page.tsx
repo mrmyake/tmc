@@ -853,6 +853,8 @@ export default async function RoosterPage(props: {
               checkInHint: s.checkInHint,
               checkedIn: s.checkedIn,
               reasonText: s.reasonText,
+              extraClassAvailable: s.extraClassAvailable,
+              extraClassPriceCents: s.extraClassPriceCents,
               rescheduledFrom: s.rescheduledFrom,
               freeCancel: s.freeCancel,
               waitlistEntryId: s.waitlistEntryId,
