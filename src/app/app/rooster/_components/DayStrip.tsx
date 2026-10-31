@@ -48,7 +48,8 @@ function buildDayHref(
   iso: string,
   pillarFilter: string | null,
 ): string {
-  const qs = new URLSearchParams();
+  // weergave=lessen is expliciet: de standaardtab kan voor dit lid Vrij trainen zijn.
+  const qs = new URLSearchParams({ weergave: "lessen" });
   if (fromIso !== todayIso) qs.set("from", fromIso);
   qs.set("dag", iso);
   if (pillarFilter) qs.set("pijler", pillarFilter);

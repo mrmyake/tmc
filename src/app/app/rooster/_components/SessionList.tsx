@@ -23,6 +23,9 @@ interface SerializedSession {
   checkInHint: string | null;
   checkedIn: boolean;
   reasonText: string | null;
+  extraClassAvailable: boolean;
+  extraClassPriceCents: number | null;
+  viaRitten: boolean;
   rescheduledFrom: string | null;
   freeCancel: boolean;
   waitlistEntryId: string | null;
@@ -65,6 +68,9 @@ export function SessionList({
         spotsAvailable: openSerialized.spotsAvailable,
         status: openSerialized.status,
         bookingId: openSerialized.bookingId,
+        extraClassAvailable: openSerialized.extraClassAvailable,
+        extraClassPriceCents: openSerialized.extraClassPriceCents,
+        viaRitten: openSerialized.viaRitten,
         rescheduledFrom: openSerialized.rescheduledFrom,
         freeCancel: openSerialized.freeCancel,
         waitlistEntryId: openSerialized.waitlistEntryId,
@@ -106,6 +112,9 @@ export function SessionList({
               checkInHint: s.checkInHint,
               checkedIn: s.checkedIn,
               reasonText: s.reasonText,
+              extraClassAvailable: s.extraClassAvailable,
+              extraClassPriceCents: s.extraClassPriceCents,
+              viaRitten: s.viaRitten,
               rescheduledFrom: s.rescheduledFrom,
               freeCancel: s.freeCancel,
               waitlistEntryId: s.waitlistEntryId,

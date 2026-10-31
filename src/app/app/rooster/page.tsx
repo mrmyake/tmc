@@ -25,7 +25,15 @@ import { RoosterHeader } from "./_components/RoosterHeader";
 import { WeergaveSwitch } from "./_components/WeergaveSwitch";
 import { VrijTrainenKaartje } from "./_components/VrijTrainenKaartje";
 import { VrijTrainenView } from "./_components/vrij-trainen/VrijTrainenView";
-import { loadCoveredPillars } from "@/lib/member/covered-pillars";
+import {
+  GroepslessenNietInAbonnement,
+  PauzeKaart,
+  TegoedBalk,
+} from "./_components/RoosterKaarten";
+import {
+  bepaalRoosterWeergave,
+  isMembershipActiveOn,
+} from "@/lib/member/rooster-weergave";
 import { loadVrijTrainenPicker } from "@/lib/member/vrij-trainen-query";
 import { amsterdamClock, nextFreeStart } from "@/lib/member/vrij-trainen-slots";
 import type { SessionStatus } from "@/components/ui/StatusBadge";
@@ -131,13 +139,7 @@ function eligibleMembershipsForDate(
   memberships: MembershipRow[],
   sessionDateIso: string,
 ): MembershipRow[] {
-  return memberships.filter(
-    (m) =>
-      m.status === "active" ||
-      (m.status === "cancellation_requested" &&
-        m.cancellation_effective_date != null &&
-        m.cancellation_effective_date >= sessionDateIso),
-  );
+  return memberships.filter((m) => isMembershipActiveOn(m, sessionDateIso));
 }
 
 function buildHref(params: {
@@ -213,20 +215,76 @@ export default async function RoosterPage(props: {
     addDaysIsoAmsterdam(fromIso, WINDOW_DAYS),
   )!;
 
-  // Welke weergave(n) tonen hangt af van wat de memberships dekken. Dit is
-  // alleen een weergavekeuze; canBook() en de selectie hieronder blijven
-  // zoals ze waren (spec-rooster-vrij-trainen.md).
-  const coverage = await loadCoveredPillars(supabase, user.id);
-  const coversLessons = [...coverage.pillars].some((p) => p !== "vrij_trainen");
-  const hasSwitch = coverage.coversVrijTrainen && coversLessons;
-  const vrijOnly = coverage.coversVrijTrainen && !coversLessons;
-  const showVrij = vrijOnly || (hasSwitch && searchParams.weergave === "vrij");
-  const switcher = hasSwitch ? (
+  // Welke weergave(n) tonen hangt af van wat de memberships dekken
+  // (rooster-weergave.ts). Dit is alleen een weergavekeuze; canBook() en de
+  // selectie hieronder blijven zoals ze waren (spec-rooster-vrij-trainen.md).
+  // De data staat vóór de tab-keuze klaar, zodat beide tabs dezelfde bron
+  // hebben.
+  const [membershipsResult, settingsResult, profileResult] = await Promise.all([
+    // Eigen memberships voor coverage/frequency_cap/credits (canBook-input) en
+    // voor de weergavekeuze. covered_pillars bepaalt welke pillars samen onder
+    // de weekcap vallen (spec-weekcap-extra-les.md). "paused" zit in de set
+    // voor de pauzekaart en de standaardtab; canBook() krijgt alleen de
+    // rijen die op de sessiedatum dekken (eligibleMembershipsForDate), dus een
+    // gepauzeerd abonnement dekt nog steeds niets.
+    supabase
+      .from("memberships")
+      .select(
+        "id, plan_type, frequency_cap, covered_pillars, credits_remaining, credits_expires_at, status, cancellation_effective_date",
+      )
+      .eq("profile_id", user.id)
+      .in("status", ["active", "cancellation_requested", "paused"])
+      // Nieuwste eerst: de volgorde bepaalt welke rij de weekcap op vrij
+      // trainen levert.
+      .order("created_at", { ascending: false })
+      .returns<MembershipRow[]>(),
+    supabase
+      .from("booking_settings")
+      .select(
+        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, vrij_trainen_booking_enabled",
+      )
+      .limit(1)
+      .maybeSingle(),
+    // Profiel voor intake-banner check + age_category (canBook-input).
+    supabase
+      .from("profiles")
+      .select("health_intake_completed_at, age_category, role")
+      .eq("id", user.id)
+      .maybeSingle(),
+  ]);
+
+  const ageCategory = profileResult.data?.age_category ?? null;
+  // Prijs van een extra les voor deze leeftijdscategorie, uit de ene
+  // prijsfunctie (spec-weekcap-extra-les.md). Alleen weergave; de RPC rekent
+  // bij het afrekenen opnieuw. Null betekent: bijkopen uit.
+  const extraPriceResult = await supabase.rpc("extra_class_price", {
+    p_age_category: ageCategory ?? "adult",
+  });
+  const extraClassPriceCents: number | null = (() => {
+    const rows = extraPriceResult.data as Array<{ price_cents: number | null }> | null;
+    const cents = rows?.[0]?.price_cents;
+    return typeof cents === "number" && cents > 0 ? cents : null;
+  })();
+
+  const allMemberships = membershipsResult.data ?? [];
+  const weergave = bepaalRoosterWeergave({
+    memberships: allMemberships,
+    vrijBookingEnabled: settingsResult.data?.vrij_trainen_booking_enabled ?? false,
+    todayIso,
+    extraClassPriceCents,
+  });
+  // ?weergave= wint; zonder (of met onzin) geldt de standaardtab van het lid.
+  const tab: "lessen" | "vrij" =
+    searchParams.weergave === "vrij" || searchParams.weergave === "lessen"
+      ? searchParams.weergave
+      : weergave.defaultTab;
+  const showVrij = tab === "vrij";
+  const switcher = (
     <WeergaveSwitch
-      active={showVrij ? "vrij" : "lessen"}
+      active={tab}
       dag={showVrij ? searchParams.dag : selectedDayIso}
     />
-  ) : null;
+  );
 
   if (showVrij) {
     return (
@@ -235,8 +293,7 @@ export default async function RoosterPage(props: {
           <VrijTrainenView
             userId={user.id}
             requestedDate={searchParams.dag}
-            cap={coverage.vrijTrainenFrequencyCap}
-            isPaused={coverage.vrijTrainenPaused}
+            screen={weergave.vrij}
             switcher={switcher}
           />
         </div>
@@ -263,12 +320,9 @@ export default async function RoosterPage(props: {
     sessionsResult,
     bookingsResult,
     waitlistResult,
-    settingsResult,
     maxFutureResult,
-    profileResult,
     nextBookingResult,
     todayCheckInsResult,
-    membershipsResult,
     strikesResult,
     weeklyPillarCountResult,
     vrijPickerData,
@@ -313,13 +367,6 @@ export default async function RoosterPage(props: {
     // (SECURITY DEFINER: de rang telt over andermans rijen). Alleen
     // geplande, toekomstige lessen; een verlopen promotie blijft weg.
     supabase.rpc("my_waitlist_entries"),
-    supabase
-      .from("booking_settings")
-      .select(
-        "cancellation_window_hours, booking_window_days, fair_use_daily_max, no_show_strike_threshold, no_show_block_days, vrij_trainen_booking_enabled",
-      )
-      .limit(1)
-      .maybeSingle(),
     // Grootste start_at om te bepalen of "Volgende 7 dagen" nog iets
     // oplevert. Voeren we uit als head-query met order + limit zodat
     // we niet het hele resultaat ophalen.
@@ -328,12 +375,6 @@ export default async function RoosterPage(props: {
       .select("start_at")
       .order("start_at", { ascending: false })
       .limit(1)
-      .maybeSingle(),
-    // Profiel voor intake-banner check + age_category (canBook-input).
-    supabase
-      .from("profiles")
-      .select("health_intake_completed_at, age_category, role")
-      .eq("id", user.id)
       .maybeSingle(),
     // Eerstvolgende geboekte sessie (voor NextSessionCard bovenaan)
     supabase
@@ -380,19 +421,6 @@ export default async function RoosterPage(props: {
         .not("session_id", "is", null)
         .gte("checked_in_at", todayUtcStart.toISOString());
     })(),
-    // Eigen memberships voor coverage/frequency_cap/credits (canBook-input).
-    // covered_pillars bepaalt welke pillars samen onder de weekcap vallen
-    // (spec-weekcap-extra-les.md). "paused" bewust buiten deze set: een
-    // gepauzeerd abonnement dekt niets, dus zo'n lid ziet correct "buiten
-    // abonnement" tot het hervat is.
-    supabase
-      .from("memberships")
-      .select(
-        "id, plan_type, frequency_cap, covered_pillars, credits_remaining, credits_expires_at, status, cancellation_effective_date",
-      )
-      .eq("profile_id", user.id)
-      .in("status", ["active", "cancellation_requested"])
-      .returns<MembershipRow[]>(),
     // Actieve no-show-strikes (canBook-input voor strike_blocked).
     supabase
       .from("v_active_strikes")
@@ -413,7 +441,7 @@ export default async function RoosterPage(props: {
       .gte("session_date", weekRangeStartIso)
       .lt("session_date", weekRangeEndIso),
     // Alleen voor het vrij-trainen-kaartje (lid dat beide weergaven heeft).
-    hasSwitch && !coverage.vrijTrainenPaused
+    weergave.vrij.kind === "gedekt"
       ? loadVrijTrainenPicker(supabase, user.id, selectedDayIso, now)
       : Promise.resolve(null),
   ]);
@@ -484,18 +512,6 @@ export default async function RoosterPage(props: {
     noShowBlockDays: settingsResult.data?.no_show_block_days ?? 7,
   };
 
-  const ageCategory = profileResult.data?.age_category ?? null;
-  // Prijs van een extra les voor deze leeftijdscategorie, uit de ene
-  // prijsfunctie (spec-weekcap-extra-les.md). Alleen weergave; de RPC rekent
-  // bij het afrekenen opnieuw. Null betekent: bijkopen uit.
-  const extraPriceResult = await supabase.rpc("extra_class_price", {
-    p_age_category: ageCategory ?? "adult",
-  });
-  const extraClassPriceCents: number | null = (() => {
-    const rows = extraPriceResult.data as Array<{ price_cents: number | null }> | null;
-    const cents = rows?.[0]?.price_cents;
-    return typeof cents === "number" && cents > 0 ? cents : null;
-  })();
   const activeStrikes = strikesResult.data?.strike_count ?? 0;
   const strikesBlockUntil = strikesResult.data?.last_strike_at
     ? new Date(
@@ -504,7 +520,6 @@ export default async function RoosterPage(props: {
       ).toISOString()
     : null;
 
-  const allMemberships = membershipsResult.data ?? [];
 
   // Eigen boekingen per (iso_year, iso_week), uitgesplitst per pillar, voor
   // de weekcap. canBook() telt de capped pillars van het dekkende abonnement
@@ -565,6 +580,7 @@ export default async function RoosterPage(props: {
     let status: SessionStatus;
     let reasonText: string | null = null;
     let extraClass: ExtraClassOffer | null = null;
+    let viaRitten = false;
 
     // Geannuleerd gaat voor geboekt en wachtlijst: een open wachtlijstplek
     // van voor de annulering mocht de les niet als "Wachtlijst" tonen
@@ -638,6 +654,9 @@ export default async function RoosterPage(props: {
 
       if (result.allowed) {
         status = "open";
+        // Gaat deze les via de rittenkaart? Alleen weergave ("1 rit"): canBook()
+        // gaf de rittenkaart als dekkende membership.
+        viaRitten = result.coveringMembership?.plan_type === "ten_ride_card";
       } else {
         status = REASON_TO_STATUS[result.reason] ?? "no_coverage";
         reasonText = REASON_COPY[result.reason] ?? null;
@@ -691,6 +710,7 @@ export default async function RoosterPage(props: {
       reasonText,
       extraClassAvailable: extraClass?.available ?? false,
       extraClassPriceCents: extraClass?.priceCents ?? null,
+      viaRitten,
       bookingId: booking?.id ?? null,
       isoDate: sessionIso,
       checkInHint,
@@ -785,7 +805,7 @@ export default async function RoosterPage(props: {
       ? nextFreeStart(vrijPickerData.quarters, now.getTime())
       : null;
   const vrijKaartje =
-    free && vrijPickerData ? (
+    free && vrijPickerData && weergave.vrij.kind === "gedekt" ? (
       <VrijTrainenKaartje
         dag={selectedDayIso}
         available={free.available}
@@ -796,8 +816,16 @@ export default async function RoosterPage(props: {
 
   return (
     <Container className="py-16 md:py-20">
-      <div className={hasSwitch ? "mx-auto max-w-[1080px]" : undefined}>
+      <div className="mx-auto max-w-[1080px]">
       <RoosterHeader eyebrow="Rooster" title="Kies je moment." switcher={switcher} />
+
+      {weergave.lessen.kind === "normaal" && weergave.lessen.ride && (
+        <TegoedBalk ride={weergave.lessen.ride} />
+      )}
+      {weergave.lessen.kind === "niet-in-abonnement" && (
+        <GroepslessenNietInAbonnement priceCents={weergave.lessen.priceCents} />
+      )}
+      {weergave.lessen.kind === "gepauzeerd" && <PauzeKaart weergave="lessen" />}
 
       <OfflineBanner />
 
@@ -853,6 +881,9 @@ export default async function RoosterPage(props: {
               checkInHint: s.checkInHint,
               checkedIn: s.checkedIn,
               reasonText: s.reasonText,
+              extraClassAvailable: s.extraClassAvailable,
+              extraClassPriceCents: s.extraClassPriceCents,
+              viaRitten: s.viaRitten,
               rescheduledFrom: s.rescheduledFrom,
               freeCancel: s.freeCancel,
               waitlistEntryId: s.waitlistEntryId,

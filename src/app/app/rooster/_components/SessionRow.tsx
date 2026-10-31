@@ -3,6 +3,7 @@
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { StatusBadge, type SessionStatus } from "@/components/ui/StatusBadge";
 import { durationMinutes, formatTime } from "@/lib/format-date";
+import { euroShort } from "@/lib/extra-class/core";
 
 export interface SessionRowData {
   id: string;
@@ -34,6 +35,11 @@ export interface SessionRowData {
    */
   extraClassAvailable?: boolean;
   extraClassPriceCents?: number | null;
+  /**
+   * Deze open les gaat via de rittenkaart (canBook gaf een rittenkaart als
+   * dekkende membership): de rij toont "1 rit". Alleen weergave.
+   */
+  viaRitten?: boolean;
   /** Oude starttijd ("18:00") als de studio de les eenmalig verschoof. */
   rescheduledFrom?: string | null;
   /** Geboekt voor de verschuiving: kosteloos annuleren tot de start. */
@@ -185,19 +191,35 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
           </a>
         )}
       </span>
-      <StatusBadge
-        status={session.status}
-        spotsAvailable={
-          // Zelfde bron als de vol-status en de RPC-gate; ontbreekt de
-          // view-rij (race), val dan terug op volledige capaciteit.
-          session.capacity === null
-            ? null
-            : Math.max(0, session.spotsAvailable ?? session.capacity)
-        }
-        reasonText={session.reasonText}
-        // COPY: confirm met Marlon
-        cancelledLabel="Vervalt"
-      />
+      <span className="flex flex-col items-end gap-1">
+        <StatusBadge
+          status={session.status}
+          spotsAvailable={
+            // Zelfde bron als de vol-status en de RPC-gate; ontbreekt de
+            // view-rij (race), val dan terug op volledige capaciteit.
+            session.capacity === null
+              ? null
+              : Math.max(0, session.spotsAvailable ?? session.capacity)
+          }
+          reasonText={session.reasonText}
+          // COPY: confirm met Marlon
+          cancelledLabel="Vervalt"
+        />
+        {/* Buiten het abonnement, wel los te boeken: de prijs staat er direct,
+            uit de server (spec-weekcap-extra-les.md), nooit client-side
+            berekend. */}
+        {session.status === "no_coverage" && canBuyExtra && (
+          <span className="text-xs font-semibold text-accent">
+            {euroShort(session.extraClassPriceCents!)}
+          </span>
+        )}
+        {session.status === "open" && session.viaRitten && (
+          <span className="text-[11px] text-text-muted">
+            {/* COPY: confirm met Marlon */}
+            1 rit
+          </span>
+        )}
+      </span>
       <ChevronRight
         size={16}
         strokeWidth={1.5}
