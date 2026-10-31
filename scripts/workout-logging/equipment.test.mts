@@ -15,9 +15,29 @@ import {
   formatKg,
   isEquipment,
   platesPerSide,
+  stepOnGrid,
   stepReps,
   stepWeight,
 } from "../../src/lib/equipment";
+
+test("stepWeight: buiten het raster rondt de eerste tik af naar het raster in die richting", () => {
+  assert.equal(stepWeight(42.5, 5, 1), 45);
+  assert.equal(stepWeight(42.5, 5, -1), 40);
+  assert.equal(stepWeight(41, 2.5, 1), 42.5);
+  assert.equal(stepWeight(41, 2.5, -1), 40);
+  assert.equal(stepWeight(17, 2, 1), 18);
+  assert.equal(stepWeight(17, 2, -1), 16);
+  // Daarna gewone stappen.
+  assert.equal(stepWeight(45, 5, 1), 50);
+  assert.equal(stepWeight(40, 5, -1), 35);
+});
+
+test("stepOnGrid: raster vanaf 0, geen ruis bij decimale stappen", () => {
+  assert.equal(stepOnGrid(0.3, 0.1, 1), 0.4);
+  assert.equal(stepOnGrid(22.5, 2.5, 1), 25);
+  assert.equal(stepOnGrid(22.5, 2.5, -1), 20);
+  assert.equal(stepOnGrid(null, 5, -1), -5);
+});
 
 test("effectiveWeightStep: standaard per type, onbekend 2,5", () => {
   assert.equal(effectiveWeightStep("barbell", null), 2.5);
@@ -51,7 +71,9 @@ test("platesPerSide: lege stang tot en met 20 kg, daarna per kant", () => {
 
 test("stepWeight: stappen zonder ruis, nooit onder 0", () => {
   assert.equal(stepWeight(22.5, 2.5, 1), 25);
-  assert.equal(stepWeight(0.1, 0.2, 1), 0.3);
+  // 0,1 staat niet op het raster van 0,2: de eerste tik rondt af naar 0,2.
+  assert.equal(stepWeight(0.1, 0.2, 1), 0.2);
+  assert.equal(stepWeight(0.2, 0.2, 1), 0.4);
   assert.equal(stepWeight(1, 2.5, -1), 0);
   assert.equal(stepWeight(null, 2, 1), 2);
   assert.equal(stepWeight(999, 5, 1), 999.99);
