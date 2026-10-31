@@ -1,6 +1,7 @@
 "use client";
 
 import { amsterdamClock } from "@/lib/member/vrij-trainen-slots";
+import { euroShort } from "@/lib/extra-class/core";
 
 /**
  * Boekknop met samenvatting. "bar" is de vaste voet onderaan (boven de
@@ -13,16 +14,25 @@ export function SlotFooter({
   pending,
   onBook,
   layout = "bar",
+  extraPriceCents = null,
 }: {
   summary: string;
   selection: { startMs: number; endMs: number } | null;
   pending: boolean;
   onBook: () => void;
   layout?: "bar" | "panel";
+  /**
+   * Abonnement zonder vrij trainen: de boekknop is direct "Boek als extra
+   * les" met de prijs uit de server, onBook start dan de extra-lescheckout.
+   */
+  extraPriceCents?: number | null;
 }) {
   const label = pending
     ? // COPY: confirm met Marlon
       "Bezig met boeken"
+    : selection && extraPriceCents !== null
+      ? // COPY: confirm met Marlon
+        `Boek als extra les (${euroShort(extraPriceCents)})`
     : selection
       ? // COPY: confirm met Marlon
         `Boek ${amsterdamClock(selection.startMs)} tot ${amsterdamClock(selection.endMs)}`

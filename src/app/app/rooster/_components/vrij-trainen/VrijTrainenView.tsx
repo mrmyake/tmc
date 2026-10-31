@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getTrainerPresenceWindows } from "@/lib/trainer-presence";
 import { loadVrijTrainenPicker } from "@/lib/member/vrij-trainen-query";
+import type { VrijScherm } from "@/lib/member/rooster-weergave";
 import { RoosterHeader } from "../RoosterHeader";
+import { OpenStudioKaart, VrijTrainenNietInAbonnement } from "../RoosterKaarten";
 import { SlotPicker } from "./SlotPicker";
 import { CheckInHistory } from "./CheckInHistory";
 
@@ -23,24 +25,46 @@ type CheckInRow = {
 };
 
 /**
- * Vrij-trainen-weergave van /app/rooster (spec-rooster-vrij-trainen.md). Alleen
- * booking_settings.vrij_trainen_booking_enabled beslist: aan is de slotkiezer,
- * uit de check-in-weergave. check_in_pillars speelt hier geen rol
- * (spec-vrij-trainen-slots.md).
+ * Vrij-trainen-weergave van /app/rooster (spec-rooster-vrij-trainen.md). Het
+ * scherm per lid komt uit bepaalRoosterWeergave (rooster-weergave.ts). Voor
+ * wie vrij trainen gedekt heeft beslist booking_settings.vrij_trainen_booking_enabled:
+ * aan is de slotkiezer, uit de check-in-weergave. check_in_pillars speelt hier
+ * geen rol (spec-vrij-trainen-slots.md).
  */
 export async function VrijTrainenView({
   userId,
   requestedDate,
-  cap,
-  isPaused,
+  screen,
   switcher,
 }: {
   userId: string;
   requestedDate: string | undefined;
-  cap: number | null;
-  isPaused: boolean;
+  screen: VrijScherm;
   switcher: ReactNode;
 }) {
+  // Scherm D en de kaart zonder koopoptie hebben geen slotkiezer of
+  // check-in-weergave nodig.
+  if (screen.kind === "open-studio") {
+    return (
+      <>
+        <RoosterHeader eyebrow="Open studio" title="Vrij trainen." switcher={switcher} />
+        <OpenStudioKaart ride={screen.ride} hasRideCard={screen.hasRideCard} />
+      </>
+    );
+  }
+  if (screen.kind === "niet-in-abonnement") {
+    return (
+      <>
+        <RoosterHeader eyebrow="Open studio" title="Vrij trainen." switcher={switcher} />
+        <VrijTrainenNietInAbonnement priceCents={null} />
+      </>
+    );
+  }
+
+  const isPaused = screen.kind === "gepauzeerd";
+  const cap = screen.kind === "gedekt" ? screen.cap : null;
+  const upfrontExtraOffer = screen.kind === "extra" ? screen.upfrontExtraOffer : null;
+
   const supabase = await createClient();
   const { data: modeSettings } = await supabase
     .from("booking_settings")
@@ -58,6 +82,7 @@ export async function VrijTrainenView({
       isPaused={isPaused}
       requestedDate={requestedDate}
       switcher={switcher}
+      upfrontExtraOffer={upfrontExtraOffer}
     />
   );
 }
@@ -162,11 +187,13 @@ async function SlotBookingView({
   isPaused,
   requestedDate,
   switcher,
+  upfrontExtraOffer,
 }: {
   userId: string;
   isPaused: boolean;
   requestedDate: string | undefined;
   switcher: ReactNode;
+  upfrontExtraOffer: { priceCents: number } | null;
 }) {
   const supabase = await createClient();
   const [data, presenceRows] = await Promise.all([
@@ -199,14 +226,20 @@ async function SlotBookingView({
           </p>
         </div>
       ) : (
+        <>
+          {upfrontExtraOffer && (
+            <VrijTrainenNietInAbonnement priceCents={upfrontExtraOffer.priceCents} />
+          )}
         <SlotPicker
           data={data}
+          upfrontExtraOffer={upfrontExtraOffer}
           presence={{
             // COPY: confirm met Marlon
             name: "Marlon",
             rows: presenceRows,
           }}
         />
+        </>
       )}
     </>
   );

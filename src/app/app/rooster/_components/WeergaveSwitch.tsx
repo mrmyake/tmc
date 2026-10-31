@@ -3,8 +3,10 @@ import Link from "next/link";
 export type Weergave = "lessen" | "vrij";
 
 /**
- * Segmented control "Lessen | Vrij trainen". De keuze staat in de URL
- * (?weergave=vrij, afwezig is lessen) en de gekozen dag blijft behouden.
+ * Segmented control "Groepslessen | Vrij trainen", voor elk lid zichtbaar. De
+ * keuze staat in de URL (?weergave=lessen of ?weergave=vrij); beide zijn
+ * expliciet omdat de standaardtab per lid verschilt (rooster-weergave.ts). De
+ * gekozen dag blijft behouden.
  */
 export function WeergaveSwitch({
   active,
@@ -14,7 +16,7 @@ export function WeergaveSwitch({
   dag: string | undefined;
 }) {
   const dagQs = dag ? `dag=${encodeURIComponent(dag)}` : "";
-  const hrefLessen = dagQs ? `/app/rooster?${dagQs}` : "/app/rooster";
+  const hrefLessen = `/app/rooster?weergave=lessen${dagQs ? `&${dagQs}` : ""}`;
   const hrefVrij = `/app/rooster?weergave=vrij${dagQs ? `&${dagQs}` : ""}`;
 
   const base =
@@ -35,7 +37,7 @@ export function WeergaveSwitch({
         className={`${base} ${active === "lessen" ? on : off}`}
       >
         {/* COPY: confirm met Marlon */}
-        Lessen
+        Groepslessen
       </Link>
       <Link
         href={hrefVrij}

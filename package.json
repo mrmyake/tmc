@@ -58,6 +58,7 @@
     "test:waitlist-db": "node --import tsx --import ./scripts/waitlist/hooks.mjs --test scripts/waitlist/waitlist.db.test.mts",
     "test:last-minute-alerts": "node --import ./scripts/ts-loader.mjs --test scripts/last-minute-alerts/core.test.mts && node --import tsx --test scripts/last-minute-alerts/email.test.mts",
     "test:training-history": "node --import ./scripts/ts-loader.mjs --test scripts/training-history/*.test.mts",
+    "test:rooster-weergave": "node --import ./scripts/ts-loader.mjs --test scripts/rooster-weergave/*.test.mts",
     "test:workout-logging": "node --import ./scripts/ts-loader.mjs --test scripts/workout-logging/*.test.mts"
   },
   "dependencies": {

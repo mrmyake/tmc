@@ -43,8 +43,16 @@ type Message = { tone: "success" | "error"; text: string } | null;
 export function SlotPicker({
   data,
   presence,
+  upfrontExtraOffer = null,
 }: {
   data: VrijTrainenPickerData;
+  /**
+   * Abonnement zonder vrij trainen (scherm C): de server meldt vooraf dat
+   * bijkopen kan en wat het kost (extra_class_price). De footerknop start dan
+   * direct de extra-lescheckout, zonder eerst een gratis boekpoging. Het
+   * reactieve pad hieronder (res.extraClass) blijft als vangnet.
+   */
+  upfrontExtraOffer?: { priceCents: number } | null;
   /** De vensters komen uit tmc.trainer_presence_windows (enige bron). */
   presence: { name: string; rows: readonly PresenceWindow[] };
 }) {
@@ -265,7 +273,8 @@ export function SlotPicker({
                 summary={summary}
                 selection={footerSelection}
                 pending={pending}
-                onBook={book}
+                onBook={upfrontExtraOffer ? buyExtra : book}
+                extraPriceCents={upfrontExtraOffer?.priceCents ?? null}
               />
             </div>
           </aside>
@@ -297,7 +306,8 @@ export function SlotPicker({
                 summary={summary}
                 selection={footerSelection}
                 pending={pending}
-                onBook={book}
+                onBook={upfrontExtraOffer ? buyExtra : book}
+                extraPriceCents={upfrontExtraOffer?.priceCents ?? null}
               />
             </div>
           </div>

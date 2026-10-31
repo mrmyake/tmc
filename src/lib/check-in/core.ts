@@ -693,6 +693,9 @@ async function checkInForProfile(
       // houdt volledige toegang tot de cron op effective_date naar cancelled
       // flipt.
       .in("status", ["active", "paused", "cancellation_requested"]);
+    // covered_pillars is bij rittenkaarten bewust leeg (de dekking staat in
+    // tmc.plan_covers). Een gevulde kolom zou een rittenkaart hier als
+    // abonnement laten tellen, waarna er geen credit wordt afgeschreven.
     const covers = (memberships ?? []).find((m) =>
       (m.covered_pillars ?? []).includes(input.pillar),
     );
