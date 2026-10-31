@@ -96,11 +96,14 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
   // redenen (incl. "full", die wel klikbaar blijft) krijgen een lichtere,
   // minder "dode" demping zodat het verschil tussen "nu even niet" en
   // "structureel niet" ook zichtbaar is, niet alleen in de badge-tekst.
+  // Buiten het abonnement maar los te boeken (scherm B): geen gedempte rij,
+  // die is gewoon klikbaar.
+  const buyExtraOnly = session.status === "no_coverage" && canBuyExtra;
   const mutedStrong =
     session.status === "past" ||
     session.status === "cancelled" ||
     session.status === "ongoing" ||
-    isStructural;
+    (isStructural && !buyExtraOnly);
   const mutedWeak = session.status === "full" || isTemporaryReason;
 
   // Positief oplichten: geboekt en boekbaar-binnen-abonnement krijgen een
@@ -192,26 +195,27 @@ export function SessionRow({ session, onOpen }: SessionRowProps) {
         )}
       </span>
       <span className="flex flex-col items-end gap-1">
-        <StatusBadge
-          status={session.status}
-          spotsAvailable={
-            // Zelfde bron als de vol-status en de RPC-gate; ontbreekt de
-            // view-rij (race), val dan terug op volledige capaciteit.
-            session.capacity === null
-              ? null
-              : Math.max(0, session.spotsAvailable ?? session.capacity)
-          }
-          reasonText={session.reasonText}
-          // COPY: confirm met Marlon
-          cancelledLabel="Vervalt"
-        />
-        {/* Buiten het abonnement, wel los te boeken: de prijs staat er direct,
-            uit de server (spec-weekcap-extra-les.md), nooit client-side
-            berekend. */}
-        {session.status === "no_coverage" && canBuyExtra && (
-          <span className="text-xs font-semibold text-accent">
+        {/* Buiten het abonnement, wel los te boeken (scherm B): de prijs
+            staat er direct in plaats van "buiten abonnement", uit de server
+            (spec-weekcap-extra-les.md), nooit client-side berekend. */}
+        {buyExtraOnly ? (
+          <span className="text-sm font-semibold text-accent">
             {euroShort(session.extraClassPriceCents!)}
           </span>
+        ) : (
+          <StatusBadge
+            status={session.status}
+            spotsAvailable={
+              // Zelfde bron als de vol-status en de RPC-gate; ontbreekt de
+              // view-rij (race), val dan terug op volledige capaciteit.
+              session.capacity === null
+                ? null
+                : Math.max(0, session.spotsAvailable ?? session.capacity)
+            }
+            reasonText={session.reasonText}
+            // COPY: confirm met Marlon
+            cancelledLabel="Vervalt"
+          />
         )}
         {session.status === "open" && session.viaRitten && (
           <span className="text-[11px] text-text-muted">
