@@ -94,18 +94,37 @@ export function roundKg(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Een stap omhoog of omlaag, begrensd op 0 en MAX_WEIGHT_KG. */
-export function stepWeight(current: number | null, stepKg: number, direction: 1 | -1): number {
+/**
+ * Een stap op het raster van de stapgrootte (veelvouden van step vanaf 0).
+ * Staat de huidige waarde niet op het raster (bv. 42,5 bij stap 5), dan
+ * rondt de eerste tik af naar de dichtstbijzijnde rasterwaarde in die
+ * richting: + geeft 45, - geeft 40. Daarna gewone stappen. Geldt voor
+ * alle steppers (fix/workout-editor-details).
+ */
+export function stepOnGrid(current: number | null, step: number, direction: 1 | -1): number {
   const base = current ?? 0;
-  const next = roundKg(base + direction * stepKg);
+  const ratio = base / step;
+  const nearest = Math.round(ratio);
+  const onGrid = Math.abs(ratio - nearest) < 1e-9;
+  const nextRatio = onGrid
+    ? nearest + direction
+    : direction > 0
+      ? Math.ceil(ratio)
+      : Math.floor(ratio);
+  return roundKg(nextRatio * step);
+}
+
+/** Een stap omhoog of omlaag op het raster, begrensd op 0 en MAX_WEIGHT_KG. */
+export function stepWeight(current: number | null, stepKg: number, direction: 1 | -1): number {
+  const next = stepOnGrid(current, stepKg, direction);
   if (next < 0) return 0;
   if (next > MAX_WEIGHT_KG) return MAX_WEIGHT_KG;
   return next;
 }
 
-/** Een reps-stap, begrensd op 0 (0 = nog niets, de set kan dan niet afgevinkt worden). */
+/** Een reps-stap op het raster van 1, begrensd op 0 (0 = nog niets, de set kan dan niet afgevinkt worden). */
 export function stepReps(current: number | null, direction: 1 | -1): number {
-  const next = (current ?? 0) + direction;
+  const next = stepOnGrid(current, 1, direction);
   return next < 0 ? 0 : next;
 }
 

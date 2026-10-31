@@ -130,16 +130,20 @@ export function SetEditor({
               </span>
             )}
           </span>
+          {/* Kettlebell: geen stepper, alleen de chips hieronder. Het grote
+              getal blijft tikbaar voor een maat die er niet bij staat. */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              aria-label={COPY.minus}
-              onClick={() => onStepWeight(-1)}
-              disabled={disabled}
-              className={stepperButtonClass}
-            >
-              <Minus size={16} strokeWidth={1.8} />
-            </button>
+            {equipment !== "kettlebell" && (
+              <button
+                type="button"
+                aria-label={COPY.minus}
+                onClick={() => onStepWeight(-1)}
+                disabled={disabled}
+                className={stepperButtonClass}
+              >
+                <Minus size={16} strokeWidth={1.8} />
+              </button>
+            )}
             <div className="flex-1 flex items-baseline justify-center gap-1.5">
               <input
                 type="text"
@@ -156,15 +160,17 @@ export function SetEditor({
               />
               <span className="text-text-muted text-sm">kg</span>
             </div>
-            <button
-              type="button"
-              aria-label={COPY.plus}
-              onClick={() => onStepWeight(1)}
-              disabled={disabled}
-              className={stepperButtonClass}
-            >
-              <Plus size={16} strokeWidth={1.8} />
-            </button>
+            {equipment !== "kettlebell" && (
+              <button
+                type="button"
+                aria-label={COPY.plus}
+                onClick={() => onStepWeight(1)}
+                disabled={disabled}
+                className={stepperButtonClass}
+              >
+                <Plus size={16} strokeWidth={1.8} />
+              </button>
+            )}
           </div>
 
           {equipment === "barbell" && effective.weightKg !== null && (
