@@ -30,6 +30,8 @@ export interface ProgramExerciseRow {
   tempoPauseTop: number;
   restSeconds: number;
   notes: string | null;
+  /** Optioneel startgewicht van de coach (ghost value zonder historie). */
+  startWeightKg: number | null;
 }
 
 export interface ProgramDayRow {
@@ -115,7 +117,7 @@ export async function loadProgramDetail(
         days:program_days(
           id, day_number, label,
           exercises:program_exercises(
-            id, slot, exercise_id, sets, reps_min, reps_max,
+            id, slot, exercise_id, start_weight_kg, sets, reps_min, reps_max,
             tempo_eccentric, tempo_pause_bottom, tempo_concentric, tempo_pause_top,
             rest_seconds, notes,
             exercise:exercises(name, is_active)
@@ -135,6 +137,7 @@ export async function loadProgramDetail(
     id: string;
     slot: string;
     exercise_id: string;
+    start_weight_kg: number | string | null;
     sets: number;
     reps_min: number;
     reps_max: number;
@@ -185,6 +188,10 @@ export async function loadProgramDetail(
             tempoPauseTop: e.tempo_pause_top,
             restSeconds: e.rest_seconds,
             notes: e.notes,
+            startWeightKg:
+              e.start_weight_kg === null || e.start_weight_kg === undefined
+                ? null
+                : Number(e.start_weight_kg),
           };
         }),
     }));

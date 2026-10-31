@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEquipment, type Equipment } from "@/lib/equipment";
 import { requireAdmin } from "./require-admin";
 
 export type ExerciseActionResult =
@@ -26,6 +27,10 @@ interface UpsertInput {
   name: string;
   description?: string;
   videoUrl?: string;
+  /** Type materiaal; "" of undefined = nog niet ingedeeld (NULL). */
+  equipment?: string;
+  /** Stapgrootte in kg; null of undefined = standaard van het type (NULL). */
+  weightStepKg?: number | null;
 }
 
 export async function saveExercise(
@@ -57,12 +62,43 @@ export async function saveExercise(
     };
   }
 
+  const equipmentRaw = input.equipment?.trim() || null;
+  let equipment: Equipment | null = null;
+  if (equipmentRaw !== null) {
+    if (!isEquipment(equipmentRaw)) {
+      // COPY: confirm met Marlon
+      return { ok: false, message: "Kies een geldig type materiaal." };
+    }
+    equipment = equipmentRaw;
+  }
+
+  const weightStepKg = input.weightStepKg ?? null;
+  if (
+    weightStepKg !== null &&
+    (!Number.isFinite(weightStepKg) ||
+      weightStepKg <= 0 ||
+      weightStepKg > 99.99 ||
+      Math.round(weightStepKg * 100) !== weightStepKg * 100)
+  ) {
+    // COPY: confirm met Marlon
+    return {
+      ok: false,
+      message: "Stapgrootte: groter dan 0 en maximaal 99,99 kg, maximaal 2 decimalen.",
+    };
+  }
+
   const admin = createAdminClient();
 
   if (input.id) {
     const { error } = await admin
       .from("exercises")
-      .update({ name, description, video_url: videoUrl })
+      .update({
+        name,
+        description,
+        video_url: videoUrl,
+        equipment,
+        weight_step_kg: weightStepKg,
+      })
       .eq("id", input.id);
 
     if (error) {
@@ -84,7 +120,13 @@ export async function saveExercise(
 
   const { data, error } = await admin
     .from("exercises")
-    .insert({ name, description, video_url: videoUrl })
+    .insert({
+      name,
+      description,
+      video_url: videoUrl,
+      equipment,
+      weight_step_kg: weightStepKg,
+    })
     .select("id")
     .single();
 

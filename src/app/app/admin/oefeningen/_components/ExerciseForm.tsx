@@ -2,12 +2,26 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AdminField, AdminInput, AdminTextarea } from "@/components/ui/AdminField";
+import {
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  AdminTextarea,
+} from "@/components/ui/AdminField";
 import {
   saveExercise,
   type ExerciseActionResult,
 } from "@/lib/admin/exercises-actions";
 import type { ExerciseRow } from "@/lib/admin/exercises-query";
+import {
+  EQUIPMENT_LABEL,
+  EQUIPMENT_TYPES,
+  EQUIPMENT_UNKNOWN_LABEL,
+  defaultWeightStep,
+  formatKg,
+  isEquipment,
+} from "@/lib/equipment";
+import { formatWeightForInput, parseWeightInput } from "@/lib/member/workout-input";
 
 interface Props {
   existing: ExerciseRow | null;
@@ -21,15 +35,39 @@ export function ExerciseForm({ existing, onDone }: Props) {
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [videoUrl, setVideoUrl] = useState(existing?.videoUrl ?? "");
+  const [equipment, setEquipment] = useState<string>(existing?.equipment ?? "");
+  const [weightStep, setWeightStep] = useState(
+    existing?.weightStepKg === null || existing?.weightStepKg === undefined
+      ? ""
+      : formatWeightForInput(existing.weightStepKg),
+  );
+
+  const selectedEquipment = isEquipment(equipment) ? equipment : null;
+  const stepPlaceholder =
+    selectedEquipment === "kettlebell"
+      ? // COPY: confirm met Marlon
+        "Niet van toepassing (vaste maten)"
+      : `Standaard ${formatKg(defaultWeightStep(selectedEquipment))}`;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    const parsedStep = parseWeightInput(weightStep);
+    if (parsedStep.kind === "invalid" || parsedStep.kind === "incomplete") {
+      // COPY: confirm met Marlon
+      setResult({
+        ok: false,
+        message: "Stapgrootte: een getal in kg, komma of punt, maximaal 2 decimalen.",
+      });
+      return;
+    }
     startTransition(async () => {
       const res = await saveExercise({
         id: existing?.id,
         name,
         description,
         videoUrl,
+        equipment,
+        weightStepKg: parsedStep.kind === "valid" ? parsedStep.value : null,
       });
       setResult(res);
       if (res.ok) {
@@ -68,6 +106,39 @@ export function ExerciseForm({ existing, onDone }: Props) {
           required
         />
       </AdminField>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* COPY: confirm met Marlon */}
+        <AdminField
+          label="Type materiaal"
+          hint="Bepaalt de invoer in de workout: stepper, kettlebellmaten of alleen reps."
+        >
+          <AdminSelect value={equipment} onChange={(e) => setEquipment(e.target.value)}>
+            <option value="">{EQUIPMENT_UNKNOWN_LABEL}</option>
+            {EQUIPMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {EQUIPMENT_LABEL[t]}
+              </option>
+            ))}
+          </AdminSelect>
+        </AdminField>
+
+        {/* COPY: confirm met Marlon */}
+        <AdminField
+          label="Stapgrootte (kg)"
+          hint="Optioneel. Overschrijft de standaard van het type, bv. 2,5 voor een machine met kleine stappen."
+        >
+          <AdminInput
+            type="text"
+            inputMode="decimal"
+            value={weightStep}
+            onChange={(e) => setWeightStep(e.target.value)}
+            placeholder={stepPlaceholder}
+            disabled={selectedEquipment === "kettlebell"}
+            maxLength={6}
+          />
+        </AdminField>
+      </div>
 
       <AdminField label="Beschrijving" hint="Optioneel">
         <AdminTextarea

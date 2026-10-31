@@ -1224,26 +1224,32 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          equipment: string | null
           id: string
           is_active: boolean
           name: string
           video_url: string | null
+          weight_step_kg: number | null
         }
         Insert: {
           created_at?: string
           description?: string | null
+          equipment?: string | null
           id?: string
           is_active?: boolean
           name: string
           video_url?: string | null
+          weight_step_kg?: number | null
         }
         Update: {
           created_at?: string
           description?: string | null
+          equipment?: string | null
           id?: string
           is_active?: boolean
           name?: string
           video_url?: string | null
+          weight_step_kg?: number | null
         }
         Relationships: []
       }
@@ -2697,6 +2703,7 @@ export type Database = {
           rest_seconds: number
           sets: number
           slot: string
+          start_weight_kg: number | null
           tempo_concentric: number
           tempo_eccentric: number
           tempo_pause_bottom: number
@@ -2712,6 +2719,7 @@ export type Database = {
           rest_seconds: number
           sets: number
           slot: string
+          start_weight_kg?: number | null
           tempo_concentric: number
           tempo_eccentric: number
           tempo_pause_bottom: number
@@ -2727,6 +2735,7 @@ export type Database = {
           rest_seconds?: number
           sets?: number
           slot?: string
+          start_weight_kg?: number | null
           tempo_concentric?: number
           tempo_eccentric?: number
           tempo_pause_bottom?: number
@@ -3102,6 +3111,7 @@ export type Database = {
       }
       set_logs: {
         Row: {
+          completed_at: string | null
           exercise_id: string
           id: string
           notes: string | null
@@ -3109,9 +3119,11 @@ export type Database = {
           reps: number
           session_id: string
           set_number: number
+          source: string | null
           weight_kg: number
         }
         Insert: {
+          completed_at?: string | null
           exercise_id: string
           id?: string
           notes?: string | null
@@ -3119,9 +3131,11 @@ export type Database = {
           reps: number
           session_id: string
           set_number: number
+          source?: string | null
           weight_kg: number
         }
         Update: {
+          completed_at?: string | null
           exercise_id?: string
           id?: string
           notes?: string | null
@@ -3129,6 +3143,7 @@ export type Database = {
           reps?: number
           session_id?: string
           set_number?: number
+          source?: string | null
           weight_kg?: number
         }
         Relationships: [
@@ -4341,11 +4356,13 @@ export type Database = {
       }
       log_set: {
         Args: {
+          p_completed?: boolean
           p_notes?: string
           p_program_exercise_id: string
           p_reps: number
           p_session_id: string
           p_set_number: number
+          p_source?: string
           p_weight_kg: number
         }
         Returns: Json

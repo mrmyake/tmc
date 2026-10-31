@@ -9,8 +9,12 @@ import {
 } from "@/lib/member/workout-query";
 import { loadHistoryRows } from "@/lib/training-history/query";
 import { buildPreviousLogsByExercise } from "@/lib/training-history/aggregate";
-import type { PreviousExerciseLog } from "@/lib/training-history/types";
-import { WorkoutSessionClient } from "./_components/WorkoutSessionClient";
+import { buildGhostSets, daysBetweenAmsterdam } from "@/lib/member/workout-ghost";
+import {
+  WorkoutSessionClient,
+  type ExerciseGhosts,
+  type PreviousSessionInfo,
+} from "./_components/WorkoutSessionClient";
 
 export const metadata = {
   title: "Workout | The Movement Club",
@@ -40,23 +44,56 @@ export default async function WorkoutPage(props: {
     loadHistoryRows(supabase),
   ]);
 
-  // Weergave 1 matcht op exercise_id (niet program_exercise_id): de
+  // "Vorige keer" matcht op exercise_id (niet program_exercise_id): de
   // referentie blijft zo staan als Marlon het schema dupliceert naar een
-  // nieuwe versie, zie training-history/aggregate.ts.
+  // nieuwe versie. tmc.set_log_history bevat sinds 20261031120000 alleen
+  // afgevinkte sets, dus een ghost value komt altijd uit een echt gedane
+  // set. Zonder historie: startgewicht van de coach en reps_min.
   const previousByExercise = buildPreviousLogsByExercise(historyRows);
-  const previousLogs: Record<string, PreviousExerciseLog> = {};
+  const ghostsByExercise: Record<string, ExerciseGhosts> = {};
+  let latestPrevious: string | null = null;
   for (const ex of day.exercises) {
     const prev = previousByExercise.get(ex.exerciseId);
-    if (prev) previousLogs[ex.id] = prev;
+    ghostsByExercise[ex.id] = {
+      ghosts: buildGhostSets(
+        {
+          sets: ex.sets,
+          repsMin: ex.repsMin,
+          startWeightKg: ex.startWeightKg,
+          equipment: ex.equipment,
+        },
+        prev?.sets ?? null,
+      ),
+      previous: prev
+        ? {
+            startedAt: prev.startedAt,
+            programVersion: prev.programVersion,
+            isArchivedVersion: prev.isArchivedVersion,
+          }
+        : null,
+    };
+    if (prev && (!latestPrevious || prev.startedAt > latestPrevious)) {
+      latestPrevious = prev.startedAt;
+    }
   }
 
+  // Dagen geleden hier op de server berekend (force-dynamic), zodat de
+  // client bij hydration dezelfde tekst toont.
+  const previousSession: PreviousSessionInfo | null = latestPrevious
+    ? {
+        startedAt: latestPrevious,
+        daysAgo: daysBetweenAmsterdam(new Date(latestPrevious), new Date()),
+      }
+    : null;
+
   return (
-    <Container className="py-16 md:py-20 max-w-3xl">
+    <Container className="py-10 md:py-20 max-w-3xl">
       <WorkoutSessionClient
         day={day}
         initialSessionId={openSession?.id ?? null}
         initialLoggedSets={loggedSets}
-        previousLogs={previousLogs}
+        ghostsByExercise={ghostsByExercise}
+        previousSession={previousSession}
       />
     </Container>
   );
