@@ -51,7 +51,7 @@ interface Props {
 }
 
 const stepperButtonClass =
-  "inline-flex items-center justify-center size-11 rounded-[4px] border border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent active:scale-[0.97] transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
+  "inline-flex shrink-0 items-center justify-center size-11 rounded-[4px] border border-[color:var(--ink-500)] text-text hover:border-accent hover:text-accent active:scale-[0.97] transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
 
 /**
  * Inline editor onder een setrij. De gewichtsinvoer hangt af van het type
@@ -150,7 +150,7 @@ export function SetEditor({
                 disabled={disabled}
                 onChange={(e) => onWeightChange(e.target.value)}
                 onBlur={onBlur}
-                className={`w-28 bg-transparent text-center font-[family-name:var(--font-playfair)] text-4xl leading-none tracking-[-0.02em] outline-none border-b border-transparent focus:border-accent ${
+                className={`w-28 min-w-0 bg-transparent text-center font-[family-name:var(--font-playfair)] text-4xl leading-none tracking-[-0.02em] outline-none border-b border-transparent focus:border-accent ${
                   weightRaw === "" ? "text-text-muted" : "text-text"
                 }`}
               />
@@ -218,19 +218,25 @@ export function SetEditor({
           >
             <Minus size={16} strokeWidth={1.8} />
           </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label={`Set ${setNumber} reps`}
-            value={repsDisplay}
-            disabled={disabled}
-            onChange={(e) => onRepsChange(e.target.value)}
-            onBlur={onBlur}
-            className={`flex-1 bg-transparent text-center font-[family-name:var(--font-playfair)] text-4xl leading-none tracking-[-0.02em] outline-none border-b border-transparent focus:border-accent ${
-              repsRaw === "" ? "text-text-muted" : "text-text"
-            }`}
-          />
+          {/* Zelfde opbouw als het gewicht: een vaste breedte in een
+              flex-1 wrapper. Een kaal flex-1 input dwingt zijn
+              intrinsieke breedte af en drukt op 390px de stepperknoppen
+              uit beeld (browsercheck PR #328). */}
+          <div className="flex-1 flex items-baseline justify-center">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label={`Set ${setNumber} reps`}
+              value={repsDisplay}
+              disabled={disabled}
+              onChange={(e) => onRepsChange(e.target.value)}
+              onBlur={onBlur}
+              className={`w-24 min-w-0 bg-transparent text-center font-[family-name:var(--font-playfair)] text-4xl leading-none tracking-[-0.02em] outline-none border-b border-transparent focus:border-accent ${
+                repsRaw === "" ? "text-text-muted" : "text-text"
+              }`}
+            />
+          </div>
           <button
             type="button"
             aria-label={COPY.plus}
