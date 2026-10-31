@@ -1,11 +1,18 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { isEquipment, type Equipment } from "@/lib/equipment";
 
 export interface WorkoutExercise {
   id: string;
   slot: string;
   exerciseId: string;
   exerciseName: string;
+  /** Type materiaal uit tmc.exercises; null = nog niet ingedeeld. */
+  equipment: Equipment | null;
+  /** Stapgrootte van de coach (tmc.exercises.weight_step_kg); null = standaard van het type. */
+  weightStepKg: number | null;
+  /** Startgewicht van de coach (program_exercises.start_weight_kg); ghost zonder historie. */
+  startWeightKg: number | null;
   sets: number;
   repsMin: number;
   repsMax: number;
@@ -30,12 +37,16 @@ export interface LoggedSet {
   weightKg: number;
   reps: number;
   notes: string | null;
+  /** null = draft (waarden bewaard, set niet afgevinkt). */
+  completedAt: string | null;
+  source: "previous" | "edited" | null;
 }
 
 type RawExercise = {
   id: string;
   slot: string;
   exercise_id: string;
+  start_weight_kg: number | string | null;
   sets: number;
   reps_min: number;
   reps_max: number;
@@ -45,8 +56,20 @@ type RawExercise = {
   tempo_pause_top: number;
   rest_seconds: number;
   notes: string | null;
-  exercise: { name: string } | { name: string }[] | null;
+  exercise: RawExerciseRef | RawExerciseRef[] | null;
 };
+
+type RawExerciseRef = {
+  name: string;
+  equipment: string | null;
+  weight_step_kg: number | string | null;
+};
+
+function numOrNull(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 /**
  * Dag + oefeningen voor de workout-flow. RLS (program_days_self_active_read
@@ -62,10 +85,10 @@ export async function loadDayForMember(dayId: string): Promise<WorkoutDay | null
       `
         id, day_number, label,
         exercises:program_exercises(
-          id, slot, exercise_id, sets, reps_min, reps_max,
+          id, slot, exercise_id, start_weight_kg, sets, reps_min, reps_max,
           tempo_eccentric, tempo_pause_bottom, tempo_concentric, tempo_pause_top,
           rest_seconds, notes,
-          exercise:exercises(name)
+          exercise:exercises(name, equipment, weight_step_kg)
         )
       `,
     )
@@ -88,6 +111,9 @@ export async function loadDayForMember(dayId: string): Promise<WorkoutDay | null
         slot: e.slot,
         exerciseId: e.exercise_id,
         exerciseName: ex?.name ?? "Onbekende oefening",
+        equipment: isEquipment(ex?.equipment) ? ex.equipment : null,
+        weightStepKg: numOrNull(ex?.weight_step_kg),
+        startWeightKg: numOrNull(e.start_weight_kg),
         sets: e.sets,
         repsMin: e.reps_min,
         repsMax: e.reps_max,
@@ -139,7 +165,7 @@ export async function loadLoggedSetsForSession(
 
   const { data, error } = await supabase
     .from("set_logs")
-    .select("program_exercise_id, set_number, weight_kg, reps, notes")
+    .select("program_exercise_id, set_number, weight_kg, reps, notes, completed_at, source")
     .eq("session_id", sessionId);
 
   if (error) {
@@ -153,5 +179,7 @@ export async function loadLoggedSetsForSession(
     weightKg: Number(r.weight_kg),
     reps: r.reps,
     notes: r.notes,
+    completedAt: r.completed_at,
+    source: r.source === "previous" || r.source === "edited" ? r.source : null,
   }));
 }

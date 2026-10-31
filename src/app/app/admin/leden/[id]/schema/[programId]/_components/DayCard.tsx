@@ -15,6 +15,7 @@ import {
 import { AdminInput } from "@/components/ui/AdminField";
 import { tempoNotation } from "@/lib/training-tempo";
 import { ALL_SLOTS } from "@/lib/training-slots";
+import { formatKg } from "@/lib/equipment";
 import { ExerciseSlotForm } from "./ExerciseSlotForm";
 import type { ExerciseOption } from "./ProgramBuilder";
 
@@ -142,6 +143,7 @@ export function DayCard({ day, editable, exerciseOptions }: Props) {
                   <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Reps</th>
                   <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Tempo</th>
                   <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Rust</th>
+                  <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Start</th>
                   <th scope="col" className="py-2 pr-4 tmc-eyebrow font-normal">Notitie</th>
                   {editable && <th scope="col" className="py-2" />}
                 </tr>
@@ -182,6 +184,9 @@ export function DayCard({ day, editable, exerciseOptions }: Props) {
                     </td>
                     <td className="py-3 pr-4 tabular-nums text-text">
                       {row.restSeconds}s
+                    </td>
+                    <td className="py-3 pr-4 tabular-nums text-text">
+                      {row.startWeightKg === null ? "" : `${formatKg(row.startWeightKg)} kg`}
                     </td>
                     <td className="py-3 pr-4 text-text-muted max-w-[240px] truncate">
                       {row.notes ?? ""}

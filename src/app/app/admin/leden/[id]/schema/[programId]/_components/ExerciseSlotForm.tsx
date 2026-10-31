@@ -7,6 +7,7 @@ import { saveProgramExercise } from "@/lib/admin/training-programs-actions";
 import { AdminField, AdminInput, AdminSelect } from "@/components/ui/AdminField";
 import { ALL_SLOTS, FIRST_SLOT } from "@/lib/training-slots";
 import { parseTempoInput, tempoDigit, tempoNotation } from "@/lib/training-tempo";
+import { formatWeightForInput, parseWeightInput } from "@/lib/member/workout-input";
 import type { ExerciseOption } from "./ProgramBuilder";
 
 
@@ -49,6 +50,11 @@ export function ExerciseSlotForm({
   );
   const [rest, setRest] = useState(String(existing?.restSeconds ?? 90));
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [startWeight, setStartWeight] = useState(
+    existing?.startWeightKg === null || existing?.startWeightKg === undefined
+      ? ""
+      : formatWeightForInput(existing.startWeightKg),
+  );
 
   const tempoValues = [tEcc, tBottom, tCon, tTop].map(parseTempoInput);
   const tempoValid = tempoValues.every((v) => v !== null);
@@ -68,9 +74,16 @@ export function ExerciseSlotForm({
       setError("Tempo: gebruik cijfers of X (X betekent explosief).");
       return;
     }
+    const parsedStart = parseWeightInput(startWeight);
+    if (parsedStart.kind === "invalid" || parsedStart.kind === "incomplete") {
+      // COPY: confirm met Marlon
+      setError("Startgewicht: 0 tot 999,99 kg, komma of punt, maximaal 2 decimalen.");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await saveProgramExercise({
+        startWeightKg: parsedStart.kind === "valid" ? parsedStart.value : null,
         id: existing?.id,
         dayId,
         slot,
@@ -238,6 +251,20 @@ export function ExerciseSlotForm({
             value={rest}
             onChange={(e) => setRest(e.target.value)}
             required
+          />
+        </AdminField>
+        {/* COPY: confirm met Marlon */}
+        <AdminField
+          label="Startgewicht (kg)"
+          hint="Optioneel. Ghost value in de workout zolang het lid deze oefening nog niet heeft afgevinkt."
+        >
+          <AdminInput
+            type="text"
+            inputMode="decimal"
+            value={startWeight}
+            onChange={(e) => setStartWeight(e.target.value)}
+            placeholder="bv. 40"
+            maxLength={7}
           />
         </AdminField>
       </div>

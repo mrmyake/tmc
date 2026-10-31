@@ -336,12 +336,26 @@ interface SaveExerciseInput {
   tempoPauseTop: number;
   restSeconds: number;
   notes: string;
+  /** Optioneel startgewicht in kg; null = geen. */
+  startWeightKg: number | null;
 }
 
 function validateExerciseInput(
   input: SaveExerciseInput,
 ): { ok: true } | { ok: false; message: string } {
   // COPY: confirm met Marlon (alle meldingen hieronder)
+  if (
+    input.startWeightKg !== null &&
+    (!Number.isFinite(input.startWeightKg) ||
+      input.startWeightKg < 0 ||
+      input.startWeightKg > 999.99 ||
+      Math.round(input.startWeightKg * 100) !== input.startWeightKg * 100)
+  ) {
+    return {
+      ok: false,
+      message: "Startgewicht: 0 tot 999,99 kg, maximaal 2 decimalen.",
+    };
+  }
   if (!ALL_SLOTS.includes(input.slot)) {
     return { ok: false, message: `Kies een geldig slot (${FIRST_SLOT} t/m ${LAST_SLOT}).` };
   }
@@ -425,6 +439,7 @@ export async function saveProgramExercise(
     tempo_pause_top: input.tempoPauseTop,
     rest_seconds: input.restSeconds,
     notes: input.notes.trim() || null,
+    start_weight_kg: input.startWeightKg,
   };
 
   const result = input.id

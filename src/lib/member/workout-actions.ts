@@ -24,6 +24,7 @@ const LOG_SET_REASON_COPY: Record<string, string> = {
   exercise_not_in_session: "Deze oefening hoort niet bij deze workout.",
   set_number_out_of_range: "Ongeldig setnummer voor deze oefening.",
   invalid_values: "Vul een geldig gewicht en aantal reps in.",
+  invalid_source: "Set loggen lukte niet. Probeer het opnieuw.",
 };
 
 // COPY: confirm met Marlon
@@ -71,12 +72,21 @@ export async function startWorkoutSession(
   return { ok: true, sessionId: result.session_id as string };
 }
 
+/**
+ * Upsert van een set (tmc.log_set, migratie 20261031120000). `completed`
+ * true = afgevinkt (completed_at, telt mee in de historie), false = draft
+ * (completed_at NULL, waarden bewaard, nooit in de historie). `source`
+ * zegt of de afgevinkte waarden gelijk zijn aan de ghost value
+ * ('previous') of afwijken ('edited'); zie src/lib/member/workout-ghost.ts.
+ */
 export async function logSet(input: {
   sessionId: string;
   programExerciseId: string;
   setNumber: number;
   weightKg: number;
   reps: number;
+  completed: boolean;
+  source: "previous" | "edited" | null;
   notes?: string;
 }): Promise<LogSetResult> {
   const supabase = await createClient();
@@ -92,6 +102,8 @@ export async function logSet(input: {
     p_weight_kg: input.weightKg,
     p_reps: input.reps,
     p_notes: input.notes ?? null,
+    p_completed: input.completed,
+    p_source: input.source,
   });
 
   if (rpcResult.error) {

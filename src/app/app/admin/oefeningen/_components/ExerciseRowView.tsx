@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, EyeOff, Eye, Video } from "lucide-react";
 import { setExerciseActive } from "@/lib/admin/exercises-actions";
 import type { ExerciseRow } from "@/lib/admin/exercises-query";
+import { EQUIPMENT_LABEL, formatKg } from "@/lib/equipment";
 
 interface Props {
   row: ExerciseRow;
@@ -36,6 +37,17 @@ export function ExerciseRowView({ row, onEdit }: Props) {
         <h3 className="text-text text-base font-medium tracking-[-0.01em]">
           {row.name}
         </h3>
+        {row.equipment ? (
+          <span className="text-[10px] uppercase tracking-[0.16em] text-text-muted">
+            {EQUIPMENT_LABEL[row.equipment]}
+            {row.weightStepKg !== null && ` · stap ${formatKg(row.weightStepKg)} kg`}
+          </span>
+        ) : (
+          <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--warning)]">
+            {/* COPY: confirm met Marlon */}
+            Type materiaal nog niet ingedeeld
+          </span>
+        )}
         {!row.isActive && (
           <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--danger)]">
             {/* COPY: confirm met Marlon */}
