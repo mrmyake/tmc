@@ -10,6 +10,8 @@ export interface TrialSessionOption {
   endAt: string;
   pillar: string;
   pillarLabel: string;
+  /** tmc.class_types.id; voor de voorselectie vanuit de yoga-quiz (?les=). */
+  classTypeId: string;
   className: string;
   trainerName: string;
   /** NULL betekent onbeperkt (alleen kettlebell). */
@@ -28,6 +30,7 @@ type SessionRow = {
   start_at: string;
   end_at: string;
   pillar: string;
+  class_type_id: string;
   class_type: { name: string } | null;
   trainer: { display_name: string } | null;
 };
@@ -69,7 +72,7 @@ export async function getTrialSessionOptions(
     .from("class_sessions")
     .select(
       `
-        id, start_at, end_at, pillar,
+        id, start_at, end_at, pillar, class_type_id,
         class_type:class_types(name),
         trainer:trainers(display_name)
       `,
@@ -113,6 +116,7 @@ export async function getTrialSessionOptions(
         endAt: s.end_at,
         pillar: s.pillar,
         pillarLabel: PILLAR_LABELS[s.pillar as Pillar] ?? s.pillar,
+        classTypeId: s.class_type_id,
         className: s.class_type?.name ?? "Sessie",
         trainerName: s.trainer?.display_name ?? "coach",
         spotsAvailable: spots === undefined ? 0 : spots,

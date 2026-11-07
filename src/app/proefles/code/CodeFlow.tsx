@@ -34,6 +34,7 @@ export function CodeFlow({
   soort = null,
   initialCode = "",
   attribution = {},
+  preselectedSessionId = null,
 }: {
   options: TrialSessionOption[];
   /** Alleen bij scope vrij trainen (of all met soort vrij): dagstrip en kwartieren voor de slotkiezer. */
@@ -46,6 +47,8 @@ export function CodeFlow({
   initialCode?: string;
   /** Advertentie- en campagneparameters uit de URL; reizen mee in de dagstrip en de boeking. */
   attribution?: AttributionParams;
+  /** Voorgeselecteerde sessie (yoga-quiz, ?les=); de bezoeker kiest vrij een andere. */
+  preselectedSessionId?: string | null;
 }) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
@@ -113,6 +116,7 @@ export function CodeFlow({
       codeInfo={{ code, scope, onChangeCode: () => setForceEntry(true) }}
       onCodeInvalid={invalid}
       attribution={attribution}
+      initialSelectedId={preselectedSessionId}
     />
   );
 }

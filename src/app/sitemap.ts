@@ -28,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/yoga`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${BASE_URL}/yoga/docenten`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/yoga/rooster`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/welke-yoga-past-bij-jou`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
   ];
 
   // Dynamische yoga-routes uit Sanity (alleen docs met een ingevulde slug;

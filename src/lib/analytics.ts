@@ -20,6 +20,8 @@
  * `payment_start` (herziening volgt).
  */
 
+import { hasConsent } from "@/lib/consent";
+
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
@@ -88,6 +90,45 @@ export const trackFormStart = (formName: string) => {
     event_category: "engagement",
     event_label: formName,
   });
+};
+
+// ---- Yoga-quiz (/welke-yoga-past-bij-jou) ----
+
+/**
+ * De vier quiz-events sturen uitsluitend na toestemming in de cookiebanner
+ * (hasConsent), strenger dan Consent Mode, dat bij "denied" nog cookieloze
+ * pings toelaat. Ze hangen alle vier aan een klik of submit, nooit aan een
+ * mount. Geen bedragen, geen persoonsgegevens: de parameters zijn de
+ * uitkomstsleutel (v, p, ym, y, r, n) en een boolean.
+ */
+function trackQuizEvent(eventName: string, params: EventParams): void {
+  try {
+    if (!hasConsent()) return;
+  } catch {
+    // localStorage geblokkeerd (privemodus): zonder bevestigde toestemming niet sturen.
+    return;
+  }
+  trackEvent(eventName, { event_category: "yoga_test", ...params });
+}
+
+/** Klik op "Start de test". */
+export const trackYogaTestStart = (): void => {
+  trackQuizEvent("yoga_test_start", {});
+};
+
+/** Laatste vraag beantwoord; result is de uitkomstsleutel. */
+export const trackYogaTestComplete = (result: string): void => {
+  trackQuizEvent("yoga_test_complete", { result });
+};
+
+/** Klik op een boekknop op de uitslag; target is "code", "betaald" of "bellen". */
+export const trackYogaTestBookClick = (result: string, target: string): void => {
+  trackQuizEvent("yoga_test_book_click", { result, target });
+};
+
+/** Submit van het mailblok; opt_in is of de tips-aanmelding is aangevinkt. */
+export const trackYogaTestEmailSubmit = (result: string, optIn: boolean): void => {
+  trackQuizEvent("yoga_test_email_submit", { result, opt_in: optIn });
 };
 
 // ---- Abonnement-configurator (/abonnement) ----

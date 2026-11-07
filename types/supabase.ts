@@ -3040,6 +3040,27 @@ export type Database = {
           },
         ]
       }
+      rate_limit_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          key: string
+          scope: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          key: string
+          scope: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          key?: string
+          scope?: string
+        }
+        Relationships: []
+      }
       schedule_templates: {
         Row: {
           blocks_free_training: boolean
@@ -4437,6 +4458,16 @@ export type Database = {
         Returns: Json
       }
       register_opening_trial_attempt: { Args: { p_ip: string }; Returns: Json }
+      register_rate_limited_attempt: {
+        Args: {
+          p_key: string
+          p_lock: string
+          p_max: number
+          p_scope: string
+          p_window: string
+        }
+        Returns: boolean
+      }
       register_trial_code_attempt: { Args: { p_ip: string }; Returns: Json }
       register_trial_code_failure: { Args: { p_ip: string }; Returns: Json }
       replace_checkout_intent_payment: {

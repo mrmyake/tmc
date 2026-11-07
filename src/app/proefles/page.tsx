@@ -34,5 +34,14 @@ export default async function ProeflesPage(props: {
   // als hij nu bruikbaar is, met zijn einddatum. Null = de kaart "Ik heb een
   // code" toont de gewone tekst.
   const promotedCode = await lookupPromotedTrialCode();
-  return <ProeflesChoice attribution={attribution} promotedCode={promotedCode} />;
+  // ?kaart=bellen opent direct de kaart "Liever gebeld worden" (doorlink van
+  // de yoga-quiz); de drie kaarten zelf blijven ongewijzigd.
+  const kaart = Array.isArray(sp.kaart) ? sp.kaart[0] : sp.kaart;
+  return (
+    <ProeflesChoice
+      attribution={attribution}
+      promotedCode={promotedCode}
+      initialChoice={kaart === "bellen" ? "call" : "none"}
+    />
+  );
 }

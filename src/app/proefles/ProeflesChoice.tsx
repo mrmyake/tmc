@@ -35,11 +35,14 @@ import { promotedCodeText, type PromotedTrialCode } from "@/lib/trial-codes/prom
 export function ProeflesChoice({
   attribution = {},
   promotedCode = null,
+  initialChoice = "none",
 }: {
   attribution?: AttributionParams;
   promotedCode?: PromotedTrialCode | null;
+  /** "call" opent de kaart "Liever gebeld worden" direct (?kaart=bellen). */
+  initialChoice?: "none" | "call";
 }) {
-  const [choice, setChoice] = useState<"none" | "call">("none");
+  const [choice, setChoice] = useState<"none" | "call">(initialChoice);
   const codeHref = promotedCode
     ? `/proefles/code?code=${encodeURIComponent(promotedCode.code)}`
     : "/proefles/code";

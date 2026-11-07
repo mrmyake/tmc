@@ -44,6 +44,7 @@
     "test:vrij-trainen": "node --import ./scripts/ts-loader.mjs --test scripts/vrij-trainen/*.test.mts",
     "test:trial-vrij-trainen-db": "scripts/test-trial-vrij-trainen-db.sh",
     "test:trial-vrij-trainen-race": "scripts/test-trial-vrij-trainen-race.sh",
+    "test:yoga-test": "node --import ./scripts/ts-loader.mjs --test scripts/yoga-test/quiz.test.mts && node --import tsx --test scripts/yoga-test/email.test.mts",
     "test:opening-trial": "node --import ./scripts/ts-loader.mjs --test scripts/opening-trial/rules.test.mts scripts/opening-trial/trial-core.test.mts && node --import tsx --test scripts/opening-trial/emails.test.mts",
     "test:opening-trial-db": "scripts/test-opening-trial-db.sh",
     "test:attribution": "node --import ./scripts/ts-loader.mjs --test scripts/attribution/*.test.mts",
