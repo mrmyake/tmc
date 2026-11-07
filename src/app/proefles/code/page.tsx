@@ -5,6 +5,7 @@ import { lookupUsableTrialCodeScope } from "@/lib/trial-codes/lookup";
 import { loadVisitorSlotPicker } from "@/lib/trial-codes/vrij-trainen-query";
 import { resolveAttribution } from "@/lib/attribution/params";
 import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
+import { pickPreselectedSessionId } from "@/lib/yoga-test/preselect";
 import { CodeFlow, type CodeSoort } from "./CodeFlow";
 
 // Title zonder merknaam: de layout-template (%s | The Movement Club) voegt die toe.
@@ -60,8 +61,15 @@ export default async function TrialCodePage(props: {
     showList && scope ? getTrialSessionOptions({ withPrices: false, scope }) : Promise.resolve([]),
     showSlots ? loadVisitorSlotPicker(dag) : Promise.resolve(null),
   ]);
+  // Voorselectie vanuit de yoga-quiz (?les=<class_type_id>&tijd=...); alleen
+  // zinvol als de sessielijst getoond wordt.
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const preselectedSessionId = showList
+    ? pickPreselectedSessionId(options, first(sp.les), first(sp.tijd))
+    : null;
   return (
     <CodeFlow
+      preselectedSessionId={preselectedSessionId}
       options={options}
       slotData={slotData}
       code={scope ? code : null}

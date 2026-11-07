@@ -44,6 +44,12 @@ interface Props {
    * action-input en worden server-side opnieuw gevalideerd.
    */
   attribution?: AttributionParams;
+  /**
+   * Sessie die bij het openen al gekozen is (voorselectie vanuit de
+   * yoga-quiz, spec-yoga-test.md). De bezoeker kan altijd een andere kiezen;
+   * een id dat niet in de lijst staat doet niets.
+   */
+  initialSelectedId?: string | null;
 }
 
 export function TrialBookingList({
@@ -53,13 +59,14 @@ export function TrialBookingList({
   codeInfo,
   embedded = false,
   attribution = {},
+  initialSelectedId = null,
 }: Props) {
   const isCode = mode === "code";
   const isFree = mode === "free";
   const showPrices = mode === "paid";
   const [options, setOptions] = useState(initialOptions);
   const [notice, setNotice] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
