@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getCatalogue } from "@/lib/catalogue";
+import { resolveAttribution } from "@/lib/attribution/params";
+import { getSiteImages } from "../../../sanity/lib/fetch";
 import { TwaalfWekenProgrammaContent } from "./TwaalfWekenProgrammaContent";
 
 // Noodgreep, alleen gebruikt als de catalogus-fetch faalt. Moet gelijk
@@ -19,11 +21,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function TwaalfWekenProgrammaPage() {
-  const catalogue = await getCatalogue();
+// Dynamisch vanwege de campagneparameters (gclid, utm_*) in searchParams: ze
+// reizen alleen via de URL en de interne links mee naar de intake
+// (spec-marketing-attribution.md), zonder cookie of web storage.
+export const dynamic = "force-dynamic";
+
+export default async function TwaalfWekenProgrammaPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await props.searchParams;
+  const attribution = resolveAttribution(sp, "/12-weken-programma");
+  const [catalogue, images] = await Promise.all([
+    getCatalogue(),
+    getSiteImages(),
+  ]);
 
   return (
     <TwaalfWekenProgrammaContent
+      attribution={attribution}
+      marlonImage={images.overMarlon}
       studioPriceCents={
         catalogue.get("program_studio_12w")?.price_cents ??
         FALLBACK_STUDIO_CENTS

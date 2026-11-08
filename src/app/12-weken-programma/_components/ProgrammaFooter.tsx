@@ -4,7 +4,7 @@ import { SITE } from "@/lib/constants";
 /**
  * Eigen footer voor /12-weken-programma (en /intake): alleen merk, adres en
  * de gezondheidsdisclaimer, zoals in de mockup. Bewust geen 3-koloms
- * nav-footer van de rest van de site — die hoort niet bij deze losse,
+ * nav-footer van de rest van de site, die hoort niet bij deze losse,
  * funnel-achtige pagina.
  */
 export function ProgrammaFooter() {

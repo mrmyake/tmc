@@ -42,7 +42,7 @@ export function TestimonialCarousel() {
   }, []);
 
   // De react-google-reviews library rendert eigen Previous/Next-buttons
-  // en avatar <img>s zonder labels/alt. We patchen de DOM na mount —
+  // en avatar <img>s zonder labels/alt. We patchen de DOM na mount;
   // MutationObserver re-apply't bij slide-change.
   useEffect(() => {
     if (!shouldMount || !ref.current) return;
@@ -111,7 +111,7 @@ export function TestimonialCarousel() {
         <ScrollReveal delay={0.3}>
           <div className="text-center mt-10">
             <QuietLink
-              href="https://www.google.com/maps/place/PT+Loosdrecht/"
+              href="https://www.google.com/maps/place/?q=place_id:ChIJk23aIbVtxkcRIXOl7QEbH9U"
               external
             >
               Bekijk alle reviews op Google
@@ -125,7 +125,7 @@ export function TestimonialCarousel() {
 
 /**
  * Editorial skeleton die het review-blok reserveert vóór de Featurable
- * widget mount. Houdt de layout stabiel — geen CLS bij scroll-in.
+ * widget mount. Houdt de layout stabiel, geen CLS bij scroll-in.
  */
 function ReviewsSkeleton() {
   return (

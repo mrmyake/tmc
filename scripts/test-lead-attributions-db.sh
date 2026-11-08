@@ -76,8 +76,10 @@ select pg_temp.check_('j zelfde id als ander brontype is wel een eigen rij',
 -- Constraints
 select pg_temp.check_('c zonder enige parameter geweigerd (23514)',
   pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, landing_path, analytics_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', '/proefles', 'granted')$q$) = '23514');
-select pg_temp.check_('source_type buiten de twee waarden geweigerd',
+select pg_temp.check_('source_type buiten de drie waarden geweigerd',
   pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid) values ('order', gen_random_uuid(), 'x@test.invalid', 'x')$q$) = '23514');
+select pg_temp.check_('source_type programma_intake geaccepteerd (geen brontabel)',
+  pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid) values ('programma_intake', gen_random_uuid(), 'x@test.invalid', 'x')$q$) = 'geen fout');
 select pg_temp.check_('analytics_consent buiten de drie waarden geweigerd',
   pg_temp.fails($q$insert into tmc.lead_attributions (source_type, source_id, email, gclid, analytics_consent) values ('trial_request', gen_random_uuid(), 'x@test.invalid', 'x', 'yes')$q$) = '23514');
 select pg_temp.check_('e-mail met hoofdletters geweigerd',

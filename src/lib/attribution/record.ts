@@ -3,14 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitizeLeadAttribution } from "./params";
 
-export type LeadSourceType = "trial_booking" | "trial_request";
+export type LeadSourceType = "trial_booking" | "trial_request" | "programma_intake";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_MAX = 254;
 
 export interface RecordLeadAttributionArgs {
   sourceType: LeadSourceType;
-  /** Id van de trial_booking of trial_request die net is aangemaakt. */
+  /** Id van de trial_booking of trial_request die net is aangemaakt; bij programma_intake een willekeurige uuid (idempotentiesleutel). */
   sourceId: string;
   email: string;
   /** Wat de client meestuurde (action-input of JSON-body); wordt hier opnieuw gevalideerd. */

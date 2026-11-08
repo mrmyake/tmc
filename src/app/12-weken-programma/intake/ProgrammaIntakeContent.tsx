@@ -8,8 +8,9 @@ import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
-import { trackFormStart, trackLead } from "@/lib/analytics";
-import { getStoredUtm } from "@/lib/utm";
+import { trackFormStart, trackProgrammaIntake } from "@/lib/analytics";
+import type { AttributionParams } from "@/lib/attribution/params";
+import { leadAttributionForSubmit } from "@/lib/attribution/consent";
 
 function SelectChevron() {
   return (
@@ -25,8 +26,7 @@ function SelectChevron() {
 /**
  * Aanvraagformulier achter beide CTA's op /12-weken-programma ("Plan je
  * intake" en "Liever gebeld worden"). Simpel lead-intake patroon: MailerLite
- * upsert + interne ntfy-melding naar Marlon, geen Supabase, geen
- * boekingssysteem. Veldset bewust beperkt (geen tijdstip/ervaring/doelen):
+ * upsert + interne ntfy-melding naar Marlon, geen boekingssysteem. Veldset bewust beperkt (geen tijdstip/ervaring/doelen):
  * voornaam, achternaam, e-mail, telefoon, voorkeursdag, optioneel bericht,
  * zoals afgesproken.
  *
@@ -34,8 +34,14 @@ function SelectChevron() {
  * inline. Dat voorkomt een extra, niet-gevraagde pagina/sitemap-entry voor
  * een simpele "bedankt"-state.
  */
-export function ProgrammaIntakeContent() {
+export function ProgrammaIntakeContent({
+  attribution,
+}: {
+  /** Campagneparameters uit de URL (geen opslag); gaan mee bij de inzending. */
+  attribution: AttributionParams;
+}) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const tracked = useRef(false);
 
@@ -54,22 +60,26 @@ export function ProgrammaIntakeContent() {
     const formData = new FormData(form);
     const data = {
       ...Object.fromEntries(formData.entries()),
-      utm: getStoredUtm(),
+      attribution: leadAttributionForSubmit(attribution),
       signupPath: window.location.pathname,
     };
 
+    setError(false);
     try {
-      await fetch("/api/leads/programma-intake", {
+      const res = await fetch("/api/leads/programma-intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      if (!res.ok) throw new Error(`status ${res.status}`);
     } catch {
-      // Formulier bevestigt ook als de API-call faalt: de bezoeker heeft
-      // zijn gegevens al ingevuld, een foutmelding hier helpt niemand.
+      // Geen conversie en geen bevestiging: de aanvraag is niet aangekomen.
+      setError(true);
+      setLoading(false);
+      return;
     }
 
-    trackLead("programma_intake_booking", 25);
+    trackProgrammaIntake();
     setLoading(false);
     setSubmitted(true);
   };
@@ -105,13 +115,13 @@ export function ProgrammaIntakeContent() {
             <>
               {/* COPY: confirm met Marlon */}
               <h1 className="font-[family-name:var(--font-playfair)] text-text text-4xl md:text-5xl mb-6 tracking-[-0.01em]">
-                Plan je intake
+                Plan je gratis intake
               </h1>
               {/* COPY: confirm met Marlon */}
               <p className="text-text-muted text-lg leading-relaxed mb-10">
-                Een vrijblijvende kennismaking met Marlon. Vul je gegevens
-                in en zij neemt binnen 24 uur contact met je op om een
-                moment te prikken.
+                Een gratis en vrijblijvende kennismaking met Marlon, in de
+                studio in Loosdrecht. Vul je gegevens in en zij neemt binnen
+                24 uur contact met je op om een moment te prikken.
               </p>
               <form
                 onSubmit={handleSubmit}
@@ -184,15 +194,24 @@ export function ProgrammaIntakeContent() {
                     className={`${fieldInputClasses} resize-none`}
                   />
                 </Field>
+                {error && (
+                  <>
+                    {/* COPY: confirm met Marlon */}
+                    <p role="alert" className="text-sm text-red-400">
+                      Je aanvraag is niet verstuurd. Probeer het opnieuw of
+                      neem contact met ons op.
+                    </p>
+                  </>
+                )}
                 <Button
                   type="submit"
                   className={`w-full text-center ${loading ? "opacity-50 pointer-events-none" : ""}`}
                 >
-                  {loading ? "Versturen" : "Plan mijn intake"}
+                  {loading ? "Versturen" : "Plan mijn gratis intake"}
                 </Button>
                 {/* COPY: confirm met Marlon */}
                 <p className="text-text-muted text-xs text-center">
-                  Volledig vrijblijvend.
+                  Gratis en volledig vrijblijvend.
                 </p>
               </form>
             </>
