@@ -7,14 +7,6 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { NAV_LINKS, AANBOD_DROPDOWN } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { QuietLink } from "@/components/ui/QuietLink";
-import { CampaignTeaser } from "./CampaignTeaser";
-
-interface NavbarProps {
-  /** Onafhankelijk van emActive, zie src/lib/campaign.ts. */
-  studioOpen: boolean;
-  emActive: boolean;
-  campaignDeadline: string;
-}
 
 /**
  * Marketing navbar. No framer-motion — the mobile menu uses a CSS
@@ -22,7 +14,7 @@ interface NavbarProps {
  * collapsed container's natural height without JS. Menu items fade +
  * slide via `.tmc-fade-up` with staggered inline delays.
  */
-export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) {
+export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aanbodOpen, setAanbodOpen] = useState(false);
@@ -80,8 +72,6 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
   // COPY: confirm met Marlon
   const utilityLabel = "Inloggen";
   const utilityHref = "/app";
-  // COPY: confirm met Marlon
-  const earlyMemberLabel = emActive ? "Early Member" : "Word lid";
 
   return (
     <header
@@ -91,7 +81,6 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
           : "bg-transparent border-b border-transparent"
       }`}
     >
-      <CampaignTeaser studioOpen={studioOpen} emActive={emActive} deadline={campaignDeadline} />
       <nav className="mx-auto max-w-7xl px-6 lg:px-8 flex items-center justify-between h-20">
         <Link
           href="/"
@@ -110,7 +99,7 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
         </Link>
 
         <div className="hidden xl:flex items-center gap-10">
-          {/* Content-cluster: Aanbod, Rooster, Prijzen, Early Member, Over ons. */}
+          {/* Content-cluster: Aanbod, Rooster, Prijzen, Word lid, Over ons. */}
           <div className="flex items-center gap-10">
           {NAV_LINKS.map((link) => {
             if (link.label === "Aanbod") {
@@ -152,18 +141,6 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
                     </div>
                   )}
                 </div>
-              );
-            }
-
-            if (link.label === "Early Member") {
-              return (
-                <QuietLink
-                  key={link.href}
-                  href={link.href}
-                  className="text-[15px] py-1 text-accent"
-                >
-                  {earlyMemberLabel}
-                </QuietLink>
               );
             }
 
@@ -255,16 +232,6 @@ export function Navbar({ studioOpen, emActive, campaignDeadline }: NavbarProps) 
                         ))}
                       </div>
                     </div>
-                  </div>
-                );
-              }
-
-              if (link.label === "Early Member") {
-                return (
-                  <div key={link.href} style={{ animationDelay: delay }} className={fadeClass}>
-                    <QuietLink href={link.href} className="text-xl pb-1 text-accent">
-                      {earlyMemberLabel}
-                    </QuietLink>
                   </div>
                 );
               }

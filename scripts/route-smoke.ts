@@ -42,7 +42,6 @@ const PUBLIC_ROUTES: string[] = [
   "/abonnement",
   "/checkin",
   "/contact",
-  "/early-member",
   "/login",
   "/over",
   "/prijzen",

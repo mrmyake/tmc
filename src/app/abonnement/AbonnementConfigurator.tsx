@@ -14,7 +14,6 @@ interface Props {
   plans: Record<string, CatalogueRow>;
   extendedAccessAddon: CatalogueRow | null;
   signupFee: CatalogueRow | null;
-  emActive: boolean;
   /** Uitkomst van profileCompleteForCheckout() in page.tsx. */
   identity: CheckoutIdentity;
   /** Opzegtermijn in dagen, uit getCancellationNoticeDays() in page.tsx. */
@@ -36,7 +35,6 @@ export function AbonnementConfigurator({
   plans,
   extendedAccessAddon,
   signupFee,
-  emActive,
   identity,
   cancellationNoticeDays,
 }: Props) {
@@ -87,7 +85,6 @@ export function AbonnementConfigurator({
           plans={plans}
           extendedAccessAddon={extendedAccessAddon}
           signupFee={signupFee}
-          emActive={emActive}
           initial={selection}
           onContinue={handleConfigured}
         />
@@ -105,7 +102,6 @@ export function AbonnementConfigurator({
           selection={selection}
           extendedAccessAddon={extendedAccessAddon}
           signupFee={signupFee}
-          emActive={emActive}
           cancellationNoticeDays={cancellationNoticeDays}
           onBack={() => setStage("configure")}
           onProfileIncomplete={handleProfileIncomplete}

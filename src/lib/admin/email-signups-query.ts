@@ -50,7 +50,10 @@ const SPECIAL_SOURCE_LABEL: Record<string, string> = {
 // namen zijn wat Marlon in MailerLite ziet. Een onbekende groep toont de
 // eigen MailerLite-naam.
 const GROUP_LABEL_BY_NAME: Record<string, string> = {
-  "Early Member Interested": "Blijf op de hoogte / Early Member",
+  // De MailerLite-groep heet nog "Early Member Interested" (hernoemen is
+  // aan Marlon, in MailerLite zelf); sinds het sluiten van de campagne
+  // wordt hij alleen nog gevoed via /api/leads/info (InfoOptInBanner).
+  "Early Member Interested": "Blijf op de hoogte",
   Members: "Leden",
   "Yoga Wachtlijst": "Yoga-wachtlijst",
   Intake: "12-weken-programma intake",

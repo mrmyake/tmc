@@ -14,16 +14,6 @@ function resolveSiteUrl(): string {
 
 export const SITE_URL = resolveSiteUrl();
 
-// PLACEHOLDER: bevestig de daadwerkelijke openingsdatum met Marlon. Bepaalt
-// alleen de "is de studio open"-copy (isStudioOpen() in src/lib/campaign.ts,
-// o.a. /early-member's hero en de campagne-teaser). Puur een TS-constante,
-// geen DB-kolom: sinds fix/campagne-fasering (2026-09-06) is de Early
-// Member-deadline (EARLY_MEMBER_DEADLINE, campaign.ts) volledig losgekoppeld
-// van deze datum, ook server-side in _compute_order_price. De studio-opening
-// en de Early Member-actie zijn dus onafhankelijk combineerbaar: de actie
-// kan lopen terwijl de studio nog niet open is.
-export const STUDIO_OPENING_DATE = new Date("2026-09-15T00:00:00+02:00");
-
 /**
  * Groepsgrootte per discipline. Bron van waarheid is
  * tmc.class_sessions.capacity (gekopieerd uit tmc.schedule_templates.capacity
@@ -120,11 +110,11 @@ export const PRESENCE_MARLON = {
   note: "Lid met vrij trainen? Dan train je altijd tijdens de openingstijden, ook als Marlon er niet is.",
 } as const;
 
-// Primaire navigatie (top-nav content-cluster), vier items. Labels zijn
+// Primaire navigatie (top-nav content-cluster), vijf items. Labels zijn
 // user-facing NL-copy // COPY: confirm met Marlon, ook al zijn de meeste al
-// bestaande labels. Het "Early Member"-label wordt in de Navbar zelf
-// vervangen door "Word lid" zodra isEarlyMemberActive() (src/lib/campaign.ts)
-// false teruggeeft; de href blijft ongewijzigd.
+// bestaande labels. "Word lid" is sinds het sluiten van de Early
+// Member-campagne (fix/end-early-member-campaign) een vaste link naar de
+// /abonnement-configurator, zonder campagnelogica.
 //
 // "Home" en "Contact" staan hier bewust niet meer in (nav-cleanup): het
 // logo dekt Home al (dubbele ingang weg), en Contact is verplaatst naar
@@ -135,7 +125,7 @@ export const NAV_LINKS = [
   { label: "Aanbod", href: "/aanbod" }, // COPY: confirm met Marlon
   { label: "Rooster", href: "/rooster" }, // COPY: confirm met Marlon
   { label: "Prijzen", href: "/prijzen" }, // COPY: confirm met Marlon
-  { label: "Early Member", href: "/early-member" }, // COPY: confirm met Marlon
+  { label: "Word lid", href: "/abonnement" }, // COPY: confirm met Marlon
   { label: "Over ons", href: "/over" }, // COPY: confirm met Marlon
 ] as const;
 

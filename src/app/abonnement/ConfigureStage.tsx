@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { EarlyMemberCallout } from "@/components/ui/EarlyMemberCallout";
 import { formatEuro } from "@/lib/format";
 import { trackBeginCheckout, trackConfiguratorSelect } from "@/lib/analytics";
 import type { CatalogueRow } from "@/lib/catalogue";
@@ -20,7 +19,6 @@ interface Props {
   plans: Record<string, CatalogueRow>;
   extendedAccessAddon: CatalogueRow | null;
   signupFee: CatalogueRow | null;
-  emActive: boolean;
   initial: Selection;
   onContinue: (selection: Selection) => void;
 }
@@ -150,7 +148,6 @@ export function ConfigureStage({
   plans,
   extendedAccessAddon,
   signupFee,
-  emActive,
   initial,
   onContinue,
 }: Props) {
@@ -227,7 +224,10 @@ export function ConfigureStage({
       signupFee: signupFee ?? undefined,
       extendedAccess: extendedAccessForSelection(id, toggleOverride),
       commit24m: commit24mOverride ?? commit24m,
-      emActive,
+      // Early Member-campagne gesloten (fix/end-early-member-campaign):
+      // de publieke configurator rekent altijd zonder EM, net als de
+      // admin-wizard (EM_ACTIVE in app/admin/betaalverzoeken/lib.ts).
+      emActive: false,
     });
   }
 
@@ -429,15 +429,6 @@ export function ConfigureStage({
           </p>
         )}
 
-        {breakdown.emOpen && (
-          <EarlyMemberCallout label="Early Member" className="mt-3">
-            {/* COPY: confirm met Marlon */}
-            <span className="text-xs text-text-muted">
-              Per 4 weken opzegbaar, geen jaarcommitment.
-            </span>
-          </EarlyMemberCallout>
-        )}
-
         <button
           type="button"
           onClick={() => selectCard(id)}
@@ -480,14 +471,6 @@ export function ConfigureStage({
             Onbeperkt groepslessen en onbeperkt vrij trainen. Verlengde toegang
             van 06:00 tot 23:00 is inbegrepen.
           </p>
-          {breakdown.emOpen && (
-            <EarlyMemberCallout label="Early Member" className="mt-4" inline>
-              {/* COPY: confirm met Marlon */}
-              <span className="text-xs text-text-muted">
-                Per 4 weken opzegbaar, geen jaarcommitment.
-              </span>
-            </EarlyMemberCallout>
-          )}
         </div>
         <div className="flex flex-col items-start sm:items-end shrink-0">
           <div className="flex items-baseline gap-1">
@@ -643,8 +626,9 @@ export function ConfigureStage({
                     : "€39"}{" "}
                   bij je eerste betaling.
                 </p>
+                {/* COPY: confirm met Marlon */}
                 <p className="text-text-muted text-xs mt-1">
-                  Vervalt als je Early Member wordt of overstapt.
+                  Vervalt als je overstapt.
                 </p>
               </div>
               <div>
@@ -692,10 +676,7 @@ export function ConfigureStage({
                 {formatEuro(
                   Math.round(selectedBreakdown.recurringTotalCents / 100),
                 )}
-                /4wk ·{" "}
-                {selectedBreakdown.emOpen
-                  ? "per 4 weken opzegbaar"
-                  : `${selectedBreakdown.commitMonths} maanden looptijd`}
+                /4wk · {selectedBreakdown.commitMonths} maanden looptijd
               </div>
             </div>
             <div className="flex-1" />

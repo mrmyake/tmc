@@ -400,14 +400,6 @@ export function TwaalfWekenProgrammaContent({
                 <p className="text-text-muted text-sm mt-1">
                   Voor het volledige traject van 12 weken
                 </p>
-                <div className="border border-accent/45 bg-accent/10 rounded-sm px-4 py-3.5 mt-5 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  <span className="text-text text-[15px] font-medium leading-snug">
-                    Onbeperkt groepslessen tijdens je programma
-                  </span>
-                </div>
                 <ul className="mt-6 mb-8 space-y-2.5 flex-1">
                   {studioFeatures.map((feature) => (
                     <li key={feature} className="flex gap-3 items-start text-[15px]">
@@ -450,14 +442,6 @@ export function TwaalfWekenProgrammaContent({
                 <p className="text-on-light-muted text-sm mt-1">
                   Voor het volledige traject van 12 weken
                 </p>
-                <div className="border border-accent/45 bg-accent/[0.07] rounded-sm px-4 py-3.5 mt-5 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  <span className="text-on-light text-[15px] font-medium leading-snug">
-                    2× vrij trainen + 1× kettlebell per week
-                  </span>
-                </div>
                 <ul className="mt-6 mb-8 space-y-2.5 flex-1">
                   {onlineFeatures.map((feature) => (
                     <li key={feature} className="flex gap-3 items-start text-[15px]">
@@ -480,8 +464,7 @@ export function TwaalfWekenProgrammaContent({
           </div>
           {/* COPY: confirm met Marlon */}
           <p className="text-on-light-muted text-sm mt-7 max-w-[70ch]">
-            Vaste prijs, voor iedereen gelijk. De Early Member bonus is een
-            extra bovenop je programma.
+            Vaste prijs, voor iedereen gelijk.
           </p>
         </Container>
       </Section>
