@@ -8,9 +8,9 @@ import type { AnalyticsConsent } from "./params";
  */
 export interface LeadAttributionExportRow {
   createdAt: string;
-  sourceType: "trial_booking" | "trial_request";
+  sourceType: "trial_booking" | "trial_request" | "programma_intake";
   sourceId: string;
-  /** Status van de trial_booking (pending, paid, ...) of trial_request (new, ...); leeg als de bron weg is. */
+  /** Status van de trial_booking (pending, paid, ...) of trial_request (new, ...); leeg als de bron weg is en bij programma_intake (geen brontabel). */
   status: string;
   /** Alleen bij trial_booking: paid, code of opening. */
   bookingSource: string;

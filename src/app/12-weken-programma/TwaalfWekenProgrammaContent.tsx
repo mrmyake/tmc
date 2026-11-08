@@ -4,7 +4,12 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { CalibrationTicks } from "@/components/ui/CalibrationTicks";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
+import Image from "next/image";
+import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
+import { urlFor } from "../../../sanity/lib/client";
+import type { SanityImage } from "../../../sanity/lib/fetch";
 import { ProgrammaEyebrow } from "./_components/ProgrammaEyebrow";
+import { ProgrammaReviews } from "./_components/ProgrammaReviews";
 import {
   ProgrammaFaqAccordion,
   type ProgrammaFaqItem,
@@ -64,6 +69,7 @@ const groups = [
     items: [
       "Twee personal training sessies per week",
       "Deelname aan motiverende groepsles",
+      "Onbeperkt groepslessen tijdens je programma",
     ],
   },
   {
@@ -82,7 +88,7 @@ const groups = [
 const studioFeatures = [
   "Alle metingen en je hormonaal profiel",
   "2× personal training per week in de studio",
-  "Motiverende groepsles",
+  "Onbeperkt groepslessen tijdens je programma",
   "Voedings- en supplementenadvies",
   "Dagelijkse begeleiding",
 ];
@@ -122,16 +128,22 @@ const faqs: ProgrammaFaqItem[] = [
 interface TwaalfWekenProgrammaContentProps {
   studioPriceCents: number;
   onlinePriceCents: number;
+  /** Campagneparameters uit de URL; gaan mee in alle links naar de intake. */
+  attribution: AttributionParams;
+  marlonImage?: SanityImage;
 }
 
 export function TwaalfWekenProgrammaContent({
   studioPriceCents,
   onlinePriceCents,
+  attribution,
+  marlonImage,
 }: TwaalfWekenProgrammaContentProps) {
+  const intakeHref = withAttribution("/12-weken-programma/intake", attribution);
   return (
     <>
       {/* Hero. Losse h1 (niet SectionHeading, die rendert altijd h2) zodat
-          dit de enige h1 op de pagina is — zie /prijzen voor hetzelfde
+          dit de enige h1 op de pagina is, zie /prijzen voor hetzelfde
           patroon. Top-padding houdt rekening met de absoluut gepositioneerde
           ProgrammaTopbar erboven. */}
       <Section className="pt-32 pb-16 md:pt-[150px] md:pb-24">
@@ -150,19 +162,18 @@ export function TwaalfWekenProgrammaContent({
             </h1>
             {/* COPY: confirm met Marlon */}
             <p className="text-text-muted text-lg mt-7 max-w-[52ch]">
-              Een persoonlijk traject van twaalf weken, opgebouwd rond jouw
-              lichaam. We brengen alles in kaart, van huidplooimeting tot
-              hormonaal profiel, en bouwen daar training, voeding en
-              dagelijkse begeleiding op.
+              Twaalf weken 1-op-1 met Marlon. Krachttraining en voeding op
+              maat, met intensieve dagelijkse begeleiding. We brengen eerst
+              alles in kaart, van huidplooimeting tot hormonaal profiel.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-10">
               {/* COPY: confirm met Marlon */}
               <Button
-                href="/12-weken-programma/intake"
+                href={intakeHref}
                 variant="primary"
                 className="group"
               >
-                Plan je intake
+                Plan je gratis intake
                 <span
                   aria-hidden
                   className="ml-2 inline-block transition-transform duration-300 motion-reduce:transition-none group-hover:translate-x-1"
@@ -317,24 +328,30 @@ export function TwaalfWekenProgrammaContent({
       </Section>
 
       {/* Marlon. Mockup's sec-ink (#171310) valt vrijwel samen met de
-          bestaande bg="elevated" toon (--ink-800, #17140F) — geen aparte
+          bestaande bg="elevated" toon (--ink-800, #17140F), geen aparte
           derde Section-variant nodig, dit is al zo goed als een exacte
           match. */}
       <Section bg="elevated">
         <Container>
-          <div className="grid grid-cols-1 md:grid-cols-[0.85fr_1.15fr] gap-9 md:gap-14 items-center">
+          <div
+            className={`grid grid-cols-1 gap-9 md:gap-14 items-center ${marlonImage?.asset ? "md:grid-cols-[0.85fr_1.15fr]" : ""}`}
+          >
             <ScrollReveal>
-              <div className="relative aspect-[16/11] md:aspect-[4/5] border border-bg-subtle bg-gradient-to-b from-[#211b15] to-[#14100c] flex items-center justify-center">
-                <span
-                  aria-hidden
-                  className="absolute inset-3.5 border border-accent/25"
-                />
-                <span className="tmc-eyebrow text-text-muted text-center px-6 relative z-10">
-                  Foto Marlon
-                  <br />
-                  (4:5)
-                </span>
-              </div>
+              {marlonImage?.asset ? (
+                <div className="relative aspect-[16/11] md:aspect-[4/5] border border-bg-subtle overflow-hidden">
+                  <Image
+                    src={urlFor(marlonImage).width(900).height(1125).url()}
+                    alt="Marlon, hoofdtrainer van The Movement Club"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 40vw"
+                    className="object-cover"
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute inset-3.5 border border-accent/25"
+                  />
+                </div>
+              ) : null}
             </ScrollReveal>
             <ScrollReveal delay={0.12}>
               {/* COPY: confirm met Marlon */}
@@ -364,6 +381,8 @@ export function TwaalfWekenProgrammaContent({
         </Container>
       </Section>
 
+      <ProgrammaReviews />
+
       {/* Investering */}
       <Section bg="stone">
         <Container>
@@ -378,7 +397,7 @@ export function TwaalfWekenProgrammaContent({
             </div>
           </ScrollReveal>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Studio (feature) card — dark, on top of the stone section */}
+            {/* Studio (feature) card, dark, on top of the stone section */}
             <ScrollReveal>
               <div className="bg-bg text-text border border-bg p-9 md:p-11 h-full flex flex-col">
                 {/* COPY + prijzen: confirm met Marlon */}
@@ -400,14 +419,6 @@ export function TwaalfWekenProgrammaContent({
                 <p className="text-text-muted text-sm mt-1">
                   Voor het volledige traject van 12 weken
                 </p>
-                <div className="border border-accent/45 bg-accent/10 rounded-sm px-4 py-3.5 mt-5 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  <span className="text-text text-[15px] font-medium leading-snug">
-                    Onbeperkt groepslessen tijdens je programma
-                  </span>
-                </div>
                 <ul className="mt-6 mb-8 space-y-2.5 flex-1">
                   {studioFeatures.map((feature) => (
                     <li key={feature} className="flex gap-3 items-start text-[15px]">
@@ -419,7 +430,7 @@ export function TwaalfWekenProgrammaContent({
                   ))}
                 </ul>
                 <Button
-                  href="/12-weken-programma/intake"
+                  href={intakeHref}
                   variant="primary"
                   className="w-full justify-center"
                 >
@@ -428,7 +439,7 @@ export function TwaalfWekenProgrammaContent({
               </div>
             </ScrollReveal>
 
-            {/* Online card — light, bordered */}
+            {/* Online card, light, bordered */}
             <ScrollReveal delay={0.1}>
               <div className="bg-surface-light text-on-light border border-border-on-light p-9 md:p-11 h-full flex flex-col">
                 {/* COPY + prijzen: confirm met Marlon */}
@@ -450,14 +461,6 @@ export function TwaalfWekenProgrammaContent({
                 <p className="text-on-light-muted text-sm mt-1">
                   Voor het volledige traject van 12 weken
                 </p>
-                <div className="border border-accent/45 bg-accent/[0.07] rounded-sm px-4 py-3.5 mt-5 flex flex-col gap-1.5">
-                  <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    Early Member bonus
-                  </span>
-                  <span className="text-on-light text-[15px] font-medium leading-snug">
-                    2× vrij trainen + 1× kettlebell per week
-                  </span>
-                </div>
                 <ul className="mt-6 mb-8 space-y-2.5 flex-1">
                   {onlineFeatures.map((feature) => (
                     <li key={feature} className="flex gap-3 items-start text-[15px]">
@@ -469,7 +472,7 @@ export function TwaalfWekenProgrammaContent({
                   ))}
                 </ul>
                 <Button
-                  href="/12-weken-programma/intake"
+                  href={intakeHref}
                   variant="secondary-light"
                   className="w-full"
                 >
@@ -478,11 +481,6 @@ export function TwaalfWekenProgrammaContent({
               </div>
             </ScrollReveal>
           </div>
-          {/* COPY: confirm met Marlon */}
-          <p className="text-on-light-muted text-sm mt-7 max-w-[70ch]">
-            Vaste prijs, voor iedereen gelijk. De Early Member bonus is een
-            extra bovenop je programma.
-          </p>
         </Container>
       </Section>
 
@@ -517,17 +515,18 @@ export function TwaalfWekenProgrammaContent({
             </h2>
             {/* COPY: confirm met Marlon */}
             <p className="text-text-muted mt-6 max-w-[48ch] mx-auto">
-              Een vrijblijvende kennismaking. We nemen het programma door en
-              bepalen samen of dit het juiste traject voor je is.
+              Een gratis en vrijblijvende kennismaking in de studio in
+              Loosdrecht. We nemen het programma door en bepalen samen of
+              dit het juiste traject voor je is.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mt-10">
               {/* COPY: confirm met Marlon */}
               <Button
-                href="/12-weken-programma/intake"
+                href={intakeHref}
                 variant="primary"
                 className="group"
               >
-                Plan je intake
+                Plan je gratis intake
                 <span
                   aria-hidden
                   className="ml-2 inline-block transition-transform duration-300 motion-reduce:transition-none group-hover:translate-x-1"
@@ -536,7 +535,7 @@ export function TwaalfWekenProgrammaContent({
                 </span>
               </Button>
               {/* COPY: confirm met Marlon */}
-              <Button href="/12-weken-programma/intake" variant="secondary">
+              <Button href={intakeHref} variant="secondary">
                 Liever gebeld worden
               </Button>
             </div>

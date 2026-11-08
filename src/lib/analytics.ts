@@ -1,10 +1,10 @@
 /**
- * GA4-events — uitsluitend acquisitie op de publieke site.
+ * GA4-events, uitsluitend acquisitie op de publieke site.
  *
  * De meetgrens: GA4 meet hoe iemand de site vindt, wat 'm overtuigt en of
  * 'ie converteert. Daar houdt het op. Productgedrag achter login (boeken,
  * annuleren, pauzeren, profiel, intake, roosternavigatie) gaat naar
- * `tmc.events` — server-side, al gekoppeld aan een `profile_id`, en niet
+ * `tmc.events`, server-side, al gekoppeld aan een `profile_id`, en niet
  * afhankelijk van cookie-consent. Zie `spec-analytics.md` en de
  * routelijst in `src/components/layout/SiteShell.tsx`.
  *
@@ -30,7 +30,7 @@ declare global {
 
 /**
  * GA4 e-commerce item. Bewust zonder `price`/`quantity`/`currency`: de
- * configurator-events dragen géén bedragen — de enige autoritatieve prijs
+ * configurator-events dragen géén bedragen, de enige autoritatieve prijs
  * komt server-side uit tmc.create_order (zie ConfigureStage/PayStage).
  */
 type AnalyticsItem = {
@@ -62,6 +62,21 @@ export const trackLead = (type: string, value: number = 1) => {
   });
 };
 
+/**
+ * Intake-aanvraag 12 weken programma (Google Ads-landing). Eigen event, bewust
+ * geen generate_lead, zodat de proefles-conversies schoon blijven. Aanroepen
+ * pas na een 2xx van /api/leads/programma-intake. Uitzondering op de regel
+ * "bedragen alleen server-side": dit is een vaste leadwaarde voor Google Ads
+ * (geen omzet, geen prijs), zie spec-analytics.md.
+ */
+export const trackProgrammaIntake = () => {
+  trackEvent("programma_intake", {
+    value: 240,
+    currency: "EUR",
+    lead_type: "programma_intake",
+  });
+};
+
 export const trackCTA = (buttonText: string, page: string) => {
   trackEvent("cta_click", {
     event_category: "engagement",
@@ -71,7 +86,7 @@ export const trackCTA = (buttonText: string, page: string) => {
 };
 
 /**
- * Publiek-gevormd, en op dit moment zonder call-site — dat is opzet, geen
+ * Publiek-gevormd, en op dit moment zonder call-site, dat is opzet, geen
  * dode code. De helper wacht op een mount op de footer-`tel:`/`mailto:`-links
  * van de publieke site (audit gap #4, `docs/analytics-audit-2026-07.md`).
  *
@@ -150,7 +165,7 @@ export const trackConfiguratorStageView = (stage: string): void => {
  * swap, de verlengde-toegang-addon of de 12/24-maanden-looptijd.
  *
  * `itemId` is de tmc.catalogue-slug van de rij die daadwerkelijk gefactureerd
- * wordt, gelezen uit de bestaande catalogus-resolutie — nooit zelf afgeleid.
+ * wordt, gelezen uit de bestaande catalogus-resolutie, nooit zelf afgeleid.
  * Bevat bewust geen bedragen.
  */
 export const trackConfiguratorSelect = (params: {
@@ -175,7 +190,7 @@ export const trackConfiguratorSelect = (params: {
 /**
  * Vervangt de oude `cta_click("Ga verder")`, die de gekozen variant niet
  * bevatte. Geen `value`/`currency`: dit event draagt bewust geen bedrag, dus
- * GA4 rapporteert hier €0 omzet — de betaalwaarde blijft bij `payment_start`
+ * GA4 rapporteert hier €0 omzet, de betaalwaarde blijft bij `payment_start`
  * / `payment_success`.
  */
 export const trackBeginCheckout = (params: {
@@ -199,7 +214,7 @@ export const trackBeginCheckout = (params: {
  * Een checkout-poging die server-side geweigerd is: `create_order` gaf
  * {ok:false} (bv. `existing_membership`, `existing_open_order`, de EM/24m-
  * conflictgate), of de flow strandde vóór Mollie. Zonder dit event is die
- * uitval niet eens als uitval zichtbaar — GA4 ziet dan alleen een
+ * uitval niet eens als uitval zichtbaar, GA4 ziet dan alleen een
  * `begin_checkout` zonder `payment_start`, precies zoals bij iemand die uit
  * eigen beweging afhaakt.
  *
@@ -247,12 +262,12 @@ export const trackPaymentStart = (params: {
 /**
  * Aankomst op de bedankpagina na een Mollie-checkout. Arrival-event
  * conform de drie voorwaarden in spec-analytics.md: geen `value`, geen
- * `currency` — de omzet gaat uitsluitend server-side, via het Measurement
+ * `currency`, de omzet gaat uitsluitend server-side, via het Measurement
  * Protocol purchase-event uit de Mollie-webhook (sendPurchaseToGa4).
  * `order_status` als dimensie houdt de webhook-race zichtbaar: wie
  * terugkeert vóór activatie, komt hier binnen met "pending".
  *
- * Verving payment_success/payment_failed (client-side, mét bedrag) — de
+ * Verving payment_success/payment_failed (client-side, mét bedrag), de
  * laatste uitzondering op voorwaarde 3, opgeheven door de conversiebrug.
  */
 export const trackPaymentReturnView = (params: {

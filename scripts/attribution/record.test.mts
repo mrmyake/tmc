@@ -176,3 +176,29 @@ test("test j: een dubbele aanroep stuurt twee keer dezelfde upsert met ignoreDup
     assert.equal(call.options.onConflict, "source_type,source_id");
   }
 });
+
+test("programma_intake schrijft een rij met de bronsoort en de landing van de advertentiepagina", async () => {
+  const { admin, calls } = fakeAdmin();
+  const result = await recordLeadAttribution(
+    {
+      sourceType: "programma_intake",
+      sourceId: SOURCE_ID,
+      email: "Lead@Example.NL",
+      attribution: {
+        gclid: "test123",
+        utm_source: "google",
+        utm_medium: "cpc",
+        utm_campaign: "programma",
+        landing_path: "/12-weken-programma?gclid=test123&utm_source=google&utm_medium=cpc&utm_campaign=programma",
+        analytics_consent: "denied",
+      },
+    },
+    { admin },
+  );
+  assert.equal(result, "inserted");
+  assert.equal(calls[0].row.source_type, "programma_intake");
+  assert.equal(calls[0].row.email, "lead@example.nl");
+  assert.equal(calls[0].row.gclid, "test123");
+  assert.equal(calls[0].row.utm_medium, "cpc");
+  assert.equal(calls[0].row.analytics_consent, "denied");
+});

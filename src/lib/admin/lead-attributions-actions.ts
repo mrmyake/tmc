@@ -101,12 +101,15 @@ export async function exportLeadAttributionsCsv(): Promise<ExportLeadAttribution
       const request = requests.get(r.source_id);
       if (!request) continue;
       status = request.status;
+    } else if (r.source_type === "programma_intake") {
+      // Geen brontabel (MailerLite plus ntfy): de rij staat op zichzelf.
+      status = "";
     } else {
       continue;
     }
     exportRows.push({
       createdAt: r.created_at,
-      sourceType: r.source_type,
+      sourceType: r.source_type as LeadAttributionExportRow["sourceType"],
       sourceId: r.source_id,
       status,
       bookingSource,
