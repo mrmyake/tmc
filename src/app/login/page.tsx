@@ -40,7 +40,7 @@ export default async function LoginPage({
 
   // Al ingelogd? Dan direct door naar de landing per rol (trainer naar de
   // agenda, admin naar cockpit of agenda, lid naar /app), of naar `next`
-  // als dat er is (bijv. een lid dat via /early-member komt en toevallig
+  // als dat er is (bijv. een lid dat via een marketingpagina komt en toevallig
   // al ingelogd is). Zo doet de "Inloggen"-link in de marketing-navbar
   // voor beide states het juiste zonder auth-aware navbar. De proxy laat
   // /login met sessie sinds fix/trainer-invite-landing met rust; deze

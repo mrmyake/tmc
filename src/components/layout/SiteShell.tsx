@@ -26,19 +26,9 @@ const CookieConsent = dynamic(
 interface SiteShellProps {
   children: React.ReactNode;
   settings: SanitySettings;
-  /** Onafhankelijk van emActive, zie src/lib/campaign.ts. */
-  studioOpen: boolean;
-  emActive: boolean;
-  campaignDeadline: string;
 }
 
-export function SiteShell({
-  children,
-  settings,
-  studioOpen,
-  emActive,
-  campaignDeadline,
-}: SiteShellProps) {
+export function SiteShell({ children, settings }: SiteShellProps) {
   const pathname = usePathname();
   const isStudio = pathname.startsWith("/studio");
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
@@ -51,7 +41,7 @@ export function SiteShell({
   // hier vaak rechtstreeks vanuit een mail of WhatsApp-bericht binnen. De
   // pagina zelf (src/app/betaal/[token]/page.tsx) is al zelfstandig
   // (eigen <main> + gecentreerde Container), dus alleen de marketing-
-  // navbar/footer/EM-banner eromheen uitsluiten is genoeg voor een kale,
+  // navbar/footer eromheen uitsluiten is genoeg voor een kale,
   // gefocuste betaalpagina. Geen wijziging aan de betaal-logica zelf.
   const isBetaal = pathname.startsWith("/betaal/");
   // /12-weken-programma heeft een eigen topbar (merk + een CTA, transparant
@@ -99,7 +89,7 @@ export function SiteShell({
 
   return (
     <>
-      <Navbar studioOpen={studioOpen} emActive={emActive} campaignDeadline={campaignDeadline} />
+      <Navbar />
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>
       </main>

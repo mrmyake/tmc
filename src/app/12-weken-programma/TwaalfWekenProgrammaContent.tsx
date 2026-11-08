@@ -481,6 +481,10 @@ export function TwaalfWekenProgrammaContent({
               </div>
             </ScrollReveal>
           </div>
+          {/* COPY: confirm met Marlon */}
+          <p className="text-on-light-muted text-sm mt-7 max-w-[70ch]">
+            Vaste prijs, voor iedereen gelijk.
+          </p>
         </Container>
       </Section>
 

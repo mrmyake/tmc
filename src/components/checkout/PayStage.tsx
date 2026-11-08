@@ -27,7 +27,6 @@ interface SubscriptionProps {
   selection: Selection;
   extendedAccessAddon: CatalogueRow | null;
   signupFee: CatalogueRow | null;
-  emActive: boolean;
   /** Uit getCancellationNoticeDays(): dezelfde bron als request_membership_cancellation. */
   cancellationNoticeDays: number;
   onBack: () => void;
@@ -68,7 +67,6 @@ function SubscriptionPayStage({
   selection,
   extendedAccessAddon,
   signupFee,
-  emActive,
   cancellationNoticeDays,
   onBack,
   onProfileIncomplete,
@@ -88,7 +86,11 @@ function SubscriptionPayStage({
     signupFee: signupFee ?? undefined,
     extendedAccess: selection.extendedAccess,
     commit24m: selection.commit24m,
-    emActive,
+    // Early Member-campagne gesloten (fix/end-early-member-campaign): de
+    // weergave rekent zonder EM en er gaat geen EM-intentie meer mee naar
+    // create_order. Server-side weigert _compute_order_price EM sowieso op
+    // basis van tmc.early_member_pools.closes_at.
+    emActive: false,
   });
 
   function handlePay() {
@@ -104,7 +106,6 @@ function SubscriptionPayStage({
         slug: plan.slug,
         extendedAccess: selection.extendedAccess,
         commit24m: selection.commit24m,
-        earlyMember: breakdown.emOpen,
         gaClientId: gaIds.clientId,
         gaSessionId: gaIds.sessionId,
         returnTarget: returnTargetForThisClient(),
@@ -180,13 +181,8 @@ function SubscriptionPayStage({
           )}
         </div>
         <div className="text-xs text-text-muted">
-          {breakdown.emOpen ? (
-            // COPY: confirm met Marlon
-            "Geen commitment, per 4 weken opzegbaar"
-          ) : (
-            // COPY: confirm met Marlon
-            `Commitment: ${breakdown.commitMonths} maanden`
-          )}
+          {/* COPY: confirm met Marlon */}
+          Commitment: {breakdown.commitMonths} maanden
         </div>
       </div>
 
