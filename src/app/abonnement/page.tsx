@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getCatalogue, type CatalogueRow } from "@/lib/catalogue";
-import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
 import { getCancellationNoticeDays } from "@/lib/cancellation-notice";
 import {
   clientCheckoutIdentity,
@@ -16,40 +15,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/abonnement" },
 };
 
-interface AbonnementPageProps {
-  searchParams: Promise<{ devEm?: string }>;
-}
-
 // Geen eigen revalidate nodig: de root layout zet al revalidate = 60
 // site-breed, en de catalogus-fetch zelf is los getagd + 1u gecached
 // (src/lib/catalogue.ts), zelfde opzet als /prijzen.
-export default async function AbonnementPage({
-  searchParams,
-}: AbonnementPageProps) {
+//
+// Geen campagnefase meer: de Early Member-actie is gesloten
+// (fix/end-early-member-campaign, closes_at 2026-11-01). De configurator
+// rekent uitsluitend met reguliere catalogusprijzen; server-side blijft
+// tmc._compute_order_price de enige prijsbron en die weigert EM zelf op
+// basis van tmc.early_member_pools.closes_at.
+export default async function AbonnementPage() {
   // Ingelogd met een compleet profiel slaat stap 2 over; ingelogd met een
   // onvolledig profiel ziet stap 2 voorgevuld; anoniem ziet de OTP-stap.
-  const [identity, catalogue, campaignWindow, { devEm }] = await Promise.all([
+  const [identity, catalogue] = await Promise.all([
     profileCompleteForCheckout(),
     getCatalogue(),
-    getCampaignWindow(),
-    searchParams,
   ]);
-
-  // Render-only devEm-override voor het handmatig verifiëren van de EM-actie
-  // (?devEm=true|false). Nooit een productie-pad: NODE_ENV is "production"
-  // op elke Vercel-build, preview zowel als productie, dus deze tak is dood
-  // zodra dit gedeployed is — alleen `next dev` lokaal kan hem raken.
-  // campaign.ts en de echte gate blijven ongemoeid; dit overschrijft alleen
-  // de emActive-prop die naar de configurator gaat. _compute_order_price
-  // heeft sinds fix/campagne-fasering geen ondergrens meer, dus een
-  // geforceerde devEm=true kan hooguit betekenen dat create_order de
-  // reguliere prijs teruggeeft als closes_at intussen al is verstreken,
-  // nooit een te vroege EM-order.
-  const realEmActive = isEarlyMemberActive(campaignWindow);
-  const emActive =
-    process.env.NODE_ENV !== "production" && (devEm === "true" || devEm === "false")
-      ? devEm === "true"
-      : realEmActive;
 
   const plans: Record<string, CatalogueRow> = {};
   for (const family of FAMILIES) {
@@ -71,7 +52,6 @@ export default async function AbonnementPage({
       plans={plans}
       extendedAccessAddon={extendedAccessAddon}
       signupFee={signupFee}
-      emActive={emActive}
       identity={clientCheckoutIdentity(identity)}
       cancellationNoticeDays={cancellationNoticeDays}
     />

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getCatalogue, commit24mDiscountPercent } from "@/lib/catalogue";
-import { getCampaignWindow, isEarlyMemberActive } from "@/lib/campaign";
 import { PrijzenContent, type PrijzenPricing } from "./PrijzenContent";
 
 export const metadata: Metadata = {
@@ -31,21 +30,14 @@ export const metadata: Metadata = {
 // verzonnen bedrag.
 
 async function getPricing(): Promise<PrijzenPricing> {
-  const [catalogue, campaignWindow] = await Promise.all([
-    getCatalogue(),
-    getCampaignWindow(),
-  ]);
+  const catalogue = await getCatalogue();
 
   if (catalogue.size === 0) {
     throw new Error("[prijzen] catalogue fetch returned no rows");
   }
 
-  const emActive = isEarlyMemberActive(campaignWindow);
-
   const price = (slug: string): number | null => catalogue.get(slug)?.price_cents ?? null;
 
-  const allAccessUnl = catalogue.get("all_inclusive_unl");
-  const signupFee = catalogue.get("signup_fee");
   const tenRideCard = catalogue.get("ten_ride_card");
   const ptCard = catalogue.get("pt_10");
   const duoCard = catalogue.get("duo_10");
@@ -85,11 +77,6 @@ async function getPricing(): Promise<PrijzenPricing> {
     // only, never a charge source.
     programStudioCents: price("program_studio_12w"),
     programOnlineCents: price("program_online_12w"),
-    earlyMember: {
-      active: emActive,
-      allAccessUnlCents: emActive ? (allAccessUnl?.early_member_price_cents ?? null) : null,
-      signupFeeWaived: emActive ? (signupFee?.early_member_price_cents ?? 0) === 0 : false,
-    },
   };
 }
 

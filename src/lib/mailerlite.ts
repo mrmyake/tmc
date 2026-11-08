@@ -53,7 +53,7 @@ export async function addSubscriber(data: SubscriberData) {
     // name alleen meesturen als de caller 'm heeft: MailerLite's upsert laat
     // weggelaten velden ongemoeid, maar een expliciete lege string overschrijft
     // een eerder ingevulde naam voor hetzelfde e-mailadres (bijv. via een
-    // eerder formulier zonder naamveld, zoals de Early Member-opt-in).
+    // eerder formulier zonder naamveld, zoals de blijf-op-de-hoogte-opt-in).
     fields: {
       ...(data.name ? { name: data.name } : {}),
       ...data.fields,
@@ -118,15 +118,16 @@ export const GROUPS = {
   // toggle zonder MailerLite sync.
   MEMBERS: process.env.MAILERLITE_MEMBERS_GROUP_ID ?? "",
   // Generieke "blijf op de hoogte" opt-in vanuit de slide-in banner op de
-  // marketingpagina's (InfoOptInBanner / /api/leads/info). Ook hergebruikt
-  // door /api/leads/early-member (de opt-in onderaan /early-member): beide
-  // formulieren delen dezelfde MailerLite-groep "Early Member Interested",
-  // dus één env-gebonden constante i.p.v. twee. Zet in .env.local en Vercel
+  // marketingpagina's (InfoOptInBanner / /api/leads/info). De MailerLite-
+  // groep heet (nog) "Early Member Interested": tot het sluiten van de
+  // campagne (fix/end-early-member-campaign) voedde de opt-in op
+  // /early-member dezelfde groep, die route is weg. Hernoemen van de groep
+  // is aan Marlon in MailerLite. Zet in .env.local en Vercel
   // als MAILERLITE_INFO_GROUP_ID. Leeg = de subscriber wordt wel aangemaakt,
   // alleen zonder groep; de ntfy-melding bevat geen gegevens, dus de lead
   // is dan alleen via de subscriberlijst terug te vinden.
   INFO_INTERESTED: process.env.MAILERLITE_INFO_GROUP_ID ?? "",
-  // Overstap-aanvraag vanuit de /early-member overstapkaart. Admin-mediated
+  // Overstap-aanvraag vanuit de overstapkaart op /prijzen. Admin-mediated
   // (de inschrijfkosten-waiver leeft alleen in admin_create_order), dus dit
   // is een lead, geen self-service /abonnement-checkout. Zet in .env.local
   // en Vercel als MAILERLITE_OVERSTAP_GROUP_ID. Leeg = de subscriber wordt

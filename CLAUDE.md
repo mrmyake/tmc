@@ -551,7 +551,7 @@ Role-scoped layouts onder `/app/*`. Zie `navigation-refactor-spec.md` voor de oo
 ### Marketing (publiek)
 
 Top-nav (`Navbar.tsx`) is gesplitst in twee visuele clusters, zelfde styling, alleen gescheiden door een verticale divider:
-- **Content-cluster** (`NAV_LINKS` in `src/lib/constants.ts`): Aanbod (+dropdown), Prijzen, Early Member (label wisselt naar "Word lid" zodra de campagne `closed` is, href blijft `/early-member`), Over ons.
+- **Content-cluster** (`NAV_LINKS` in `src/lib/constants.ts`): Aanbod (+dropdown), Rooster, Prijzen, Word lid (vaste link naar `/abonnement`; de Early Member-campagne is gesloten per 2026-11-01 en `/early-member` redirect permanent naar `/prijzen`), Over ons.
 - **Actie-cluster**: "Inloggen" (secundair, target `/app` — geen client-side auth-check meer, `/app` redirect't zelf naar `/login` voor uitgelogde bezoekers) + "Plan je proefles" (primaire CTA, target `/proefles`).
 
 "Home" staat niet meer in de top-nav (was een functieloos duplicaat van het logo) en "Contact" is verplaatst naar footer-only. Beide pagina's (`/`, `/contact`) bestaan gewoon en zijn bereikbaar via het logo resp. de footer. De footer (`Footer.tsx`) gebruikt een aparte, volledige lijst `FOOTER_NAV_LINKS` (Home + de content-cluster-items + Contact).

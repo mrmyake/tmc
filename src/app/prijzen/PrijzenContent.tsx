@@ -6,6 +6,7 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import { formatPriceEuro } from "@/lib/member/pt-pricing";
 import { CLASS_CAPACITY } from "@/lib/constants";
+import { OverstapLeadForm } from "./OverstapLeadForm";
 
 // PT en rittenkaarten zijn voor iedereen koopbaar via de publieke
 // productcheckout op /kopen: uitgelogd is de identificatiestap daar de
@@ -46,11 +47,6 @@ export interface PrijzenPricing {
   // aanvraag" instead of a stale fallback price.
   programStudioCents: number | null;
   programOnlineCents: number | null;
-  earlyMember: {
-    active: boolean;
-    allAccessUnlCents: number | null;
-    signupFeeWaived: boolean;
-  };
 }
 
 interface PrijzenContentProps {
@@ -128,53 +124,6 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
           </ScrollReveal>
         </Container>
       </Section>
-
-      {/* Early Member callout, alleen zichtbaar terwijl de EM-actie loopt.
-          Alle waarden komen uit de catalogus (pricing.earlyMember,
-          server-side samengesteld in page.tsx uit tmc.catalogue +
-          isEarlyMemberActive); zodra de deadline verstrijkt verdwijnt dit
-          blok vanzelf, zonder codewijziging. */}
-      {pricing.earlyMember.active && (
-        <Section>
-          <Container className="max-w-3xl">
-            <ScrollReveal>
-              <div className="border border-accent/30 bg-bg-elevated p-8 md:p-10">
-                {/* COPY: confirm met Marlon */}
-                <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
-                  Early Member actie loopt nu
-                </span>
-                {/* COPY: confirm met Marlon */}
-                <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text mb-4">
-                  Nu lid worden, blijvend voordeel
-                </h2>
-                <ul className="text-text-muted text-sm leading-relaxed space-y-2 mb-6">
-                  {pricing.earlyMember.signupFeeWaived && (
-                    // COPY: confirm met Marlon
-                    <li>Geen inschrijfkosten op Groepslessen en All Access.</li>
-                  )}
-                  {pricing.earlyMember.allAccessUnlCents !== null && (
-                    <li>
-                      {/* COPY: confirm met Marlon */}
-                      All Access Onbeperkt voor{" "}
-                      <span className="text-accent font-medium">
-                        {formatPriceEuro(pricing.earlyMember.allAccessUnlCents)}
-                      </span>{" "}
-                      per 4 weken in plaats van{" "}
-                      {fmt(pricing.allAccess.unl)}, blijvend
-                      vastgezet zolang je lid blijft.
-                    </li>
-                  )}
-                  {/* COPY: confirm met Marlon */}
-                  <li>Per 4 weken opzegbaar in plaats van 1 jaar commitment.</li>
-                </ul>
-                <Button href="/early-member" variant="secondary">
-                  Naar de Early Member actie
-                </Button>
-              </div>
-            </ScrollReveal>
-          </Container>
-        </Section>
-      )}
 
       {/* Lidmaatschappen. id="groepslessen" is het landingspunt vanuit de
           Aanbod-hub in de nav (AANBOD_DROPDOWN); scroll-margin via de
@@ -627,11 +576,7 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
                   1 jaar, daarna maandelijks (per 4 weken) opzegbaar
                 </span>
               </li>
-              {/* Verborgen tijdens een open EM-fase: zelfde regel als
-                  /abonnement (EM en 24m zijn mutually exclusive), komt
-                  terug zodra pricing.earlyMember.active false is. */}
-              {pricing.commit24mDiscountPercent !== null &&
-                !pricing.earlyMember.active && (
+              {pricing.commit24mDiscountPercent !== null && (
                 <li className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 py-4">
                   {/* COPY: confirm met Marlon */}
                   <span className="text-text-muted text-sm">
@@ -659,27 +604,32 @@ export function PrijzenContent({ pricing }: PrijzenContentProps) {
         </Container>
       </Section>
 
-      {/* Crosslink naar Early Member */}
+      {/* Overstapkaart, verhuisd vanaf de voormalige /early-member-pagina
+          (fix/end-early-member-campaign). Overstap is admin-mediated: de
+          inschrijfkosten-waiver 'overstap' leeft alleen in
+          admin_create_order, dus dit is een lead via /api/leads/overstap
+          (MailerLite-groep MAILERLITE_OVERSTAP_GROUP_ID + ntfy), geen
+          self-service checkout. */}
       <Section>
         <Container className="max-w-3xl">
           <ScrollReveal>
             <div className="border border-accent/30 bg-bg-elevated p-8 md:p-10 text-center">
               {/* COPY: confirm met Marlon */}
               <span className="tmc-eyebrow tmc-eyebrow--accent block mb-3">
-                Nieuw hier?
+                Je traint nu ergens anders
               </span>
               {/* COPY: confirm met Marlon */}
               <h3 className="font-[family-name:var(--font-playfair)] text-xl md:text-2xl text-text mb-3">
-                Bekijk de Early Member actie
+                Stap over zonder inschrijfkosten
               </h3>
               {/* COPY: confirm met Marlon */}
               <p className="text-text-muted text-sm mb-6 max-w-md mx-auto">
-                Als een van de eerste leden krijg je voorwaarden die na
-                deze periode niet meer terugkomen.
+                We denken mee over de overgang vanaf je huidige abonnement,
+                zodat je nergens dubbel voor betaalt.
               </p>
-              <Button href="/early-member">
-                Naar de Early Member actie
-              </Button>
+              <div className="max-w-xs mx-auto">
+                <OverstapLeadForm />
+              </div>
             </div>
           </ScrollReveal>
         </Container>
