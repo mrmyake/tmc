@@ -1,5 +1,6 @@
 import { formatEuro } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
+import { hasCyclePrice } from "@/lib/product-grants/core";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Betaling in behandeling",
@@ -72,6 +73,9 @@ export function MembershipHeroCard({
   );
   const isActive = status === "active";
   const priceEuro = formatEuro(Math.round(pricePerCycleCents / 100));
+  // Een toegekend product (spec-facturatie.md 9.8) heeft geen prijs en geen
+  // incassocyclus: dan geen "€0 per 0 weken" en geen commitment.
+  const showPrice = hasCyclePrice({ pricePerCycleCents, billingCycleWeeks });
 
   return (
     <section
@@ -94,18 +98,22 @@ export function MembershipHeroCard({
         {planName || planVariant}
       </h2>
 
-      <div className="flex items-baseline gap-3 mb-10">
-        <span className="font-[family-name:var(--font-playfair)] text-5xl text-accent leading-none tracking-[-0.02em]">
-          {priceEuro}
-        </span>
-        <span className="text-text-muted text-sm">
-          per {billingCycleWeeks} weken
-        </span>
-      </div>
+      {showPrice && (
+        <div className="flex items-baseline gap-3 mb-10">
+          <span className="font-[family-name:var(--font-playfair)] text-5xl text-accent leading-none tracking-[-0.02em]">
+            {priceEuro}
+          </span>
+          <span className="text-text-muted text-sm">
+            per {billingCycleWeeks} weken
+          </span>
+        </div>
+      )}
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Row label="Gestart" value={formatDate(startDate)} />
-        <Row label="Commitment tot" value={formatDate(commitEndDate)} />
+        {showPrice && (
+          <Row label="Commitment tot" value={formatDate(commitEndDate)} />
+        )}
         {nextInvoice && (
           <Row label="Volgende incasso" value={formatDate(nextInvoice)} />
         )}

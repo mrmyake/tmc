@@ -16,6 +16,14 @@ import { getInvoiceDownloadUrl } from "@/lib/member/invoice-actions";
 import { formatEuroCentsSigned } from "@/lib/format";
 import type { BillToInput } from "@/lib/admin/invoice-bill-to";
 import { EuroInput } from "@/components/ui/EuroInput";
+import {
+  grantTermsLabel,
+  type GrantableProduct,
+  type InvoiceGrantCounter,
+} from "@/lib/product-grants/core";
+import type { ProductGrantRow } from "@/lib/product-grants/server";
+import { GrantProductDialog } from "../../_components/product-grants/GrantProductDialog";
+import { ProductGrantsList } from "../../_components/product-grants/ProductGrantsList";
 
 /**
  * Concept-editor plus de drie stappen (9.3/9.4/9.5). Bruto wordt ingevoerd
@@ -79,7 +87,18 @@ interface FactuurEditorProps {
     canMarkPaid: boolean;
     todayIso: string;
     minPaidOn: string | null;
+    profileId: string;
   };
+  /**
+   * Product klaarzetten (9.8). Null bij een concept of creditnota. `canGrant`
+   * is waar op een betaalde factuur zonder creditnota.
+   */
+  grants: {
+    canGrant: boolean;
+    counters: InvoiceGrantCounter[];
+    rows: ProductGrantRow[];
+    products: GrantableProduct[];
+  } | null;
   /** Afnemer per veld als concept ?? profiel (concept wint). Bij een
    * gefinaliseerde factuur zijn dit de bevroren waarden. */
   initialBillTo: BillToInput;
@@ -159,6 +178,7 @@ export function FactuurEditor({
   initialBillTo,
   initialLines,
   catalogueOptions,
+  grants,
 }: FactuurEditorProps) {
   const router = useRouter();
   const isDraft = invoice.status === "draft";
@@ -178,6 +198,11 @@ export function FactuurEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmPaid, setConfirmPaid] = useState(false);
   const [paidOn, setPaidOn] = useState(invoice.todayIso);
+  // Product klaarzetten: de slug waarvoor de dialoog open staat ("" is
+  // een vrije keuze, voor een factuur zonder productregel).
+  const [grantFor, setGrantFor] = useState<
+    { slug: string | undefined; full: boolean } | null
+  >(null);
   const [isPending, startTransition] = useTransition();
 
   const totals = useMemo(() => {
@@ -800,6 +825,100 @@ export function FactuurEditor({
                 </button>
               </div>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* Product klaarzetten (9.8): een betaalde factuur activeert niets;
+          het product wordt hier handmatig toegekend. */}
+      {grants && (grants.canGrant || grants.rows.length > 0) && (
+        <section
+          id="product-klaarzetten"
+          className="flex flex-col gap-3 border-t border-[color:var(--ink-500)]/60 pt-6"
+        >
+          {/* COPY: confirm met Marlon */}
+          <h2 className="tmc-eyebrow">Product klaarzetten</h2>
+          {grants.canGrant && (
+            <>
+              {/* COPY: confirm met Marlon */}
+              <p className="text-text-muted text-sm max-w-prose">
+                Deze factuur is betaald. De betaling zet zelf niets klaar: ken
+                het product hier toe, dan staat het tegoed direct bij het lid.
+              </p>
+              {grants.counters.length > 0 ? (
+                <ul className="flex flex-col divide-y divide-[color:var(--ink-500)]/60">
+                  {grants.counters.map((c) => {
+                    const full = c.granted >= c.allowed;
+                    return (
+                      <li
+                        key={c.slug}
+                        className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3"
+                      >
+                        <span className="text-sm text-text">{c.displayName}</span>
+                        <span className="text-xs text-text-muted">
+                          {grantTermsLabel(c)}
+                        </span>
+                        <span className="ml-auto text-xs text-text-muted tabular-nums">
+                          {/* COPY: confirm met Marlon */}
+                          {c.granted} van {c.allowed} toegekend
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setGrantFor({ slug: c.slug, full })}
+                          disabled={isPending}
+                          className={
+                            full
+                              ? "px-4 py-2 border border-[color:var(--ink-500)] text-text-muted text-xs uppercase tracking-[0.16em] disabled:opacity-50 cursor-pointer"
+                              : "px-4 py-2 border border-accent text-accent text-xs uppercase tracking-[0.16em] disabled:opacity-50 cursor-pointer"
+                          }
+                        >
+                          {/* COPY: confirm met Marlon */}
+                          {full ? "Nog een keer toekennen" : "Product klaarzetten"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div>
+                  {/* COPY: confirm met Marlon */}
+                  <p className="text-text-muted text-sm max-w-prose mb-3">
+                    Op de regels van deze factuur staat geen product met
+                    tegoed. Hoort er toch een bij, kies het dan zelf.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setGrantFor({ slug: undefined, full: false })}
+                    disabled={isPending || grants.products.length === 0}
+                    className="px-4 py-2 border border-accent text-accent text-xs uppercase tracking-[0.16em] disabled:opacity-50 cursor-pointer"
+                  >
+                    {/* COPY: confirm met Marlon */}
+                    Product klaarzetten
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {!grants.canGrant && (
+            // COPY: confirm met Marlon
+            <p className="text-text-muted text-sm max-w-prose">
+              Aan deze factuur is geen nieuw product meer te koppelen (niet
+              betaald of gecrediteerd).
+            </p>
+          )}
+          <ProductGrantsList grants={grants.rows} showInvoice={false} />
+          {grantFor && invoice.number && (
+            <GrantProductDialog
+              open
+              onClose={() => setGrantFor(null)}
+              profileId={invoice.profileId}
+              products={grants.products}
+              fixedInvoice={{ id: invoice.id, number: invoice.number }}
+              presetSlug={grantFor.slug}
+              duplicateExpected={grantFor.full}
+              // COPY: confirm met Marlon
+              title="Product klaarzetten"
+            />
           )}
         </section>
       )}

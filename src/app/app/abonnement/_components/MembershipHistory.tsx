@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { formatEuro } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
+import { hasCyclePrice } from "@/lib/product-grants/core";
 
 export interface HistoryItem {
   id: string;
@@ -55,8 +56,14 @@ export function MembershipHistory({ items }: { items: HistoryItem[] }) {
               {formatDate(item.startDate)} – {formatDate(item.endDate)}
             </span>
             <span className="text-text-muted text-xs">
-              {formatEuro(Math.round(item.pricePerCycleCents / 100))} /{" "}
-              {item.billingCycleWeeks}wk ·{" "}
+              {/* Een toegekend product heeft geen prijs en geen cyclus
+                  (spec-facturatie.md 9.8): dan alleen de status. */}
+              {hasCyclePrice(item) && (
+                <>
+                  {formatEuro(Math.round(item.pricePerCycleCents / 100))} /{" "}
+                  {item.billingCycleWeeks}wk ·{" "}
+                </>
+              )}
               {STATUS_LABEL[item.status] ?? item.status}
             </span>
           </li>

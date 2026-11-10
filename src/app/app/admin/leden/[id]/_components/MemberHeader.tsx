@@ -63,6 +63,16 @@ export function MemberHeader({ detail }: MemberHeaderProps) {
           firstName={profile.firstName}
           email={profile.email}
           primaryMembership={primaryMembership}
+          grantableProducts={detail.grantableProducts}
+          paidInvoices={detail.paidInvoices}
+          activeCreditSlugs={detail.memberships
+            .filter(
+              (m) =>
+                m.status === "active" &&
+                m.planVariant !== null &&
+                (m.creditsRemaining ?? 0) > 0,
+            )
+            .map((m) => m.planVariant as string)}
         />
       </div>
 
