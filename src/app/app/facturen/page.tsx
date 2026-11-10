@@ -7,6 +7,12 @@ import { SITE } from "@/lib/constants";
 import { MandateStatusCard } from "./_components/MandateStatusCard";
 import { PaymentRow } from "./_components/PaymentRow";
 import { LooseInvoiceRow } from "./_components/LooseInvoiceRow";
+import {
+  INVOICE_STATUS_LABEL,
+  canPayOnline,
+  invoicePaymentStatus,
+  todayIso,
+} from "@/lib/invoice-payments/status";
 import type { PaymentStatus } from "./_components/PaymentStatusBadge";
 
 export const metadata = {
@@ -68,6 +74,22 @@ export default async function FacturenPage(props: {
   // filtert al op is_test, maar payments zelf heeft geen is_test-policy --
   // de RLS op payments scopet alleen op profile_id). Zonder dit filter zou
   // een testbetaling van dit lid gewoon meegeteld en getoond worden.
+  // Factuurbetalingen (kind 'invoice', online of overboeking) horen bij een
+  // factuur en staan in het blok "Facturen en creditnota's", niet in de
+  // betaalhistorie. De ids bepalen welke gekoppelde facturen ook in dat blok
+  // horen (een betaalde handmatige factuur heeft inmiddels een payment_id).
+  const { data: invoicePayRows } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("is_test", false)
+    .eq("kind", "invoice");
+  const invoicePayIds = (invoicePayRows ?? []).map((p) => p.id);
+  const looseFilter =
+    invoicePayIds.length > 0
+      ? `payment_id.is.null,payment_id.in.(${invoicePayIds.join(",")})`
+      : "payment_id.is.null";
+
   const [
     paymentsResult,
     paymentsCountResult,
@@ -81,13 +103,15 @@ export default async function FacturenPage(props: {
         )
         .eq("profile_id", user.id)
         .eq("is_test", false)
+        .or("kind.is.null,kind.neq.invoice")
         .order("created_at", { ascending: false })
         .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
       supabase
         .from("payments")
         .select("id", { count: "exact", head: true })
         .eq("profile_id", user.id)
-        .eq("is_test", false),
+        .eq("is_test", false)
+        .or("kind.is.null,kind.neq.invoice"),
       supabase
         .from("memberships")
         .select(
@@ -105,12 +129,12 @@ export default async function FacturenPage(props: {
       supabase
         .from("invoices")
         .select(
-          "id, invoice_number, issued_at, total_gross_cents, credit_of_invoice_id",
+          "id, invoice_number, issued_at, total_gross_cents, credit_of_invoice_id, payment_id",
         )
         .eq("profile_id", user.id)
         .eq("status", "finalised")
         .eq("is_test", false)
-        .is("payment_id", null)
+        .or(looseFilter)
         .order("issued_at", { ascending: false }),
     ]);
 
@@ -228,19 +252,60 @@ export default async function FacturenPage(props: {
     };
   });
 
-  const looseInvoices = (looseInvoicesResult.data ?? []).flatMap((i) =>
-    i.invoice_number
-      ? [
-          {
-            id: i.id,
-            invoiceNumber: i.invoice_number,
-            issuedAt: i.issued_at,
-            totalGrossCents: i.total_gross_cents ?? 0,
-            isCreditNote: Boolean(i.credit_of_invoice_id),
-          },
-        ]
-      : [],
-  );
+  // Gecrediteerd: gefinaliseerde creditnota's op deze facturen (RLS laat het
+  // lid zijn eigen creditnota's lezen).
+  const looseIds = (looseInvoicesResult.data ?? []).map((i) => i.id);
+  const creditedById = new Map<string, number>();
+  if (looseIds.length > 0) {
+    const { data: creditNotes } = await supabase
+      .from("invoices")
+      .select("credit_of_invoice_id, total_gross_cents")
+      .eq("profile_id", user.id)
+      .eq("status", "finalised")
+      .in("credit_of_invoice_id", looseIds);
+    for (const c of creditNotes ?? []) {
+      if (!c.credit_of_invoice_id) continue;
+      creditedById.set(
+        c.credit_of_invoice_id,
+        (creditedById.get(c.credit_of_invoice_id) ?? 0) - (c.total_gross_cents ?? 0),
+      );
+    }
+  }
+  const today = todayIso();
+
+  const looseInvoices = (looseInvoicesResult.data ?? []).flatMap((i) => {
+    if (!i.invoice_number) return [];
+    const isCreditNote = Boolean(i.credit_of_invoice_id);
+    const total = i.total_gross_cents ?? 0;
+    const credited = creditedById.get(i.id) ?? 0;
+    const status = i.issued_at
+      ? invoicePaymentStatus({
+          isCreditNote,
+          totalGrossCents: total,
+          creditedCents: credited,
+          paid: i.payment_id !== null,
+          issuedAt: i.issued_at,
+          today,
+        })
+      : null;
+    return [
+      {
+        id: i.id,
+        invoiceNumber: i.invoice_number,
+        issuedAt: i.issued_at,
+        totalGrossCents: total,
+        isCreditNote,
+        statusLabel: status ? INVOICE_STATUS_LABEL[status] : null,
+        payable: canPayOnline({
+          status: "finalised",
+          isCreditNote,
+          totalGrossCents: total,
+          paymentId: i.payment_id,
+          creditedCents: credited,
+        }),
+      },
+    ];
+  });
 
   const total = paymentsCountResult.count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));

@@ -2,6 +2,7 @@ import path from "node:path";
 import {
   Document,
   Font,
+  Link,
   Page,
   Text,
   View,
@@ -10,6 +11,7 @@ import {
 import * as React from "react";
 import { formatEuroCentsSigned } from "@/lib/format";
 import { formatNlDate } from "@/lib/invoice-terms";
+import { QrCode } from "./QrCode";
 
 /**
  * De verkoopfactuur (spec-facturatie.md 5.2), gebouwd op het bewezen
@@ -151,6 +153,21 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 11, fontWeight: 500 },
   totalValue: { fontSize: 13, fontWeight: 600 },
   payWrap: { marginTop: 30 },
+  payHeading: {
+    fontFamily: "Fraunces",
+    fontWeight: 500,
+    fontSize: 12.5,
+    marginBottom: 10,
+  },
+  payOnlineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  payOnlineText: { flex: 1, gap: 6 },
+  payExplain: { fontSize: 9, color: COLORS.muted, lineHeight: 1.4 },
+  payLink: {
+    fontSize: 9.5,
+    fontWeight: 500,
+    color: COLORS.ink,
+    textDecoration: "underline",
+  },
   payRow: { flexDirection: "row", gap: 16 },
   payBox: {
     flex: 1,
@@ -224,6 +241,13 @@ export interface CustomerInvoiceData {
   tmcEmail: string;
   /** Overmaakgegevens; alleen gebruikt bij een factuur. */
   payment: { iban: string; accountHolder: string };
+  /**
+   * Stabiele betaal-URL (/factuur/betalen/<token>), alleen bij een factuur die
+   * online betaald kan worden. Null: alleen het kader "Zelf overmaken".
+   */
+  payUrl: string | null;
+  /** QR-matrix van payUrl; null valt terug op alleen de klikbare link. */
+  payQr: boolean[][] | null;
 }
 
 function pct(rateBp: number): string {
@@ -356,11 +380,36 @@ export function CustomerInvoicePdf(data: CustomerInvoiceData) {
 
         {showPayment && data.dueDate && (
           <View style={styles.payWrap} wrap={false}>
-            <Text style={styles.label}>Betalen</Text>
+            {data.payUrl ? (
+              // COPY: confirm met Marlon
+              <Text style={styles.payHeading}>Betalen kan op twee manieren.</Text>
+            ) : (
+              <Text style={styles.label}>Betalen</Text>
+            )}
             <View style={styles.payRow}>
+              {data.payUrl && (
+                <View style={styles.payBox}>
+                  {/* COPY: confirm met Marlon */}
+                  <Text style={styles.payBoxTitle}>1. Direct online</Text>
+                  <View style={styles.payOnlineRow}>
+                    <View style={styles.payOnlineText}>
+                      {/* COPY: confirm met Marlon */}
+                      <Text style={styles.payExplain}>
+                        Betaal veilig online, bijvoorbeeld met iDEAL.
+                      </Text>
+                      <Link src={data.payUrl} style={styles.payLink}>
+                        Betaal deze factuur online
+                      </Link>
+                    </View>
+                    {data.payQr && <QrCode matrix={data.payQr} size={76} />}
+                  </View>
+                </View>
+              )}
               <View style={styles.payBox}>
                 {/* COPY: confirm met Marlon */}
-                <Text style={styles.payBoxTitle}>Zelf overmaken</Text>
+                <Text style={styles.payBoxTitle}>
+                  {data.payUrl ? "2. Zelf overmaken" : "Zelf overmaken"}
+                </Text>
                 <View style={styles.payLine}>
                   <Text style={styles.payKey}>IBAN</Text>
                   <Text style={styles.payVal}>{data.payment.iban}</Text>
@@ -378,7 +427,7 @@ export function CustomerInvoicePdf(data: CustomerInvoiceData) {
                   <Text style={styles.payVal}>{formatNlDate(data.dueDate)}</Text>
                 </View>
               </View>
-              <View style={styles.payReserved} />
+              {!data.payUrl && <View style={styles.payReserved} />}
             </View>
           </View>
         )}

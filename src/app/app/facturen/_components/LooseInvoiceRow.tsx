@@ -1,6 +1,7 @@
 import { formatEuroCentsSigned } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
 import { InvoiceDownloadButton } from "./InvoiceDownloadButton";
+import { InvoicePayButton } from "./InvoicePayButton";
 
 export interface LooseInvoiceRowData {
   id: string;
@@ -8,6 +9,10 @@ export interface LooseInvoiceRowData {
   issuedAt: string | null;
   totalGrossCents: number;
   isCreditNote: boolean;
+  /** Open, Vervallen, Betaald of Gecrediteerd; null bij een creditnota. */
+  statusLabel: string | null;
+  /** Online te betalen (open of vervallen, nog niet betaald of gecrediteerd). */
+  payable: boolean;
 }
 
 /**
@@ -33,6 +38,12 @@ export function LooseInvoiceRow({ row }: { row: LooseInvoiceRowData }) {
         <span className="font-[family-name:var(--font-playfair)] text-2xl text-text tracking-[-0.02em] leading-none">
           {formatEuroCentsSigned(row.totalGrossCents)}
         </span>
+        {row.statusLabel && (
+          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-text-muted">
+            {row.statusLabel}
+          </span>
+        )}
+        {row.payable && <InvoicePayButton invoiceId={row.id} />}
         <InvoiceDownloadButton invoiceId={row.id} />
       </div>
     </article>

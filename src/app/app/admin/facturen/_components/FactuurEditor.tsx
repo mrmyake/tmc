@@ -10,6 +10,7 @@ import {
   generateInvoicePdf,
   sendInvoiceEmail,
   createCreditNote,
+  markInvoicePaid,
 } from "@/lib/admin/invoice-actions";
 import { getInvoiceDownloadUrl } from "@/lib/member/invoice-actions";
 import { formatEuroCentsSigned } from "@/lib/format";
@@ -71,6 +72,13 @@ interface FactuurEditorProps {
     totalGrossCents: number | null;
     billToName: string;
     billToEmail: string;
+    /** Open, Vervallen, Betaald of Gecrediteerd; null bij concept en creditnota. */
+    payStatusLabel: string | null;
+    /** Betaaldatum (yyyy-mm-dd) als de factuur betaald is. */
+    paidOn: string | null;
+    canMarkPaid: boolean;
+    todayIso: string;
+    minPaidOn: string | null;
   };
   /** Afnemer per veld als concept ?? profiel (concept wint). Bij een
    * gefinaliseerde factuur zijn dit de bevroren waarden. */
@@ -168,6 +176,8 @@ export function FactuurEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmPaid, setConfirmPaid] = useState(false);
+  const [paidOn, setPaidOn] = useState(invoice.todayIso);
   const [isPending, startTransition] = useTransition();
 
   const totals = useMemo(() => {
@@ -309,6 +319,19 @@ export function FactuurEditor({
     });
   }
 
+  function runMarkPaid() {
+    setMessage(null);
+    startTransition(async () => {
+      const r = await markInvoicePaid(invoice.id, paidOn);
+      // COPY: confirm met Marlon
+      setMessage(r.ok ? "Factuur gemarkeerd als betaald." : r.error);
+      if (r.ok) {
+        setConfirmPaid(false);
+        router.refresh();
+      }
+    });
+  }
+
   function runPdf() {
     setMessage(null);
     startTransition(async () => {
@@ -369,6 +392,7 @@ export function FactuurEditor({
             <> · creditnota bij {invoice.creditOfNumber}</>
           )}
           {invoice.issuedAt && <> · {invoice.issuedAt}</>}
+          {invoice.payStatusLabel && <> · {invoice.payStatusLabel}</>}
         </p>
       </header>
 
@@ -710,6 +734,75 @@ export function FactuurEditor({
           </button>
         )}
       </section>
+
+      {/* Betaling (9.7): alleen een gefinaliseerde factuur zonder betaling. */}
+      {!isDraft && !invoice.isCreditNote && (
+        <section className="flex flex-col gap-3 border-t border-[color:var(--ink-500)]/60 pt-6">
+          {/* COPY: confirm met Marlon */}
+          <h2 className="tmc-eyebrow">Betaling</h2>
+          {invoice.paidOn && (
+            // COPY: confirm met Marlon
+            <p className="text-text text-sm">Betaald op {invoice.paidOn}.</p>
+          )}
+          {invoice.canMarkPaid && !confirmPaid && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setConfirmPaid(true)}
+                disabled={isPending}
+                className="px-4 py-2 border border-accent text-accent text-xs uppercase tracking-[0.16em] disabled:opacity-50"
+              >
+                {/* COPY: confirm met Marlon */}
+                Markeer als betaald (overboeking)
+              </button>
+            </div>
+          )}
+          {invoice.canMarkPaid && confirmPaid && (
+            <div className="flex flex-col gap-3 bg-bg-elevated p-4 border border-accent/40 max-w-md">
+              <label className="flex flex-col gap-1">
+                {/* COPY: confirm met Marlon */}
+                <span className="text-text-muted text-[10px] uppercase tracking-[0.14em]">
+                  Betaaldatum
+                </span>
+                <input
+                  type="date"
+                  value={paidOn}
+                  min={invoice.minPaidOn ?? undefined}
+                  max={invoice.todayIso}
+                  onChange={(e) => setPaidOn(e.target.value)}
+                  className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1"
+                />
+              </label>
+              {/* COPY: confirm met Marlon */}
+              <p className="text-text text-sm">
+                Factuur <strong>{invoice.number}</strong> van{" "}
+                <strong>{billTo.name || invoice.billToName}</strong> voor{" "}
+                <strong>{formatEuroCentsSigned(totals.gross)}</strong> markeren
+                als overgemaakt op <strong>{paidOn}</strong>? Dit is niet terug
+                te draaien; corrigeren kan alleen met een creditnota.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={runMarkPaid}
+                  disabled={isPending || !paidOn}
+                  className="px-4 py-1.5 bg-accent text-bg text-xs uppercase tracking-[0.16em] disabled:opacity-50"
+                >
+                  {/* COPY: confirm met Marlon */}
+                  Ja, markeer als betaald
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmPaid(false)}
+                  className="text-text-muted text-xs uppercase tracking-[0.16em]"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {message && <p className="text-text-muted text-sm">{message}</p>}
       {!isDraft && (

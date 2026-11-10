@@ -62,3 +62,14 @@ export function extraClassWebhookUrl(mode: "live" | "test"): string {
   }
   return params.size ? `${base}?${params}` : base;
 }
+
+/** Idem voor de webhook van een factuurbetaling (spec-facturatie.md 9.7). */
+export function invoiceWebhookUrl(mode: "live" | "test"): string {
+  const base = `${siteUrl()}/api/invoices/webhook`;
+  const params = new URLSearchParams();
+  if (mode === "test") params.set("mode", "test");
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    params.set("x-vercel-protection-bypass", process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
+  }
+  return params.size ? `${base}?${params}` : base;
+}

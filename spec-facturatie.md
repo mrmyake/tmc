@@ -22,6 +22,8 @@ daarop aan en vervangt hem niet.
 | `/app/facturen` uitbreiden of nieuwe route | besloten: uitbreiden | nee |
 | Twee Mollie-keys aangemaakt en in Vercel gezet | gedaan 2026-09-08: `MOLLIE_API_KEY_LIVE` (Production), `MOLLIE_API_KEY_TEST` (Production, Development), oude `MOLLIE_API_KEY` verwijderd | nee |
 | Bucket `tmc-invoices` aangemaakt | open | PR 6 |
+| **LIVE-factuur alleen op productie finaliseren** (prioriteit **should**, te beslissen voor de eerste echte factuur) | open, nog niets voor gebouwd. Een preview-test op een echt (niet-test) profiel verbruikt een echt nummer uit de LIVE-reeks en zet een preview-host in de write-once PDF (zie 9.7, "Alleen waar het kan innen"; aanleiding: 2026.004). Voorstel om te beslissen: `finalizeInvoice` voor `is_test = false` alleen toestaan als `VERCEL_ENV = production`, zoals de live-modus van Mollie al doet | de eerste echte factuur |
+| **Product toekennen zonder betaling** (prioriteit **must**) | open, eigen PR na PR #340. Wat er wel en niet bestaat: `adjust_membership_credits` werkt alleen op een bestaande `memberships`-rij (geen product aanmaken), `admin_create_order` maakt alleen een order tegen catalogusprijs (alleen het inschrijfgeld kan vervallen), `activate_order` wordt alleen door de Mollie-webhook en de activatieketen aangeroepen. Er is dus geen pad om een product of tegoed (bijvoorbeeld `duo_10`) aan een lid te geven zonder betaalde order. De koppeling tussen een betaalde factuur en een later toegekend product moet zonder nieuwe migratie op `invoices` kunnen, bijvoorbeeld via `invoice_id` op de toekenning (9.7) | **een factuur met betaallink mag voor echte klanten niet met een productregel (`catalogue_slug`) gebruikt worden tot dit live is** |
 
 **Post-opening (niet blokkerend, wel gepland):**
 
@@ -1193,6 +1195,15 @@ kader is ruimte voor een tweede kader "Direct online" dat in een latere PR komt 
 toont. Een creditnota heeft geen vervaldatum en geen betaalblok. Onderaan een regel met
 contact voor vragen en een voettekst met adres, e-mail, KvK en BTW.
 
+**Betaalblok met online betalen (PR #340).** Heeft de factuur een betaaltoken (9.7), dan krijgt
+het blok de kop "Betalen kan op twee manieren." met twee kaders naast elkaar: "1. Direct online"
+(korte uitleg, de tekstlink "Betaal deze factuur online" en rechts de QR-code van dezelfde
+betaal-URL) en "2. Zelf overmaken" (ongewijzigd). De QR is een vector (`qrcode` met
+`QRCode.create`, getekend als `Rect`'s in een react-pdf-`Svg`), dus zonder canvas of afbeelding;
+lukt het maken niet, dan blijft alleen de klikbare link. De volledige URL staat nooit als
+zichtbare tekst. Zonder token (of bij een factuur die niet online betaald kan worden) blijft
+alleen het kader "Zelf overmaken" over. Een creditnota blijft zonder betaalblok.
+
 **Betaaltermijn en vervaldatum.** Zeven dagen. De vervaldatum is factuurdatum plus zeven
 dagen, berekend bij het renderen uit `issued_at` met UTC-datumoptelling
 (`invoiceDueDate`, `src/lib/invoice-terms.ts`); er is geen kolom voor. Overmaakgegevens:
@@ -1273,6 +1284,11 @@ Hoe het werkt:
   plus zeven dagen), ook bij opnieuw versturen van een oudere factuur; er is geen scheiding
   tussen oud en nieuw.
 - `replyTo` staat op `SITE.email` (zie PR #338).
+- **Knop "Betaal nu" (PR #340).** `sendInvoiceEmail` maakt het betaaltoken idempotent aan als het
+  nog niet bestaat, zodat de knop ook werkt bij een factuur waarvan de PDF geen link heeft. De
+  knop staat naast de overmaakgegevens onder "Betalen kan op twee manieren." en toont de URL
+  nooit als tekst. Geen knop bij een creditnota, bij een factuur met `payment_id` of bij een
+  totaal van nul of lager; zonder werkend token valt de mail terug op alleen overmaken.
 
 ## 6. Testmodus
 
@@ -1956,6 +1972,18 @@ er aan documenten tegenover staat. Dat is informatie, geen controle.
 
 ### 7.4 Creditnota's en restituties als negatieve regels
 
+**Factuurbetalingen (PR #340).** Een betaalde handmatige factuur (kind `invoice`, 9.7) heeft
+een `payments`-rij, dus de omzet leeft nog steeds in `payments`; de factuur is niet de bron.
+Omdat zo'n factuur meerdere regels met een eigen tarief en categorie heeft, geeft
+`tmc.v_revenue_lines` voor `kind = 'invoice'` een rij **per factuurregel** (bruto, BTW, netto en
+categorie per regel), via een `UNION ALL`-tak; de eerste tak slaat `kind = 'invoice'` over. Alleen
+de gekoppelde betaling telt (`i.payment_id = p.id`), dus een losgekoppelde dubbele betaling valt
+buiten de omzet. Creditnota's worden per regel gematcht op regelnummer (een creditnota spiegelt
+de regels van het origineel; een creditnota die regels weglaat of hernummert wordt per
+regelnummer verrekend). `refunded_*` staan voor deze rijen op 0: een terugbetaling van een
+factuurbetaling loopt via een creditnota, niet via de refundkolommen. Een betaalde factuur telt
+mee in de maand van `paid_at` (bij een overboeking de door de admin gekozen datum).
+
 Twee bewegingen, allebei negatief, allebei in de periode waarin ze plaatsvonden:
 
 - **Restitutie**: `refunded_cents` op de betaalregel, meegeteld in de maand van
@@ -2230,9 +2258,10 @@ Status `draft`. Er is nog geen nummer.
 Voor het geval dat er buiten Mollie om is betaald, of voor een correctie. Admin kiest een
 profiel, voegt regels toe, finaliseert. `payment_id` blijft leeg.
 
-Deze factuur telt niet mee in de omzetrapportage uit 7.2, want die leest `payments`. Dat is
-bewust en het staat als waarschuwing in de UI: "deze factuur hangt niet aan een betaling en
-verschijnt niet in de omzetrapportage."
+Deze factuur telt mee in de omzetrapportage uit 7.2 zodra hij betaald is (online, of als de
+admin hem als overgemaakt markeert, 9.7): de omzet leest `payments` en een betaalde
+handmatige factuur heeft er sinds PR #340 een. Tot die tijd telt hij niet mee. De UI zegt dat
+bij het aanmaken ("hij telt mee in de omzet zodra hij betaald is").
 
 ### 9.3 Regels toevoegen
 
@@ -2344,6 +2373,98 @@ Elke handeling in `tmc.admin_audit_log`, hetzelfde patroon als het bestaande
 | `invoice_credited` | `invoice_number`, `credit_of`, `total_gross_cents` |
 
 `target_type = 'invoice'`, `target_id` = de factuur-id.
+
+### 9.7 Online betalen, overboeking en betaalstatus (PR #340)
+
+Een klant kan een handmatige factuur online betalen via een knop in de factuurmail, in het
+portaal en via een QR-code op de PDF, of zelf overmaken. Het te innen bedrag is altijd exact
+`total_gross_cents` (display-equals-charge), de termijn is zeven dagen (5.2).
+
+**Datamodel (migratie `20261111100000_invoice_online_payment.sql`).**
+
+- `tmc.payments.invoice_id` en `kind = 'invoice'`. Een betaalpoging is een `payments`-rij
+  met `status open`; een partiele unieke index (`payments_one_paid_per_invoice`) laat hoogstens
+  een betaalde factuurbetaling per factuur toe.
+- `tmc.invoices.payment_id` mag **eenmalig van null naar een waarde** (write-once, net als
+  `pdf_path`), en alleen naar een **betaalde** factuurbetaling (`kind = 'invoice'`,
+  `status = 'paid'`, `invoice_id` van deze factuur) en nooit op een creditnota (aangepaste
+  `invoices_finalised_immutable`, live definitie als basis): de database dwingt zelf af dat
+  alleen geld dat echt binnen is gekoppeld wordt. De betaalregel gaat dus eerst op `paid` en
+  wordt daarna gekoppeld. Er zijn
+  geen nieuwe kolommen op `invoices`: de betaalstatus is afgeleid.
+- `tmc.invoice_pay_tokens (invoice_id, token)`: een stabiele, nooit verlopende token per
+  factuur, alleen `service_role`. Het token wordt vóór het renderen van de PDF aangemaakt (de
+  PDF is write-once) en door `sendInvoiceEmail` en het portaal idempotent aangevuld.
+- `tmc.v_revenue_lines`: de tak per factuurregel (7.4).
+
+**Alleen waar het kan innen.** Link, QR en knop "Betaal nu" komen alleen in een PDF of mail
+als de factuur online betaald kan worden **en** `onlinePaymentAvailable(invoice.is_test)` waar
+is in de omgeving waar het document gemaakt wordt (`resolveInvoicePayLink`). Een LIVE-factuur
+heeft de live-key nodig, die alleen op productie bestaat (`MOLLIE_API_KEY_LIVE` staat alleen op
+Production, en de live-modus werkt uitsluitend op productie, `src/lib/mollie.ts`). Is dat niet
+zo, dan valt het document terug op alleen "Zelf overmaken" en wordt er **geen token
+aangemaakt**. **Een LIVE-PDF die op een preview is gemaakt blijft daardoor permanent zonder
+betaallink** (de PDF is write-once, 4.5): er is bewust geen herstelpad, want een link naar een
+preview-host die niet kan innen is erger dan geen link. De mail kan wel opnieuw vanaf productie
+met knop. Oorzaak van deze regel: LIVE-factuur 2026.004 werd op een preview gefinaliseerd en
+kreeg een PDF en twee mails met een betaallink die daar nooit kon werken (2026-11-10).
+
+**Betaalpagina.** `/factuur/betalen/<token>`, publiek, het token is de enige poort. De pagina
+toont alleen de studionaam, het factuurnummer, het bedrag, de vervaldatum en de status: nooit
+naam, adres of e-mail van de afnemer. De betaling start bij een **klik** op "Betaal online",
+niet bij het openen (mailscanners, QR-voorbeelden en prefetch mogen niets minten). Is
+de Mollie-modus van de factuur in de omgeving niet beschikbaar (een LIVE-factuur op een
+preview), dan toont de pagina geen knop maar de tekst dat online betalen daar niet kan, met de
+overmaakgegevens; de generieke "Er ging iets mis" blijft voor echte fouten (uitkomst
+`unavailable` van `startInvoicePayment`). Een
+vervallen factuur blijft betaalbaar, met een korte opmerking dat de termijn verstreken is. Een
+betaalde of gecrediteerde factuur toont dat, zonder knop. Mollie stuurt de klant terug naar
+dezelfde pagina, die de actuele status toont (met een poller tot de webhook verwerkt heeft).
+
+**Eigen pad, geen orders.** `startInvoicePayment` (`src/lib/invoice-payments/`) maakt een
+eenmalige Mollie-betaling voor het factuurtotaal met metadata `type invoice` en `invoiceId`;
+de webhook is `/api/invoices/webhook`, naar het model van de extra-les- en proefles-webhook
+(`writePaymentWithTransition`, refund- en chargeback-spiegel). De modus volgt uit
+`invoices.is_test` (snapshot van `profiles.is_test`): een testfactuur gebruikt de testkey, de
+live-key werkt uitsluitend op productie (vangrails in `src/lib/mollie.ts`).
+
+**Dubbele betaling, drie lagen plus een achtervang.** (1) Hergebruik: een levende poging
+(open, pending, authorized) wordt hergebruikt; (2) een deterministische idempotency-key
+`invoice-<id>-<poging>`; (3) een compare-and-swap op `invoices.payment_id`. De partiele unieke
+index is de achtervang in de database. Komt er een online betaling binnen op een factuur die
+al betaald is (bijvoorbeeld een overboeking die Marlon intussen markeerde), dan wordt die
+betaling losgekoppeld (`invoice_id` null, omschrijving "Dubbele betaling"), via
+`processPaymentRefund` terugbetaald en aan de studio gemeld (ntfy). Een overboeking markeren
+annuleert een nog open online poging waar Mollie dat toestaat.
+
+**Overboeking markeren.** Admin: "Markeer als betaald (overboeking)" met een datum (niet voor
+de factuurdatum, niet in de toekomst) en een bevestigingsstap met factuurnummer, afnemer,
+bedrag en datum. Er is bewust geen "markeer terug": corrigeren gaat met een creditnota. De
+actie maakt een `payments`-rij met `method banktransfer` en de synthetische
+`mollie_payment_id` `bank:<invoice_id>` (de kolom is `NOT NULL UNIQUE`), koppelt hem met de
+compare-and-swap en schrijft auditregel `invoice_marked_paid`. Plekken die
+`payments.mollie_payment_id` lezen en hoe ze met `bank:`-rijen omgaan staan in de PR-beschrijving;
+in de code: het ledendetail toont geen "Open in Mollie" en geen "Factuur maken" bij een
+factuurbetaling, het dashboard telt mislukte of verlopen factuurpogingen niet als mislukte
+incasso, en het ledenportaal houdt factuurbetalingen uit de betaalhistorie.
+
+**Status.** Afgeleid, identiek voor lid en admin: **Open**, **Vervallen** (de vervaldatum ligt
+in het verleden), **Betaald** (gekoppelde betaling) en **Gecrediteerd** (gefinaliseerde
+creditnota's dekken het totaal). Een creditnota heeft geen status. Het lid ziet de status en de
+knop "Betaal online" (bij Open en Vervallen) in het blok "Facturen en creditnota's" op
+`/app/facturen`; de admin-lijst en het factuurscherm tonen dezelfde labels.
+
+**Melding bij betaling.** Zodra een factuur betaald is (online, of door een andere admin als
+overboeking gemarkeerd) gaan er een ntfy en een e-mail naar `SITE.email` met factuurnummer,
+afnemer en bedrag, en de vermelding dat een eventueel product nog **handmatig klaargezet** moet
+worden, met de `catalogue_slug` van de factuurregels waar die er zijn.
+
+**Geen productactivatie.** De factuurbetaling heeft geen bijwerkingen buiten `payments` en de
+factuur: een product bij de factuur wordt niet geactiveerd (besluit 41). Zie de gate
+"Product toekennen zonder betaling" bovenaan: tot die er is, mag een factuur met betaallink
+voor echte klanten niet met een productregel gebruikt worden. De koppeling met een later
+toegekend product moet zonder nieuwe migratie op `invoices` kunnen (bijvoorbeeld `invoice_id`
+op de toekenning); daar is nu niets voor gebouwd.
 
 ## 10. Migratieplan
 
@@ -2775,6 +2896,10 @@ index staat er.
 | 35 | **Herziening van 6.5 (PR #193, 2026-09-19):** transiënte fouten in de Mollie-webhook (netwerk, Mollie 5xx en timeouts, Supabase en PostgREST, en alles wat onbekend is) antwoorden 500 zodat Mollie tot 26 uur lang herhaalt; alleen fouten waarvan herhaling dezelfde uitkomst geeft (Mollie 404 en overige 4xx, onparseerbare body, SQLSTATE 22/23/42/P0) blijven 200 met een `webhook.failed`-event. Per pad en `mollie_payment_id` hooguit een ntfy per 26 uur, met de `webhook.failed`-rijen als bron. | De 200 op elke fout uit PR #172 ("Mollie mag niet gaan retryen"). Verworpen: de discovery op `fix/mollie-webhook-reliability` toonde drie 2xx-paden waarop een geslaagde betaling definitief verloren ging; 26 uur herhalen met ruis is goedkoper dan een betaling kwijtraken, en PR 3 (reconciliatie) vangt op wat na 26 uur openstaat. Ook verworpen: onbekende fouten op 200 houden, want dat is precies de klasse waarin een nieuw stil pad ontstaat. |
 | 36 | **De bevestigingsmail heeft sinds 3a-bis (PR #195, 2026-09-19) geen vangnet meer in de webhook.** Hij draait in `after()`, na de 200; mislukt hij daar (MailerSend down, timeout van 10 s), dan komt er geen tweede webhook die de retry-tak met `order.confirmation_sent` als poort bereikt. Vastgelegd, niet gebouwd: PR 3b (reconciliatie in `expire-orders`) controleert bij elke gereconcilieerde of al geactiveerde order ook `order.confirmation_sent` en verstuurt de mail alsnog via dezelfde `sendOrderConfirmation`, met dezelfde poort. | De mail synchroon vóór de respons houden. Verworpen: de mail is 1 tot 1,6 s op het happy path en tot 10 s bij een dode MailerSend, binnen Mollie's 15 s de grootste post na Akiles, en een mislukte mail mag de betaalbevestiging richting Mollie niet ophouden. |
 | 37 | **Chargebacks worden gespiegeld in kolommen, niet in een status, en behandeld als mislukte incasso op abonnementsbetalingen** (PR #303, 2026-10-20): `payments.charged_back_amount_cents` en `charged_back_at` naast de refund-kolommen, `status` blijft `paid`; recurring en de eerste abonnementsbetaling zetten de membership van `active` naar `payment_failed` met dezelfde mail, push en ntfy als bij `failed`; andere typen alleen spiegel, event en ntfy; reversal naar 0 reactiveert alleen als deze chargeback de laatste oorzaak was. De poort voor alle bijwerkingen is een compare-and-swap op het bedrag op de rij zelf. Daarnaast vuren `payment.received` en `payment.failed` alleen nog op een echte statusovergang (drie-stappen-write: overgang, nieuwe rij, herhaling) en reactiveert de recurring-tak niet meer op een herleverde paid-webhook. Zie 4.7 en 4.8. | Statuswaarde `charged_back`. Verworpen: `v_revenue_lines` en de factuurketen filteren op `paid`, een chargeback is omkeerbaar, en Mollie zelf houdt de status op `paid`. Ook verworpen: een losse read vóór de upsert als poort voor `payment.received`; dat is niet atomair onder twee gelijktijdige webhooks. Ook verworpen: automatisch annuleren na herhaalde storno's; Mollie doet dat zelf na drie keer, zonder webhook, en de staf wordt daarop gewezen. |
+| 38 | `invoices.payment_id` mag eenmalig van null naar een waarde (write-once), alleen naar een betaling van die factuur (PR #340, Ilja 2026-11-10) | De betaalstatus van een factuur is afgeleid uit de gekoppelde betaling. Verworpen: statuskolommen op `invoices` (nieuwe triggeruitzonderingen per kolom) en een aparte koppeltabel (omzetview, creditnota-join en portaal sleutelen al op `invoices.payment_id`). Zie 9.7 |
+| 39 | `v_revenue_lines` geeft voor `kind = 'invoice'` een rij per factuurregel, via een `UNION ALL`-tak (PR #340, Ilja) | Exact bruto, BTW, netto en categorie per regel. Verworpen: een rij per payment met categorie "overig" en tarief null. Gevolg: terugbetalingen van een factuurbetaling lopen via een creditnota (`refunded_*` staan op 0), en creditnota's worden per regelnummer verrekend. Zie 7.4 |
+| 40 | Factuurbetaling als eigen pad (`/api/invoices/webhook`), token als tabel (`invoice_pay_tokens`), betaling start bij een klik, een vervallen factuur blijft betaalbaar (PR #340, Ilja) | De orderpijplijn past niet (bevroren `pricing_snapshot`, verlopende token, activatie). Een token als tabel voorkomt een kolom op de bevroren factuur en een nieuw geheim; starten bij een klik voorkomt dat mailscanners of QR-voorbeelden betalingen minten. Zie 9.7 |
+| 41 | Een factuurbetaling activeert geen product (alleen innen); "product toekennen zonder betaling" wordt een eigen PR (PR #340, Ilja) | `activate_order` is aan orders met een bevroren prijs gebonden en er is geen admin-pad naar een product zonder betaalde order. De factuur met betaallink mag voor echte klanten niet met een productregel gebruikt worden tot die PR live is (gate "must" bovenaan). Zie 9.7 |
 
 ## 13. Open vragen
 
@@ -3438,6 +3563,8 @@ testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een ap
 - **PR #338, 2026-11-10** (branch `fix/facturen-portaal-afnemer`, `github.com/mrmyake/tmc/pull/338`, geen migratie; `src/app/app/facturen/page.tsx`, `_components/LooseInvoiceRow.tsx` nieuw, `src/lib/admin/invoice-actions.ts`, `src/lib/admin/invoice-bill-to.ts` nieuw, `FactuurEditor.tsx`, `admin/facturen/[id]/page.tsx`, `src/lib/format.ts`, `scripts/format/invoice-bill-to.test.mts`). Drie productiebevindingen van 2026-11-10: handmatige facturen (`payment_id` null) zijn nu zichtbaar en downloadbaar op `/app/facturen`; `sendInvoiceEmail` meldt een mislukte verzending als fout, schrijft `invoice_send_failed` in plaats van `invoice_sent` en zet `replyTo`; het concept heeft een afnemerblok (`saveInvoiceBillTo`) en `finalizeInvoice` weigert zonder straat, postcode of plaats. Bedragen in portaalblok, bevestigingsstap, editor en factuurmail zijn exact in centen (`formatEuroCentsSigned`); een creditnota neemt `bill_to_*` van het origineel over. **Bewust niet aangeraakt:** `tmc.finalize_invoice` (eist nog steeds alleen naam en e-mail), het profiel (nooit terugschrijven), de eerder gefinaliseerde facturen 2026.001 en 2026.002 (zonder adres, alleen met een creditnota te herstellen), paginering van losse facturen, de afgeronde bedragen in de admin-factuurlijst (wordt in de volgende PR opgelost; de overige adminpagina's met hele euro's, zoals omzet, ledentabellen en betaalverzoeken, blijven een openstaand punt), en de oorzaak van de eerdere mail: in de Vercel-runtimelogs van 2026-11-10 (16:17 en 16:31 UTC) staat geen `[email] send failed` of `MAILERSEND niet geconfigureerd`.
 
 - **PR #339, 2026-11-10** (branch `feat/factuur-pdf-bijlage`, `github.com/mrmyake/tmc/pull/339`, geen migratie; `src/pdfs/CustomerInvoicePdf.tsx`, `src/pdfs/fonts/` nieuw, `src/lib/invoice-terms.ts` nieuw, `src/lib/admin/invoice-actions.ts`, `src/lib/email.ts`, `src/emails/invoice_ready.tsx`, `src/lib/constants.ts`, `sanity/schemas/siteSettings.ts`, `sanity/lib/fetch.ts`, `next.config.ts`, `src/app/app/admin/facturen/page.tsx`, `scripts/format/invoice-terms.test.mts`). De factuur-PDF is opnieuw opgemaakt (5.2): Fraunces en Inter, kop met tagline, "Aan" met t.a.v., vervaldatum (factuurdatum plus zeven dagen, berekend bij het renderen, geen kolom), "Te betalen" zonder zwart vlak en het kader "Zelf overmaken" (IBAN NL36 RABO 0175 6438 06, t.n.v. The Movement Club, kenmerk = factuurnummer) met ruimte voor een later kader "Direct online"; een creditnota heeft geen vervaldatum en geen betaalblok. IBAN via `siteSettings.iban` met `SITE.iban` als fallback per veld. De factuurmail stuurt de PDF mee als bijlage (`Factuur <nummer>.pdf` of `Creditnota <nummer>.pdf`) en toont bij een factuur de overmaakgegevens; besluit 15 en 5.5 zijn omgedraaid. Mislukt het ophalen van de PDF (of is hij groter dan 5 MB), dan wordt er niet verstuurd: `invoice_send_failed` met reden `attachment_fetch_failed` of `attachment_too_large`. De admin-factuurlijst toont bedragen exact in centen. **Bewust niet aangeraakt:** online betalen en de QR-code (latere PR), bestaande PDF's (write-once, houden hun oude opmaak; opnieuw versturen van een oude factuur stuurt de oude PDF mee en de mail toont dan wel de overmaakgegevens en de vervaldatum), `tmc.finalize_invoice`, en de overige adminpagina's met hele euro's (openstaand punt: omzet, ledentabellen, betaalverzoeken, ledendetail, dashboard en de betaalverzoek-mails).
+
+- **PR #340, 2026-11-10** (branch `feat/factuur-online-betalen`, `github.com/mrmyake/tmc/pull/340`, migratie `20261111100000_invoice_online_payment.sql`, **voor de merge toegepast op 2026-11-10** als eenmalige uitzondering op "geen db push voor de merge": de preview draait tegen dezelfde database als productie en de end-to-end test op de preview vraagt het schema (Ilja akkoord; vooraf in een teruggedraaide transactie geproefd, daarna read-only gecontroleerd, maandtotalen van `v_revenue_lines` identiek voor en na). Wordt #340 niet gemerged, dan is een terugdraaimigratie nodig (beschreven in de PR); **volgende migraties krijgen een latere tijdstempel dan `20261111100000`** (de versie staat al op de database, ook al is de bestandsnaam van 2026-11-11 gedateerd); `src/lib/invoice-payments/` nieuw, `src/app/factuur/betalen/[token]/` nieuw, `src/app/api/invoices/webhook/route.ts` nieuw, `src/pdfs/CustomerInvoicePdf.tsx` en `QrCode.tsx`, `src/emails/invoice_ready.tsx` en `invoice_paid_notice.tsx`, `src/lib/admin/invoice-actions.ts`, `src/lib/member/invoice-pay-actions.ts`, `src/app/app/facturen/`, `src/app/app/admin/facturen/`, `src/lib/refunds/process.ts`, `src/lib/site-url.ts`, `scripts/invoice-payments/`). Online betalen bij een handmatige factuur: een stabiele betaalpagina per factuur (token als tabel, betaling start bij een klik), een eigen webhook met compare-and-swap op het write-once `invoices.payment_id` en een partiele unieke index, terugbetaling plus ntfy bij een te late dubbele betaling, "Markeer als betaald (overboeking)" met datum (synthetische `bank:<invoice_id>`), statussen Open, Vervallen, Betaald, Gecrediteerd voor lid en admin, een QR-code (vector, `qrcode`) en knop "Betaal nu" in PDF en mail, en een melding aan de studio bij betaling. `v_revenue_lines` geeft voor betaalde facturen een rij per factuurregel. Link, QR en knop komen alleen in PDF en mail als online betalen in die omgeving beschikbaar is (`resolveInvoicePayLink`); de betaalpagina meldt anders dat online betalen niet kan. **Open punt (should):** LIVE-facturen alleen op productie finaliseren, te beslissen voor de eerste echte factuur. **Bewust niet aangeraakt:** `tmc.finalize_invoice`, de orderpijplijn en `activate_order`, productactivatie (gate "Product toekennen zonder betaling", prioriteit must: een factuur met betaallink mag voor echte klanten niet met een productregel gebruikt worden tot die live is), kolommen op `invoices`, terugbetalingen van factuurbetalingen via de refundkolommen (creditnota is het pad), en de overige adminpagina's met hele euro's (openstaand punt: omzet, ledentabellen, betaalverzoeken, ledendetail en de betaalverzoek-mails).
 
 ---
 

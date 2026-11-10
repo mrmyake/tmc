@@ -7,8 +7,9 @@ import { searchMembersForInvoice } from "@/lib/admin/invoice-search";
 
 /**
  * Handmatige factuur zonder betaling (9.2): kies een lid, start een
- * concept. De UI waarschuwt dat zo'n factuur buiten de omzetrapportage
- * valt (die leest payments), precies zoals 9.2 voorschrijft.
+ * concept. De UI meldt dat zo'n factuur meetelt in de omzet zodra hij
+ * betaald is (9.7): de omzet leest payments en een betaalde factuur heeft er
+ * een.
  */
 export function NieuweFactuurKnop() {
   const router = useRouter();
@@ -61,8 +62,8 @@ export function NieuweFactuurKnop() {
     <div className="flex flex-col gap-2 min-w-64">
       {/* COPY: confirm met Marlon */}
       <p className="text-text-muted text-xs max-w-xs">
-        Handmatige factuur zonder betaling. Let op: deze verschijnt niet in
-        de omzetrapportage, die leest betalingen.
+        Handmatige factuur zonder betaling. Hij telt mee in de omzet zodra
+        hij betaald is: online, of als je hem markeert als overgemaakt.
       </p>
       <input
         autoFocus
