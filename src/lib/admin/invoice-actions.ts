@@ -16,6 +16,13 @@ import { formatEuroCentsSigned } from "@/lib/format";
 import { siteUrl } from "@/lib/site-url";
 import { SITE } from "@/lib/constants";
 import {
+  MAX_INVOICE_ATTACHMENT_BYTES,
+  invoiceAttachmentName,
+  invoiceDueDate,
+  formatNlDate,
+  resolvePaymentDetails,
+} from "@/lib/invoice-terms";
+import {
   mergeBillTo,
   missingBillToFields,
   missingBillToMessage,
@@ -568,6 +575,11 @@ export async function generateInvoicePdf(
   const pdfData: CustomerInvoiceData = {
     invoiceNumber: invoice.invoice_number,
     issuedAt: invoice.issued_at as string,
+    // Geen vervaldatum bij een creditnota; anders factuurdatum plus de
+    // betaaltermijn, berekend bij het renderen (geen kolom).
+    dueDate: invoice.credit_of_invoice_id
+      ? null
+      : invoiceDueDate(invoice.issued_at as string),
     isCreditNote: Boolean(invoice.credit_of_invoice_id),
     creditOfInvoiceNumber: creditOfNumber,
     billToName: invoice.bill_to_name ?? "",
@@ -589,6 +601,8 @@ export async function generateInvoicePdf(
       .sort((a, b) => a.rateBp - b.rateBp),
     totalGrossCents: invoice.total_gross_cents ?? 0,
     tmcName: settings.studioName,
+    tmcTagline: SITE.tagline,
+    payment: resolvePaymentDetails(settings.iban, SITE),
     tmcAddress: `${settings.address.street}, ${settings.address.postalCode} ${settings.address.city}`,
     tmcKvk: settings.kvkNumber,
     tmcBtw: settings.btwNumber,
@@ -629,7 +643,32 @@ export async function generateInvoicePdf(
   return { ok: true, invoiceId, invoiceNumber: invoice.invoice_number };
 }
 
-/** 9.4 stap 3: mail met een LINK naar de portal, geen bijlage (5.5). */
+/** Haalt de opgeslagen PDF op uit de bucket (service-role). Nooit renderen:
+ * de PDF is write-once en de mail stuurt precies dat document mee. */
+async function fetchInvoicePdf(
+  pdfPath: string,
+): Promise<
+  | { ok: true; content: Buffer }
+  | { ok: false; reason: "attachment_fetch_failed" | "attachment_too_large" }
+> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from("tmc-invoices").download(pdfPath);
+  if (error || !data) {
+    console.error("[sendInvoiceEmail] pdf download failed", { pdfPath, error });
+    return { ok: false, reason: "attachment_fetch_failed" };
+  }
+  const content = Buffer.from(await data.arrayBuffer());
+  if (content.length === 0) {
+    return { ok: false, reason: "attachment_fetch_failed" };
+  }
+  if (content.length > MAX_INVOICE_ATTACHMENT_BYTES) {
+    return { ok: false, reason: "attachment_too_large" };
+  }
+  return { ok: true, content };
+}
+
+/** 9.4 stap 3: mail met de PDF als bijlage plus een knop naar de portal
+ * (5.5, besluit 15 herzien). Zonder bijlage wordt er nooit verstuurd. */
 export async function sendInvoiceEmail(
   invoiceId: string,
 ): Promise<InvoiceActionResult> {
@@ -640,41 +679,83 @@ export async function sendInvoiceEmail(
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, pdf_path, total_gross_cents, credit_of_invoice_id, bill_to_email, bill_to_name, profile_id",
+      "id, invoice_number, status, issued_at, pdf_path, total_gross_cents, credit_of_invoice_id, bill_to_email, bill_to_name, profile_id",
     )
     .eq("id", invoiceId)
     .maybeSingle();
   // COPY: confirm met Marlon
   if (!invoice) return { ok: false, error: "Factuur niet gevonden." };
-  if (invoice.status !== "finalised" || !invoice.pdf_path) {
+  if (invoice.status !== "finalised" || !invoice.pdf_path || !invoice.issued_at) {
     // COPY: confirm met Marlon
-    return { ok: false, error: "Genereer eerst de PDF; anders verwijst de mail naar niets." };
+    return { ok: false, error: "Genereer eerst de PDF; de mail verstuurt hem als bijlage." };
   }
   if (!invoice.bill_to_email) {
     // COPY: confirm met Marlon
     return { ok: false, error: "Geen e-mailadres op de factuur." };
   }
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("first_name")
-    .eq("id", invoice.profile_id)
-    .maybeSingle();
+  const isCreditNote = Boolean(invoice.credit_of_invoice_id);
+  const invoiceNumber = invoice.invoice_number ?? "";
+
+  const pdf = await fetchInvoicePdf(invoice.pdf_path);
+  if (!pdf.ok) {
+    await audit(auth.userId, "invoice_send_failed", invoiceId, {
+      invoice_number: invoice.invoice_number,
+      to: invoice.bill_to_email,
+      reason: pdf.reason,
+    });
+    return {
+      ok: false,
+      error:
+        pdf.reason === "attachment_too_large"
+          // COPY: confirm met Marlon
+          ? "De PDF is te groot voor een bijlage. De mail is niet verstuurd."
+          // COPY: confirm met Marlon
+          : "De PDF kon niet worden opgehaald. De mail is niet verstuurd; probeer het opnieuw.",
+    };
+  }
+
+  const [{ data: profile }, settings] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("first_name")
+      .eq("id", invoice.profile_id)
+      .maybeSingle(),
+    getSiteSettings(),
+  ]);
+  const paymentDetails = resolvePaymentDetails(settings.iban, SITE);
 
   const sent = await sendEmail({
     to: invoice.bill_to_email,
     toName: invoice.bill_to_name ?? undefined,
     // COPY: confirm met Marlon
-    subject: invoice.credit_of_invoice_id
+    subject: isCreditNote
       ? `Creditnota ${invoice.invoice_number}`
       : `Factuur ${invoice.invoice_number}`,
     react: InvoiceReady({
       firstName: profile?.first_name ?? "",
-      invoiceNumber: invoice.invoice_number ?? "",
+      invoiceNumber,
       amountEuro: formatEuroCentsSigned(invoice.total_gross_cents ?? 0),
-      isCreditNote: Boolean(invoice.credit_of_invoice_id),
+      isCreditNote,
       portalUrl: `${siteUrl()}/app/facturen`,
+      // Altijd de vervaldatum (factuurdatum plus de betaaltermijn) en de
+      // overmaakgegevens bij een factuur, ook bij opnieuw versturen van een
+      // oudere factuur; geen scheiding op oud of nieuw (besluit Ilja).
+      payment: isCreditNote
+        ? undefined
+        : {
+            iban: paymentDetails.iban,
+            accountHolder: paymentDetails.accountHolder,
+            reference: invoiceNumber,
+            dueDate: formatNlDate(invoiceDueDate(invoice.issued_at)),
+          },
     }),
+    attachments: [
+      {
+        filename: invoiceAttachmentName(invoiceNumber, isCreditNote),
+        content: pdf.content,
+      },
+    ],
     // De mail zegt "beantwoord deze mail"; zonder replyTo gaat een antwoord
     // naar het no-reply-afzenderadres.
     replyTo: { email: SITE.email, name: "The Movement Club" },
@@ -686,6 +767,7 @@ export async function sendInvoiceEmail(
     await audit(auth.userId, "invoice_send_failed", invoiceId, {
       invoice_number: invoice.invoice_number,
       to: invoice.bill_to_email,
+      reason: "send_failed",
     });
     return {
       ok: false,

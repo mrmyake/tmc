@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatEuro } from "@/lib/format";
+import { formatEuroCentsSigned } from "@/lib/format";
 import { NieuweFactuurKnop } from "./_components/NieuweFactuurKnop";
 
 export const metadata = {
@@ -103,7 +103,7 @@ export default async function AdminFacturenPage() {
               </span>
               <span className="text-text text-sm text-right min-w-20">
                 {r.totalCents != null
-                  ? formatEuro(Math.round(r.totalCents / 100))
+                  ? formatEuroCentsSigned(r.totalCents)
                   : "—"}
               </span>
             </Link>

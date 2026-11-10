@@ -1179,6 +1179,32 @@ Nieuw bestand `src/pdfs/CustomerInvoicePdf.tsx`, met wat de trainer-declaratie n
 - Afnemergegevens uit de bevroren `bill_to_*`-kolommen
 - Creditnota-variant: andere kop en een regel "Creditnota bij factuur 2026.014"
 
+**Opmaak sinds PR #339.** A4, Stone-achtergrond, warm zwart en champagne. Kop: links de
+studionaam in Fraunces met de tagline, rechts "Factuur" of "Creditnota" groot, met een
+champagne lijn eronder. Links het blok "Aan": bedrijfsnaam (indien aanwezig) met daaronder
+"t.a.v." en de naam, anders alleen de naam, dan straat, postcode en plaats, land en het
+BTW-nummer van de afnemer. Rechts drie regels: factuurnummer, factuurdatum en vervaldatum.
+De tabel heeft Omschrijving, Aantal, Excl. BTW, BTW en Incl. BTW, met bedragen in euro's en
+centen (`€504,59`, bij een creditnota `-€504,59`). Daaronder het subtotaal, de BTW per tarief,
+een dunne zwarte lijn en "Te betalen" (bij een creditnota "Te crediteren") met het bedrag in
+tekstkleur, zonder zwart vlak. Een factuur heeft daarna het blok "Betalen" met het kader
+"Zelf overmaken" (IBAN, t.n.v., kenmerk = factuurnummer, uiterlijk = vervaldatum); naast het
+kader is ruimte voor een tweede kader "Direct online" dat in een latere PR komt en nu niets
+toont. Een creditnota heeft geen vervaldatum en geen betaalblok. Onderaan een regel met
+contact voor vragen en een voettekst met adres, e-mail, KvK en BTW.
+
+**Betaaltermijn en vervaldatum.** Zeven dagen. De vervaldatum is factuurdatum plus zeven
+dagen, berekend bij het renderen uit `issued_at` met UTC-datumoptelling
+(`invoiceDueDate`, `src/lib/invoice-terms.ts`); er is geen kolom voor. Overmaakgegevens:
+IBAN uit Sanity (`siteSettings.iban`) met `SITE.iban` als fallback per veld, opgeslagen
+zonder spaties en getoond in groepen van vier, t.n.v. `SITE.accountHolder`.
+
+**Lettertypen.** Fraunces (display) en Inter (tekst) als statische WOFF-bestanden in
+`src/pdfs/fonts/` (SIL OFL), geregistreerd met `Font.register` en meegenomen in de bundel
+via `outputFileTracingIncludes` in `next.config.ts`. react-pdf leest geen woff2 en geen
+variabele fonts. **Bestaande PDF's zijn write-once (4.5) en houden hun oude opmaak**; dit
+sjabloon geldt alleen voor PDF's die na PR #339 worden gegenereerd.
+
 Belangrijk onderscheid dat in de code een comment verdient: de bestaande
 `TrainerInvoicePdf` is een declaratie van een zelfstandige aan TMC en geen verkoopfactuur.
 Het nummerformaat daar (`TMC-202603-A1B2C3D4`) is deterministisch per trainer per maand,
@@ -1218,21 +1244,35 @@ een korte TTL beperkt de schade als hij in een logbestand of een chatgeschiedeni
 Nadrukkelijk niet: de bucket publiek maken en het pad raden onmogelijk maken met een UUID.
 Facturen bevatten NAW-gegevens en een raadbaar-maar-lang pad is geen autorisatie.
 
-### 5.5 E-mail: link in plaats van bijlage
+### 5.5 E-mail: PDF als bijlage, plus een link
 
-`src/lib/email.ts` (`sendEmail({ to, toName, subject, react })`) ondersteunt HTML en
-plaintext. De MailerSend-SDK kent `.setAttachments()`, maar dat is niet aangesloten en geen
-van de vijftien templates in `src/emails/` heeft een bijlage.
+**Herzien in PR #339 (besluit 15 omgedraaid).** De factuurmail stuurt de PDF mee als
+bijlage, naast de knop naar `/app/facturen`. Het oorspronkelijke voorstel was een mail met
+alleen een link. Reden voor de omkering: klanten verwachten een bijlage bij een factuur, en
+een afwijkend factuur-e-mailadres (`bill_to_email` hoeft niet het inlogadres van het lid te
+zijn) kan niet inloggen in het portaal en zou de factuur dan niet kunnen openen.
 
-Voorstel: **niet aansluiten.** De factuurmail bevat een knop naar `/app/facturen`, waar de
-download achter de signed URL zit. Redenen:
+Hoe het werkt:
 
-- De PDF staat toch al in de portal, dus een bijlage is een tweede kopie die kan verouderen.
-- Bijlagen drukken de deliverability, en dit is transactionele post die aan moet komen.
-- Geen PDF in de mailbox van MailerSend en niet in de doorstuurketen van de ontvanger.
-
-Wie later toch een bijlage wil: `sendEmail` uitbreiden met een optionele `attachments`-array
-is een kleine wijziging, maar hij hoort niet in deze spec thuis.
+- `sendEmail` (`src/lib/email.ts`) heeft een optionele `attachments`-array
+  (`{ filename, content: Buffer }`), via `EmailParams.setAttachments` en `Attachment`
+  (base64) van de MailerSend-SDK.
+- `sendInvoiceEmail` haalt de opgeslagen PDF op uit de bucket `tmc-invoices` met de
+  service-role client en rendert nooit opnieuw: de PDF is write-once, dus opnieuw versturen
+  van een oudere factuur stuurt de bestaande PDF met de oude opmaak mee.
+- Bestandsnaam: `Factuur <nummer>.pdf` of `Creditnota <nummer>.pdf`.
+- Eigen bovengrens 5 MB. MailerSend staat 25 MB toe voor alle bijlagen samen (10 MB op een
+  trial-domein), gemeten na decoderen van base64.
+- Mislukt het ophalen (of is de PDF te groot), dan wordt er **niet** verstuurd: `ok: false`
+  met een duidelijke melding en auditregel `invoice_send_failed` met reden
+  `attachment_fetch_failed` of `attachment_too_large`. Een mail zonder bijlage gaat nooit weg.
+  Een verzendfout van MailerSend zelf geeft `invoice_send_failed` met reden `send_failed`.
+- De tekst noemt de bijlage. Bij een factuur toont de mail de overmaakgegevens (IBAN,
+  tenaamstelling, kenmerk, uiterste datum) en houdt hij de knop naar het portaal; een
+  creditnota heeft geen betaalgegevens. De mail toont altijd de vervaldatum (factuurdatum
+  plus zeven dagen), ook bij opnieuw versturen van een oudere factuur; er is geen scheiding
+  tussen oud en nieuw.
+- `replyTo` staat op `SITE.email` (zie PR #338).
 
 ## 6. Testmodus
 
@@ -2261,7 +2301,7 @@ Drie losse acties, in deze volgorde en zichtbaar als drie stappen:
    bevestigingsdialoog waarin het toe te kennen nummer nog niet staat (dat weet je pas na
    afloop) maar wel de reeks en het boekjaar.
 2. **PDF genereren.** Rendert en uploadt. Write-once (4.5), dus de knop verdwijnt erna.
-3. **Versturen.** Mail met een link naar `/app/facturen` (5.5).
+3. **Versturen.** Mail met de PDF als bijlage en een link naar `/app/facturen` (5.5).
 
 Stap 2 en 3 zijn opnieuw uit te voeren als ze falen; stap 1 niet, en de UI moet dat verschil
 duidelijk maken.
@@ -2712,7 +2752,7 @@ index staat er.
 | 12 | Creditnota in dezelfde reeks als de factuur | Eigen creditreeks. Verworpen voor nu: beide zijn toegestaan, dezelfde reeks is eenvoudiger, en een aparte reeks is later toe te voegen met alleen een extra `code`-waarde zonder schemawijziging |
 | 13 | Geen kolom `catalogue.price_includes_vat` | Wel toevoegen om de brutoconventie expliciet te maken. Verworpen: de conventie geldt voor de hele tabel en een kolom die overal dezelfde waarde heeft, suggereert dat hij ooit anders kan zijn. Vastgelegd in 3.1 in plaats van in het schema |
 | 14 | Omzetview als gewone view | Materialized view met eigen refresh-cron. Verworpen: klein datavolume, zelden geopend, en een tweede refresh-cron is een tweede manier om verouderde cijfers te tonen. Zie 7.7 |
-| 15 | Factuurmail met link, geen bijlage | `sendEmail` uitbreiden met attachments. Verworpen: de PDF staat al in de portal, bijlagen drukken de deliverability, en het is een tweede kopie die kan verouderen. Zie 5.5 |
+| 15 | Factuurmail met de PDF als bijlage, plus een link naar het portaal (herzien in PR #339; oorspronkelijk: alleen een link, geen bijlage) | Klanten verwachten een bijlage bij een factuur, en een afwijkend factuur-e-mailadres kan niet inloggen in het portaal. Het oorspronkelijke besluit (bijlage verworpen: de PDF staat al in de portal, bijlagen drukken de deliverability, en het is een tweede kopie die kan verouderen) is hiermee teruggedraaid; de PDF is write-once, dus de bijlage kan niet verouderen. Zie 5.5 |
 | 16 | Creditnota wordt nooit automatisch aangemaakt bij een restitutie | Automatisch crediteren op de refund-webhook. Verworpen: crediteren is een boekhoudkundige handeling met een datum en een bedrag die iemand moet willen. Zie 4.7 |
 | 17 | Alle validatie vóór het trekken van het nummer; daarna is elke fout een `raise exception`, nooit `ok: false` | De eerdere stappenvolgorde, waarin `incomplete_bill_to` ná het trekken van het nummer nog `ok: false` kon retourneren. Verworpen: een plpgsql-functie die normaal returnt draait niets terug, dus de ophoging van `next_number` commit en er ontstaat een gat in de reeks. Zie 4.2 |
 | 18 | Vergrendelen en consumeren zijn twee statements met de validatiepoort ertussen | Het enkele `insert ... on conflict do update set next_number = next_number + 1 returning next_number - 1`. Verworpen: dat consumeert het nummer op het moment dat het de rij vergrendelt, dus vóór elke validatie, en het laat de chronologiecontrole buiten het slot lezen. Vergrendelen en consumeren zijn twee behoeftes die niet op hetzelfde moment vallen. Zie 4.3 |
@@ -3396,6 +3436,8 @@ testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een ap
 - **PR #303, 2026-10-20** (branch `fix/mollie-chargeback-handling`, `github.com/mrmyake/tmc/pull/303`, migratie `20261020090000_payments_chargeback_mirror.sql` nog niet gepusht; `src/lib/chargebacks/core.ts` en `process.ts` nieuw, `src/lib/payments/payment-failed-notify.ts` nieuw (uit de webhook getild), `src/app/api/mollie/webhook/route.ts`, `src/app/api/trial-bookings/webhook/route.ts`, `src/lib/events/emit.ts`, `src/app/app/facturen/_components/PaymentStatusBadge.tsx` en `PaymentRow.tsx`, `src/app/app/facturen/page.tsx`, `src/lib/admin/member-detail-query.ts`, admin `PaymentsTab.tsx`, `types/supabase.ts`, `scripts/chargebacks/core.test.mts` en `package.json` (`test:chargebacks`), dit document 4.7, 4.8, 6.5, besluit 37 en 15). Chargeback-spiegel: `tmc.payments` krijgt `charged_back_amount_cents` (default 0, checks `>= 0` en `<= amount_cents`) en `charged_back_at`, gespiegeld uit `payment.amountChargedBack`; `status` blijft `paid` (4.8). De poort voor alle bijwerkingen is een compare-and-swap op het bedrag op de rij zelf, daarna event `payment.charged_back` (`dedupe_key` `<payment_id>:<chargeback_id>`, chargeback via `paymentChargebacks.page`). Recurring en de eerste abonnementsbetaling worden behandeld als mislukte incasso (membership `active` naar `payment_failed`, mail en push naar het lid, ntfy met SEPA-reden en de waarschuwing dat Mollie na drie storno's zelf annuleert, event `membership.payment_failed` met `reason chargeback`); niet-`active` en alle andere typen alleen spiegel, event en ntfy; reversal naar 0 geeft `payment.chargeback_reversed` en zet de membership terug op `active` als deze chargeback de laatste oorzaak was. De hoofdwebhook schrijft de payments-rij in drie stappen (overgang, nieuwe rij, herhaling) zodat `payment.received` en `payment.failed` alleen op een echte overgang vuren, zet `kind = recurring` op recurring rijen, laat de recurring-tak alleen op een overgang reactiveren of degraderen, en stuurt op het `payments_get`-404-pad een ntfy (dedupe per 26 uur). Badge "Gestorneerd" in ledenfacturen en admin. Negentien unit-tests met fakes. **Bewust niet aangeraakt:** chargebacks in `v_revenue_lines` en het omzetrapport (7.4), de refund-spiegel voor orders in de hoofdwebhook (#233), de dashboardtellers op `payments.status`, detectie van een door Mollie geannuleerde subscription, `payments_status_check`, `activate_order` en alle andere RPC's.
 
 - **PR #338, 2026-11-10** (branch `fix/facturen-portaal-afnemer`, `github.com/mrmyake/tmc/pull/338`, geen migratie; `src/app/app/facturen/page.tsx`, `_components/LooseInvoiceRow.tsx` nieuw, `src/lib/admin/invoice-actions.ts`, `src/lib/admin/invoice-bill-to.ts` nieuw, `FactuurEditor.tsx`, `admin/facturen/[id]/page.tsx`, `src/lib/format.ts`, `scripts/format/invoice-bill-to.test.mts`). Drie productiebevindingen van 2026-11-10: handmatige facturen (`payment_id` null) zijn nu zichtbaar en downloadbaar op `/app/facturen`; `sendInvoiceEmail` meldt een mislukte verzending als fout, schrijft `invoice_send_failed` in plaats van `invoice_sent` en zet `replyTo`; het concept heeft een afnemerblok (`saveInvoiceBillTo`) en `finalizeInvoice` weigert zonder straat, postcode of plaats. Bedragen in portaalblok, bevestigingsstap, editor en factuurmail zijn exact in centen (`formatEuroCentsSigned`); een creditnota neemt `bill_to_*` van het origineel over. **Bewust niet aangeraakt:** `tmc.finalize_invoice` (eist nog steeds alleen naam en e-mail), het profiel (nooit terugschrijven), de eerder gefinaliseerde facturen 2026.001 en 2026.002 (zonder adres, alleen met een creditnota te herstellen), paginering van losse facturen, de afgeronde bedragen in de admin-factuurlijst (wordt in de volgende PR opgelost; de overige adminpagina's met hele euro's, zoals omzet, ledentabellen en betaalverzoeken, blijven een openstaand punt), en de oorzaak van de eerdere mail: in de Vercel-runtimelogs van 2026-11-10 (16:17 en 16:31 UTC) staat geen `[email] send failed` of `MAILERSEND niet geconfigureerd`.
+
+- **PR #339, 2026-11-10** (branch `feat/factuur-pdf-bijlage`, `github.com/mrmyake/tmc/pull/339`, geen migratie; `src/pdfs/CustomerInvoicePdf.tsx`, `src/pdfs/fonts/` nieuw, `src/lib/invoice-terms.ts` nieuw, `src/lib/admin/invoice-actions.ts`, `src/lib/email.ts`, `src/emails/invoice_ready.tsx`, `src/lib/constants.ts`, `sanity/schemas/siteSettings.ts`, `sanity/lib/fetch.ts`, `next.config.ts`, `src/app/app/admin/facturen/page.tsx`, `scripts/format/invoice-terms.test.mts`). De factuur-PDF is opnieuw opgemaakt (5.2): Fraunces en Inter, kop met tagline, "Aan" met t.a.v., vervaldatum (factuurdatum plus zeven dagen, berekend bij het renderen, geen kolom), "Te betalen" zonder zwart vlak en het kader "Zelf overmaken" (IBAN NL36 RABO 0175 6438 06, t.n.v. The Movement Club, kenmerk = factuurnummer) met ruimte voor een later kader "Direct online"; een creditnota heeft geen vervaldatum en geen betaalblok. IBAN via `siteSettings.iban` met `SITE.iban` als fallback per veld. De factuurmail stuurt de PDF mee als bijlage (`Factuur <nummer>.pdf` of `Creditnota <nummer>.pdf`) en toont bij een factuur de overmaakgegevens; besluit 15 en 5.5 zijn omgedraaid. Mislukt het ophalen van de PDF (of is hij groter dan 5 MB), dan wordt er niet verstuurd: `invoice_send_failed` met reden `attachment_fetch_failed` of `attachment_too_large`. De admin-factuurlijst toont bedragen exact in centen. **Bewust niet aangeraakt:** online betalen en de QR-code (latere PR), bestaande PDF's (write-once, houden hun oude opmaak; opnieuw versturen van een oude factuur stuurt de oude PDF mee en de mail toont dan wel de overmaakgegevens en de vervaldatum), `tmc.finalize_invoice`, en de overige adminpagina's met hele euro's (openstaand punt: omzet, ledentabellen, betaalverzoeken, ledendetail, dashboard en de betaalverzoek-mails).
 
 ---
 

@@ -1,4 +1,4 @@
-import { Button, Heading, Text } from "@react-email/components";
+import { Button, Heading, Section, Text } from "@react-email/components";
 import * as React from "react";
 import { EmailLayout, emailTokens } from "./_layout";
 
@@ -14,6 +14,16 @@ export interface InvoiceReadyProps {
    * Bewust geen bijlage (spec-facturatie.md 5.5): de PDF staat al in de
    * portal, en bijlagen drukken de deliverability. */
   portalUrl: string;
+  /** Overmaakgegevens; alleen getoond bij een factuur, niet bij een creditnota. */
+  payment?: {
+    /** Gegroepeerd, bv. "NL36 RABO 0175 6438 06". */
+    iban: string;
+    accountHolder: string;
+    /** Kenmerk, het factuurnummer. */
+    reference: string;
+    /** Uiterste betaaldatum, bv. "17-11-2026". */
+    dueDate: string;
+  };
 }
 
 // COPY: confirm met Marlon
@@ -23,6 +33,7 @@ export default function InvoiceReady({
   amountEuro,
   isCreditNote,
   portalUrl,
+  payment,
 }: InvoiceReadyProps) {
   const noun = isCreditNote ? "creditnota" : "factuur";
   return (
@@ -52,9 +63,43 @@ export default function InvoiceReady({
       <Text style={{ color: emailTokens.STONE_500, fontSize: 15, lineHeight: 1.6 }}>
         Hi {firstName}, {isCreditNote ? "we hebben een creditnota voor je aangemaakt" : "je factuur is klaar"}:{" "}
         <strong style={{ color: emailTokens.STONE_100 }}>{invoiceNumber}</strong>{" "}
-        voor {amountEuro}. Je downloadt de PDF in je ledenomgeving, onder
-        Facturen.
+        voor {amountEuro}. De PDF zit als bijlage bij deze mail. Je vindt hem
+        ook in je ledenomgeving, onder Facturen.
       </Text>
+      {payment && !isCreditNote && (
+        <Section
+          style={{
+            border: `1px solid ${emailTokens.CHAMPAGNE}`,
+            padding: "14px 18px",
+            margin: "20px 0 4px 0",
+          }}
+        >
+          <Text
+            style={{
+              color: emailTokens.CHAMPAGNE,
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              margin: "0 0 8px 0",
+            }}
+          >
+            Zelf overmaken
+          </Text>
+          <Text style={{ color: emailTokens.STONE_500, fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+            IBAN:{" "}
+            <strong style={{ color: emailTokens.STONE_100 }}>{payment.iban}</strong>
+            <br />
+            T.n.v.:{" "}
+            <strong style={{ color: emailTokens.STONE_100 }}>{payment.accountHolder}</strong>
+            <br />
+            Kenmerk:{" "}
+            <strong style={{ color: emailTokens.STONE_100 }}>{payment.reference}</strong>
+            <br />
+            Uiterlijk:{" "}
+            <strong style={{ color: emailTokens.STONE_100 }}>{payment.dueDate}</strong>
+          </Text>
+        </Section>
+      )}
       <Button
         href={portalUrl}
         style={{

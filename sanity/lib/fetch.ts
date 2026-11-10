@@ -31,6 +31,8 @@ export interface SanitySettings {
   address: { street: string; postalCode: string; city: string };
   kvkNumber: string;
   btwNumber: string;
+  /** Optioneel: een document zonder dit veld valt terug op SITE.iban. */
+  iban?: string;
   instagramUrl: string;
   googleMapsUrl?: string;
 }
