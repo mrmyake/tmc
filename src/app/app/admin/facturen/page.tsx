@@ -2,6 +2,12 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatEuroCentsSigned } from "@/lib/format";
 import { NieuweFactuurKnop } from "./_components/NieuweFactuurKnop";
+import {
+  INVOICE_STATUS_LABEL,
+  invoicePaymentStatus,
+  todayIso,
+} from "@/lib/invoice-payments/status";
+import { creditedCentsByInvoice } from "@/lib/invoice-payments/server";
 
 export const metadata = {
   title: "Facturen | Admin | The Movement Club",
@@ -24,13 +30,18 @@ export default async function AdminFacturenPage() {
       .from("invoices")
       .select(
         `id, invoice_number, status, is_test, issued_at, total_gross_cents,
-         credit_of_invoice_id, pdf_path, created_at,
+         credit_of_invoice_id, pdf_path, payment_id, created_at,
          profile:profiles!profile_id(first_name, last_name)`,
       )
       .order("created_at", { ascending: false })
       .limit(100),
     admin.from("v_invoice_credit_state").select("invoice_id, credit_state"),
   ]);
+
+  const creditedById = await creditedCentsByInvoice(
+    (invoices ?? []).map((i) => i.id),
+  );
+  const today = todayIso();
 
   const creditStateById = new Map(
     (creditStates ?? []).map((c) => [c.invoice_id, c.credit_state]),
@@ -49,6 +60,20 @@ export default async function AdminFacturenPage() {
       hasPdf: Boolean(i.pdf_path),
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : "",
       creditState: creditStateById.get(i.id) ?? null,
+      // Dezelfde labels als in het ledenportaal (Open, Vervallen, Betaald,
+      // Gecrediteerd); alleen voor een gefinaliseerde factuur, niet voor een
+      // concept of creditnota.
+      payStatus:
+        i.status === "finalised" && i.issued_at
+          ? invoicePaymentStatus({
+              isCreditNote: Boolean(i.credit_of_invoice_id),
+              totalGrossCents: i.total_gross_cents ?? 0,
+              creditedCents: creditedById.get(i.id) ?? 0,
+              paid: i.payment_id !== null,
+              issuedAt: i.issued_at,
+              today,
+            })
+          : null,
     };
   });
 
@@ -99,7 +124,7 @@ export default async function AdminFacturenPage() {
               <span className="text-xs uppercase tracking-[0.14em] text-text-muted">
                 {r.status === "draft" ? "Concept" : r.hasPdf ? "PDF klaar" : "Definitief"}
                 {r.creditState === "partial" && " · deels gecrediteerd"}
-                {r.creditState === "full" && " · gecrediteerd"}
+                {r.payStatus && ` · ${INVOICE_STATUS_LABEL[r.payStatus]}`}
               </span>
               <span className="text-text text-sm text-right min-w-20">
                 {r.totalCents != null

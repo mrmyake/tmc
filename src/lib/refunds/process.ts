@@ -192,7 +192,9 @@ export async function processPaymentRefund(refundId: string): Promise<ProcessRef
       paymentId: payment.mollie_payment_id,
       amount: { currency: "EUR", value: eurosFromCents(decision.amountCents) },
       // COPY: confirm met Marlon
-      description: "The Movement Club | Proefles geannuleerd",
+      description: row.trial_booking_id
+        ? "The Movement Club | Proefles geannuleerd"
+        : "The Movement Club | Terugbetaling dubbele betaling",
       metadata: { payment_refund_id: refundId, trial_booking_id: row.trial_booking_id },
       idempotencyKey: idempotencyKeyFor(refundId),
     });

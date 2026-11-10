@@ -2,6 +2,13 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
 import { mergeBillTo } from "@/lib/admin/invoice-bill-to";
+import {
+  INVOICE_STATUS_LABEL,
+  canPayOnline,
+  invoicePaymentStatus,
+  todayIso,
+} from "@/lib/invoice-payments/status";
+import { creditedCentsByInvoice } from "@/lib/invoice-payments/server";
 import { FactuurEditor } from "../_components/FactuurEditor";
 
 export const metadata = {
@@ -60,6 +67,37 @@ export default async function AdminFactuurDetailPage(props: {
   // Bij een gefinaliseerde factuur zijn alle velden al bevroren in de rij.
   const merged = mergeBillTo(invoice, profile ?? null);
 
+  // Betaalstatus (9.7): dezelfde labels en regels als het ledenportaal.
+  const creditedCents = (await creditedCentsByInvoice([id])).get(id) ?? 0;
+  const isCreditNote = Boolean(invoice.credit_of_invoice_id);
+  const payStatus =
+    invoice.status === "finalised" && invoice.issued_at
+      ? invoicePaymentStatus({
+          isCreditNote,
+          totalGrossCents: invoice.total_gross_cents ?? 0,
+          creditedCents,
+          paid: invoice.payment_id !== null,
+          issuedAt: invoice.issued_at,
+          today: todayIso(),
+        })
+      : null;
+  let paidAt: string | null = null;
+  if (invoice.payment_id) {
+    const { data: pay } = await admin
+      .from("payments")
+      .select("paid_at, method")
+      .eq("id", invoice.payment_id)
+      .maybeSingle();
+    paidAt = pay?.paid_at ? pay.paid_at.slice(0, 10) : null;
+  }
+  const canMarkPaid = canPayOnline({
+    status: invoice.status,
+    isCreditNote,
+    totalGrossCents: invoice.total_gross_cents,
+    paymentId: invoice.payment_id,
+    creditedCents,
+  });
+
   // Catalogusopties voor de regels-editor: slug, naam en het
   // default-tarief uit de rij (9.3).
   const catalogueOptions = Array.from(catalogue.values()).map((c) => ({
@@ -86,6 +124,11 @@ export default async function AdminFactuurDetailPage(props: {
             invoice.bill_to_name ??
             (profile ? `${profile.first_name} ${profile.last_name}`.trim() : ""),
           billToEmail: invoice.bill_to_email ?? profile?.email ?? "",
+          payStatusLabel: payStatus ? INVOICE_STATUS_LABEL[payStatus] : null,
+          paidOn: paidAt,
+          canMarkPaid,
+          todayIso: todayIso(),
+          minPaidOn: invoice.issued_at ?? null,
         }}
         initialBillTo={{
           name: merged.name ?? "",

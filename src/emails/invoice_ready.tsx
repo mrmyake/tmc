@@ -14,6 +14,12 @@ export interface InvoiceReadyProps {
    * Bewust geen bijlage (spec-facturatie.md 5.5): de PDF staat al in de
    * portal, en bijlagen drukken de deliverability. */
   portalUrl: string;
+  /**
+   * Betaallink (/factuur/betalen/<token>) voor de knop "Betaal nu". Alleen
+   * bij een factuur die online betaald kan worden; null laat de mail terugvallen
+   * op alleen overmaken. Nooit als zichtbare tekst, alleen als knop-href.
+   */
+  payUrl?: string | null;
   /** Overmaakgegevens; alleen getoond bij een factuur, niet bij een creditnota. */
   payment?: {
     /** Gegroepeerd, bv. "NL36 RABO 0175 6438 06". */
@@ -33,6 +39,7 @@ export default function InvoiceReady({
   amountEuro,
   isCreditNote,
   portalUrl,
+  payUrl,
   payment,
 }: InvoiceReadyProps) {
   const noun = isCreditNote ? "creditnota" : "factuur";
@@ -66,6 +73,35 @@ export default function InvoiceReady({
         voor {amountEuro}. De PDF zit als bijlage bij deze mail. Je vindt hem
         ook in je ledenomgeving, onder Facturen.
       </Text>
+      {payUrl && !isCreditNote && (
+        <>
+          <Text
+            style={{
+              color: emailTokens.STONE_100,
+              fontSize: 15,
+              lineHeight: 1.6,
+              margin: "20px 0 4px 0",
+            }}
+          >
+            Betalen kan op twee manieren.
+          </Text>
+          <Button
+            href={payUrl}
+            style={{
+              backgroundColor: emailTokens.CHAMPAGNE,
+              color: emailTokens.INK_900,
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "14px 28px",
+              margin: "8px 0 4px 0",
+            }}
+          >
+            Betaal nu
+          </Button>
+        </>
+      )}
       {payment && !isCreditNote && (
         <Section
           style={{

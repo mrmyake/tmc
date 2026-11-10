@@ -105,6 +105,8 @@ export default async function AdminDashboardPage() {
         "id, amount_cents, status, paid_at, created_at, profile:profiles(first_name, last_name)",
       )
       .in("status", ["failed", "expired", "canceled"])
+      // Mislukte of verlopen online factuurpogingen zijn geen mislukte incasso.
+      .or("kind.is.null,kind.neq.invoice")
       .order("created_at", { ascending: false })
       .limit(4),
     admin
@@ -114,7 +116,8 @@ export default async function AdminDashboardPage() {
     admin
       .from("payments")
       .select("id", { count: "exact", head: true })
-      .in("status", ["failed", "expired", "open"]),
+      .in("status", ["failed", "expired", "open"])
+      .or("kind.is.null,kind.neq.invoice"),
     admin
       .from("class_sessions")
       .select("id", { count: "exact", head: true })

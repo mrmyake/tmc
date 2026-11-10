@@ -40,8 +40,12 @@ export function PaymentsTab({ detail }: { detail: MemberDetail }) {
                 chargedBackAmountCents: p.chargedBackAmountCents,
               }}
             />
-            {p.status === "paid" && <MaakFactuurKnop paymentId={p.id} />}
-            {p.mollieId && (
+            {/* Een factuurbetaling (kind invoice) hoort al bij een factuur. */}
+            {p.status === "paid" && p.kind !== "invoice" && (
+              <MaakFactuurKnop paymentId={p.id} />
+            )}
+            {/* Een overboeking (bank:<invoice_id>) heeft geen Mollie-betaling. */}
+            {p.mollieId && !p.mollieId.startsWith("bank:") && (
               <a
                 href={`https://my.mollie.com/dashboard/payments/${p.mollieId}`}
                 target="_blank"

@@ -14,6 +14,13 @@ import { getSiteSettings } from "../../../sanity/lib/fetch";
 import { sendEmail } from "@/lib/email";
 import { formatEuroCentsSigned } from "@/lib/format";
 import { siteUrl } from "@/lib/site-url";
+import { ensureInvoicePayToken, creditedCentsByInvoice } from "@/lib/invoice-payments/server";
+import { invoicePayUrl } from "@/lib/invoice-payments/pay-url";
+import { canPayOnline, todayIso } from "@/lib/invoice-payments/status";
+import { linkInvoicePayment, notifyInvoicePaid } from "@/lib/invoice-payments/server";
+import { getMollieClient } from "@/lib/mollie";
+import { emitEvent } from "@/lib/events/emit";
+import { qrMatrix } from "@/lib/invoice-payments/qr";
 import { SITE } from "@/lib/constants";
 import {
   MAX_INVOICE_ATTACHMENT_BYTES,
@@ -528,7 +535,7 @@ export async function generateInvoicePdf(
     .from("invoices")
     .select(
       `id, invoice_number, status, issued_at, is_test, profile_id, pdf_path,
-       credit_of_invoice_id, bill_to_name, bill_to_company, bill_to_vat_number,
+       credit_of_invoice_id, payment_id, bill_to_name, bill_to_company, bill_to_vat_number,
        bill_to_street, bill_to_postal_code, bill_to_city, bill_to_country,
        subtotal_net_cents, vat_total_cents, total_gross_cents`,
     )
@@ -603,11 +610,41 @@ export async function generateInvoicePdf(
     tmcName: settings.studioName,
     tmcTagline: SITE.tagline,
     payment: resolvePaymentDetails(settings.iban, SITE),
+    payUrl: null,
+    payQr: null,
     tmcAddress: `${settings.address.street}, ${settings.address.postalCode} ${settings.address.city}`,
     tmcKvk: settings.kvkNumber,
     tmcBtw: settings.btwNumber,
     tmcEmail: settings.email,
   };
+
+  // Online betalen: het token moet bestaan voor de PDF wordt gemaakt (de PDF
+  // is write-once). Lukt het niet, dan krijgt de PDF alleen "Zelf overmaken".
+  let payUrl: string | null = null;
+  let payQr: boolean[][] | null = null;
+  const credited = (await creditedCentsByInvoice([invoiceId])).get(invoiceId) ?? 0;
+  if (
+    canPayOnline({
+      status: invoice.status,
+      isCreditNote: Boolean(invoice.credit_of_invoice_id),
+      totalGrossCents: invoice.total_gross_cents,
+      paymentId: invoice.payment_id,
+      creditedCents: credited,
+    })
+  ) {
+    const token = await ensureInvoicePayToken(invoiceId);
+    if (token) {
+      payUrl = invoicePayUrl(siteUrl(), token);
+      try {
+        payQr = qrMatrix(payUrl);
+      } catch (e) {
+        // Terugval: alleen de klikbare link.
+        console.error("[generateInvoicePdf] QR maken mislukte", e);
+      }
+    }
+  }
+  pdfData.payUrl = payUrl;
+  pdfData.payQr = payQr;
 
   const buffer = await renderToBuffer(CustomerInvoicePdf(pdfData));
 
@@ -679,7 +716,7 @@ export async function sendInvoiceEmail(
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, issued_at, pdf_path, total_gross_cents, credit_of_invoice_id, bill_to_email, bill_to_name, profile_id",
+      "id, invoice_number, status, issued_at, pdf_path, total_gross_cents, credit_of_invoice_id, payment_id, bill_to_email, bill_to_name, profile_id",
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -725,6 +762,25 @@ export async function sendInvoiceEmail(
   ]);
   const paymentDetails = resolvePaymentDetails(settings.iban, SITE);
 
+  // Knop "Betaal nu": het token wordt hier idempotent aangemaakt, zodat de
+  // knop ook werkt bij een factuur waarvan de PDF geen link heeft. Geen knop
+  // bij een creditnota, een factuur met payment_id of een totaal van nul of
+  // lager; zonder werkend token valt de mail terug op alleen overmaken.
+  let payUrl: string | null = null;
+  const creditedCents = (await creditedCentsByInvoice([invoiceId])).get(invoiceId) ?? 0;
+  if (
+    canPayOnline({
+      status: invoice.status,
+      isCreditNote,
+      totalGrossCents: invoice.total_gross_cents,
+      paymentId: invoice.payment_id,
+      creditedCents,
+    })
+  ) {
+    const token = await ensureInvoicePayToken(invoiceId);
+    if (token) payUrl = invoicePayUrl(siteUrl(), token);
+  }
+
   const sent = await sendEmail({
     to: invoice.bill_to_email,
     toName: invoice.bill_to_name ?? undefined,
@@ -738,6 +794,7 @@ export async function sendInvoiceEmail(
       amountEuro: formatEuroCentsSigned(invoice.total_gross_cents ?? 0),
       isCreditNote,
       portalUrl: `${siteUrl()}/app/facturen`,
+      payUrl,
       // Altijd de vervaldatum (factuurdatum plus de betaaltermijn) en de
       // overmaakgegevens bij een factuur, ook bij opnieuw versturen van een
       // oudere factuur; geen scheiding op oud of nieuw (besluit Ilja).
@@ -780,6 +837,165 @@ export async function sendInvoiceEmail(
     invoice_number: invoice.invoice_number,
     to: invoice.bill_to_email,
   });
+  return { ok: true, invoiceId };
+}
+
+/**
+ * 9.7: een overgemaakte factuur als betaald markeren. Maakt een betaalregel
+ * (kind invoice, method banktransfer, synthetische mollie_payment_id
+ * "bank:<invoice_id>"), koppelt hem met een compare-and-swap aan de factuur
+ * (payment_id is write-once) en meldt de betaling aan de studio. Geen
+ * "markeer terug": corrigeren gaat via een creditnota. Een open online poging
+ * wordt waar mogelijk geannuleerd; komt er toch een online betaling binnen,
+ * dan wordt die als dubbele betaling terugbetaald.
+ */
+export async function markInvoicePaid(
+  invoiceId: string,
+  paidOn: string,
+): Promise<InvoiceActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.message };
+  const admin = createAdminClient();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn) || Number.isNaN(Date.parse(paidOn))) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Vul een geldige betaaldatum in." };
+  }
+
+  const { data: inv } = await admin
+    .from("invoices")
+    .select(
+      "id, invoice_number, status, is_test, issued_at, profile_id, total_gross_cents, subtotal_net_cents, vat_total_cents, payment_id, credit_of_invoice_id",
+    )
+    .eq("id", invoiceId)
+    .maybeSingle();
+  // COPY: confirm met Marlon
+  if (!inv) return { ok: false, error: "Factuur niet gevonden." };
+  const total = inv.total_gross_cents ?? 0;
+  if (inv.status !== "finalised" || inv.credit_of_invoice_id || total <= 0 || !inv.issued_at) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Alleen een gefinaliseerde factuur met een bedrag is als betaald te markeren." };
+  }
+  if (inv.payment_id) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Deze factuur is al betaald." };
+  }
+  const credited = (await creditedCentsByInvoice([invoiceId])).get(invoiceId) ?? 0;
+  if (credited >= total) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Deze factuur is gecrediteerd; er is niets te betalen." };
+  }
+  if (paidOn < inv.issued_at || paidOn > todayIso()) {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "De betaaldatum ligt vóór de factuurdatum of in de toekomst." };
+  }
+
+  const { data: lineRates } = await admin
+    .from("invoice_lines")
+    .select("vat_rate_bp")
+    .eq("invoice_id", invoiceId);
+  const rates = new Set((lineRates ?? []).map((l) => l.vat_rate_bp));
+
+  const molliePaymentId = `bank:${invoiceId}`;
+  const { data: created, error: insErr } = await admin
+    .from("payments")
+    .insert({
+      mollie_payment_id: molliePaymentId,
+      profile_id: inv.profile_id,
+      invoice_id: invoiceId,
+      amount_cents: total,
+      status: "paid",
+      method: "banktransfer",
+      description: `Factuur ${inv.invoice_number} (overboeking)`,
+      paid_at: `${paidOn}T12:00:00Z`,
+      kind: "invoice",
+      is_test: inv.is_test,
+      vat_rate_bp: rates.size === 1 ? Array.from(rates)[0] : null,
+      vat_amount_cents: inv.vat_total_cents,
+      net_amount_cents: inv.subtotal_net_cents,
+    })
+    .select("id")
+    .single();
+  if (insErr || !created) {
+    // 23505: er is al een betaalde factuurbetaling (unieke index) of een
+    // eerdere overboeking-regel; in beide gevallen is er niets meer te doen.
+    console.error("[markInvoicePaid] insert failed", insErr);
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      error:
+        insErr?.code === "23505"
+          ? "Deze factuur is al betaald."
+          : "Als betaald markeren mislukte.",
+    };
+  }
+
+  let outcome;
+  try {
+    outcome = await linkInvoicePayment(invoiceId, created.id);
+  } catch (e) {
+    console.error("[markInvoicePaid] link failed", e);
+    await admin.from("payments").delete().eq("id", created.id);
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Als betaald markeren mislukte." };
+  }
+  if (outcome !== "won") {
+    // Tussen lezen en koppelen is de factuur al betaald (online): onze
+    // overboeking-regel is overbodig.
+    await admin.from("payments").delete().eq("id", created.id);
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Deze factuur is al betaald." };
+  }
+
+  // Een nog open online poging annuleren waar Mollie dat toestaat. Faalt dit,
+  // dan vangt de webhook een latere betaling af als dubbele betaling.
+  try {
+    const mollie = getMollieClient(inv.is_test ? "test" : "live");
+    if (mollie) {
+      const { data: open } = await admin
+        .from("payments")
+        .select("mollie_payment_id")
+        .eq("invoice_id", invoiceId)
+        .eq("kind", "invoice")
+        .eq("status", "open")
+        .not("mollie_payment_id", "like", "bank:%");
+      for (const a of open ?? []) {
+        try {
+          await mollie.payments.cancel(a.mollie_payment_id);
+        } catch (e) {
+          console.warn("[markInvoicePaid] open poging annuleren mislukte", a.mollie_payment_id, e);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[markInvoicePaid] annuleren overgeslagen", e);
+  }
+
+  await audit(auth.userId, "invoice_marked_paid", invoiceId, {
+    invoice_number: inv.invoice_number,
+    paid_on: paidOn,
+    method: "banktransfer",
+    total_gross_cents: total,
+  });
+  await emitEvent({
+    type: "payment.received",
+    actorType: "admin",
+    actorId: auth.userId,
+    subjectType: "payment",
+    subjectId: null,
+    payload: {
+      dedupe_key: molliePaymentId,
+      payment_id: molliePaymentId,
+      profile_id: inv.profile_id,
+      invoice_id: invoiceId,
+      amount_cents: total,
+    },
+  });
+  await notifyInvoicePaid(invoiceId, "overboeking");
+
+  revalidatePath(`/app/admin/facturen/${invoiceId}`);
+  revalidatePath("/app/admin/facturen");
+  revalidatePath("/app/facturen");
   return { ok: true, invoiceId };
 }
 
