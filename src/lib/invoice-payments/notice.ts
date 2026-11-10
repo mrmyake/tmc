@@ -3,8 +3,9 @@ import { formatEuroCentsSigned } from "@/lib/format";
 /**
  * Interne melding (ntfy en e-mail naar SITE.email) zodra een factuur betaald
  * is, online of als overboeking gemarkeerd. Een factuurbetaling activeert
- * niets: een product bij de factuur moet nog handmatig klaargezet worden,
- * en de melding zegt dat expliciet (spec-facturatie.md 9.7).
+ * niets: een product bij de factuur moet nog handmatig klaargezet worden
+ * met de knop "Product klaarzetten" op het factuurscherm, en de melding
+ * verwijst daarnaar (spec-facturatie.md 9.7 en 9.8).
  */
 export interface InvoicePaidNoticeInput {
   invoiceNumber: string;
@@ -14,6 +15,8 @@ export interface InvoicePaidNoticeInput {
   via: "online" | "overboeking";
   /** catalogue_slug van de factuurregels waar die er zijn (duplicaten weg). */
   catalogueSlugs: string[];
+  /** Het factuurscherm in admin, waar de knop "Product klaarzetten" staat. */
+  invoiceUrl?: string | null;
 }
 
 export interface InvoicePaidNotice {
@@ -40,8 +43,9 @@ export function buildInvoicePaidNotice(
     `Afnemer: ${customer || "onbekend"}.`,
     `Bedrag: ${formatEuroCentsSigned(i.totalGrossCents)}.`,
     i.catalogueSlugs.length > 0
-      ? `Een product bij deze factuur (${i.catalogueSlugs.join(", ")}) moet nog handmatig klaargezet worden.`
-      : "Hoort er een product bij deze factuur, dan moet dat nog handmatig klaargezet worden.",
+      ? `Een product bij deze factuur (${i.catalogueSlugs.join(", ")}) moet nog handmatig klaargezet worden: open de factuur in admin en kies "Product klaarzetten".`
+      : 'Hoort er een product bij deze factuur, dan moet dat nog handmatig klaargezet worden: open de factuur in admin en kies "Product klaarzetten".',
   ];
+  if (i.invoiceUrl) lines.push(`Naar de factuur: ${i.invoiceUrl}`);
   return { title, lines, message: lines.join(" ") };
 }

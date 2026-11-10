@@ -435,6 +435,7 @@ export type Database = {
           credits_used: number
           drop_in_payment_id: string | null
           drop_in_price_cents: number
+          hold_expires_at: string | null
           id: string
           iso_week: number
           iso_year: number
@@ -448,6 +449,8 @@ export type Database = {
           slot_end_at: string | null
           slot_start_at: string | null
           status: string
+          trainer_alerted_at: string | null
+          walk_in_at: string | null
         }
         Insert: {
           attended_at?: string | null
@@ -457,6 +460,7 @@ export type Database = {
           credits_used?: number
           drop_in_payment_id?: string | null
           drop_in_price_cents?: number
+          hold_expires_at?: string | null
           id?: string
           iso_week: number
           iso_year: number
@@ -470,6 +474,8 @@ export type Database = {
           slot_end_at?: string | null
           slot_start_at?: string | null
           status?: string
+          trainer_alerted_at?: string | null
+          walk_in_at?: string | null
         }
         Update: {
           attended_at?: string | null
@@ -479,6 +485,7 @@ export type Database = {
           credits_used?: number
           drop_in_payment_id?: string | null
           drop_in_price_cents?: number
+          hold_expires_at?: string | null
           id?: string
           iso_week?: number
           iso_year?: number
@@ -492,6 +499,8 @@ export type Database = {
           slot_end_at?: string | null
           slot_start_at?: string | null
           status?: string
+          trainer_alerted_at?: string | null
+          walk_in_at?: string | null
         }
         Relationships: [
           {
@@ -878,6 +887,7 @@ export type Database = {
           cancelled_by: string | null
           capacity: number | null
           class_type_id: string
+          closed_at: string | null
           created_at: string
           end_at: string
           id: string
@@ -902,6 +912,7 @@ export type Database = {
           cancelled_by?: string | null
           capacity?: number | null
           class_type_id: string
+          closed_at?: string | null
           created_at?: string
           end_at: string
           id?: string
@@ -926,6 +937,7 @@ export type Database = {
           cancelled_by?: string | null
           capacity?: number | null
           class_type_id?: string
+          closed_at?: string | null
           created_at?: string
           end_at?: string
           id?: string
@@ -1265,6 +1277,7 @@ export type Database = {
           reminder_sent: boolean
           session_id: string
           status: string
+          trainer_alerted_at: string | null
         }
         Insert: {
           booked_at?: string
@@ -1277,6 +1290,7 @@ export type Database = {
           reminder_sent?: boolean
           session_id: string
           status?: string
+          trainer_alerted_at?: string | null
         }
         Update: {
           booked_at?: string
@@ -1289,6 +1303,7 @@ export type Database = {
           reminder_sent?: boolean
           session_id?: string
           status?: string
+          trainer_alerted_at?: string | null
         }
         Relationships: [
           {
@@ -1424,6 +1439,39 @@ export type Database = {
             foreignKeyName: "invoice_lines_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_invoice_credit_state"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
+      invoice_pay_tokens: {
+        Row: {
+          created_at: string
+          invoice_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          invoice_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          invoice_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_pay_tokens_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_pay_tokens_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
             referencedRelation: "v_invoice_credit_state"
             referencedColumns: ["invoice_id"]
           },
@@ -1591,13 +1639,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "payments"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "v_revenue_lines"
-            referencedColumns: ["payment_id"]
           },
           {
             foreignKeyName: "invoices_profile_id_fkey"
@@ -2369,6 +2410,7 @@ export type Database = {
       payment_refunds: {
         Row: {
           amount_cents: number
+          booking_id: string | null
           id: string
           last_error: string | null
           mollie_refund_id: string | null
@@ -2381,6 +2423,7 @@ export type Database = {
         }
         Insert: {
           amount_cents: number
+          booking_id?: string | null
           id?: string
           last_error?: string | null
           mollie_refund_id?: string | null
@@ -2393,6 +2436,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          booking_id?: string | null
           id?: string
           last_error?: string | null
           mollie_refund_id?: string | null
@@ -2405,18 +2449,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "payment_refunds_payment_id_fkey"
-            columns: ["payment_id"]
+            foreignKeyName: "payment_refunds_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: "payments"
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_refunds_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
-            referencedRelation: "v_revenue_lines"
-            referencedColumns: ["payment_id"]
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_refunds_requested_by_fkey"
@@ -2443,6 +2487,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          invoice_id: string | null
           is_test: boolean
           kind: string | null
           membership_id: string | null
@@ -2469,6 +2514,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          invoice_id?: string | null
           is_test?: boolean
           kind?: string | null
           membership_id?: string | null
@@ -2495,6 +2541,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          invoice_id?: string | null
           is_test?: boolean
           kind?: string | null
           membership_id?: string | null
@@ -2520,6 +2567,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_credit_state"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payments_membership_id_fkey"
@@ -2554,6 +2615,103 @@ export type Database = {
             columns: ["trial_booking_id"]
             isOneToOne: false
             referencedRelation: "trial_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_grants: {
+        Row: {
+          catalogue_slug: string
+          credits: number
+          duplicate_override: boolean
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          granted_via: string
+          id: string
+          invoice_id: string | null
+          membership_id: string
+          profile_id: string
+          reason: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          catalogue_slug: string
+          credits: number
+          duplicate_override?: boolean
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_via?: string
+          id?: string
+          invoice_id?: string | null
+          membership_id: string
+          profile_id: string
+          reason: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          catalogue_slug?: string
+          credits?: number
+          duplicate_override?: boolean
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          granted_via?: string
+          id?: string
+          invoice_id?: string | null
+          membership_id?: string
+          profile_id?: string
+          reason?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_grants_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_grants_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_credit_state"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "product_grants_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: true
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_grants_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2687,6 +2845,13 @@ export type Database = {
             foreignKeyName: "program_days_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["program_id"]
+          },
+          {
+            foreignKeyName: "program_days_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
             referencedRelation: "training_programs"
             referencedColumns: ["id"]
           },
@@ -2750,11 +2915,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "program_exercises_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["day_id"]
+          },
+          {
             foreignKeyName: "program_exercises_exercise_id_fkey"
             columns: ["exercise_id"]
             isOneToOne: false
             referencedRelation: "exercises"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["exercise_id"]
           },
         ]
       }
@@ -3176,11 +3355,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "set_logs_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["exercise_id"]
+          },
+          {
             foreignKeyName: "set_logs_program_exercise_id_fkey"
             columns: ["program_exercise_id"]
             isOneToOne: false
             referencedRelation: "program_exercises"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "set_logs_program_exercise_id_fkey"
+            columns: ["program_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["program_exercise_id"]
+          },
+          {
+            foreignKeyName: "set_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "set_logs_session_id_fkey"
@@ -3446,6 +3646,7 @@ export type Database = {
           slot_start_at: string | null
           source: string
           status: string
+          trainer_alerted_at: string | null
           trial_code_id: string | null
         }
         Insert: {
@@ -3467,6 +3668,7 @@ export type Database = {
           slot_start_at?: string | null
           source?: string
           status?: string
+          trainer_alerted_at?: string | null
           trial_code_id?: string | null
         }
         Update: {
@@ -3488,6 +3690,7 @@ export type Database = {
           slot_start_at?: string | null
           source?: string
           status?: string
+          trainer_alerted_at?: string | null
           trial_code_id?: string | null
         }
         Relationships: [
@@ -3803,11 +4006,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "workout_sessions_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["day_id"]
+          },
+          {
             foreignKeyName: "workout_sessions_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_sessions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "set_log_history"
+            referencedColumns: ["program_id"]
           },
           {
             foreignKeyName: "workout_sessions_program_id_fkey"
@@ -3820,6 +4037,40 @@ export type Database = {
       }
     }
     Views: {
+      set_log_history: {
+        Row: {
+          completed_at: string | null
+          day_id: string | null
+          day_label: string | null
+          day_number: number | null
+          exercise_id: string | null
+          exercise_name: string | null
+          notes: string | null
+          profile_id: string | null
+          program_exercise_id: string | null
+          program_id: string | null
+          program_status: string | null
+          program_version: number | null
+          reps: number | null
+          reps_max: number | null
+          reps_min: number | null
+          session_id: string | null
+          set_number: number | null
+          slot: string | null
+          started_at: string | null
+          target_sets: number | null
+          weight_kg: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_active_strikes: {
         Row: {
           earliest_expiry: string | null
@@ -3884,15 +4135,7 @@ export type Database = {
           vat_cents: number | null
           vat_rate_bp: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "payments_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_session_availability: {
         Row: {
@@ -3960,6 +4203,18 @@ export type Database = {
           p_commit_24m: boolean
           p_early_member: boolean
           p_extended_access: boolean
+          p_slug: string
+        }
+        Returns: Json
+      }
+      _grant_product_core: {
+        Args: {
+          p_actor_id: string
+          p_actor_type: string
+          p_allow_duplicate: boolean
+          p_invoice_id: string
+          p_profile_id: string
+          p_reason: string
           p_slug: string
         }
         Returns: Json
@@ -4059,6 +4314,16 @@ export type Database = {
         Args: { p_membership_id: string; p_reason?: string }
         Returns: Json
       }
+      admin_grant_product: {
+        Args: {
+          p_allow_duplicate?: boolean
+          p_invoice_id?: string
+          p_profile_id: string
+          p_reason: string
+          p_slug: string
+        }
+        Returns: Json
+      }
       admin_pause_membership: {
         Args: {
           p_membership_id: string
@@ -4106,6 +4371,10 @@ export type Database = {
           p_new_subscription_id: string
           p_resume_date?: string
         }
+        Returns: Json
+      }
+      admin_revoke_product_grant: {
+        Args: { p_grant_id: string; p_reason: string }
         Returns: Json
       }
       admin_undo_cancellation: {
@@ -4156,13 +4425,19 @@ export type Database = {
         }
         Returns: Json
       }
+      book_walk_in: {
+        Args: { p_profile_id: string; p_session_id: string }
+        Returns: Json
+      }
       booking_gate: {
         Args: {
           p_for_waitlist: boolean
+          p_paid_extra?: boolean
           p_session_id: string
           p_slot_minutes: number
           p_slot_start_at: string
           p_uid: string
+          p_walk_in?: boolean
         }
         Returns: Record<string, unknown>
       }
@@ -4194,6 +4469,7 @@ export type Database = {
         }
         Returns: Json
       }
+      capped_pillars: { Args: { p_covered: string[] }; Returns: string[] }
       checkout_intent_for_retry: {
         Args: { p_status_token: string }
         Returns: Json
@@ -4207,6 +4483,14 @@ export type Database = {
       complete_pt_intake: { Args: { p_pt_session_id: string }; Returns: Json }
       complete_workout_session: {
         Args: { p_session_id: string }
+        Returns: Json
+      }
+      confirm_extra_class_booking: {
+        Args: {
+          p_booking_id: string
+          p_mollie_payment_id: string
+          p_outcome: string
+        }
         Returns: Json
       }
       consume_checkout_login_token: {
@@ -4289,11 +4573,28 @@ export type Database = {
       }
       current_user_role: { Args: never; Returns: string }
       delete_pt_block: { Args: { p_pt_session_id: string }; Returns: Json }
+      delete_set_log: {
+        Args: {
+          p_program_exercise_id: string
+          p_session_id: string
+          p_set_number: number
+        }
+        Returns: Json
+      }
       duplicate_training_program: {
         Args: { p_program_id: string }
         Returns: string
       }
       expire_checkout_intents: { Args: never; Returns: number }
+      extra_class_price: {
+        Args: { p_age_category: string }
+        Returns: {
+          catalogue_slug: string
+          price_cents: number
+          revenue_category: string
+          vat_rate_bp: number
+        }[]
+      }
       fail_checkout_intent: {
         Args: { p_error_code: string; p_intent_id: string; p_paid_at?: string }
         Returns: Json
@@ -4478,6 +4779,15 @@ export type Database = {
         }
         Returns: Json
       }
+      request_booking_refund: {
+        Args: {
+          p_actor_id: string
+          p_actor_type: string
+          p_booking_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       request_membership_cancellation: {
         Args: { p_membership_id: string }
         Returns: {
@@ -4535,6 +4845,14 @@ export type Database = {
         Args: { p_pin: string; p_profile_id: string }
         Returns: number
       }
+      start_extra_class_booking: {
+        Args: {
+          p_session_id: string
+          p_slot_minutes?: number
+          p_slot_start_at?: string
+        }
+        Returns: Json
+      }
       start_workout_session: { Args: { p_day_id: string }; Returns: Json }
       submit_health_intake: {
         Args: { p_health_notes: string }
@@ -4544,6 +4862,7 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: Json
       }
+      undo_walk_in: { Args: { p_booking_id: string }; Returns: Json }
       verify_staff_pin: {
         Args: { p_pin: string; p_profile_id: string }
         Returns: Json

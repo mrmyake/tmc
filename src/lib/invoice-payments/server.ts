@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendNotification } from "@/lib/ntfy";
 import { SITE } from "@/lib/constants";
+import { siteUrl } from "@/lib/site-url";
 import InvoicePaidNotice from "@/emails/invoice_paid_notice";
 import { buildInvoicePaidNotice, uniqueSlugs } from "./notice";
 
@@ -112,6 +113,7 @@ export async function notifyInvoicePaid(
       totalGrossCents: inv.total_gross_cents ?? 0,
       via,
       catalogueSlugs: uniqueSlugs((lines ?? []).map((l) => l.catalogue_slug)),
+      invoiceUrl: `${siteUrl()}/app/admin/facturen/${invoiceId}#product-klaarzetten`,
     });
     await sendNotification(notice.title, notice.message, "moneybag");
     await sendEmail({

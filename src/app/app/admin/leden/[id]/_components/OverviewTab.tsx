@@ -4,6 +4,7 @@ import { PILLAR_LABELS, type Pillar } from "@/lib/member/plan-coverage";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";
 import { StatTile } from "@/app/app/_components/StatTile";
 import { PendingChangeNotice } from "./PendingChangeNotice";
+import { ProductGrantsList } from "../../../_components/product-grants/ProductGrantsList";
 
 interface OverviewTabProps {
   detail: MemberDetail;
@@ -116,6 +117,20 @@ export function OverviewTab({ detail }: OverviewTabProps) {
           />
         </dl>
       </section>
+
+      {detail.productGrants.length > 0 && (
+        <section>
+          {/* COPY: confirm met Marlon */}
+          <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-text tracking-[-0.01em] mb-2">
+            Toegekende producten
+          </h2>
+          <p className="text-text-muted text-sm mb-4 max-w-prose">
+            Tegoed dat zonder betaling is klaargezet. Een ongebruikte
+            toekenning is in te trekken; daarna is &quot;Credits aanpassen&quot; het pad.
+          </p>
+          <ProductGrantsList grants={detail.productGrants} />
+        </section>
+      )}
 
       {detail.memberships.length > 0 && (
         <section>

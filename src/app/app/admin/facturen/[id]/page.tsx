@@ -9,6 +9,8 @@ import {
   todayIso,
 } from "@/lib/invoice-payments/status";
 import { creditedCentsByInvoice } from "@/lib/invoice-payments/server";
+import { loadInvoiceGrantState } from "@/lib/product-grants/server";
+import { hasRunningSubscription } from "@/lib/product-grants/core";
 import { FactuurEditor } from "../_components/FactuurEditor";
 
 export const metadata = {
@@ -28,7 +30,7 @@ export default async function AdminFactuurDetailPage(props: {
     admin
       .from("invoices")
       .select(
-        `id, invoice_number, status, is_test, issued_at, credit_of_invoice_id,
+        `id, profile_id, invoice_number, status, is_test, issued_at, credit_of_invoice_id,
          pdf_path, pdf_generated_at, total_gross_cents, subtotal_net_cents,
          vat_total_cents, bill_to_name, bill_to_company, bill_to_vat_number,
          bill_to_street, bill_to_postal_code, bill_to_city, bill_to_country,
@@ -98,6 +100,36 @@ export default async function AdminFactuurDetailPage(props: {
     creditedCents,
   });
 
+  // Product klaarzetten (9.8): alleen op een betaalde factuur zonder
+  // creditnota. De RPC heeft het laatste woord; dit bepaalt wat het scherm
+  // aanbiedt. Bestaande toekenningen blijven altijd zichtbaar.
+  const grantState =
+    invoice.status === "finalised" && !isCreditNote
+      ? await loadInvoiceGrantState(
+          id,
+          (lines ?? []).map((l) => ({
+            catalogueSlug: l.catalogue_slug,
+            quantity: Number(l.quantity),
+          })),
+        )
+      : null;
+  const canGrant = payStatus === "betaald" && creditedCents === 0;
+  // Lopend abonnement van de afnemer: de dialoog waarschuwt dan dat de
+  // abonnementsacties op het ledendetail tijdelijk niet bereikbaar zijn.
+  let hasSubscription = false;
+  if (grantState && canGrant) {
+    const { data: subs } = await admin
+      .from("memberships")
+      .select("status, billing_cycle_weeks")
+      .eq("profile_id", invoice.profile_id);
+    hasSubscription = hasRunningSubscription(
+      (subs ?? []).map((m) => ({
+        status: m.status as string,
+        billingCycleWeeks: m.billing_cycle_weeks as number | null,
+      })),
+    );
+  }
+
   // Catalogusopties voor de regels-editor: slug, naam en het
   // default-tarief uit de rij (9.3).
   const catalogueOptions = Array.from(catalogue.values()).map((c) => ({
@@ -129,7 +161,19 @@ export default async function AdminFactuurDetailPage(props: {
           canMarkPaid,
           todayIso: todayIso(),
           minPaidOn: invoice.issued_at ?? null,
+          profileId: invoice.profile_id,
         }}
+        grants={
+          grantState
+            ? {
+                canGrant,
+                hasSubscription,
+                counters: grantState.counters,
+                rows: grantState.grants,
+                products: grantState.products,
+              }
+            : null
+        }
         initialBillTo={{
           name: merged.name ?? "",
           company: merged.company ?? "",

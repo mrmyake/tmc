@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AtSign,
   Ban,
+  Gift,
   Pause,
   Play,
   PlusCircle,
@@ -39,12 +40,22 @@ import {
 } from "@/lib/admin/customer-actions";
 import { formatEuro } from "@/lib/format";
 import type { MemberDetailMembership } from "@/lib/admin/member-detail-query";
+import type { GrantableProduct } from "@/lib/product-grants/core";
+import type { PaidInvoiceOption } from "@/lib/product-grants/server";
+import { GrantProductDialog } from "../../../_components/product-grants/GrantProductDialog";
 
 interface ActionMenuProps {
   profileId: string;
   firstName: string;
   email: string;
   primaryMembership: MemberDetailMembership | null;
+  /** Product toekennen zonder betaling (spec-facturatie.md 9.8). */
+  grantableProducts: GrantableProduct[];
+  paidInvoices: PaidInvoiceOption[];
+  /** Slugs waarvan dit lid al een actief tegoed heeft (waarschuwing). */
+  activeCreditSlugs: string[];
+  /** Lopend abonnement: de dialoog waarschuwt voor de primaire rij. */
+  hasSubscription: boolean;
 }
 
 type ActiveDialog =
@@ -54,6 +65,7 @@ type ActiveDialog =
   | "cancel"
   | "undo"
   | "credits"
+  | "grant"
   | "switch"
   | "email"
   | "delete";
@@ -124,6 +136,10 @@ export function ActionMenu({
   firstName,
   email,
   primaryMembership,
+  grantableProducts,
+  paidInvoices,
+  activeCreditSlugs,
+  hasSubscription,
 }: ActionMenuProps) {
   const [active, setActive] = useState<ActiveDialog>(null);
   const close = () => setActive(null);
@@ -184,6 +200,18 @@ export function ActionMenu({
           onClick={() => setActive("credits")}
           disabled={!hasActiveMembership}
           title={hasActiveMembership ? undefined : "Geen abonnement voor dit lid."}
+        />
+        <ActionButton
+          icon={<Gift size={14} strokeWidth={1.5} />}
+          // COPY: confirm met Marlon
+          label="Product toekennen"
+          onClick={() => setActive("grant")}
+          disabled={grantableProducts.length === 0}
+          title={
+            grantableProducts.length === 0
+              ? "Geen toekenbare producten in de catalogus."
+              : undefined
+          }
         />
         <ActionButton
           icon={<Repeat size={14} strokeWidth={1.5} />}
@@ -252,6 +280,19 @@ export function ActionMenu({
           profileId={profileId}
           membership={primaryMembership}
           onClose={close}
+        />
+      )}
+      {active === "grant" && (
+        <GrantProductDialog
+          open
+          onClose={close}
+          profileId={profileId}
+          products={grantableProducts}
+          invoices={paidInvoices}
+          activeSlugs={activeCreditSlugs}
+          hasSubscription={hasSubscription}
+          // COPY: confirm met Marlon
+          title="Product toekennen"
         />
       )}
       <EmailCorrectionDialog

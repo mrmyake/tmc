@@ -1,5 +1,6 @@
 import { formatEuro } from "@/lib/format";
 import { formatDateLong } from "@/lib/format-date";
+import { hasCyclePrice } from "@/lib/product-grants/core";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Betaling in behandeling",
@@ -27,6 +28,11 @@ function computeNextInvoice(
   cancellationEffectiveDate: string | null,
 ): string | null {
   if (status !== "active" && status !== "cancellation_requested") return null;
+  // Een rittenkaart of PT-pakket (gekocht of toegekend) heeft cyclus 0 en
+  // dus geen incasso. Zonder deze poort deelt de berekening hieronder door 0
+  // en gooit toISOString() op een ongeldige datum: de hele pagina viel dan
+  // om voor elk lid waarvan de nieuwste actieve rij een kaart is.
+  if (!(billingCycleWeeks > 0)) return null;
   const start = new Date(startDate);
   const cycleMs = billingCycleWeeks * 7 * 86400000;
   const now = Date.now();
@@ -72,6 +78,9 @@ export function MembershipHeroCard({
   );
   const isActive = status === "active";
   const priceEuro = formatEuro(Math.round(pricePerCycleCents / 100));
+  // Een kaart of pakket (spec-facturatie.md 9.8) heeft geen incassocyclus:
+  // dan geen "per 0 weken" en geen commitment.
+  const showPrice = hasCyclePrice({ billingCycleWeeks });
 
   return (
     <section
@@ -94,18 +103,22 @@ export function MembershipHeroCard({
         {planName || planVariant}
       </h2>
 
-      <div className="flex items-baseline gap-3 mb-10">
-        <span className="font-[family-name:var(--font-playfair)] text-5xl text-accent leading-none tracking-[-0.02em]">
-          {priceEuro}
-        </span>
-        <span className="text-text-muted text-sm">
-          per {billingCycleWeeks} weken
-        </span>
-      </div>
+      {showPrice && (
+        <div className="flex items-baseline gap-3 mb-10">
+          <span className="font-[family-name:var(--font-playfair)] text-5xl text-accent leading-none tracking-[-0.02em]">
+            {priceEuro}
+          </span>
+          <span className="text-text-muted text-sm">
+            per {billingCycleWeeks} weken
+          </span>
+        </div>
+      )}
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Row label="Gestart" value={formatDate(startDate)} />
-        <Row label="Commitment tot" value={formatDate(commitEndDate)} />
+        {showPrice && (
+          <Row label="Commitment tot" value={formatDate(commitEndDate)} />
+        )}
         {nextInvoice && (
           <Row label="Volgende incasso" value={formatDate(nextInvoice)} />
         )}

@@ -3,6 +3,7 @@ import { AvatarBubble } from "@/app/app/_shared/attendance/AvatarBubble";
 import { PlanBadge } from "@/app/app/_shared/attendance/PlanBadge";
 import { MembershipStatusBadge } from "../../_components/MembershipStatusBadge";
 import { ActionMenu } from "./ActionMenu";
+import { hasRunningSubscription } from "@/lib/product-grants/core";
 import type { MemberDetail } from "@/lib/admin/member-detail-query";
 
 interface MemberHeaderProps {
@@ -63,6 +64,17 @@ export function MemberHeader({ detail }: MemberHeaderProps) {
           firstName={profile.firstName}
           email={profile.email}
           primaryMembership={primaryMembership}
+          hasSubscription={hasRunningSubscription(detail.memberships)}
+          grantableProducts={detail.grantableProducts}
+          paidInvoices={detail.paidInvoices}
+          activeCreditSlugs={detail.memberships
+            .filter(
+              (m) =>
+                m.status === "active" &&
+                m.planVariant !== null &&
+                (m.creditsRemaining ?? 0) > 0,
+            )
+            .map((m) => m.planVariant as string)}
         />
       </div>
 

@@ -3,6 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
 import type { MemberStatus } from "./members-query";
 import { bookingTimes } from "@/lib/member/booking-times";
+import {
+  listGrantableProducts,
+  listGrantsForProfile,
+  listPaidInvoicesForProfile,
+  type PaidInvoiceOption,
+  type ProductGrantRow,
+} from "@/lib/product-grants/server";
+import type { GrantableProduct } from "@/lib/product-grants/core";
 
 export interface MemberDetailProfile {
   id: string;
@@ -165,6 +173,10 @@ export interface MemberDetail {
   audit: MemberAuditRow[];
   stats: MemberStats;
   pendingChange: MemberPendingChangeRow | null;
+  /** Product toekennen zonder betaling (spec-facturatie.md 9.8). */
+  productGrants: ProductGrantRow[];
+  grantableProducts: GrantableProduct[];
+  paidInvoices: PaidInvoiceOption[];
 }
 
 function pickPrimary(
@@ -574,8 +586,17 @@ export async function loadMemberDetail(
     };
   }
 
+  const [productGrants, grantableProducts, paidInvoices] = await Promise.all([
+    listGrantsForProfile(profileId),
+    listGrantableProducts(),
+    listPaidInvoicesForProfile(profileId),
+  ]);
+
   return {
     profile: detailProfile,
+    productGrants,
+    grantableProducts,
+    paidInvoices,
     memberships,
     primaryMembership: primary,
     primaryStatus,

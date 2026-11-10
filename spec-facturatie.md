@@ -23,7 +23,7 @@ daarop aan en vervangt hem niet.
 | Twee Mollie-keys aangemaakt en in Vercel gezet | gedaan 2026-09-08: `MOLLIE_API_KEY_LIVE` (Production), `MOLLIE_API_KEY_TEST` (Production, Development), oude `MOLLIE_API_KEY` verwijderd | nee |
 | Bucket `tmc-invoices` aangemaakt | open | PR 6 |
 | **LIVE-factuur alleen op productie finaliseren** (prioriteit **should**, te beslissen voor de eerste echte factuur) | open, nog niets voor gebouwd. Een preview-test op een echt (niet-test) profiel verbruikt een echt nummer uit de LIVE-reeks en zet een preview-host in de write-once PDF (zie 9.7, "Alleen waar het kan innen"; aanleiding: 2026.004). Voorstel om te beslissen: `finalizeInvoice` voor `is_test = false` alleen toestaan als `VERCEL_ENV = production`, zoals de live-modus van Mollie al doet | de eerste echte factuur |
-| **Product toekennen zonder betaling** (prioriteit **must**) | open, eigen PR na PR #340. Wat er wel en niet bestaat: `adjust_membership_credits` werkt alleen op een bestaande `memberships`-rij (geen product aanmaken), `admin_create_order` maakt alleen een order tegen catalogusprijs (alleen het inschrijfgeld kan vervallen), `activate_order` wordt alleen door de Mollie-webhook en de activatieketen aangeroepen. Er is dus geen pad om een product of tegoed (bijvoorbeeld `duo_10`) aan een lid te geven zonder betaalde order. De koppeling tussen een betaalde factuur en een later toegekend product moet zonder nieuwe migratie op `invoices` kunnen, bijvoorbeeld via `invoice_id` op de toekenning (9.7) | **een factuur met betaallink mag voor echte klanten niet met een productregel (`catalogue_slug`) gebruikt worden tot dit live is** |
+| Product toekennen zonder betaling (was prioriteit must) | **gesloten met PR #341 (2026-11-10)**: adminactie "Product toekennen" op het ledendetail en "Product klaarzetten" op een betaalde factuur, via `tmc.admin_grant_product`, met herkomst in `tmc.product_grants` en intrekken via `tmc.admin_revoke_product_grant` (9.8). Migratie `20261112090000` staat op de database. Een factuur met betaallink mag nu met een productregel gebruikt worden; het product wordt na betaling handmatig klaargezet | nee |
 
 **Post-opening (niet blokkerend, wel gepland):**
 
@@ -2457,14 +2457,144 @@ knop "Betaal online" (bij Open en Vervallen) in het blok "Facturen en creditnota
 **Melding bij betaling.** Zodra een factuur betaald is (online, of door een andere admin als
 overboeking gemarkeerd) gaan er een ntfy en een e-mail naar `SITE.email` met factuurnummer,
 afnemer en bedrag, en de vermelding dat een eventueel product nog **handmatig klaargezet** moet
-worden, met de `catalogue_slug` van de factuurregels waar die er zijn.
+worden, met de `catalogue_slug` van de factuurregels waar die er zijn. Sinds PR #341 verwijst
+de melding naar de knop "Product klaarzetten" op het factuurscherm en bevat ze de link naar
+die factuur in admin (9.8).
 
 **Geen productactivatie.** De factuurbetaling heeft geen bijwerkingen buiten `payments` en de
-factuur: een product bij de factuur wordt niet geactiveerd (besluit 41). Zie de gate
-"Product toekennen zonder betaling" bovenaan: tot die er is, mag een factuur met betaallink
-voor echte klanten niet met een productregel gebruikt worden. De koppeling met een later
-toegekend product moet zonder nieuwe migratie op `invoices` kunnen (bijvoorbeeld `invoice_id`
-op de toekenning); daar is nu niets voor gebouwd.
+factuur: een product bij de factuur wordt niet geactiveerd (besluit 41). De gate
+"Product toekennen zonder betaling" is gesloten met PR #341: een factuur met betaallink mag
+met een productregel gebruikt worden, en het product wordt na betaling handmatig klaargezet. De koppeling met een later
+toegekend product ligt op `invoice_id` van de toekenning (`tmc.product_grants`, 9.8, PR #341),
+zonder kolom op `invoices`. De betaling zelf kent nog steeds niets toe: dat blijft een
+handeling van de admin.
+
+### 9.8 Product toekennen zonder betaling (PR #341)
+
+Een admin kan een los catalogusproduct met tegoed aan een lid toekennen zonder order en
+zonder betaling, optioneel gekoppeld aan een betaalde factuur. Dit is het ontbrekende pad
+achter 9.7: de factuur int, de toekenning zet het product klaar.
+
+**Wat het is en niet is.** Er ontstaat geen order, geen `payments`-rij en geen omzet: de
+omzet staat al op de factuur (7.4) of er is bewust geen omzet (een cadeau). Er gaat geen
+mail naar het lid en er is geen Akiles-sync: een los product geeft geen deurtoegang
+(`resolveDesiredAccess` filtert `ten_ride_card` en `pt_package` weg). Abonnementen kunnen
+niet toegekend worden; die geven deurtoegang en lopen via incasso.
+
+**Welke producten.** De poort in de database: `kind = 'product'`, `credits is not null`,
+`billing_cycle_weeks is null`, `is_active`, plus de slug-whitelist van `tmc.activate_order`
+(`ten_ride_card%` wordt `ten_ride_card`; `pt_single`, `pt_10`, `duo_single`, `duo_10` worden
+`pt_package`). `drop_in*` valt er bewust buiten (geen `plan_type`), net als de programma's,
+de add-on en het inschrijfgeld. Aantal credits en geldigheid komen altijd uit
+`tmc.catalogue`, nooit uit invoer: een rittenkaart is 6 maanden geldig, `pt_10` en `duo_10`
+hebben geen vervaldatum omdat de catalogus er geen heeft.
+
+**Datamodel (migratie `20261112090000_product_grants.sql`).**
+
+- `tmc.product_grants`: een rij per toekenning, met `membership_id` (uniek), `profile_id`,
+  `catalogue_slug`, `credits`, `expires_at`, `reason` (verplicht), `invoice_id` (nullable),
+  `duplicate_override`, `granted_via` (`admin` of `system`), `granted_by`, `granted_at` en
+  `revoked_at`, `revoked_by`, `revoke_reason`. Hier landt de factuurkoppeling; er komt geen
+  kolom op `invoices`. RLS: een admin leest, niemand schrijft. Geen enkele API-rol heeft
+  insert, update of delete, ook `service_role` niet; schrijven kan alleen via de functies.
+- `tmc._grant_product_core(...)`: de kern, zonder grants. Schrijft in een transactie de
+  `memberships`-rij (zelfde vorm als de credit-tak van `activate_order`:
+  `plan_variant` is de slug, `status active`, `source admin_manual`, `billing_cycle_weeks`
+  en `commit_months` 0, en **`price_per_cycle_cents` 0**), de herkomstrij en het event
+  `product.granted`.
+- `tmc.admin_grant_product(p_profile_id, p_slug, p_reason, p_invoice_id default null,
+  p_allow_duplicate default false)`: dunne wrapper met `tmc.is_admin()`; `requireAdmin()` in
+  de server action is de tweede laag. De action schrijft `product_granted` in
+  `admin_audit_log`.
+- `tmc.admin_revoke_product_grant(p_grant_id, p_reason)`: zie "Intrekken".
+
+**Controles bij een gekoppelde factuur.** De RPC weigert, elk met een eigen reden, als de
+factuur van een ander profiel is, nog een concept is, een creditnota is, een gefinaliseerde
+creditnota heeft (ook een gedeeltelijke), geen gekoppelde betaling met status `paid` heeft,
+een betaling heeft die gestorneerd of terugbetaald is, of als `invoices.is_test` afwijkt van
+`profiles.is_test`. **Een open factuur wordt geweigerd, zonder override**: wie vooruit wil
+leveren kent toe zonder factuur en noemt het factuurnummer in de reden. Zo betekent een
+gekoppelde toekenning altijd een betaalde factuur, en daar leunt automatisch toekennen later
+op.
+
+**Dubbele toekenning.** Onder een rijlock op de factuur telt de RPC de niet ingetrokken
+toekenningen voor die factuur en slug. Toegestaan is de som van `quantity` van de
+factuurregels met die `catalogue_slug`, naar beneden afgerond op een geheel getal, en 1 als
+de slug niet op de factuur staat. Daarboven weigert hij met `already_granted`, tenzij
+`p_allow_duplicate` waar is; dat wordt vastgelegd in `duplicate_override`, in het event en
+in de audit. Zonder factuur is er geen blokkade; de dialoog waarschuwt als het lid al een
+actief tegoed van hetzelfde product heeft.
+
+**Intrekken.** `admin_revoke_product_grant` trekt alleen een ongebruikte toekenning in
+(`credits_remaining = credits_total` op een actieve rij): de membership gaat naar
+`cancelled` met `end_date` vandaag, de herkomstrij krijgt `revoked_at`, `revoked_by` en de
+reden, er komt een event `product.grant_revoked` en de factuur telt de toekenning niet meer
+mee. `cancellation_effective_date` blijft leeg, zodat een ingetrokken toekenning niet als
+churn telt. Is er al verbruikt, dan weigert hij met `credits_used` en is "Credits aanpassen"
+het pad; is het saldo handmatig opgehoogd, dan `credits_adjusted`.
+
+**Schermen.** Op het ledendetail staat "Product toekennen" in het actiemenu (productkeuze
+uit de poort, credits en geldigheid alleen-lezen, verplichte reden, optioneel een betaalde
+factuur van dit lid) en een blok "Toegekende producten" op het tabblad Overzicht met
+"Intrekken". Op een betaalde factuur zonder creditnota staat het blok "Product klaarzetten"
+met per toekenbare `catalogue_slug` van de regels een teller "x van y toegekend" en de knop,
+vooringevuld. Bij een volle teller heet de knop "Nog een keer toekennen" en vraagt de
+dialoog een expliciete bevestiging.
+
+**Waar een toegekend product zichtbaar is en meetelt.** Het lid ziet het tegoed op
+`/app/producten` en kan ermee boeken (`booking_gate` voor de rittenkaart,
+`admin_book_pt_for_member` voor PT en duo). Het telt **niet** mee in `v_revenue_lines` (die
+loopt via `payments`) en niet in de MRR (die filtert op `billing_cycle_weeks > 0`). Het telt
+**wel** mee in `vw_admin_kpis.active_members`, `new_signups_week` en `new_signups_month`,
+net als een gekochte kaart: die tellers kijken naar elke actieve `memberships`-rij. De view
+is bewust niet gewijzigd (7.8).
+
+**Testmodus.** `memberships` heeft geen `is_test`; de toekenning volgt het profiel. Op een
+testprofiel valt hij buiten de KPI's en kan hij alleen aan een TEST-factuur gekoppeld worden.
+
+**Prijs 0 in de schermen.** Een toegekende rij heeft `price_per_cycle_cents` 0 en
+`billing_cycle_weeks` 0. `/app/abonnement` toont voor een rij zonder incassocyclus (een
+kaart of pakket, gekocht of toegekend) geen bedrag per cyclus, geen commitment en geen
+pauze- of opzegactie (`hasCyclePrice`, kaart en historie). De admin-ledenlijst, het
+ledendetail en de CSV-export tonen de MRR alleen boven 0 en laten bij een toegekende rij dus
+een streepje of 0,00 zien.
+
+**Bestaande fout op `/app/abonnement`, in deze PR hersteld.** De pagina toont de nieuwste rij
+in een actieve status, ook een kaart. `computeNextInvoice` deelde dan door een cyclus van 0
+en gooide op een ongeldige datum: de hele pagina viel om ("We konden dit niet laden") voor
+elk lid waarvan de nieuwste actieve rij een rittenkaart of PT-pakket is, ook een gekochte.
+Gevonden bij de verificatie van een toegekend product; de berekening slaat een rij zonder
+cyclus nu over.
+
+**Open punten.**
+
+- **Automatisch toekennen bij betaling** is niet gebouwd. Wat het later vraagt: een tweede
+  wrapper rond `_grant_product_core` met actor `system` en alleen `service_role`, aangeroepen
+  uit `/api/invoices/webhook` en `markInvoicePaid` na de compare-and-swap op
+  `invoices.payment_id`; een idempotentiepoort (de telling per factuur en slug is er al,
+  een `dedupe_key` op het event of een unieke index voor `granted_via = 'system'` moet erbij);
+  een besluit over regels zonder `catalogue_slug` en over aantallen met een decimaal; en wat
+  er gebeurt bij een creditnota of storno na de toekenning (nu: niets, de admin trekt in).
+- **Mail aan het lid** ("je tegoed staat klaar") bestaat niet; copy door Marlon. Tot die er
+  is hoort het lid het van de studio.
+- **`memberships_admin_all`**: een admin kan via RLS nog steeds direct een rij in
+  `tmc.memberships` inserten, buiten elke RPC om. Dichtzetten raakt alle bestaande
+  adminpaden en hoort in een eigen PR.
+- **Abonnementsblokkade door een actieve creditrij**: zie het open punt (must) in
+  `spec-membership-flow.md`.
+- **Een creditrij wordt overal als lidmaatschap behandeld (prioriteit must, eigen PR direct
+  na PR #341).** Een punt met drie plekken: de keuze van de primaire rij op het ledendetail
+  en op `/app/abonnement`, het doel van "Credits aanpassen", en de weigering van een
+  abonnement in `create_order`, `admin_create_order` en `activate_order`. Volledig
+  beschreven in `spec-membership-flow.md`. Tot die PR waarschuwen de dialoog "Product
+  toekennen" en het blok "Product klaarzetten" als het lid een lopend abonnement heeft:
+  toekennen kan, maar pauzeren, opzeggen en abonnement wisselen zijn op het ledendetail
+  tijdelijk niet bereikbaar zolang het tegoed actief is. Alleen een waarschuwing, geen
+  blokkade.
+- **Invoer "-1" bij "Credits aanpassen"**: wie een minteken typt krijgt "01" in het veld;
+  met de pijltjes lukt het wel. Bestaand, niet aangeraakt.
+- **"Aangeschaft op"** op `/app/producten` staat ook bij een toegekende kaart; copy voor
+  Marlon. Niet aangeraakt.
 
 ## 10. Migratieplan
 
@@ -2900,6 +3030,9 @@ index staat er.
 | 39 | `v_revenue_lines` geeft voor `kind = 'invoice'` een rij per factuurregel, via een `UNION ALL`-tak (PR #340, Ilja) | Exact bruto, BTW, netto en categorie per regel. Verworpen: een rij per payment met categorie "overig" en tarief null. Gevolg: terugbetalingen van een factuurbetaling lopen via een creditnota (`refunded_*` staan op 0), en creditnota's worden per regelnummer verrekend. Zie 7.4 |
 | 40 | Factuurbetaling als eigen pad (`/api/invoices/webhook`), token als tabel (`invoice_pay_tokens`), betaling start bij een klik, een vervallen factuur blijft betaalbaar (PR #340, Ilja) | De orderpijplijn past niet (bevroren `pricing_snapshot`, verlopende token, activatie). Een token als tabel voorkomt een kolom op de bevroren factuur en een nieuw geheim; starten bij een klik voorkomt dat mailscanners of QR-voorbeelden betalingen minten. Zie 9.7 |
 | 41 | Een factuurbetaling activeert geen product (alleen innen); "product toekennen zonder betaling" wordt een eigen PR (PR #340, Ilja) | `activate_order` is aan orders met een bevroren prijs gebonden en er is geen admin-pad naar een product zonder betaalde order. De factuur met betaallink mag voor echte klanten niet met een productregel gebruikt worden tot die PR live is (gate "must" bovenaan). Zie 9.7 |
+| 42 | Product toekennen zonder betaling is een eigen RPC met een herkomsttabel, geen order zonder betaling (PR #341, Ilja 2026-11-10) | `tmc.admin_grant_product` rond een kern zonder grants, herkomst en factuurkoppeling in `tmc.product_grants`, alleen losse producten met tegoed, credits en geldigheid uit de catalogus, `price_per_cycle_cents` 0. Verworpen: een order met prijs 0 door `activate_order` (die is aan een betaling en een bevroren prijs gebonden en zou omzetregels en een bevestigingsmail raken) en een kolom op `invoices` (bevroren na finaliseren). Zie 9.8 |
+| 43 | Een open factuur kan niet aan een toekenning gekoppeld worden, zonder override; dubbel toekennen boven het aantal op de factuurregels kan alleen met een expliciete override (PR #341, Ilja 2026-11-10) | Een gekoppelde toekenning betekent altijd een betaalde, niet gecrediteerde factuur; daar leunt automatisch toekennen later op. Het toegestane aantal is de som van `quantity` van de regels met die slug, naar beneden afgerond, en 1 als de slug niet op de factuur staat. Verworpen: een unieke index op factuur en slug (een regel met aantal 2 hoort twee toekenningen te geven). Zie 9.8 |
+| 44 | Intrekken kan alleen zolang er niets verbruikt is; `vw_admin_kpis` en `memberships_admin_all` blijven ongemoeid (PR #341, Ilja 2026-11-10) | `admin_revoke_product_grant` zet de membership op `cancelled` en geeft de factuur weer vrij; na verbruik is "Credits aanpassen" het pad. Een toegekend product telt mee in `active_members` en `new_signups`, net als een gekochte kaart (7.8 verbiedt een stille wijziging van de view). Zie 9.8 |
 
 ## 13. Open vragen
 
@@ -2929,6 +3062,8 @@ een afwijkend tarief in de catalogus verschijnt.
    (8.3)?
 6. Moet een lid automatisch bericht krijgen als er een factuur voor hem klaarstaat, of pak
    je dat per geval?
+7. Een eigen mail "je tegoed staat klaar" bij een toegekend product (9.8): wil je die, en
+   met welke tekst? Nu krijgt het lid geen bericht.
 
 ## 14. PR-opdeling
 
@@ -3570,3 +3705,5 @@ testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een ap
 
 *Geschreven op basis van read-only discovery. Bij elke wijziging aan de facturatieketen dit
 document bijwerken, met name het besluitenlog en de ledger in sectie 15.*
+
+- **PR #341, 2026-11-10** (branch `feat/admin-grant-product`, `github.com/mrmyake/tmc/pull/341`, migratie `20261112090000_product_grants.sql`, **voor de merge toegepast op 2026-11-10** als uitzondering op "geen db push voor de merge", net als bij #340: de preview draait tegen dezelfde database als productie en de verificatie op de preview vraagt het schema (Ilja akkoord; dry-run en push toonden alleen deze migratie; daarna read-only gecontroleerd: RLS aan op `tmc.product_grants` met alleen SELECT voor `authenticated` en `service_role`, de kern voor geen enkele rol uitvoerbaar, de twee wrappers voor `authenticated` en `service_role` en niet voor `anon`, en de triggers op `tmc.memberships` en `tmc.invoices` onveranderd). **Wordt #341 niet gemerged, dan is een terugdraaimigratie nodig**: `drop function tmc.admin_revoke_product_grant(uuid, text)`, `drop function tmc.admin_grant_product(uuid, text, text, uuid, boolean)`, `drop function tmc._grant_product_core(uuid, text, text, uuid, boolean, text, uuid)` en `drop table tmc.product_grants`, in die volgorde en in een transactie; memberships-rijen die intussen zijn toegekend blijven staan als gewone creditrijen met `source admin_manual` en moeten apart beoordeeld worden. **Volgende migraties krijgen een latere tijdstempel dan `20261112090000`** (de versie staat al op de database, ook al is de bestandsnaam van 2026-11-12 gedateerd); `types/supabase.ts` opnieuw gegenereerd vanaf het live schema (neemt ook eerdere achterstand mee, onder meer `invoice_pay_tokens`); `src/lib/product-grants/core.ts` en `server.ts` nieuw, `src/lib/admin/product-grant-actions.ts` nieuw, `src/app/app/admin/_components/product-grants/` nieuw, `src/app/app/admin/leden/[id]/_components/ActionMenu.tsx`, `MemberHeader.tsx` en `OverviewTab.tsx`, `src/lib/admin/member-detail-query.ts`, `src/app/app/admin/facturen/[id]/page.tsx` en `_components/FactuurEditor.tsx`, `src/lib/invoice-payments/notice.ts` en `server.ts`, `src/app/app/abonnement/_components/MembershipHeroCard.tsx` en `MembershipHistory.tsx`, `scripts/product-grants/core.test.mts` en `scripts/test-product-grants.sql` nieuw, `package.json` (`test:product-grants`), dit document 9.7, 9.8, besluiten 42 tot en met 44, open vraag 7 en 15, `spec-membership-flow.md` open punt). Product toekennen zonder betaling: `tmc.admin_grant_product` (admin-wrapper rond `tmc._grant_product_core` zonder grants) maakt voor een los product met tegoed een creditrij in `tmc.memberships` met prijs 0, een herkomstrij in de nieuwe tabel `tmc.product_grants` (reden verplicht, `invoice_id` optioneel) en het event `product.granted`; een gekoppelde factuur moet van hetzelfde profiel, gefinaliseerd, betaald en niet gecrediteerd zijn, en dubbel toekennen boven het aantal op de factuurregels vraagt een override. `tmc.admin_revoke_product_grant` trekt een ongebruikte toekenning in. Actie "Product toekennen" en blok "Toegekende producten" op het ledendetail, blok "Product klaarzetten" met teller op een betaalde factuur, en de melding bij betaling verwijst naar die knop met een link. `/app/abonnement` toont voor een rij zonder incassocyclus geen bedrag per cyclus, geen commitment en geen pauze- of opzegactie, en valt niet meer om op zo'n rij (bestaande deling door 0 in `computeNextInvoice`, ook voor gekochte kaarten; `src/app/app/abonnement/page.tsx`). **Bewust niet aangeraakt:** `tmc.activate_order`, `create_order`, `admin_create_order` en `adjust_membership_credits`, `tmc.invoices` en `finalize_invoice`, `v_revenue_lines`, `vw_admin_kpis` (een toegekend product telt mee in `active_members` en `new_signups`), de policy `memberships_admin_all`, `drop_in*`, automatisch toekennen bij betaling, een mail aan het lid, en de abonnementsblokkade door een actieve creditrij (open punt must in `spec-membership-flow.md`). Bij de verificatie op de preview (2026-11-10, testprofiel) zijn daarnaast toegevoegd: een waarschuwing in de dialoog en bij "Product klaarzetten" als het lid een lopend abonnement heeft, en de bevestiging na intrekken die vanzelf verdwijnt. De gate "Product toekennen zonder betaling" is met de merge van deze PR gesloten.
