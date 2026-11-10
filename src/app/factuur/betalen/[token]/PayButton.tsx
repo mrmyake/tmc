@@ -11,6 +11,8 @@ const ERROR_COPY: Record<string, string> = {
   credited: "Deze factuur is gecrediteerd; er is niets te betalen.",
   processing:
     "Je betaling wordt nog verwerkt. Ververs deze pagina over een paar minuten.",
+  unavailable:
+    "Online betalen kan hier niet. Maak het bedrag over naar de gegevens op de factuur.",
   not_found: "Deze betaallink is niet (meer) geldig.",
   try_again: "Er ging iets mis. Probeer het opnieuw.",
 };

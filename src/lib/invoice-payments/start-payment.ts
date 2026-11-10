@@ -11,6 +11,7 @@ import {
   type PayInvoice,
 } from "./pay-core";
 import { isValidPayToken } from "./pay-url";
+import { onlinePaymentAvailable } from "./availability";
 import type { PollOutcome } from "@/lib/orders/status-actions";
 
 /**
@@ -43,6 +44,14 @@ export async function startInvoicePayment(
     .maybeSingle();
   const mode = inv?.is_test ? ("test" as const) : ("live" as const);
 
+  // Staat de Mollie-modus van deze factuur in deze omgeving niet aan (een
+  // LIVE-factuur op een preview, of een ontbrekende key), dan is dat geen
+  // storing maar "kan hier niet": een eigen uitkomst, zodat de pagina dat
+  // duidelijk zegt in plaats van "er ging iets mis".
+  if (!onlinePaymentAvailable(inv?.is_test ?? false)) {
+    console.warn(`[invoice-pay] online betalen niet beschikbaar in deze omgeving (mode=${mode})`);
+    return { ok: false, reason: "unavailable" };
+  }
   const mollie = getMollieClient(mode);
   if (!mollie) {
     console.error(`[invoice-pay] Mollie niet geconfigureerd (mode=${mode})`);

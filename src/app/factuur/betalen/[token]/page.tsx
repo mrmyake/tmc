@@ -4,6 +4,9 @@ import { StatusPoller } from "@/components/checkout/StatusPoller";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { SITE } from "@/lib/constants";
+import { getSiteSettings } from "../../../../../sanity/lib/fetch";
+import { onlinePaymentAvailable } from "@/lib/invoice-payments/availability";
+import { resolvePaymentDetails } from "@/lib/invoice-terms";
 import { formatEuroCentsSigned } from "@/lib/format";
 import { formatNlDate, invoiceDueDate } from "@/lib/invoice-terms";
 import { isValidPayToken } from "@/lib/invoice-payments/pay-url";
@@ -108,6 +111,15 @@ export default async function FactuurBetalenPage({
 
   const dueLabel = formatNlDate(invoiceDueDate(inv.issued_at));
 
+  // Staat de Mollie-modus van deze factuur in deze omgeving niet aan (een
+  // LIVE-factuur op een preview), dan geen knop maar een duidelijke tekst met
+  // de overmaakgegevens. De generieke foutmelding blijft voor echte fouten.
+  const unavailable = payable && !onlinePaymentAvailable(inv.is_test);
+  const settings = unavailable ? await getSiteSettings() : null;
+  const transfer = settings
+    ? resolvePaymentDetails(settings.iban, SITE)
+    : null;
+
   // COPY: confirm met Marlon
   const COPY = processing
     ? {
@@ -130,8 +142,9 @@ export default async function FactuurBetalenPage({
         : {
             eyebrow: "Factuur",
             title: `Factuur ${inv.invoice_number}`,
-            body:
-              status === "vervallen"
+            body: unavailable
+              ? "Online betalen is in deze omgeving niet beschikbaar. Je kunt de factuur wel zelf overmaken."
+              : status === "vervallen"
                 ? "De betaaltermijn van deze factuur is verstreken. Je kunt hem nog steeds hieronder betalen."
                 : "Controleer de gegevens en rond de betaling af via Mollie.",
           };
@@ -178,7 +191,26 @@ export default async function FactuurBetalenPage({
           )}
         </div>
 
-        {payable && !processing && (
+        {unavailable && transfer && (
+          <div className="inline-block w-full max-w-md bg-bg-elevated border border-bg-subtle px-8 py-6 mb-8 text-left">
+            {/* COPY: confirm met Marlon */}
+            <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-3">
+              Zelf overmaken
+            </div>
+            <dl className="text-sm text-text grid grid-cols-[6rem_1fr] gap-y-1">
+              <dt className="text-text-muted">IBAN</dt>
+              <dd>{transfer.iban}</dd>
+              <dt className="text-text-muted">T.n.v.</dt>
+              <dd>{transfer.accountHolder}</dd>
+              <dt className="text-text-muted">Kenmerk</dt>
+              <dd>{inv.invoice_number}</dd>
+              <dt className="text-text-muted">Uiterlijk</dt>
+              <dd>{dueLabel}</dd>
+            </dl>
+          </div>
+        )}
+
+        {payable && !processing && !unavailable && (
           <>
             <PayButton token={token} />
             {/* COPY: confirm met Marlon */}

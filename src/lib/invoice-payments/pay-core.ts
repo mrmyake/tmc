@@ -85,6 +85,8 @@ export type InvoicePayResult =
         | "already_paid"
         | "credited"
         | "processing"
+        /** Online betalen kan in deze omgeving niet (geen Mollie-key voor de modus). */
+        | "unavailable"
         | "try_again";
     };
 
