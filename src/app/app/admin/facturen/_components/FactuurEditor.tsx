@@ -95,6 +95,8 @@ interface FactuurEditorProps {
    */
   grants: {
     canGrant: boolean;
+    /** De afnemer heeft een lopend abonnement (waarschuwing in de dialoog). */
+    hasSubscription: boolean;
     counters: InvoiceGrantCounter[];
     rows: ProductGrantRow[];
     products: GrantableProduct[];
@@ -845,6 +847,18 @@ export function FactuurEditor({
                 Deze factuur is betaald. De betaling zet zelf niets klaar: ken
                 het product hier toe, dan staat het tegoed direct bij het lid.
               </p>
+              {grants.hasSubscription && (
+                // COPY: confirm met Marlon
+                <p
+                  role="note"
+                  className="text-sm p-4 border border-[color:var(--warning)]/40 text-[color:var(--warning)] max-w-prose"
+                >
+                  Dit lid heeft een lopend abonnement. Toekennen kan, maar
+                  zolang het tegoed actief is zijn pauzeren, opzeggen en
+                  abonnement wisselen op het ledendetail tijdelijk niet
+                  bereikbaar.
+                </p>
+              )}
               {grants.counters.length > 0 ? (
                 <ul className="flex flex-col divide-y divide-[color:var(--ink-500)]/60">
                   {grants.counters.map((c) => {
@@ -916,6 +930,7 @@ export function FactuurEditor({
               fixedInvoice={{ id: invoice.id, number: invoice.number }}
               presetSlug={grantFor.slug}
               duplicateExpected={grantFor.full}
+              hasSubscription={grants.hasSubscription}
               // COPY: confirm met Marlon
               title="Product klaarzetten"
             />

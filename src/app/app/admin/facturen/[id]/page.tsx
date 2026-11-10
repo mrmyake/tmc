@@ -10,6 +10,7 @@ import {
 } from "@/lib/invoice-payments/status";
 import { creditedCentsByInvoice } from "@/lib/invoice-payments/server";
 import { loadInvoiceGrantState } from "@/lib/product-grants/server";
+import { hasRunningSubscription } from "@/lib/product-grants/core";
 import { FactuurEditor } from "../_components/FactuurEditor";
 
 export const metadata = {
@@ -113,6 +114,21 @@ export default async function AdminFactuurDetailPage(props: {
         )
       : null;
   const canGrant = payStatus === "betaald" && creditedCents === 0;
+  // Lopend abonnement van de afnemer: de dialoog waarschuwt dan dat de
+  // abonnementsacties op het ledendetail tijdelijk niet bereikbaar zijn.
+  let hasSubscription = false;
+  if (grantState && canGrant) {
+    const { data: subs } = await admin
+      .from("memberships")
+      .select("status, billing_cycle_weeks")
+      .eq("profile_id", invoice.profile_id);
+    hasSubscription = hasRunningSubscription(
+      (subs ?? []).map((m) => ({
+        status: m.status as string,
+        billingCycleWeeks: m.billing_cycle_weeks as number | null,
+      })),
+    );
+  }
 
   // Catalogusopties voor de regels-editor: slug, naam en het
   // default-tarief uit de rij (9.3).
@@ -151,6 +167,7 @@ export default async function AdminFactuurDetailPage(props: {
           grantState
             ? {
                 canGrant,
+                hasSubscription,
                 counters: grantState.counters,
                 rows: grantState.grants,
                 products: grantState.products,

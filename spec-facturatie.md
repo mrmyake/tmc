@@ -2582,18 +2582,19 @@ cyclus nu over.
   adminpaden en hoort in een eigen PR.
 - **Abonnementsblokkade door een actieve creditrij**: zie het open punt (must) in
   `spec-membership-flow.md`.
-- **De primaire membership op het ledendetail (prioriteit must, zie de verificatie van
-  PR #341).** `pickPrimary` neemt de eerste actieve rij op `start_date` aflopend. Krijgt een
-  lid met een lopend abonnement een kaart (gekocht of toegekend), dan wordt de kaart de
-  primaire rij: de kop toont dan het pakket in plaats van het abonnement, en "Pauze
-  toekennen", "Opzeggen" en "Abonnement wisselen" staan uit ("geen doorlopende incasso")
-  tot de kaart niet meer actief is. Andersom werkt "Credits aanpassen" alleen op de
-  primaire rij, dus niet per se op de kaart die je wilt corrigeren. Bestaand gedrag, maar
-  toekennen maakt het veel waarschijnlijker. Op te lossen in een eigen PR: de
-  abonnementsacties op de abonnementsrij laten werken en "Credits aanpassen" per creditrij
-  aanbieden. De ledenlijst (`pickPrimaryMembership`) heeft dezelfde keuze.
+- **Een creditrij wordt overal als lidmaatschap behandeld (prioriteit must, eigen PR direct
+  na PR #341).** Een punt met drie plekken: de keuze van de primaire rij op het ledendetail
+  en op `/app/abonnement`, het doel van "Credits aanpassen", en de weigering van een
+  abonnement in `create_order`, `admin_create_order` en `activate_order`. Volledig
+  beschreven in `spec-membership-flow.md`. Tot die PR waarschuwen de dialoog "Product
+  toekennen" en het blok "Product klaarzetten" als het lid een lopend abonnement heeft:
+  toekennen kan, maar pauzeren, opzeggen en abonnement wisselen zijn op het ledendetail
+  tijdelijk niet bereikbaar zolang het tegoed actief is. Alleen een waarschuwing, geen
+  blokkade.
+- **Invoer "-1" bij "Credits aanpassen"**: wie een minteken typt krijgt "01" in het veld;
+  met de pijltjes lukt het wel. Bestaand, niet aangeraakt.
 - **"Aangeschaft op"** op `/app/producten` staat ook bij een toegekende kaart; copy voor
-  Marlon.
+  Marlon. Niet aangeraakt.
 
 ## 10. Migratieplan
 

@@ -116,6 +116,24 @@ export function invoiceGrantCounters(
   });
 }
 
+/**
+ * Heeft dit lid een lopend abonnement? Een rij met een incassocyclus in een
+ * status die nog loopt. Dan waarschuwt de dialoog: de toegekende kaart wordt
+ * de primaire rij op het ledendetail en de abonnementsacties zijn daar
+ * tijdelijk niet bereikbaar (open punt in spec-membership-flow.md).
+ */
+export function hasRunningSubscription(
+  rows: { status: string; billingCycleWeeks: number | null }[],
+): boolean {
+  return rows.some(
+    (m) =>
+      (m.billingCycleWeeks ?? 0) > 0 &&
+      ["pending", "active", "paused", "cancellation_requested", "payment_failed"].includes(
+        m.status,
+      ),
+  );
+}
+
 export interface GrantInput {
   profileId: string;
   slug: string;

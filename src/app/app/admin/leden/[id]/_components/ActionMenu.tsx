@@ -54,6 +54,8 @@ interface ActionMenuProps {
   paidInvoices: PaidInvoiceOption[];
   /** Slugs waarvan dit lid al een actief tegoed heeft (waarschuwing). */
   activeCreditSlugs: string[];
+  /** Lopend abonnement: de dialoog waarschuwt voor de primaire rij. */
+  hasSubscription: boolean;
 }
 
 type ActiveDialog =
@@ -137,6 +139,7 @@ export function ActionMenu({
   grantableProducts,
   paidInvoices,
   activeCreditSlugs,
+  hasSubscription,
 }: ActionMenuProps) {
   const [active, setActive] = useState<ActiveDialog>(null);
   const close = () => setActive(null);
@@ -287,6 +290,7 @@ export function ActionMenu({
           products={grantableProducts}
           invoices={paidInvoices}
           activeSlugs={activeCreditSlugs}
+          hasSubscription={hasSubscription}
           // COPY: confirm met Marlon
           title="Product toekennen"
         />

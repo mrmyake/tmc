@@ -21,6 +21,15 @@ function dateNl(iso: string): string {
   }).format(new Date(iso));
 }
 
+/** De stand van de lijst zonder tijdstempels: wie is ingetrokken, welk saldo. */
+function listKey(
+  grants: Pick<ProductGrantRow, "id" | "revokedAt" | "creditsRemaining">[],
+): string {
+  return grants
+    .map((g) => `${g.id}:${g.revokedAt ? 1 : 0}:${g.creditsRemaining ?? ""}`)
+    .join("|");
+}
+
 export function ProductGrantsList({
   grants,
   showInvoice = true,
@@ -35,6 +44,15 @@ export function ProductGrantsList({
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // De bevestiging "Toekenning ingetrokken." is een momentopname. Hij hoort
+  // bij de stand van de lijst direct na het intrekken; zodra een volgende
+  // actie op de pagina de lijst verandert (of na enkele seconden) verdwijnt
+  // hij. Een foutmelding blijft staan tot de volgende poging.
+  const [okForKeys, setOkForKeys] = useState<string[]>([]);
+  const grantsKey = listKey(grants);
+  const visibleMessage =
+    message && (!message.ok || okForKeys.includes(grantsKey)) ? message : null;
+
   if (grants.length === 0) return null;
 
   function runRevoke(grantId: string) {
@@ -43,6 +61,12 @@ export function ProductGrantsList({
       const res = await revokeProductGrant({ grantId, reason });
       setMessage({ ok: res.ok, text: res.message });
       if (res.ok) {
+        // De stand van voor de verversing en die erna (deze rij ingetrokken).
+        setOkForKeys([
+          listKey(grants),
+          listKey(grants.map((g) => (g.id === grantId ? { ...g, revokedAt: "x" } : g))),
+        ]);
+        window.setTimeout(() => setMessage((m) => (m?.ok ? null : m)), 8000);
         setRevoking(null);
         setReason("");
         router.refresh();
@@ -143,12 +167,12 @@ export function ProductGrantsList({
           </li>
         ))}
       </ul>
-      {message && (
+      {visibleMessage && (
         <p
-          role={message.ok ? "status" : "alert"}
-          className={`text-sm ${message.ok ? "text-text-muted" : "text-[color:var(--danger)]"}`}
+          role={visibleMessage.ok ? "status" : "alert"}
+          className={`text-sm ${visibleMessage.ok ? "text-text-muted" : "text-[color:var(--danger)]"}`}
         >
-          {message.text}
+          {visibleMessage.text}
         </p>
       )}
     </div>

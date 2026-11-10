@@ -39,6 +39,8 @@ interface GrantProductDialogProps {
   title: string;
   /** Waarschuwing boven het formulier, bijv. een bestaande kaart van dit type. */
   activeSlugs?: string[];
+  /** Het lid heeft een lopend abonnement: waarschuwen, niet blokkeren. */
+  hasSubscription?: boolean;
 }
 
 export function GrantProductDialog({
@@ -52,6 +54,7 @@ export function GrantProductDialog({
   duplicateExpected = false,
   title,
   activeSlugs = [],
+  hasSubscription = false,
 }: GrantProductDialogProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -127,6 +130,19 @@ export function GrantProductDialog({
         >
           Dit lid heeft al een actief tegoed van dit product. Toekennen maakt
           er een tweede naast.
+        </p>
+      )}
+
+      {hasSubscription && (
+        // COPY: confirm met Marlon
+        <p
+          role="note"
+          data-testid="grant-subscription-warning"
+          className="text-sm p-4 border border-[color:var(--warning)]/40 text-[color:var(--warning)] mb-5"
+        >
+          Dit lid heeft een lopend abonnement. Toekennen kan, maar zolang dit
+          tegoed actief is zijn pauzeren, opzeggen en abonnement wisselen op
+          het ledendetail tijdelijk niet bereikbaar.
         </p>
       )}
 

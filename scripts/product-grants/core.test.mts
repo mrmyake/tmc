@@ -6,6 +6,7 @@ import {
   grantPlanType,
   grantTermsLabel,
   hasCyclePrice,
+  hasRunningSubscription,
   invoiceGrantCounters,
   isGrantableProduct,
   revokeFailureMessage,
@@ -157,4 +158,15 @@ test("geen em dashes in de teksten", () => {
   ];
   const emDash = String.fromCharCode(0x2014);
   for (const t of texts) assert.equal(t.includes(emDash), false);
+});
+
+test("lopend abonnement: alleen een rij met incassocyclus in een lopende status", () => {
+  assert.equal(hasRunningSubscription([{ status: "active", billingCycleWeeks: 4 }]), true);
+  assert.equal(hasRunningSubscription([{ status: "paused", billingCycleWeeks: 4 }]), true);
+  assert.equal(hasRunningSubscription([{ status: "cancellation_requested", billingCycleWeeks: 4 }]), true);
+  // Een kaart is geen abonnement; een beeindigd abonnement loopt niet.
+  assert.equal(hasRunningSubscription([{ status: "active", billingCycleWeeks: 0 }]), false);
+  assert.equal(hasRunningSubscription([{ status: "cancelled", billingCycleWeeks: 4 }]), false);
+  assert.equal(hasRunningSubscription([{ status: "active", billingCycleWeeks: null }]), false);
+  assert.equal(hasRunningSubscription([]), false);
 });
