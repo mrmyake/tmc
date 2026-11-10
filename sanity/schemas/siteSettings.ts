@@ -61,6 +61,13 @@ export default defineType({
       type: "string",
     }),
     defineField({
+      name: "iban",
+      title: "IBAN",
+      type: "string",
+      description:
+        "Rekeningnummer voor overmaken, op de factuur-PDF en in de factuurmail. Spaties mogen; ze worden genegeerd.",
+    }),
+    defineField({
       name: "instagramUrl",
       title: "Instagram URL",
       type: "url",

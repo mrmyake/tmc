@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // De factuur-PDF (react-pdf) leest Fraunces en Inter van schijf. Zonder
+  // deze include neemt Vercel de bestanden niet mee in de serverless bundel,
+  // omdat ze alleen via een runtime-pad worden geladen.
+  outputFileTracingIncludes: {
+    "/app/admin/facturen/**": ["./src/pdfs/fonts/**"],
+  },
+
   async redirects() {
     // De crowdfunding-campagne en daarna de Early Member-campagne zijn
     // allebei voorbij (EM gesloten 2026-11-01, fix/end-early-member-campaign).

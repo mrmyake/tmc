@@ -74,6 +74,11 @@ export const SITE = {
     region: "Wijdemeren",
     country: "Nederland",
   },
+  // Overmaakgegevens voor de verkoopfactuur (spec-facturatie.md 5.2). Sanity
+  // (siteSettings.iban) wint per veld; dit is de fallback. IBAN zonder
+  // spaties, weergave via formatIban().
+  iban: "NL36RABO0175643806",
+  accountHolder: "The Movement Club",
   kvk: "42063910",
   btw: "NL869541651B01",
   trainer: {

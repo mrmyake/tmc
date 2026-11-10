@@ -1,6 +1,12 @@
 import "server-only";
 import { render } from "@react-email/render";
-import { MailerSend, EmailParams, Recipient, Sender } from "mailersend";
+import {
+  MailerSend,
+  EmailParams,
+  Recipient,
+  Sender,
+  Attachment,
+} from "mailersend";
 import { MAILERSEND_TIMEOUT_MS, withTimeout } from "@/lib/outbound-timeouts";
 
 interface SendArgs {
@@ -14,6 +20,11 @@ interface SendArgs {
    * de ontvanger mag antwoorden zetten hier een inbox die Marlon leest.
    */
   replyTo?: { email: string; name?: string };
+  /**
+   * Optionele bijlagen (bv. de factuur-PDF). De inhoud gaat als base64 naar
+   * MailerSend; de aanroeper bewaakt de grootte.
+   */
+  attachments?: { filename: string; content: Buffer }[];
 }
 
 /**
@@ -40,6 +51,7 @@ export async function sendEmail({
   subject,
   react,
   replyTo,
+  attachments,
 }: SendArgs): Promise<boolean> {
   const apiKey = process.env.MAILERSEND_API_KEY;
   const fromEmail = process.env.MAILERSEND_FROM_EMAIL;
@@ -66,6 +78,14 @@ export async function sendEmail({
       .setText(text);
     if (replyTo) {
       params.setReplyTo(new Recipient(replyTo.email, replyTo.name));
+    }
+
+    if (attachments && attachments.length > 0) {
+      params.setAttachments(
+        attachments.map(
+          (a) => new Attachment(a.content.toString("base64"), a.filename, "attachment"),
+        ),
+      );
     }
 
     // Timeout (3a-bis, outbound-timeouts.ts): de SDK loopt via gaxios
