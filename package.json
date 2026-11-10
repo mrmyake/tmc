@@ -61,7 +61,7 @@
     "test:training-history": "node --import ./scripts/ts-loader.mjs --test scripts/training-history/*.test.mts",
     "test:rooster-weergave": "node --import ./scripts/ts-loader.mjs --test scripts/rooster-weergave/*.test.mts",
     "test:workout-logging": "node --import ./scripts/ts-loader.mjs --test scripts/workout-logging/*.test.mts",
-    "test:invoice-payments": "node --import ./scripts/ts-loader.mjs --test scripts/invoice-payments/*.test.mts"
+    "test:invoice-payments": "node --import ./scripts/ts-loader.mjs --test scripts/invoice-payments/status.test.mts scripts/invoice-payments/pay-core.test.mts scripts/invoice-payments/notice.test.mts scripts/invoice-payments/qr.test.mts scripts/invoice-payments/availability.test.mts scripts/invoice-payments/pay-link.test.mts && node --import tsx --test scripts/invoice-payments/render.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

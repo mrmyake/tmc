@@ -15,8 +15,9 @@ import { sendEmail } from "@/lib/email";
 import { formatEuroCentsSigned } from "@/lib/format";
 import { siteUrl } from "@/lib/site-url";
 import { ensureInvoicePayToken, creditedCentsByInvoice } from "@/lib/invoice-payments/server";
-import { invoicePayUrl } from "@/lib/invoice-payments/pay-url";
-import { canPayOnline, todayIso } from "@/lib/invoice-payments/status";
+import { todayIso } from "@/lib/invoice-payments/status";
+import { onlinePaymentAvailable } from "@/lib/invoice-payments/availability";
+import { resolveInvoicePayLink } from "@/lib/invoice-payments/pay-link";
 import { linkInvoicePayment, notifyInvoicePaid } from "@/lib/invoice-payments/server";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
@@ -620,27 +621,29 @@ export async function generateInvoicePdf(
 
   // Online betalen: het token moet bestaan voor de PDF wordt gemaakt (de PDF
   // is write-once). Lukt het niet, dan krijgt de PDF alleen "Zelf overmaken".
-  let payUrl: string | null = null;
+  // Alleen als online betalen in DEZE omgeving kan (een LIVE-factuur op een
+  // preview heeft geen live-key): anders geen token en geen link, want de PDF
+  // is write-once en een link naar een host die niet kan innen blijft staan.
   let payQr: boolean[][] | null = null;
   const credited = (await creditedCentsByInvoice([invoiceId])).get(invoiceId) ?? 0;
-  if (
-    canPayOnline({
+  const payUrl = await resolveInvoicePayLink({
+    invoice: {
       status: invoice.status,
       isCreditNote: Boolean(invoice.credit_of_invoice_id),
       totalGrossCents: invoice.total_gross_cents,
       paymentId: invoice.payment_id,
-      creditedCents: credited,
-    })
-  ) {
-    const token = await ensureInvoicePayToken(invoiceId);
-    if (token) {
-      payUrl = invoicePayUrl(siteUrl(), token);
-      try {
-        payQr = qrMatrix(payUrl);
-      } catch (e) {
-        // Terugval: alleen de klikbare link.
-        console.error("[generateInvoicePdf] QR maken mislukte", e);
-      }
+    },
+    creditedCents: credited,
+    available: onlinePaymentAvailable(invoice.is_test),
+    ensureToken: () => ensureInvoicePayToken(invoiceId),
+    site: siteUrl(),
+  });
+  if (payUrl) {
+    try {
+      payQr = qrMatrix(payUrl);
+    } catch (e) {
+      // Terugval: alleen de klikbare link.
+      console.error("[generateInvoicePdf] QR maken mislukte", e);
     }
   }
   pdfData.payUrl = payUrl;
@@ -716,7 +719,7 @@ export async function sendInvoiceEmail(
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, issued_at, pdf_path, total_gross_cents, credit_of_invoice_id, payment_id, bill_to_email, bill_to_name, profile_id",
+      "id, invoice_number, status, is_test, issued_at, pdf_path, total_gross_cents, credit_of_invoice_id, payment_id, bill_to_email, bill_to_name, profile_id",
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -766,20 +769,21 @@ export async function sendInvoiceEmail(
   // knop ook werkt bij een factuur waarvan de PDF geen link heeft. Geen knop
   // bij een creditnota, een factuur met payment_id of een totaal van nul of
   // lager; zonder werkend token valt de mail terug op alleen overmaken.
-  let payUrl: string | null = null;
+  // Alleen als online betalen in deze omgeving kan; anders valt de mail terug
+  // op alleen overmaken en wordt er geen token aangemaakt.
   const creditedCents = (await creditedCentsByInvoice([invoiceId])).get(invoiceId) ?? 0;
-  if (
-    canPayOnline({
+  const payUrl = await resolveInvoicePayLink({
+    invoice: {
       status: invoice.status,
       isCreditNote,
       totalGrossCents: invoice.total_gross_cents,
       paymentId: invoice.payment_id,
-      creditedCents,
-    })
-  ) {
-    const token = await ensureInvoicePayToken(invoiceId);
-    if (token) payUrl = invoicePayUrl(siteUrl(), token);
-  }
+    },
+    creditedCents,
+    available: onlinePaymentAvailable(invoice.is_test),
+    ensureToken: () => ensureInvoicePayToken(invoiceId),
+    site: siteUrl(),
+  });
 
   const sent = await sendEmail({
     to: invoice.bill_to_email,
