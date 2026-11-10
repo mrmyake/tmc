@@ -140,12 +140,11 @@ test("weigeringen van de RPC krijgen een eigen tekst", () => {
   assert.equal(revokeFailureMessage("iets_anders"), "Intrekken lukte niet.");
 });
 
-test("geen bedrag voor een creditrij zonder prijs en zonder cyclus", () => {
-  assert.equal(hasCyclePrice({ pricePerCycleCents: 0, billingCycleWeeks: 0 }), false);
-  // Gekochte kaart (prijs, geen cyclus) en abonnement blijven zoals ze waren.
-  assert.equal(hasCyclePrice({ pricePerCycleCents: 15000, billingCycleWeeks: 0 }), true);
-  assert.equal(hasCyclePrice({ pricePerCycleCents: 0, billingCycleWeeks: 4 }), true);
-  assert.equal(hasCyclePrice({ pricePerCycleCents: 11900, billingCycleWeeks: 4 }), true);
+test("geen bedrag per cyclus voor een rij zonder incassocyclus", () => {
+  // Toegekende kaart (prijs 0) en gekochte kaart (prijs, geen cyclus).
+  assert.equal(hasCyclePrice({ billingCycleWeeks: 0 }), false);
+  // Een abonnement houdt zijn bedrag, ook als dat 0 is.
+  assert.equal(hasCyclePrice({ billingCycleWeeks: 4 }), true);
 });
 
 test("geen em dashes in de teksten", () => {

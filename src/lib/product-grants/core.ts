@@ -202,12 +202,11 @@ export function revokeFailureMessage(
 }
 
 /**
- * Een creditrij zonder prijs en zonder incassocyclus (een toegekend product)
- * heeft geen bedrag om te tonen: "€ 0 per 0 weken" is misleidend.
+ * Een creditrij (rittenkaart of PT-pakket, gekocht of toegekend) heeft geen
+ * incassocyclus en dus geen bedrag per cyclus om te tonen: "€ 0 per 0 weken"
+ * of "€150 per 0 weken" is misleidend. Alleen een rij met een cyclus heeft
+ * een prijs per cyclus.
  */
-export function hasCyclePrice(row: {
-  pricePerCycleCents: number;
-  billingCycleWeeks: number;
-}): boolean {
-  return !(row.pricePerCycleCents === 0 && row.billingCycleWeeks === 0);
+export function hasCyclePrice(row: { billingCycleWeeks: number }): boolean {
+  return row.billingCycleWeeks > 0;
 }

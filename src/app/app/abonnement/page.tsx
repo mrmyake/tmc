@@ -249,12 +249,18 @@ export default async function AbonnementPage() {
     PLANS_WITH_CREDITS.has(membership.plan_type) &&
     membership.credits_total !== null;
 
+  // Pauzeren en opzeggen horen bij een doorlopend abonnement. Is de getoonde
+  // rij een rittenkaart of PT-pakket (cyclus 0), dan zijn die acties er niet;
+  // zelfde poort als het actiemenu in admin.
+  const isSubscription = (membership.billing_cycle_weeks ?? 0) > 0;
   const canPause =
-    membership.status === "active" || membership.status === "paused";
+    isSubscription &&
+    (membership.status === "active" || membership.status === "paused");
   const canCancel =
-    membership.status === "active" ||
-    membership.status === "paused" ||
-    membership.status === "payment_failed";
+    isSubscription &&
+    (membership.status === "active" ||
+      membership.status === "paused" ||
+      membership.status === "payment_failed");
   // Opzegtermijn uit dezelfde bron als request_membership_cancellation
   // (booking_settings.cancellation_notice_days via RPC), zodat de dialoog
   // dezelfde einddatum voorspelt als de RPC vastlegt.
