@@ -2385,8 +2385,11 @@ portaal en via een QR-code op de PDF, of zelf overmaken. Het te innen bedrag is 
   met `status open`; een partiele unieke index (`payments_one_paid_per_invoice`) laat hoogstens
   een betaalde factuurbetaling per factuur toe.
 - `tmc.invoices.payment_id` mag **eenmalig van null naar een waarde** (write-once, net als
-  `pdf_path`), en alleen naar een betaling met `invoice_id` van deze factuur en nooit op een
-  creditnota (aangepaste `invoices_finalised_immutable`, live definitie als basis). Er zijn
+  `pdf_path`), en alleen naar een **betaalde** factuurbetaling (`kind = 'invoice'`,
+  `status = 'paid'`, `invoice_id` van deze factuur) en nooit op een creditnota (aangepaste
+  `invoices_finalised_immutable`, live definitie als basis): de database dwingt zelf af dat
+  alleen geld dat echt binnen is gekoppeld wordt. De betaalregel gaat dus eerst op `paid` en
+  wordt daarna gekoppeld. Er zijn
   geen nieuwe kolommen op `invoices`: de betaalstatus is afgeleid.
 - `tmc.invoice_pay_tokens (invoice_id, token)`: een stabiele, nooit verlopende token per
   factuur, alleen `service_role`. Het token wordt vóór het renderen van de PDF aangemaakt (de

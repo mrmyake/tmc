@@ -5,8 +5,10 @@
 --   2. tmc.invoice_pay_tokens: stabiele, nooit verlopende token per factuur
 --      voor /factuur/betalen/<token>; alleen service_role.
 --   3. tmc.invoices_finalised_immutable: payment_id mag eenmalig van null naar
---      een waarde (write-once, net als pdf_path), en alleen naar een betaling
---      die aan deze factuur hangt. Live definitie als basis.
+--      een waarde (write-once, net als pdf_path), en alleen naar een BETAALDE
+--      factuurbetaling (kind 'invoice', status 'paid') van deze factuur: de
+--      database dwingt zelf af dat alleen geld dat echt binnen is gekoppeld
+--      wordt. Live definitie als basis.
 --   4. tmc.v_revenue_lines: een UNION ALL-tak voor kind 'invoice' die per
 --      factuurregel een rij geeft (bruto, BTW, netto en categorie per regel).
 --      De eerste tak slaat kind 'invoice' over. Live definitie als basis.
@@ -84,16 +86,21 @@ begin
     raise exception 'pdf_path is write-once.' using errcode = 'P0001';
   end if;
 
-  -- payment_id: eenmalig van null naar een waarde, alleen naar een betaling
-  -- die aan deze factuur hangt, nooit op een creditnota. Daarna onveranderlijk
-  -- (valt hieronder door de gewone vergelijking).
+  -- payment_id: eenmalig van null naar een waarde, alleen naar een betaalde
+  -- factuurbetaling van deze factuur (kind 'invoice', status 'paid'), nooit op
+  -- een creditnota. De betaalregel moet dus eerst op paid staan en dan pas
+  -- gekoppeld worden. Daarna onveranderlijk (valt hieronder door de gewone
+  -- vergelijking).
   if old.payment_id is null and new.payment_id is not null then
     if old.credit_of_invoice_id is not null
        or not exists (
          select 1 from tmc.payments p
-         where p.id = new.payment_id and p.invoice_id = old.id
+         where p.id = new.payment_id
+           and p.invoice_id = old.id
+           and p.kind = 'invoice'
+           and p.status = 'paid'
        ) then
-      raise exception 'payment_id mag alleen naar een betaling van deze factuur.'
+      raise exception 'payment_id mag alleen naar een betaalde factuurbetaling van deze factuur.'
         using errcode = 'P0001';
     end if;
     v_new.payment_id := v_old.payment_id;

@@ -119,21 +119,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "payment_row_missing" }, { status: 500 });
     }
 
-    let link: LinkOutcome | null = null;
-    if (payment.status === "paid") {
-      link = await linkInvoicePayment(invoice.id, row.id);
-    }
-    const duplicate = link === "duplicate";
-
-    const paymentFields = {
+    const baseFields = {
       profile_id: invoice.profile_id,
-      invoice_id: duplicate ? null : invoice.id,
       amount_cents: amountCents,
-      status: payment.status,
       method: payment.method ?? null,
-      description: duplicate
-        ? `Dubbele betaling factuur ${invoice.invoice_number} (online)`
-        : (payment.description ?? null),
       paid_at: payment.paidAt ?? null,
       kind: "invoice",
       is_test: invoice.is_test,
@@ -141,12 +130,24 @@ export async function POST(request: Request) {
       vat_amount_cents: invoice.vat_total_cents,
       net_amount_cents: invoice.subtotal_net_cents,
     };
-    const { row: paymentRow, transitioned } =
-      await writePaymentWithTransition<ChargebackRowDb>({
+
+    let link: LinkOutcome | null = null;
+    let duplicate = false;
+    let paymentRow: ChargebackRowDb | null = null;
+
+    if (payment.status !== "paid") {
+      // Open, pending, failed, expired of canceled: alleen spiegelen.
+      const fields = {
+        ...baseFields,
+        invoice_id: invoice.id,
+        status: payment.status,
+        description: payment.description ?? null,
+      };
+      const res = await writePaymentWithTransition<ChargebackRowDb>({
         transition: async () => {
           const { data, error } = await admin
             .from("payments")
-            .update(paymentFields)
+            .update(fields)
             .eq("mollie_payment_id", payment.id)
             .neq("status", payment.status)
             .select(CHARGEBACK_ROW_SELECT)
@@ -167,11 +168,65 @@ export async function POST(request: Request) {
           return data ?? null;
         },
       });
+      paymentRow = res.row;
+    } else {
+      // Betaald. Volgorde: eerst de betaalregel op paid, dan pas koppelen (de
+      // database eist een betaalde factuurbetaling bij het zetten van
+      // invoices.payment_id). Is de factuur al aan een andere betaling
+      // gekoppeld, of weigert de unieke index (een andere betaalde regel),
+      // dan is dit een dubbele betaling.
+      const { data: cur } = await admin
+        .from("invoices")
+        .select("payment_id")
+        .eq("id", invoice.id)
+        .maybeSingle();
+      if (cur?.payment_id && cur.payment_id !== row.id) duplicate = true;
 
-    // De status moet na afloop echt op Mollie's status staan: een mislukte
-    // overgang (bijvoorbeeld de unieke index) laat Mollie herhalen.
-    if (payment.status === "paid" && paymentRow === null) {
-      return NextResponse.json({ ok: false, error: "payment_write_failed" }, { status: 500 });
+      const paidFields = {
+        ...baseFields,
+        status: "paid",
+        description: payment.description ?? null,
+      };
+      if (!duplicate) {
+        const { error: writeErr } = await admin
+          .from("payments")
+          .update({ ...paidFields, invoice_id: invoice.id })
+          .eq("id", row.id);
+        if (writeErr) {
+          if (writeErr.code === "23505") {
+            duplicate = true;
+          } else {
+            console.error("[invoices/webhook] paid write failed", writeErr);
+            return NextResponse.json({ ok: false, error: "payment_write_failed" }, { status: 500 });
+          }
+        }
+      }
+      if (!duplicate) {
+        link = await linkInvoicePayment(invoice.id, row.id);
+        if (link === "duplicate") duplicate = true;
+      }
+      if (duplicate) {
+        // Losgekoppeld van de factuur (invoice_id null): geen omzet, wel
+        // terugbetalen. Idempotent bij herlevering.
+        const { error: detachErr } = await admin
+          .from("payments")
+          .update({
+            ...paidFields,
+            invoice_id: null,
+            description: `Dubbele betaling factuur ${invoice.invoice_number} (online)`,
+          })
+          .eq("id", row.id);
+        if (detachErr) {
+          console.error("[invoices/webhook] losmaken mislukte", detachErr);
+          return NextResponse.json({ ok: false, error: "payment_detach_failed" }, { status: 500 });
+        }
+      }
+      const { data: after } = await admin
+        .from("payments")
+        .select(CHARGEBACK_ROW_SELECT)
+        .eq("id", row.id)
+        .maybeSingle<ChargebackRowDb>();
+      paymentRow = after ?? null;
     }
 
     if (paymentRow) {
@@ -195,8 +250,8 @@ export async function POST(request: Request) {
       });
     }
 
-    if (payment.status === "paid" && transitioned) {
-      if (!duplicate) {
+    if (payment.status === "paid") {
+      if (!duplicate && link === "won") {
         await emitEvent({
           type: "payment.received",
           actorType: "system",
@@ -210,30 +265,37 @@ export async function POST(request: Request) {
             amount_cents: amountCents,
           },
         });
-        if (link === "won") await notifyInvoicePaid(invoice.id, "online");
-      } else {
-        // Te late dubbele betaling: terugbetalen en melden. De refund-intentie
-        // gaat via het gedeelde pad (processPaymentRefund), nooit rechtstreeks
-        // naar Mollie.
-        const { data: intent } = await admin
+        await notifyInvoicePaid(invoice.id, "online");
+      } else if (duplicate) {
+        // Te late dubbele betaling: terugbetalen en melden, precies een keer
+        // (een refund-intentie per betaling). De intentie gaat via het
+        // gedeelde pad (processPaymentRefund), nooit rechtstreeks naar Mollie.
+        const { data: existingIntent } = await admin
           .from("payment_refunds")
-          .insert({ payment_id: row.id, amount_cents: amountCents, status: "requested" })
           .select("id")
-          .single();
-        let refundNote = "Terugbetaling kon niet worden gestart; doe het handmatig in Mollie.";
-        if (intent) {
-          const res = await processPaymentRefund(intent.id);
-          if (res.ok) refundNote = "Terugbetaling is gestart.";
+          .eq("payment_id", row.id)
+          .limit(1)
+          .maybeSingle();
+        if (!existingIntent) {
+          const { data: intent } = await admin
+            .from("payment_refunds")
+            .insert({ payment_id: row.id, amount_cents: amountCents, status: "requested" })
+            .select("id")
+            .single();
+          let refundNote = "Terugbetaling kon niet worden gestart; doe het handmatig in Mollie.";
+          if (intent) {
+            const res = await processPaymentRefund(intent.id);
+            if (res.ok) refundNote = "Terugbetaling is gestart.";
+          }
+          await sendNotification(
+            // COPY: confirm met Marlon
+            `Dubbele betaling factuur ${invoice.invoice_number}`,
+            `Er is online ${formatEuroCentsSigned(amountCents)} betaald op een factuur die al betaald was. ${refundNote} Controleer ${siteUrl()}/app/admin/facturen/${invoice.id}`,
+            "warning,money_with_wings",
+          );
         }
-        await sendNotification(
-          // COPY: confirm met Marlon
-          `Dubbele betaling factuur ${invoice.invoice_number}`,
-          `Er is online ${formatEuroCentsSigned(amountCents)} betaald op een factuur die al betaald was. ${refundNote} Controleer ${siteUrl()}/app/admin/facturen/${invoice.id}`,
-          "warning,money_with_wings",
-        );
       }
     }
-
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[API /invoices/webhook]", paymentId, describeError(e).message);
