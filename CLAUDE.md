@@ -87,7 +87,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 ## Brand & Positionering
 
 - **Naam:** The Movement Club
-- **Locatie:** Industrieweg 14P, 1231 MX Loosdrecht
+- **Locatie:** Industrieweg 14P, 1231 KH Loosdrecht
 - **Head trainer:** Marlon (vrouw, oprichtster, ook achter hormoonprofiel.com)
 - **Positionering:** Luxe, besloten, boutique, max 6 per groep
 - **Pijlers:** Movement / Mobility / Strength
@@ -406,7 +406,7 @@ const structuredData = {
     "@type": "PostalAddress",
     "streetAddress": "Industrieweg 14P",
     "addressLocality": "Loosdrecht",
-    "postalCode": "1231 MX",
+    "postalCode": "1231 KH",
     "addressCountry": "NL"
   },
   "geo": {

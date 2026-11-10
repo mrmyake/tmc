@@ -83,6 +83,15 @@ export function missingBillToFields(b: BillTo): string[] {
   return missing;
 }
 
+/**
+ * Melding bij ontbrekende verplichte afnemervelden: "ontbreekt" bij een
+ * veld, "ontbreken" bij meer.
+ */
+export function missingBillToMessage(missing: string[]): string {
+  // COPY: confirm met Marlon
+  return `Vul eerst de afnemer aan: ${missing.join(", ")} ${missing.length === 1 ? "ontbreekt" : "ontbreken"}.`;
+}
+
 export interface BillToInput {
   name: string;
   company: string;

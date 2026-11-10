@@ -18,6 +18,7 @@ import { SITE } from "@/lib/constants";
 import {
   mergeBillTo,
   missingBillToFields,
+  missingBillToMessage,
   normaliseBillTo,
   type BillToInput,
 } from "./invoice-bill-to";
@@ -438,8 +439,7 @@ export async function finalizeInvoice(
     if (missing.length > 0) {
       return {
         ok: false,
-        // COPY: confirm met Marlon
-        error: `Vul eerst de afnemer aan: ${missing.join(", ")} ontbreekt.`,
+        error: missingBillToMessage(missing),
       };
     }
   }

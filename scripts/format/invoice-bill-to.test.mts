@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   mergeBillTo,
   missingBillToFields,
+  missingBillToMessage,
   normaliseBillTo,
   type BillToDraftRow,
   type BillToProfile,
@@ -111,4 +112,15 @@ test("formatEuroCentsSigned: centen exact, minteken voorop", () => {
   assert.match(formatEuroCentsSigned(50459), /^€504,59$/);
   assert.match(formatEuroCentsSigned(-50459), /^-€504,59$/);
   assert.match(formatEuroCentsSigned(0), /^€0,00$/);
+});
+
+test("missingBillToMessage: ontbreekt bij een veld, ontbreken bij meer", () => {
+  assert.equal(
+    missingBillToMessage(["postcode"]),
+    "Vul eerst de afnemer aan: postcode ontbreekt.",
+  );
+  assert.equal(
+    missingBillToMessage(["straat en huisnummer", "postcode", "plaats"]),
+    "Vul eerst de afnemer aan: straat en huisnummer, postcode, plaats ontbreken.",
+  );
 });
