@@ -22,21 +22,38 @@ export const dynamic = "force-dynamic";
  * de RLS-selfread laat die bewust niet door. De credit_state-badge komt uit
  * tmc.v_invoice_credit_state.
  */
-export default async function AdminFacturenPage() {
+export default async function AdminFacturenPage(props: {
+  searchParams: Promise<{ test?: string | string[] }>;
+}) {
+  const sp = await props.searchParams;
+  const testParam = Array.isArray(sp.test) ? sp.test[0] : sp.test;
+  const showTest = testParam === "1";
   const admin = createAdminClient();
 
-  const [{ data: invoices }, { data: creditStates }] = await Promise.all([
-    admin
-      .from("invoices")
-      .select(
-        `id, invoice_number, status, is_test, issued_at, total_gross_cents,
-         credit_of_invoice_id, pdf_path, payment_id, created_at,
-         profile:profiles!profile_id(first_name, last_name)`,
-      )
-      .order("created_at", { ascending: false })
-      .limit(100),
-    admin.from("v_invoice_credit_state").select("invoice_id, credit_state"),
-  ]);
+  // Het is_test-filter zit in de query zelf (niet achteraf in de client), zodat
+  // de limiet van 100 op de gefilterde lijst werkt. De detailpagina en directe
+  // links naar een testfactuur blijven ongemoeid.
+  let listQuery = admin
+    .from("invoices")
+    .select(
+      `id, invoice_number, status, is_test, issued_at, total_gross_cents,
+       credit_of_invoice_id, pdf_path, payment_id, created_at,
+       profile:profiles!profile_id(first_name, last_name)`,
+    )
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (!showTest) listQuery = listQuery.eq("is_test", false);
+
+  const [{ data: invoices }, { data: creditStates }, { count: testCount }] =
+    await Promise.all([
+      listQuery,
+      admin.from("v_invoice_credit_state").select("invoice_id, credit_state"),
+      admin
+        .from("invoices")
+        .select("id", { count: "exact", head: true })
+        .eq("is_test", true),
+    ]);
+  const hiddenTestCount = testCount ?? 0;
 
   const creditedById = await creditedCentsByInvoice(
     (invoices ?? []).map((i) => i.id),
@@ -92,12 +109,51 @@ export default async function AdminFacturenPage() {
         <NieuweFactuurKnop />
       </header>
 
+      {/* COPY: confirm met Marlon */}
+      <div className="mb-6 flex items-center justify-between gap-4 text-sm">
+        <Link
+          href={showTest ? "/app/admin/facturen" : "/app/admin/facturen?test=1"}
+          role="switch"
+          aria-checked={showTest}
+          className="inline-flex items-center gap-3 text-text-muted hover:text-text transition-colors"
+        >
+          <span
+            aria-hidden
+            className={`relative inline-block h-5 w-9 rounded-full border border-[color:var(--ink-500)] transition-colors ${
+              showTest ? "bg-[color:var(--accent)]" : "bg-bg-elevated"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-text transition-all ${
+                showTest ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </span>
+          Toon testfacturen
+        </Link>
+      </div>
+
       {rows.length === 0 ? (
         // COPY: confirm met Marlon
-        <p className="text-text-muted text-sm py-10">
-          Nog geen facturen. Maak er een vanaf een betaling (ledendetail,
-          tab Betalingen) of handmatig via de knop hierboven.
-        </p>
+        <div className="text-text-muted text-sm py-10">
+          <p>
+            Nog geen facturen. Maak er een vanaf een betaling (ledendetail,
+            tab Betalingen) of handmatig via de knop hierboven.
+          </p>
+          {!showTest && hiddenTestCount > 0 && (
+            <p className="mt-3">
+              {hiddenTestCount === 1
+                ? "1 testfactuur is verborgen."
+                : `${hiddenTestCount} testfacturen zijn verborgen.`}{" "}
+              <Link
+                href="/app/admin/facturen?test=1"
+                className="text-text underline underline-offset-4"
+              >
+                Toon testfacturen
+              </Link>
+            </p>
+          )}
+        </div>
       ) : (
         <div className="border-t border-[color:var(--ink-500)]/60">
           {rows.map((r) => (
