@@ -2123,6 +2123,14 @@ supabase.from("invoices")
 
 Alleen voor de payments op de huidige pagina, dus maximaal vijftig ids.
 
+**Losse facturen (PR #338).** Een factuur zonder `payment_id` (9.2, en een creditnota op
+zo'n factuur) vindt de koppeling hierboven nooit. `/app/facturen` haalt ze daarom met een
+aparte query op (`profile_id = user.id`, `status = 'finalised'`, `is_test = false`,
+`payment_id is null`, `issued_at` aflopend) en toont ze in een eigen blok boven de
+betaalhistorie: factuurnummer, datum, bedrag met centen (`formatEuroCentsSigned`, een
+creditnota als `-€504,59`) en dezelfde downloadknop. Bestaan er alleen losse facturen en geen
+betalingen, dan vervalt het blok "Je tijdlijn staat nog leeg"; `MandateStatusCard` blijft.
+
 **Beschrijving verrijken.** `payments.description` is nu de ruwe string die bij het aanmaken
 is gezet, bijvoorbeeld `Order 8f3c... - ten_ride_card`. Dat is geen tekst voor een lid.
 
@@ -2234,6 +2242,17 @@ Dat onderscheid is dezelfde scheiding als overal in deze spec: de catalogus leef
 factuur is bevroren. Zie 2.6, waar `catalogue_slug` om precies deze reden geen foreign key
 heeft.
 
+#### Afnemer op het concept (PR #338)
+
+Het concept heeft een blok "Afnemer" boven de regels: naam, bedrijfsnaam, BTW-nummer,
+straat en huisnummer, postcode, plaats, land en e-mail. Het is per veld vooringevuld met
+`concept ?? profiel` (dezelfde regel als stap 6c van `tmc.finalize_invoice`) en alleen
+bewerkbaar bij `status = 'draft'`. `saveInvoiceBillTo` schrijft naar `bill_to_*` op het
+concept (service-role), trimt alle velden, schrijft lege waarden als `null` (een lege string
+zou in de RPC-coalesce het profiel verslaan) en valideert het e-mailadres server-side. Er
+wordt nooit naar het profiel teruggeschreven. `createCreditNote` neemt `bill_to_*` over van
+de bevroren originele factuur, zodat een creditnota dezelfde afnemer toont.
+
 ### 9.4 Finaliseren, PDF, versturen
 
 Drie losse acties, in deze volgorde en zichtbaar als drie stappen:
@@ -2246,6 +2265,19 @@ Drie losse acties, in deze volgorde en zichtbaar als drie stappen:
 
 Stap 2 en 3 zijn opnieuw uit te voeren als ze falen; stap 1 niet, en de UI moet dat verschil
 duidelijk maken.
+
+**Aanvullingen (PR #338).**
+
+- *Voor stap 1:* de TS-action `finalizeInvoice` voegt concept en profiel samen en weigert
+  vóór de RPC-aanroep als naam, e-mail, straat, postcode of plaats ontbreekt, met een
+  melding die het veld noemt. Land, bedrijfsnaam en BTW-nummer zijn niet verplicht. De RPC
+  zelf is ongewijzigd en eist nog steeds alleen naam en e-mail. De knop Finaliseren is
+  uitgeschakeld zolang afnemer of regels onopgeslagen wijzigingen hebben, en de
+  bevestigingsstap toont de volledige afnemer en het bedrag met centen.
+- *Stap 3:* `sendInvoiceEmail` gebruikt de returnwaarde van `sendEmail`. Bij `false`
+  (niet geconfigureerd, API-fout of timeout) geeft de action `ok: false` en schrijft de
+  auditregel `invoice_send_failed`; `invoice_sent` komt alleen na `true`. De mail zet
+  `replyTo` op `SITE.email` en toont het bedrag met centen.
 
 ### 9.5 Crediteren
 
@@ -3362,6 +3394,8 @@ testmodus-beheerinterface (6.10, besluitenlog 34) staat ook nog open, met een ap
 - **PR #233, 2026-09-28** (branch `fix/trial-booking-admin-cancel`, `github.com/mrmyake/tmc/pull/233`, merge-hash `ce158a6`, migratie gepusht 2026-09-29; migratie `20260928140000_trial_booking_admin_cancel.sql`; `src/app/api/trial-bookings/webhook/route.ts`, `src/lib/refunds/process.ts`). Restitutiespiegel voor proeflesbetalingen: de trial-webhook schrijft nu `payments.refunded_amount_cents` en `payments.refunded_at` uit `payment.amountRefunded` (4.7 stap 3, tot nu ontworpen maar niet gebouwd) met event `payment.refunded`; `payments.status` blijft `paid` (4.8). Nieuwe tabel `tmc.payment_refunds` als intentie- en statusregister voor refunds die de studio zelf indient (annulering van een proefles), met `processPaymentRefund` als enige pad naar `mollie.paymentRefunds.create` (reconciliatie vooraf, idempotency key per intentie). Het omzetrapport en `v_revenue_lines` lazen `refunded_cents` al in de maand van `refunded_at` (7.4) en zijn ongewijzigd. **Bewust niet aangeraakt:** de hoofd-Mollie-webhook (`/api/mollie/webhook`) spiegelt `amountRefunded` nog niet voor lidmaatschappen en producten; het creditnota-signaal uit 4.7 stap 4; `payments_status_check`.
 - **PR #229, 2026-09-28** (branch `fix/euro-input-factuur`, merge-hash `ae7ad9a`, geen migratie; `src/lib/euro-input.ts` en `src/components/ui/EuroInput.tsx` nieuw, `src/app/app/admin/facturen/_components/FactuurEditor.tsx`, `src/lib/admin/invoice-actions.ts`, `scripts/format/euro-input.test.mts`, `package.json`). Het bedragveld "Bedrag incl. BTW" in de factuureditor is een tekstveld waarin je "90,50" typt: de tekst wordt tijdens focus niet herformatteerd, bij blur getoond als "1.234,50", en een ongeldig bedrag (bijvoorbeeld "90,505") krijgt een foutstatus en blokkeert "Regels opslaan" in plaats van stil 0 te worden. Parsing en formattering zijn pure functies in centen (`parseEuroInput`, `formatEuroInput`), min-teken toegestaan voor creditnota-concepten. `saveInvoiceLines` valideert vóór de delete `grossCents` en `vatRateBp` (safe integer) en `quantity` (eindig). **Bewust niet aangeraakt:** het contract van `saveInvoiceLines`, het aantal-veld (`parseDecimalInput`), de ontbrekende transactie rond delete-then-insert in `saveInvoiceLines`, `formatEuro` en `formatEuroCents` in `format.ts`, en alle andere invoervelden.
 - **PR #303, 2026-10-20** (branch `fix/mollie-chargeback-handling`, `github.com/mrmyake/tmc/pull/303`, migratie `20261020090000_payments_chargeback_mirror.sql` nog niet gepusht; `src/lib/chargebacks/core.ts` en `process.ts` nieuw, `src/lib/payments/payment-failed-notify.ts` nieuw (uit de webhook getild), `src/app/api/mollie/webhook/route.ts`, `src/app/api/trial-bookings/webhook/route.ts`, `src/lib/events/emit.ts`, `src/app/app/facturen/_components/PaymentStatusBadge.tsx` en `PaymentRow.tsx`, `src/app/app/facturen/page.tsx`, `src/lib/admin/member-detail-query.ts`, admin `PaymentsTab.tsx`, `types/supabase.ts`, `scripts/chargebacks/core.test.mts` en `package.json` (`test:chargebacks`), dit document 4.7, 4.8, 6.5, besluit 37 en 15). Chargeback-spiegel: `tmc.payments` krijgt `charged_back_amount_cents` (default 0, checks `>= 0` en `<= amount_cents`) en `charged_back_at`, gespiegeld uit `payment.amountChargedBack`; `status` blijft `paid` (4.8). De poort voor alle bijwerkingen is een compare-and-swap op het bedrag op de rij zelf, daarna event `payment.charged_back` (`dedupe_key` `<payment_id>:<chargeback_id>`, chargeback via `paymentChargebacks.page`). Recurring en de eerste abonnementsbetaling worden behandeld als mislukte incasso (membership `active` naar `payment_failed`, mail en push naar het lid, ntfy met SEPA-reden en de waarschuwing dat Mollie na drie storno's zelf annuleert, event `membership.payment_failed` met `reason chargeback`); niet-`active` en alle andere typen alleen spiegel, event en ntfy; reversal naar 0 geeft `payment.chargeback_reversed` en zet de membership terug op `active` als deze chargeback de laatste oorzaak was. De hoofdwebhook schrijft de payments-rij in drie stappen (overgang, nieuwe rij, herhaling) zodat `payment.received` en `payment.failed` alleen op een echte overgang vuren, zet `kind = recurring` op recurring rijen, laat de recurring-tak alleen op een overgang reactiveren of degraderen, en stuurt op het `payments_get`-404-pad een ntfy (dedupe per 26 uur). Badge "Gestorneerd" in ledenfacturen en admin. Negentien unit-tests met fakes. **Bewust niet aangeraakt:** chargebacks in `v_revenue_lines` en het omzetrapport (7.4), de refund-spiegel voor orders in de hoofdwebhook (#233), de dashboardtellers op `payments.status`, detectie van een door Mollie geannuleerde subscription, `payments_status_check`, `activate_order` en alle andere RPC's.
+
+- **PR #338, 2026-11-10** (branch `fix/facturen-portaal-afnemer`, `github.com/mrmyake/tmc/pull/338`, geen migratie; `src/app/app/facturen/page.tsx`, `_components/LooseInvoiceRow.tsx` nieuw, `src/lib/admin/invoice-actions.ts`, `src/lib/admin/invoice-bill-to.ts` nieuw, `FactuurEditor.tsx`, `admin/facturen/[id]/page.tsx`, `src/lib/format.ts`, `scripts/format/invoice-bill-to.test.mts`). Drie productiebevindingen van 2026-11-10: handmatige facturen (`payment_id` null) zijn nu zichtbaar en downloadbaar op `/app/facturen`; `sendInvoiceEmail` meldt een mislukte verzending als fout, schrijft `invoice_send_failed` in plaats van `invoice_sent` en zet `replyTo`; het concept heeft een afnemerblok (`saveInvoiceBillTo`) en `finalizeInvoice` weigert zonder straat, postcode of plaats. Bedragen in portaalblok, bevestigingsstap, editor en factuurmail zijn exact in centen (`formatEuroCentsSigned`); een creditnota neemt `bill_to_*` van het origineel over. **Bewust niet aangeraakt:** `tmc.finalize_invoice` (eist nog steeds alleen naam en e-mail), het profiel (nooit terugschrijven), de eerder gefinaliseerde facturen 2026.001 en 2026.002 (zonder adres, alleen met een creditnota te herstellen), paginering van losse facturen, en de oorzaak van de eerdere mail: in de Vercel-runtimelogs van 2026-11-10 (16:17 en 16:31 UTC) staat geen `[email] send failed` of `MAILERSEND niet geconfigureerd`.
 
 ---
 

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   saveInvoiceLines,
+  saveInvoiceBillTo,
   deleteInvoiceDraft,
   finalizeInvoice,
   generateInvoicePdf,
@@ -11,7 +12,8 @@ import {
   createCreditNote,
 } from "@/lib/admin/invoice-actions";
 import { getInvoiceDownloadUrl } from "@/lib/member/invoice-actions";
-import { formatEuro } from "@/lib/format";
+import { formatEuroCentsSigned } from "@/lib/format";
+import type { BillToInput } from "@/lib/admin/invoice-bill-to";
 import { EuroInput } from "@/components/ui/EuroInput";
 
 /**
@@ -70,6 +72,9 @@ interface FactuurEditorProps {
     billToName: string;
     billToEmail: string;
   };
+  /** Afnemer per veld als concept ?? profiel (concept wint). Bij een
+   * gefinaliseerde factuur zijn dit de bevroren waarden. */
+  initialBillTo: BillToInput;
   initialLines: EditorLine[];
   catalogueOptions: CatalogueOption[];
 }
@@ -105,8 +110,45 @@ function parseDecimalInput(raw: string): number {
  * zodat het contract met `saveInvoiceLines` ongewijzigd blijft. */
 type EditorRow = EditorLine & { uid: number; amountInvalid: boolean };
 
+const BILL_TO_FIELDS: Array<{
+  key: keyof BillToInput;
+  label: string;
+  required: boolean;
+  wide?: boolean;
+  type?: string;
+}> = [
+  // COPY: confirm met Marlon
+  { key: "name", label: "Naam", required: true, wide: true },
+  { key: "company", label: "Bedrijfsnaam (optioneel)", required: false, wide: true },
+  { key: "vatNumber", label: "BTW-nummer (optioneel)", required: false },
+  { key: "email", label: "E-mailadres", required: true, type: "email" },
+  { key: "street", label: "Straat en huisnummer", required: true, wide: true },
+  { key: "postalCode", label: "Postcode", required: true },
+  { key: "city", label: "Plaats", required: true },
+  { key: "country", label: "Land (optioneel)", required: false },
+];
+
+function serializeBillTo(b: BillToInput): string {
+  return JSON.stringify(BILL_TO_FIELDS.map((f) => b[f.key].trim()));
+}
+
+function serializeLines(rows: EditorLine[]): string {
+  return JSON.stringify(
+    rows.map((l) => [
+      l.lineNo,
+      l.catalogueSlug,
+      l.description,
+      l.quantity,
+      l.grossCents,
+      l.vatRateBp,
+      l.revenueCategory,
+    ]),
+  );
+}
+
 export function FactuurEditor({
   invoice,
+  initialBillTo,
   initialLines,
   catalogueOptions,
 }: FactuurEditorProps) {
@@ -115,6 +157,13 @@ export function FactuurEditor({
   const nextUid = useRef(initialLines.length);
   const [lines, setLines] = useState<EditorRow[]>(() =>
     initialLines.map((l, i) => ({ ...l, uid: i, amountInvalid: false })),
+  );
+  const [billTo, setBillTo] = useState<BillToInput>(initialBillTo);
+  const [savedBillToKey, setSavedBillToKey] = useState(() =>
+    serializeBillTo(initialBillTo),
+  );
+  const [savedLinesKey, setSavedLinesKey] = useState(() =>
+    serializeLines(initialLines),
   );
   const [message, setMessage] = useState<string | null>(null);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
@@ -140,6 +189,12 @@ export function FactuurEditor({
   );
 
   const hasInvalidAmount = lines.some((l) => l.amountInvalid);
+  // Onopgeslagen wijzigingen blokkeren finaliseren: de RPC leest de
+  // opgeslagen rij, dus wat op het scherm staat zou anders niet op de
+  // onomkeerbare factuur terechtkomen.
+  const billToDirty = serializeBillTo(billTo) !== savedBillToKey;
+  const linesDirty = serializeLines(lines) !== savedLinesKey || hasInvalidAmount;
+  const hasUnsaved = billToDirty || linesDirty;
 
   function updateLine(i: number, patch: Partial<EditorRow>) {
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -208,7 +263,23 @@ export function FactuurEditor({
       );
       // COPY: confirm met Marlon
       setMessage(r.ok ? "Regels opgeslagen." : r.error);
-      if (r.ok) router.refresh();
+      if (r.ok) {
+        setSavedLinesKey(serializeLines(lines));
+        router.refresh();
+      }
+    });
+  }
+
+  function saveBillTo() {
+    setMessage(null);
+    startTransition(async () => {
+      const r = await saveInvoiceBillTo(invoice.id, billTo);
+      // COPY: confirm met Marlon
+      setMessage(r.ok ? "Afnemer opgeslagen." : r.error);
+      if (r.ok) {
+        setSavedBillToKey(serializeBillTo(billTo));
+        router.refresh();
+      }
     });
   }
 
@@ -292,13 +363,64 @@ export function FactuurEditor({
           {invoice.number ?? "Concept"}
         </h1>
         <p className="text-text-muted text-sm mt-2">
-          {invoice.billToName} · {invoice.billToEmail}
+          {billTo.name || invoice.billToName} ·{" "}
+          {billTo.email || invoice.billToEmail}
           {invoice.creditOfNumber && (
             <> · creditnota bij {invoice.creditOfNumber}</>
           )}
           {invoice.issuedAt && <> · {invoice.issuedAt}</>}
         </p>
       </header>
+
+      {/* Afnemer */}
+      <section className="flex flex-col gap-3">
+        {/* COPY: confirm met Marlon */}
+        <h2 className="tmc-eyebrow">Afnemer</h2>
+        {isDraft ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-bg-elevated p-3">
+              {BILL_TO_FIELDS.map((f) => (
+                <label
+                  key={f.key}
+                  className={`flex flex-col gap-1 ${f.wide ? "sm:col-span-2" : ""}`}
+                >
+                  <span className="text-text-muted text-[10px] uppercase tracking-[0.14em]">
+                    {f.label}
+                  </span>
+                  <input
+                    type={f.type ?? "text"}
+                    value={billTo[f.key]}
+                    onChange={(e) =>
+                      setBillTo((prev) => ({ ...prev, [f.key]: e.target.value }))
+                    }
+                    className="bg-transparent border-b border-[color:var(--ink-500)]/60 text-sm text-text py-1"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              {/* COPY: confirm met Marlon */}
+              <p className="text-text-muted text-xs max-w-prose">
+                Vooringevuld uit het profiel. Wijzigingen gelden alleen voor
+                deze factuur en schrijven niets terug naar het profiel.
+              </p>
+              <button
+                type="button"
+                onClick={saveBillTo}
+                disabled={isPending || !billToDirty}
+                className="ml-auto px-4 py-1.5 border border-accent text-accent text-xs uppercase tracking-[0.16em] hover:bg-accent hover:text-bg transition-colors disabled:opacity-50"
+              >
+                {/* COPY: confirm met Marlon */}
+                Afnemer opslaan
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="bg-bg-elevated p-3">
+            <BillToBlock value={billTo} />
+          </div>
+        )}
+      </section>
 
       {/* Regels */}
       <section className="flex flex-col gap-3">
@@ -326,8 +448,8 @@ export function FactuurEditor({
                 />
                 <span className="text-text-muted text-[10px]">
                   {l.catalogueSlug ?? "vrije regel"} · netto{" "}
-                  {formatEuro(Math.round(netCents / 100))} · BTW{" "}
-                  {formatEuro(Math.round(vatCents / 100))}
+                  {formatEuroCentsSigned(netCents)} · BTW{" "}
+                  {formatEuroCentsSigned(vatCents)}
                 </span>
               </div>
               <input
@@ -441,17 +563,17 @@ export function FactuurEditor({
       {/* Totalen */}
       <section className="flex flex-col items-end gap-1 text-sm">
         <span className="text-text-muted">
-          Subtotaal excl. BTW: {formatEuro(Math.round(totals.net / 100))}
+          Subtotaal excl. BTW: {formatEuroCentsSigned(totals.net)}
         </span>
         {Array.from(totals.vatByRate)
           .sort(([a], [b]) => a - b)
           .map(([bp, cents]) => (
             <span key={bp} className="text-text-muted">
-              BTW {bp / 100}%: {formatEuro(Math.round(cents / 100))}
+              BTW {bp / 100}%: {formatEuroCentsSigned(cents)}
             </span>
           ))}
         <span className="text-text text-lg">
-          Totaal: {formatEuro(Math.round(totals.gross / 100))}
+          Totaal: {formatEuroCentsSigned(totals.gross)}
         </span>
       </section>
 
@@ -461,23 +583,36 @@ export function FactuurEditor({
           <button
             type="button"
             onClick={() => setConfirmFinalize(true)}
-            disabled={isPending || lines.length === 0}
+            disabled={isPending || lines.length === 0 || hasUnsaved}
             className="px-4 py-2 bg-accent text-bg text-xs uppercase tracking-[0.16em] disabled:opacity-50"
           >
             {/* COPY: confirm met Marlon */}
             1. Finaliseren…
           </button>
         )}
+        {isDraft && !confirmFinalize && hasUnsaved && (
+          // COPY: confirm met Marlon
+          <span className="text-text-muted text-xs">
+            Sla eerst{" "}
+            {[billToDirty && "de afnemer", linesDirty && "de regels"]
+              .filter(Boolean)
+              .join(" en ")}{" "}
+            op voordat je finaliseert.
+          </span>
+        )}
         {isDraft && confirmFinalize && (
           <div className="flex flex-col gap-2 bg-bg-elevated p-4 border border-accent/40">
             {/* COPY: confirm met Marlon */}
             <p className="text-text text-sm max-w-md">
               Definitief maken voor{" "}
-              <strong>{formatEuro(Math.round(totals.gross / 100))}</strong> aan{" "}
-              <strong>{invoice.billToName}</strong>? Dit trekt een
-              factuurnummer en is onomkeerbaar; herstellen kan daarna alleen
-              met een creditnota.
+              <strong>{formatEuroCentsSigned(totals.gross)}</strong> aan{" "}
+              <strong>{billTo.name || invoice.billToName}</strong>? Dit trekt
+              een factuurnummer en is onomkeerbaar; herstellen kan daarna
+              alleen met een creditnota.
             </p>
+            <div className="bg-bg p-3">
+              <BillToBlock value={billTo} />
+            </div>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -585,5 +720,29 @@ export function FactuurEditor({
         </p>
       )}
     </div>
+  );
+}
+
+/** Afnemer als adresblok, zoals op de factuur: naam, bedrijf, adres, BTW. */
+function BillToBlock({ value }: { value: BillToInput }) {
+  const v = (x: string) => x.trim();
+  const cityLine = [v(value.postalCode), v(value.city)].filter(Boolean).join(" ");
+  const lines = [
+    v(value.name),
+    v(value.company),
+    v(value.street),
+    cityLine,
+    v(value.country),
+    v(value.vatNumber) && `BTW ${v(value.vatNumber)}`,
+    v(value.email),
+  ].filter(Boolean);
+  return (
+    <address className="not-italic text-text text-sm leading-relaxed">
+      {lines.map((l, i) => (
+        <span key={i} className="block">
+          {l}
+        </span>
+      ))}
+    </address>
   );
 }
