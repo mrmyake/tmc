@@ -12,8 +12,16 @@ import {
 } from "@/pdfs/CustomerInvoicePdf";
 import { getSiteSettings } from "../../../sanity/lib/fetch";
 import { sendEmail } from "@/lib/email";
-import { formatEuro } from "@/lib/format";
+import { formatEuroCentsSigned } from "@/lib/format";
 import { siteUrl } from "@/lib/site-url";
+import { SITE } from "@/lib/constants";
+import {
+  mergeBillTo,
+  missingBillToFields,
+  missingBillToMessage,
+  normaliseBillTo,
+  type BillToInput,
+} from "./invoice-bill-to";
 import InvoiceReady from "@/emails/invoice_ready";
 
 /**
@@ -306,6 +314,61 @@ export async function saveInvoiceLines(
   return { ok: true, invoiceId };
 }
 
+/**
+ * Afnemergegevens van een concept opslaan (bill_to_*). Alleen status draft,
+ * service-role (authenticated heeft geen UPDATE-grant). Lege velden worden
+ * null zodat finalize_invoice voor dat veld op het profiel terugvalt; er
+ * wordt nooit naar het profiel teruggeschreven.
+ */
+export async function saveInvoiceBillTo(
+  invoiceId: string,
+  input: BillToInput,
+): Promise<InvoiceActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, error: auth.message };
+  const admin = createAdminClient();
+
+  const normalised = normaliseBillTo(input);
+  if (!normalised.ok) return { ok: false, error: normalised.error };
+  const b = normalised.value;
+
+  const { data: invoice } = await admin
+    .from("invoices")
+    .select("id, status")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  // COPY: confirm met Marlon
+  if (!invoice) return { ok: false, error: "Factuur niet gevonden." };
+  if (invoice.status !== "draft") {
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Alleen een concept is te bewerken." };
+  }
+
+  const { error } = await admin
+    .from("invoices")
+    .update({
+      bill_to_name: b.name,
+      bill_to_company: b.company,
+      bill_to_vat_number: b.vatNumber,
+      bill_to_street: b.street,
+      bill_to_postal_code: b.postalCode,
+      bill_to_city: b.city,
+      bill_to_country: b.country,
+      bill_to_email: b.email,
+    })
+    .eq("id", invoiceId)
+    .eq("status", "draft");
+  if (error) {
+    console.error("[saveInvoiceBillTo] update failed", error);
+    // COPY: confirm met Marlon
+    return { ok: false, error: "Afnemer opslaan mislukte." };
+  }
+
+  await audit(auth.userId, "invoice_billto_saved", invoiceId, {});
+  revalidatePath(`/app/admin/facturen/${invoiceId}`);
+  return { ok: true, invoiceId };
+}
+
 /** 4.1: een concept is vrij te verwijderen zolang het geen nummer heeft
  * (geen reservering, dus geen gat in de reeks). `invoice_lines` volgt via
  * `on delete cascade` (2.6). Bedoeld o.a. om een dubbel concept van een
@@ -349,6 +412,37 @@ export async function finalizeInvoice(
   if (!auth.ok) return { ok: false, error: auth.message };
   const supabase = await createClient();
   const admin = createAdminClient();
+
+  // Voor de RPC: concept en profiel samenvoegen met dezelfde regel als de
+  // RPC zelf en weigeren als een verplicht afnemerveld ontbreekt. De RPC
+  // eist alleen naam en e-mail; straat, postcode en plaats horen op een
+  // factuur en kunnen na finaliseren niet meer gecorrigeerd worden. Een al
+  // gefinaliseerde factuur slaan we over (idempotente dubbelklik).
+  const { data: draft } = await admin
+    .from("invoices")
+    .select(
+      `status, profile_id, bill_to_name, bill_to_company, bill_to_vat_number,
+       bill_to_street, bill_to_postal_code, bill_to_city, bill_to_country,
+       bill_to_email`,
+    )
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (draft && draft.status === "draft") {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select(
+        "first_name, last_name, email, company_name, vat_number, street_address, postal_code, city, country",
+      )
+      .eq("id", draft.profile_id)
+      .maybeSingle();
+    const missing = missingBillToFields(mergeBillTo(draft, profile));
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        error: missingBillToMessage(missing),
+      };
+    }
+  }
 
   const { data, error } = await supabase.rpc("finalize_invoice", {
     p_invoice_id: invoiceId,
@@ -567,7 +661,7 @@ export async function sendInvoiceEmail(
     .eq("id", invoice.profile_id)
     .maybeSingle();
 
-  await sendEmail({
+  const sent = await sendEmail({
     to: invoice.bill_to_email,
     toName: invoice.bill_to_name ?? undefined,
     // COPY: confirm met Marlon
@@ -577,11 +671,28 @@ export async function sendInvoiceEmail(
     react: InvoiceReady({
       firstName: profile?.first_name ?? "",
       invoiceNumber: invoice.invoice_number ?? "",
-      amountEuro: formatEuro(Math.round(Math.abs(invoice.total_gross_cents ?? 0) / 100)),
+      amountEuro: formatEuroCentsSigned(invoice.total_gross_cents ?? 0),
       isCreditNote: Boolean(invoice.credit_of_invoice_id),
       portalUrl: `${siteUrl()}/app/facturen`,
     }),
+    // De mail zegt "beantwoord deze mail"; zonder replyTo gaat een antwoord
+    // naar het no-reply-afzenderadres.
+    replyTo: { email: SITE.email, name: "The Movement Club" },
   });
+
+  if (!sent) {
+    // sendEmail slikt fouten en geeft false (niet geconfigureerd, API-fout
+    // of timeout); de oorzaak staat in de functielog. Geen invoice_sent.
+    await audit(auth.userId, "invoice_send_failed", invoiceId, {
+      invoice_number: invoice.invoice_number,
+      to: invoice.bill_to_email,
+    });
+    return {
+      ok: false,
+      // COPY: confirm met Marlon
+      error: "De mail is niet verstuurd. Probeer het opnieuw; blijft het misgaan, kijk dan in de logs.",
+    };
+  }
 
   await audit(auth.userId, "invoice_sent", invoiceId, {
     invoice_number: invoice.invoice_number,
@@ -600,7 +711,11 @@ export async function createCreditNote(
 
   const { data: orig } = await admin
     .from("invoices")
-    .select("id, status, is_test, profile_id, invoice_number, series_id")
+    .select(
+      `id, status, is_test, profile_id, invoice_number, series_id,
+       bill_to_name, bill_to_company, bill_to_vat_number, bill_to_street,
+       bill_to_postal_code, bill_to_city, bill_to_country, bill_to_email`,
+    )
     .eq("id", invoiceId)
     .maybeSingle();
   // COPY: confirm met Marlon
@@ -625,6 +740,17 @@ export async function createCreditNote(
       profile_id: orig.profile_id,
       credit_of_invoice_id: orig.id,
       created_by_profile_id: auth.userId,
+      // Dezelfde afnemer als de bevroren originele factuur, zodat de
+      // creditnota niet op het (inmiddels mogelijk gewijzigde) profiel
+      // terugvalt.
+      bill_to_name: orig.bill_to_name,
+      bill_to_company: orig.bill_to_company,
+      bill_to_vat_number: orig.bill_to_vat_number,
+      bill_to_street: orig.bill_to_street,
+      bill_to_postal_code: orig.bill_to_postal_code,
+      bill_to_city: orig.bill_to_city,
+      bill_to_country: orig.bill_to_country,
+      bill_to_email: orig.bill_to_email,
     })
     .select("id")
     .single();

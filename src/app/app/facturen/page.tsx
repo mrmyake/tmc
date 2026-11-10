@@ -6,6 +6,7 @@ import { getCatalogue } from "@/lib/catalogue";
 import { SITE } from "@/lib/constants";
 import { MandateStatusCard } from "./_components/MandateStatusCard";
 import { PaymentRow } from "./_components/PaymentRow";
+import { LooseInvoiceRow } from "./_components/LooseInvoiceRow";
 import type { PaymentStatus } from "./_components/PaymentStatusBadge";
 
 export const metadata = {
@@ -67,8 +68,12 @@ export default async function FacturenPage(props: {
   // filtert al op is_test, maar payments zelf heeft geen is_test-policy --
   // de RLS op payments scopet alleen op profile_id). Zonder dit filter zou
   // een testbetaling van dit lid gewoon meegeteld en getoond worden.
-  const [paymentsResult, paymentsCountResult, activeMembershipResult] =
-    await Promise.all([
+  const [
+    paymentsResult,
+    paymentsCountResult,
+    activeMembershipResult,
+    looseInvoicesResult,
+  ] = await Promise.all([
       supabase
         .from("payments")
         .select(
@@ -93,9 +98,24 @@ export default async function FacturenPage(props: {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // Losse facturen en creditnota's zonder betaling (handmatige
+      // facturen, spec 9.2): payment_id is null, dus de koppeling via
+      // payments hieronder vindt ze nooit. RLS (invoices_self_read) laat ze
+      // toe; het is_test-filter is de expliciete laag ernaast.
+      supabase
+        .from("invoices")
+        .select(
+          "id, invoice_number, issued_at, total_gross_cents, credit_of_invoice_id",
+        )
+        .eq("profile_id", user.id)
+        .eq("status", "finalised")
+        .eq("is_test", false)
+        .is("payment_id", null)
+        .order("issued_at", { ascending: false }),
     ]);
 
   logIfError("payments", paymentsResult.error);
+  logIfError("loose invoices", looseInvoicesResult.error);
   logIfError("payments count", paymentsCountResult.error);
   logIfError("active membership", activeMembershipResult.error);
 
@@ -208,6 +228,20 @@ export default async function FacturenPage(props: {
     };
   });
 
+  const looseInvoices = (looseInvoicesResult.data ?? []).flatMap((i) =>
+    i.invoice_number
+      ? [
+          {
+            id: i.id,
+            invoiceNumber: i.invoice_number,
+            issuedAt: i.issued_at,
+            totalGrossCents: i.total_gross_cents ?? 0,
+            isCreditNote: Boolean(i.credit_of_invoice_id),
+          },
+        ]
+      : [],
+  );
+
   const total = paymentsCountResult.count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasPrev = page > 1;
@@ -235,7 +269,22 @@ export default async function FacturenPage(props: {
         />
       </div>
 
+      {looseInvoices.length > 0 && (
+        <section className="mb-14">
+          {/* COPY: confirm met Marlon */}
+          <span className="tmc-eyebrow tmc-eyebrow--accent block mb-5">
+            Facturen en creditnota&apos;s
+          </span>
+          <div className="border-t border-[color:var(--ink-500)]/60">
+            {looseInvoices.map((row) => (
+              <LooseInvoiceRow key={row.id} row={row} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {rows.length === 0 ? (
+        looseInvoices.length > 0 ? null : (
         <section className="bg-bg-elevated p-10 md:p-12 text-center">
           <span className="tmc-eyebrow block mb-4">Nog geen betalingen</span>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-text leading-[1.05] tracking-[-0.02em] mb-4">
@@ -246,6 +295,7 @@ export default async function FacturenPage(props: {
             al je betalingen.
           </p>
         </section>
+        )
       ) : (
         <>
           <div className="border-t border-[color:var(--ink-500)]/60">

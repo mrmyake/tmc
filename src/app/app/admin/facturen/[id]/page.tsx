@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogue } from "@/lib/catalogue";
+import { mergeBillTo } from "@/lib/admin/invoice-bill-to";
 import { FactuurEditor } from "../_components/FactuurEditor";
 
 export const metadata = {
@@ -22,8 +23,10 @@ export default async function AdminFactuurDetailPage(props: {
       .select(
         `id, invoice_number, status, is_test, issued_at, credit_of_invoice_id,
          pdf_path, pdf_generated_at, total_gross_cents, subtotal_net_cents,
-         vat_total_cents, bill_to_name, bill_to_email, payment_id,
-         profile:profiles!profile_id(first_name, last_name, email)`,
+         vat_total_cents, bill_to_name, bill_to_company, bill_to_vat_number,
+         bill_to_street, bill_to_postal_code, bill_to_city, bill_to_country,
+         bill_to_email, payment_id,
+         profile:profiles!profile_id(first_name, last_name, email, company_name, vat_number, street_address, postal_code, city, country)`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -53,6 +56,10 @@ export default async function AdminFactuurDetailPage(props: {
     ? invoice.profile[0]
     : invoice.profile;
 
+  // Afnemer: concept wint, profiel vult de gaten (zelfde regel als de RPC).
+  // Bij een gefinaliseerde factuur zijn alle velden al bevroren in de rij.
+  const merged = mergeBillTo(invoice, profile ?? null);
+
   // Catalogusopties voor de regels-editor: slug, naam en het
   // default-tarief uit de rij (9.3).
   const catalogueOptions = Array.from(catalogue.values()).map((c) => ({
@@ -79,6 +86,16 @@ export default async function AdminFactuurDetailPage(props: {
             invoice.bill_to_name ??
             (profile ? `${profile.first_name} ${profile.last_name}`.trim() : ""),
           billToEmail: invoice.bill_to_email ?? profile?.email ?? "",
+        }}
+        initialBillTo={{
+          name: merged.name ?? "",
+          company: merged.company ?? "",
+          vatNumber: merged.vatNumber ?? "",
+          street: merged.street ?? "",
+          postalCode: merged.postalCode ?? "",
+          city: merged.city ?? "",
+          country: merged.country ?? "",
+          email: merged.email ?? "",
         }}
         initialLines={(lines ?? []).map((l) => ({
           lineNo: l.line_no,
