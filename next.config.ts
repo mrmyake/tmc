@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   // deze include neemt Vercel de bestanden niet mee in de serverless bundel,
   // omdat ze alleen via een runtime-pad worden geladen.
   outputFileTracingIncludes: {
-    "/app/admin/facturen/**": ["./src/pdfs/fonts/**"],
+    "/app/admin/facturen/**": ["./src/fonts/**"],
+    // De factuuracties worden ook vanuit het ledendetail aangeroepen
+    // (MaakFactuurKnop), dus daar moet de PDF ook zijn fonts vinden.
+    "/app/admin/leden/**": ["./src/fonts/**"],
   },
 
   async redirects() {

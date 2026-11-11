@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fraunces } from "next/font/google";
+import { kioskFontVars } from "@/lib/fonts";
 import { requireKioskActor } from "@/lib/kiosk/gate";
 import { KIOSK_FAIL_COPY } from "@/lib/kiosk/gate-core";
 import { listKioskStaff } from "@/lib/kiosk/actions";
@@ -16,15 +16,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 // Fraunces-gewicht 300 (clock, now-time in de mockup) zit niet in de
-// site-brede Fraunces-load (src/app/layout.tsx laadt bewust alleen
-// 400/500). Een eigen, aan /kiosk gebonden font-load houdt de rest van de
-// site op dat budget.
-const kioskSerif = Fraunces({
-  subsets: ["latin"],
-  weight: ["300", "400"],
-  variable: "--font-kiosk-serif",
-  display: "swap",
-});
+// site-brede Fraunces-load (400 + 500); de kiosk heeft een eigen, aan /kiosk
+// gebonden font-load in src/lib/fonts.ts (300 + 400).
 
 /**
  * Eén gate voor alle /kiosk-schermen (check-in PR 2, requireKioskActor):
@@ -79,5 +72,9 @@ export default async function KioskLayout({
     );
   }
 
-  return <div className={`${styles.kiosk} ${kioskSerif.variable}`}>{body}</div>;
+  return (
+    <div className={styles.kiosk} style={kioskFontVars}>
+      {body}
+    </div>
+  );
 }
