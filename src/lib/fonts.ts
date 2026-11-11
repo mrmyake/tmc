@@ -78,8 +78,17 @@ const kioskSerifExt = localFont({
   declarations: [{ prop: "unicode-range", value: "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF" }],
 });
 
-const list = (a: { style: { fontFamily: string } }, b: { style: { fontFamily: string } }) =>
-  `${a.style.fontFamily}, ${b.style.fontFamily}`;
+type Loaded = { style: { fontFamily: string } };
+
+// Volgorde: latin, latin-ext, daarna pas de metric-fallbacks. Zou de
+// fallback van de latin-load voor de ext-load staan, dan pakt de browser voor
+// ł of č de systeemfont (de fallback heeft geen unicode-range) in plaats van
+// de ext-bestanden.
+const list = (a: Loaded, b: Loaded) => {
+  const [aMain, ...aRest] = a.style.fontFamily.split(/,\s*/);
+  const [bMain, ...bRest] = b.style.fontFamily.split(/,\s*/);
+  return [aMain, bMain, ...aRest, ...bRest].join(", ");
+};
 
 /** Inline CSS-variabelen voor <html>: zelfde namen als voorheen. */
 export const siteFontVars = {
