@@ -41,25 +41,53 @@ const COLORS = {
   line: "#D5CEC0",
 };
 
-// Fraunces (display) en Inter (tekst) als statische WOFF van schijf. Het pad
-// loopt vanaf de projectroot; outputFileTracingIncludes in next.config.ts
-// neemt de map mee in de serverless bundel. Zie src/pdfs/fonts/README.md.
-const FONT_DIR = path.join(process.cwd(), "src", "pdfs", "fonts");
+// Fraunces (display) en Inter (tekst) als statische WOFF van schijf, uit de
+// gedeelde map src/fonts (dezelfde bestanden als next/font/local in de
+// layouts). Het pad loopt vanaf de projectroot; outputFileTracingIncludes in
+// next.config.ts neemt de map mee in de serverless bundel. Zie
+// src/fonts/README.md.
+//
+// react-pdf kent geen unicode-range: latin en latin-ext zijn aparte
+// subsets. Daarom twee families per lettertype (basis en "Ext"), en de
+// stijlen gebruiken een fallback-lijst, zodat een teken als ł, č of ő uit de
+// latin-ext-variant komt.
+const FONT_DIR = path.join(process.cwd(), "src", "fonts");
+const font = (file: string, fontWeight: number) => ({
+  src: path.join(FONT_DIR, file),
+  fontWeight,
+});
 Font.register({
   family: "Fraunces",
   fonts: [
-    { src: path.join(FONT_DIR, "fraunces-latin-400-normal.woff"), fontWeight: 400 },
-    { src: path.join(FONT_DIR, "fraunces-latin-500-normal.woff"), fontWeight: 500 },
+    font("fraunces-latin-400-normal.woff", 400),
+    font("fraunces-latin-500-normal.woff", 500),
+  ],
+});
+Font.register({
+  family: "FrauncesExt",
+  fonts: [
+    font("fraunces-latin-ext-400-normal.woff", 400),
+    font("fraunces-latin-ext-500-normal.woff", 500),
   ],
 });
 Font.register({
   family: "Inter",
   fonts: [
-    { src: path.join(FONT_DIR, "inter-latin-400-normal.woff"), fontWeight: 400 },
-    { src: path.join(FONT_DIR, "inter-latin-500-normal.woff"), fontWeight: 500 },
-    { src: path.join(FONT_DIR, "inter-latin-600-normal.woff"), fontWeight: 600 },
+    font("inter-latin-400-normal.woff", 400),
+    font("inter-latin-500-normal.woff", 500),
+    font("inter-latin-600-normal.woff", 600),
   ],
 });
+Font.register({
+  family: "InterExt",
+  fonts: [
+    font("inter-latin-ext-400-normal.woff", 400),
+    font("inter-latin-ext-500-normal.woff", 500),
+    font("inter-latin-ext-600-normal.woff", 600),
+  ],
+});
+const SERIF = ["Fraunces", "FrauncesExt"];
+const SANS = ["Inter", "InterExt"];
 // Geen afbrekende koppeltekens in omschrijvingen of adressen.
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -69,7 +97,7 @@ const styles = StyleSheet.create({
     paddingBottom: 72,
     paddingHorizontal: 56,
     fontSize: 9.5,
-    fontFamily: "Inter",
+    fontFamily: SANS,
     fontWeight: 400,
     color: COLORS.ink,
     backgroundColor: COLORS.stone,
@@ -84,9 +112,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
-  brand: { fontFamily: "Fraunces", fontWeight: 500, fontSize: 16, marginBottom: 3 },
+  brand: { fontFamily: SERIF, fontWeight: 500, fontSize: 16, marginBottom: 3 },
   tagline: { fontSize: 8, color: COLORS.muted, letterSpacing: 0.4 },
-  docTitle: { fontFamily: "Fraunces", fontWeight: 400, fontSize: 30, lineHeight: 1 },
+  docTitle: { fontFamily: SERIF, fontWeight: 400, fontSize: 30, lineHeight: 1 },
   creditRef: { fontSize: 8, color: COLORS.muted, marginTop: 4 },
   gridTwo: {
     flexDirection: "row",
@@ -154,7 +182,7 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 13, fontWeight: 600 },
   payWrap: { marginTop: 30 },
   payHeading: {
-    fontFamily: "Fraunces",
+    fontFamily: SERIF,
     fontWeight: 500,
     fontSize: 12.5,
     marginBottom: 10,
@@ -177,7 +205,7 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 4,
   },
-  payBoxTitle: { fontFamily: "Fraunces", fontWeight: 500, fontSize: 11, marginBottom: 4 },
+  payBoxTitle: { fontFamily: SERIF, fontWeight: 500, fontSize: 11, marginBottom: 4 },
   payLine: { flexDirection: "row" },
   payKey: { width: 62, fontSize: 9, color: COLORS.muted },
   payVal: { flex: 1, fontSize: 9.5, fontWeight: 500 },

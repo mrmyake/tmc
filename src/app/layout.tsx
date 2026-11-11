@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { siteFontVars } from "@/lib/fonts";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
@@ -40,26 +40,6 @@ gtag("consent", "default", {
 `.trim();
 
 export const revalidate = 60;
-
-// Fraunces wordt alleen in 400 + 500 gebruikt (zie CLAUDE.md §
-// Typografie — display weight 400+, geen 300). Geen axes —
-// grep confirmed dat geen enkele component `font-variation-settings`
-// aanroept. Pinnen houdt payload rond ~25 KiB ipv ~120 KiB
-// multi-axis variable.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-  display: "swap",
-  weight: ["400", "500"],
-});
-
-// Inter in 400/500/600 — body, eyebrows, CTA-labels.
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  display: "swap",
-  weight: ["400", "500", "600"],
-});
 
 // Async generateMetadata zodat de OG-image uit Sanity (`siteImages.ogImage`)
 // direct in de social preview terechtkomt. Valt terug op de statische
@@ -135,7 +115,8 @@ export default async function RootLayout({
   return (
     <html
       lang="nl"
-      className={`${fraunces.variable} ${inter.variable} antialiased`}
+      className="antialiased"
+      style={siteFontVars}
     >
       <head>
         {/* Consent Mode v2 defaults. MUST be inline in <head> before
