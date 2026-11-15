@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "./_components/AdminShell";
+import { countNewProgrammaIntakes } from "@/lib/admin/programma-intakes-query";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +34,11 @@ export default async function AdminLayout({
   const firstName =
     profile.first_name?.trim() || user.email?.split("@")[0] || "Admin";
 
-  return <AdminShell firstName={firstName}>{children}</AdminShell>;
+  const newIntakes = await countNewProgrammaIntakes();
+
+  return (
+    <AdminShell firstName={firstName} newIntakes={newIntakes}>
+      {children}
+    </AdminShell>
+  );
 }
