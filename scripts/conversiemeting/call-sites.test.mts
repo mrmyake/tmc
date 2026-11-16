@@ -224,9 +224,11 @@ test("purchase wordt ge-awaited in de naloop, niet als losse void", () => {
 
 test("ad_consent staat nooit in dezelfde update of select als de bestaande kolommen", () => {
   const createOrder = read("src/lib/orders/create-order.ts");
-  const gaUpdate = createOrder.match(/\.update\(\{\s*ga_client_id:[\s\S]*?\}\)/);
-  assert.ok(gaUpdate, "de ga_client_id-update bestaat");
-  assert.equal(gaUpdate[0].includes("ad_consent"), false);
+  // De ga-id's gaan alleen via gaIdsForStorage (analytische toestemming) en
+  // in een eigen update, zonder ad_consent.
+  assert.match(createOrder, /const gaIds = gaIdsForStorage\(selection\);\s*if \(gaIds\) \{/);
+  assert.match(createOrder, /\.from\("orders"\)\s*\.update\(gaIds\)/);
+  assert.equal(/ga_client_id:/.test(createOrder), false, "geen losse ga_client_id-write buiten de vangrail");
   assert.match(createOrder, /await writeAdConsent\(admin, "orders", orderId, selection\.adConsent/);
 
   for (const file of SRC_FILES) {
@@ -243,6 +245,24 @@ test("ad_consent staat nooit in dezelfde update of select als de bestaande kolom
       }
     }
   }
+});
+
+test("ga-id's worden alleen via de vangrail voor analytische toestemming geschreven", () => {
+  // Elke write van ga_client_id loopt via gaIdsForStorage in ga-mp/store.ts.
+  const writers = SRC_FILES.filter((file) => /ga_client_id:/.test(read(file)));
+  assert.deepEqual(writers, ["src/lib/ga-mp/store.ts"]);
+  // De client stuurt de analytische keuze mee op beide checkout-paden; de
+  // proefles-formulieren geven het hele gaMeta-object door.
+  const payStage = read("src/components/checkout/PayStage.tsx");
+  assert.equal(count(payStage, "analyticsConsent: gaMeta.analyticsConsent"), 2);
+  const meta = read("src/lib/ga-submit-meta.ts");
+  assert.match(meta, /return \{ gaClientId, gaSessionId, analyticsConsent, adConsent \};/);
+  // readGaIds heeft de harde poort voor de gtag-aanroep en de cookie-lezing.
+  const gaIds = read("src/lib/ga-ids.ts");
+  const gateAt = gaIds.indexOf('getStoredConsent()?.choice.analytics !== "granted"');
+  assert.ok(gateAt > 0);
+  assert.ok(gateAt < gaIds.indexOf("withTimeout(gtagGet("), "poort staat voor de gtag-aanroep");
+  assert.ok(gateAt < gaIds.indexOf("clientId ?? clientIdFromCookie()"), "poort staat voor de cookie-fallback");
 });
 
 test("geen code vult action_page", () => {

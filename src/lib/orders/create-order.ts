@@ -2,6 +2,7 @@
 
 import { SequenceType } from "@mollie/api-client";
 import { writeAdConsent } from "@/lib/ga-mp/send";
+import { gaIdsForStorage } from "@/lib/ga-mp/store";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileCompleteForCheckout } from "@/lib/checkout/profile-complete";
@@ -51,6 +52,12 @@ export interface CreateOrderSelection {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /**
+   * De keuze voor analytische cookies op het moment van de checkout
+   * (spec-conversiemeting.md): granted, denied of unknown. Server-side
+   * vangrail: de GA4-id's hierboven worden alleen opgeslagen bij "granted".
+   */
+  analyticsConsent?: string;
   /**
    * De advertentiekeuze uit de cookiebanner op het moment van de checkout
    * (spec-conversiemeting.md): granted, denied of unknown. Gaat met een
@@ -193,14 +200,14 @@ export async function createOrderAndCheckout(
     // blokkeren: eigen try/catch (de omhullende catch zou de order
     // abandonnen, en dat mag een analytics-write nooit veroorzaken),
     // error alleen gelogd, flow gaat door.
-    if (selection.gaClientId) {
+    // Alleen met analytische toestemming (gaIdsForStorage): zonder "granted"
+    // worden meegestuurde id's weggegooid en vertrekt er later geen purchase.
+    const gaIds = gaIdsForStorage(selection);
+    if (gaIds) {
       try {
         const { error: gaError } = await admin
           .from("orders")
-          .update({
-            ga_client_id: selection.gaClientId,
-            ga_session_id: selection.gaSessionId ?? null,
-          })
+          .update(gaIds)
           .eq("id", orderId);
         if (gaError) {
           console.error("[createOrderAndCheckout] ga attribution write", gaError);

@@ -80,15 +80,26 @@ localStorage, sleutel `tmc_cookie_consent`, formaat v2:
 
 Het oude formaat was de kale string `granted` of `denied` en ging alleen over analytische cookies. Zo'n waarde betekent nooit advertentietoestemming. Wie een oude keuze heeft ziet de banner eenmalig opnieuw; tot de nieuwe keuze blijft de oude analytische keuze gelden. De pure kern staat in `src/lib/consent-core.ts`.
 
-| Bannertoestand | `tmc_cookie_consent` | `analytics_storage` | `ad_storage`, `ad_user_data` | `ad_personalization` | `analytics_consent` (`lead_attributions`) | `ad_consent` (`trial_bookings`, `orders`) | `ad_user_data` op het MP-event |
+| Bannertoestand | `tmc_cookie_consent` | `analytics_storage` | `ad_storage`, `ad_user_data` | `ad_personalization` | `analytics_consent` (`lead_attributions`) | `ad_consent` (`trial_bookings`, `orders`) | MP-event (`purchase`, `trial_booked`) |
 |---|---|---|---|---|---|---|---|
-| Accepteren | v2, beide granted | granted | granted | denied | granted | granted | GRANTED |
-| Weigeren | v2, beide denied | denied | denied | denied | denied | denied | DENIED |
-| Alleen analytisch | v2, analytics granted, ads denied | granted | denied | denied | granted | denied | DENIED |
-| Alleen advertentiemeting | v2, analytics denied, ads granted | denied | granted | denied | denied | granted | DENIED in de praktijk: zonder analytische toestemming is er geen `ga_client_id` en dus geen event |
-| Oude keuze `granted` | kale string | granted | denied | denied | granted | unknown | DENIED |
-| Oude keuze `denied` | kale string | denied | denied | denied | denied | unknown | DENIED |
-| Geen keuze, onleesbare waarde of geblokkeerde storage | ontbreekt | denied | denied | denied | unknown | unknown | DENIED |
+| Accepteren | v2, beide granted | granted | granted | denied | granted | granted | Ja, `ad_user_data` GRANTED |
+| Weigeren | v2, beide denied | denied | denied | denied | denied | denied | Geen event |
+| Alleen analytisch | v2, analytics granted, ads denied | granted | denied | denied | granted | denied | Ja, `ad_user_data` DENIED |
+| Alleen advertentiemeting | v2, analytics denied, ads granted | denied | granted | denied | denied | granted | Geen event: zonder analytische toestemming worden er geen GA4-id's gelezen of opgeslagen |
+| Oude keuze `granted` | kale string | granted | denied | denied | granted | unknown | Ja, `ad_user_data` DENIED |
+| Oude keuze `denied` | kale string | denied | denied | denied | denied | unknown | Geen event |
+| Geen keuze, onleesbare waarde of geblokkeerde storage | ontbreekt | denied | denied | denied | unknown | unknown | Geen event |
+
+### MP-events bestaan alleen met analytische toestemming
+
+Een server-side event (`purchase`, `trial_booked`) vertrekt uitsluitend voor een bezoeker die analytische cookies heeft geaccepteerd. Binnen die groep volgt `ad_user_data` de advertentiekeuze. De twee keuzes werken dus getrapt: analytisch bepaalt of er een event is, advertentiemeting bepaalt of Google het voor advertentiemeting mag gebruiken.
+
+Dat wordt op twee plekken afgedwongen, omdat een MP-event alleen kan vertrekken als er een `ga_client_id` op de boeking of order staat:
+
+1. **Client.** `readGaIds()` (`src/lib/ga-ids.ts`) geeft alleen id's terug als de analytische keuze `granted` is (formaat v2, of de oude waarde `granted`). Bij denied, geen keuze, een kapotte waarde of geblokkeerde storage is het resultaat leeg, zonder `gtag('get')`-aanroep en zonder lezing van de `_ga`-cookie. Zonder die poort gaf gtag in de cookieloze modus een tijdelijke client_id, en las de cookie-fallback een achtergebleven `_ga`-cookie van iemand die eerder accepteerde en later weigerde.
+2. **Server.** De client stuurt naast `ad_consent` ook `analytics_consent` mee (zelfde bron als `analyticsConsentFromBanner`). `gaIdsForStorage` (`src/lib/ga-mp/store.ts`) schrijft `ga_client_id` en `ga_session_id` alleen bij `granted` en gooit ze anders weg. Dat geldt voor orders (`PayStage`, `createOrderAndCheckout`) en voor alle drie de proefles-schrijfpunten (betaald, code, gratis). Het is de enige plek in de code die `ga_client_id` schrijft.
+
+`analytics_consent` wordt hier alleen als poort gebruikt en niet opgeslagen op de boeking of order; `ad_consent` wel, ook zonder analytische toestemming.
 
 `analytics_consent` en `ad_consent` zijn twee verschillende dingen. `analytics_consent` mag nooit als bron voor `ad_user_data` dienen; `ad_consent` is de enige bron, en `unknown` telt als denied.
 
@@ -100,7 +111,7 @@ Migratie `20261116120000_conversiemeting_ga_consent.sql`:
 - `tmc.orders`: `ad_consent` (zelfde check en default). `ga_client_id` en `ga_session_id` staan daar al sinds `20260816000000`.
 - Geen grants, geen policies, geen functies: het patroon van `ga_client_id` op `tmc.orders`. `tmc.trial_bookings` blijft uitsluitend `service_role` (zelfcontrole in de migratie). Op `tmc.orders` kan een lid zijn eigen `ad_consent` lezen, net als zijn eigen `ga_client_id`.
 
-Bij de proefles-submit en in `PayStage` leest de client `readGaIds()` en de advertentiekeuze (`readGaSubmitMeta`) en geeft ze mee aan de server action. De server valideert ze opnieuw en schrijft ze met losse service-role-updates na de insert of RPC, nooit in de insert of RPC zelf. `ad_consent` heeft altijd een eigen update en een eigen select, nooit samen met `ga_client_id` of een andere kolom. Daardoor werkt de code ook voordat de migratie gepusht is: een ontbrekende kolom leidt alleen tot een gelogde fout en `ad_consent` `unknown`, nooit tot een gemiste `purchase` of een mislukte boeking. Zonder de kolommen is er geen `ga_client_id` op de proefboeking en vuurt `trial_booked` nog niet.
+Bij de proefles-submit en in `PayStage` leest de client `readGaIds()` en de twee bannerkeuzes (`readGaSubmitMeta`) en geeft ze mee aan de server action. De GA4-id's worden alleen gelezen en alleen opgeslagen met analytische toestemming (zie "MP-events bestaan alleen met analytische toestemming"). De server valideert ze opnieuw en schrijft ze met losse service-role-updates na de insert of RPC, nooit in de insert of RPC zelf. `ad_consent` heeft altijd een eigen update en een eigen select, nooit samen met `ga_client_id` of een andere kolom. Daardoor werkt de code ook voordat de migratie gepusht is: een ontbrekende kolom leidt alleen tot een gelogde fout en `ad_consent` `unknown`, nooit tot een gemiste `purchase` of een mislukte boeking. Zonder de kolommen is er geen `ga_client_id` op de proefboeking en vuurt `trial_booked` nog niet.
 
 Geen wijziging aan `redeem_trial_code`, `book_opening_trial`, `create_order` of prijzen.
 
@@ -110,7 +121,7 @@ Gelden voor `purchase` en `trial_booked`; de gedeelde code staat in `src/lib/ga-
 
 1. **Analytics laat nooit iets falen.** De helpers throwen nooit. Een fout levert alleen `console.error` op.
 2. **De MP-URL wordt nooit gelogd.** Hij bevat het `api_secret`. Ook de respons-body en de fout van een mislukt verzoek worden niet gelogd, alleen een label, een id en de status.
-3. **Stil overslaan** zonder `ga_client_id` (geen analytische toestemming, member-app, admin-betaallink) en zonder `GA4_API_SECRET`.
+3. **Stil overslaan** zonder `ga_client_id` (geen analytische toestemming, member-app, admin-betaallink) en zonder `GA4_API_SECRET`. Zonder analytische toestemming bestaat er nooit een `ga_client_id`: de client leest hem niet en de server slaat hem niet op.
 4. **Geen `user_id`.**
 5. **Bedragen alleen hier.** `value` komt uit Mollie (betaald) of uit `tmc.catalogue` (code en gratis), nooit uit de browser.
 6. **Consent op requestniveau.** Elk verzoek draagt `"consent": { "ad_user_data": "GRANTED" | "DENIED", "ad_personalization": "DENIED" }`, naast `client_id` en `events`. `ad_user_data` volgt de opgeslagen `ad_consent`; `unknown` telt als denied. `ad_personalization` is altijd `DENIED`.
@@ -169,4 +180,4 @@ Bron voor het consentformaat: Google, "Measurement Protocol reference", `develop
 
 | PR | Branch | Merge-hash | Datum | Wat | Bewust niet aangeraakt |
 |---|---|---|---|---|---|
-| #348 | `feat/conversiemeting` | volgt na merge | 2026-11-16 | Server-side `trial_booked` (webhook, cron, code en gratis), `purchase` met `item_name` en `item_category` en ge-awaited in de naloop, gedeelde MP-helper met consent-object en `traffic_type` buiten productie, cookiebanner met advertentiemeting en consentformaat v2, link Cookie-instellingen, `generate_lead` pas na een 2xx met `lead_type`, `contact_click` via `TrackedContactLink` en de Portable Text-link-mark, `newsletter_signup`, `payment_start` zonder bedrag, migratie `20261116120000` (nog niet gepusht), privacytekst gemarkeerd voor Marlon | De RPC's `redeem_trial_code` en `book_opening_trial`, `create_order`, prijzen, `programma_intake`, de `yoga_test_*`-events, `tmc.lead_attributions`, de invoices-webhook, `YogaWaitlistForm` en `YogaWaitlistCta` (dode code), `types/supabase.ts`, een bewaartermijn voor de GA-id's, het vullen van `action_page` (funnel-PR) |
+| #348 | `feat/conversiemeting` | volgt na merge | 2026-11-16 | Server-side `trial_booked` (webhook, cron, code en gratis), GA4-id's alleen gelezen en opgeslagen met analytische toestemming (poort in `readGaIds` en server-vangrail `gaIdsForStorage`), `purchase` met `item_name` en `item_category` en ge-awaited in de naloop, gedeelde MP-helper met consent-object en `traffic_type` buiten productie, cookiebanner met advertentiemeting en consentformaat v2, link Cookie-instellingen, `generate_lead` pas na een 2xx met `lead_type`, `contact_click` via `TrackedContactLink` en de Portable Text-link-mark, `newsletter_signup`, `payment_start` zonder bedrag, migratie `20261116120000` (nog niet gepusht), privacytekst gemarkeerd voor Marlon | De RPC's `redeem_trial_code` en `book_opening_trial`, `create_order`, prijzen, `programma_intake`, de `yoga_test_*`-events, `tmc.lead_attributions`, de invoices-webhook, `YogaWaitlistForm` en `YogaWaitlistCta` (dode code), `types/supabase.ts`, een bewaartermijn voor de GA-id's, het vullen van `action_page` (funnel-PR) |

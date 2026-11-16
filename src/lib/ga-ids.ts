@@ -19,7 +19,19 @@
  * Fallback voor client_id: de _ga-cookie zelf ("GA1.1.<a>.<b>" → "<a>.<b>"),
  * synchroon en zonder gtag.js. Voor session_id is er bewust geen
  * cookie-fallback; die komt alleen via gtag('get').
+ *
+ * Harde poort (spec-conversiemeting.md): er komen alleen id's terug als de
+ * bezoeker analytische cookies heeft geaccepteerd (formaat v2 met analytics
+ * "granted", of de oude waarde "granted"). Bij denied, geen keuze, een
+ * kapotte waarde of geblokkeerde storage is het resultaat {} zonder
+ * gtag-aanroep en zonder cookie-lezing. Zonder die poort kan gtag('get') in
+ * de cookieloze modus een tijdelijke client_id geven, en leest de
+ * cookie-fallback een achtergebleven _ga-cookie van iemand die eerder
+ * accepteerde en later weigerde. Dan zou er een server-side event vertrekken
+ * voor een bezoeker die analytisch heeft geweigerd.
  */
+
+import { getStoredConsent } from "@/lib/consent";
 
 const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
 const TIMEOUT_MS = 300;
@@ -73,6 +85,9 @@ export interface GaIds {
 
 export async function readGaIds(): Promise<GaIds> {
   if (typeof window === "undefined") return {};
+  // Geen analytische toestemming: geen gtag-aanroep, geen cookie-lezing.
+  // getStoredConsent vangt geblokkeerde storage zelf af (null).
+  if (getStoredConsent()?.choice.analytics !== "granted") return {};
   const [clientId, sessionId] = await Promise.all([
     withTimeout(gtagGet("client_id")),
     withTimeout(gtagGet("session_id")),

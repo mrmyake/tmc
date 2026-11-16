@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPurchaseToGa4 } from "../../src/lib/orders/ga-purchase.ts";
 import { sendTrialBookedToGa4 } from "../../src/lib/trial-bookings/ga-trial-booked.ts";
-import { storeTrialBookingGaMeta } from "../../src/lib/ga-mp/store.ts";
+import { gaIdsForStorage, storeTrialBookingGaMeta } from "../../src/lib/ga-mp/store.ts";
 import { readAdConsent, writeAdConsent } from "../../src/lib/ga-mp/send.ts";
 
 // De server-side events tegen een nep-database (spec-conversiemeting.md).
@@ -249,7 +249,7 @@ test("helpers throwen nooit en loggen nooit de MP-URL of het api_secret", async 
     () => sendPurchaseToGa4({ orderId: ORDER_ID, amountCents: 1 }, { admin: throwingAdmin, fetchImpl: fakeFetch().fetchImpl, apiSecret: SECRET, isProduction: true }),
     () => sendTrialBookedToGa4({ trialBookingId: TRIAL_ID, amountCents: 1700 }, { admin: fakeAdmin(trialTables()).admin, fetchImpl: throwingFetch, apiSecret: SECRET, isProduction: true }),
     () => sendTrialBookedToGa4({ trialBookingId: TRIAL_ID }, { admin: throwingAdmin, fetchImpl: fakeFetch().fetchImpl, apiSecret: SECRET, isProduction: true }),
-    () => storeTrialBookingGaMeta(throwingAdmin, TRIAL_ID, { gaClientId: "1.2", adConsent: "granted" }),
+    () => storeTrialBookingGaMeta(throwingAdmin, TRIAL_ID, { gaClientId: "1.2", analyticsConsent: "granted", adConsent: "granted" }),
     () => writeAdConsent(throwingAdmin, "orders", ORDER_ID, "granted", "test"),
     () => readAdConsent(throwingAdmin, "orders", ORDER_ID, "test"),
   ];
@@ -325,6 +325,7 @@ test("storeTrialBookingGaMeta: twee losse updates, ad_consent nooit samen met de
   await storeTrialBookingGaMeta(admin, TRIAL_ID, {
     gaClientId: "99.88",
     gaSessionId: "1700000009",
+    analyticsConsent: "granted",
     adConsent: "granted",
   });
   assert.deepEqual(updates, [
@@ -338,7 +339,7 @@ test("storeTrialBookingGaMeta: ontbrekende kolommen (migratie niet gepusht) logg
     trial_bookings: ["ga_client_id", "ga_session_id", "ad_consent", "action_page"],
   });
   const { logs } = await captureLogs(() =>
-    storeTrialBookingGaMeta(admin, TRIAL_ID, { gaClientId: "99.88", gaSessionId: "1", adConsent: "denied" }),
+    storeTrialBookingGaMeta(admin, TRIAL_ID, { gaClientId: "99.88", gaSessionId: "1", analyticsConsent: "granted", adConsent: "denied" }),
   );
   assert.equal(updates.length, 2, "beide updates zijn geprobeerd");
   assert.match(logs, /ga-id's schrijven mislukt/);
@@ -350,6 +351,7 @@ test("storeTrialBookingGaMeta: ongeldige client-invoer wordt niet geschreven", a
   await storeTrialBookingGaMeta(admin, TRIAL_ID, {
     gaClientId: "<script>",
     gaSessionId: "abc",
+    analyticsConsent: "granted",
     adConsent: "misschien",
   });
   assert.deepEqual(updates, [
@@ -358,6 +360,40 @@ test("storeTrialBookingGaMeta: ongeldige client-invoer wordt niet geschreven", a
   const none = fakeAdmin(trialTables());
   await storeTrialBookingGaMeta(none.admin, TRIAL_ID, undefined);
   assert.equal(none.updates.length, 0);
+});
+
+test("server-vangrail: zonder analytische toestemming worden meegestuurde ga-id's weggegooid", async () => {
+  const ids = { gaClientId: "99.88", gaSessionId: "1700000009" };
+  // Pure regel, gedeeld door proefboekingen en orders (createOrderAndCheckout).
+  assert.deepEqual(gaIdsForStorage({ ...ids, analyticsConsent: "granted" }), {
+    ga_client_id: "99.88",
+    ga_session_id: "1700000009",
+  });
+  for (const analyticsConsent of ["denied", "unknown", undefined, "", "GRANTED", "yes"]) {
+    assert.equal(gaIdsForStorage({ ...ids, analyticsConsent }), null, String(analyticsConsent));
+  }
+  assert.equal(gaIdsForStorage(undefined), null);
+  assert.equal(gaIdsForStorage({ analyticsConsent: "granted" }), null, "granted zonder id's schrijft niets");
+
+  // De proefboeking: geen update van de id's, ad_consent wordt wel bewaard.
+  for (const analyticsConsent of ["denied", "unknown", undefined]) {
+    const tables = trialTables({ ga_client_id: null, ga_session_id: null, ad_consent: "unknown" });
+    const { admin, updates } = fakeAdmin(tables);
+    await storeTrialBookingGaMeta(admin, TRIAL_ID, { ...ids, analyticsConsent, adConsent: "granted" });
+    assert.deepEqual(updates, [
+      { table: "trial_bookings", values: { ad_consent: "granted" }, id: TRIAL_ID },
+    ]);
+    assert.equal(tables.trial_bookings[0].ga_client_id, null);
+
+    // Zonder opgeslagen client_id vertrekt er geen trial_booked.
+    const { fetchImpl, requests } = fakeFetch();
+    const result = await sendTrialBookedToGa4(
+      { trialBookingId: TRIAL_ID, amountCents: 1700 },
+      { admin, fetchImpl, apiSecret: SECRET, isProduction: true },
+    );
+    assert.equal(result, "skipped");
+    assert.equal(requests.length, 0);
+  }
 });
 
 // ---------- trial_booked ----------

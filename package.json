@@ -50,7 +50,7 @@
     "test:opening-trial": "node --import ./scripts/ts-loader.mjs --test scripts/opening-trial/rules.test.mts scripts/opening-trial/trial-core.test.mts && node --import tsx --test scripts/opening-trial/emails.test.mts",
     "test:opening-trial-db": "scripts/test-opening-trial-db.sh",
     "test:programma-intake": "node --import ./scripts/ts-loader.mjs --test scripts/programma-intake/core.test.mts && node --import tsx --test scripts/programma-intake/email.test.mts && node --import tsx --import ./scripts/programma-intake/hooks.mjs --test scripts/programma-intake/route.test.mts",
-    "test:conversiemeting": "node --import ./scripts/ts-loader.mjs --test scripts/conversiemeting/mp-payload.test.mts scripts/conversiemeting/item-category.test.mts scripts/conversiemeting/consent.test.mts scripts/conversiemeting/server-events.test.mts scripts/conversiemeting/call-sites.test.mts",
+    "test:conversiemeting": "node --import ./scripts/ts-loader.mjs --test scripts/conversiemeting/mp-payload.test.mts scripts/conversiemeting/item-category.test.mts scripts/conversiemeting/consent.test.mts scripts/conversiemeting/server-events.test.mts scripts/conversiemeting/call-sites.test.mts scripts/conversiemeting/ga-ids.test.mts",
     "test:conversiemeting-mp": "node --import ./scripts/ts-loader.mjs --test scripts/conversiemeting/validate-mp.test.mts",
     "test:conversiemeting-db": "scripts/test-conversiemeting-db.sh",
     "test:attribution": "node --import ./scripts/ts-loader.mjs --test scripts/attribution/*.test.mts",

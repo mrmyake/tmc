@@ -109,6 +109,7 @@ function SubscriptionPayStage({
         commit24m: selection.commit24m,
         gaClientId: gaMeta.gaClientId,
         gaSessionId: gaMeta.gaSessionId,
+        analyticsConsent: gaMeta.analyticsConsent,
         adConsent: gaMeta.adConsent,
         returnTarget: returnTargetForThisClient(),
       });
@@ -257,6 +258,7 @@ function ProductPayStage({
         slug: product.slug,
         gaClientId: gaMeta.gaClientId,
         gaSessionId: gaMeta.gaSessionId,
+        analyticsConsent: gaMeta.analyticsConsent,
         adConsent: gaMeta.adConsent,
         returnTarget: returnTargetForThisClient(),
       });
