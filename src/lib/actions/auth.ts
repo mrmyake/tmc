@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,6 +42,8 @@ export async function signOut(formData?: FormData) {
   }
 
   await supabase.auth.signOut();
+  // Staff-marker voor GA4 (spec-analytics-scope.md) weg bij uitloggen.
+  (await cookies()).delete("tmc_staff");
   redirect("/login");
 }
 

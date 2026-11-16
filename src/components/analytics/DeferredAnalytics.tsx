@@ -2,23 +2,32 @@
 
 import Script from "next/script";
 import { useEffect, useState } from "react";
+import { buildGaConfig } from "@/lib/analytics-gate-core";
 
 interface Props {
   gaId: string;
+  isProduction: boolean;
+  /** Door de gate bijgehouden: true zodra gtag('config') is gepusht. */
+  configured: boolean;
+  /** Aangeroepen nadat gtag('config') is gepusht; de gate stuurt daarna page_views. */
+  onConfigured: () => void;
 }
 
 /**
+ * Wordt door AnalyticsGate alleen gerenderd op gemeten paden en niet native
+ * (src/lib/analytics-scope.ts), met de consent-defaults al gezet.
+ *
  * Laadt gtag.js pas ná de eerste user-interactie of bij idle, in plaats
  * van eager bij page-load. gtag.js is ~66 KiB ongebruikte JS op de
  * kritieke render-path; uitstellen verlaagt TBT/LCP fors op mobiel.
  *
- * De Consent Mode v2 defaults + de `gtag()`-stub staan al inline in de
- * <head> (layout.tsx), dus events die vóór het laden via window.gtag
+ * De Consent Mode v2 defaults + de `gtag()`-stub zet AnalyticsGate
+ * (ensureConsentDefaults), dus events die vóór het laden via window.gtag
  * worden aangeroepen queuen netjes in dataLayer en flushen zodra gtag.js
  * binnen is. De idle-fallback (met timeout) zorgt dat ook bezoekers die
  * niet interacteren alsnog geteld worden.
  */
-export function DeferredAnalytics({ gaId }: Props) {
+export function DeferredAnalytics({ gaId, isProduction, configured, onConfigured }: Props) {
   const [load, setLoad] = useState(false);
 
   useEffect(() => {
@@ -67,20 +76,22 @@ export function DeferredAnalytics({ gaId }: Props) {
     return cleanup;
   }, [load]);
 
-  if (!load) return null;
+  // De config gaat in de dataLayer VOOR het script wordt ingevoegd, dus vóór
+  // de eerste hit. Het staff-cookie wordt hier synchroon gelezen (client,
+  // niet tijdens SSR), traffic_type zit daarmee in de config.
+  useEffect(() => {
+    if (!load || configured || typeof window.gtag !== "function") return;
+    window.gtag("js", new Date());
+    window.gtag("config", gaId, buildGaConfig(document.cookie, isProduction));
+    onConfigured();
+  }, [load, configured, gaId, isProduction, onConfigured]);
+
+  if (!load || !configured) return null;
 
   return (
-    <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-        strategy="afterInteractive"
-      />
-      <Script id="ga-init" strategy="afterInteractive">
-        {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${gaId}');`}
-      </Script>
-    </>
+    <Script
+      src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+      strategy="afterInteractive"
+    />
   );
 }

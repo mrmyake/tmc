@@ -54,7 +54,7 @@ export const PRODUCT_GROUPS: ProductGroup[] = [
   },
 ];
 
-/** Analytics-context voor payment_start, zelfde afleiding als BuyButton. */
+/** Analytics-context voor payment_start. */
 export function paymentContextForProduct(
   slug: string,
 ): "ten_ride_card" | "pt_package" {

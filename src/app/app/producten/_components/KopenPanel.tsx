@@ -34,7 +34,7 @@ function ProductCard({ product }: { product: CatalogueRow }) {
               en losse sessies zijn geen terugkerend abonnement. */}
           <span className="text-text-muted text-xs">Eenmalig</span>
         </div>
-        <BuyButton slug={product.slug} productLabel={product.display_name} />
+        <BuyButton slug={product.slug} />
       </div>
     </article>
   );

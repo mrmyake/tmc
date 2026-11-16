@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { AppChrome } from "./AppChrome";
+import { StaffCookie } from "@/components/analytics/StaffCookie";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { PushNotificationRegister } from "@/components/capacitor/PushNotificationRegister";
 import type { Role } from "@/components/nav/AvatarDropdown";
@@ -139,6 +140,7 @@ export default async function AppLayout({
 
   return (
     <>
+      <StaffCookie role={role} />
       <ServiceWorkerRegister />
       <PushNotificationRegister />
       <AppChrome

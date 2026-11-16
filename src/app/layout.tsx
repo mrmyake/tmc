@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { siteFontVars } from "@/lib/fonts";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-import { DeferredAnalytics } from "@/components/analytics/DeferredAnalytics";
+import { AnalyticsGate } from "@/components/analytics/AnalyticsGate";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { AuthListener } from "@/components/layout/AuthListener";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
@@ -16,28 +16,6 @@ import { getSiteSettings, getSiteImages } from "../../sanity/lib/fetch";
 import { urlFor } from "../../sanity/lib/client";
 
 const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
-
-/**
- * Consent Mode v2 defaults — MOET geïnjecteerd worden vóór gtag.js
- * loadt. Inline in <head> zodat dataLayer bestaat voordat
- * GoogleAnalytics component gtag.js fetched. Bij eerste page-load:
- * alle storage = denied, gtag stuurt cookieless pings. Bij accept
- * flipt CookieConsent dit via `gtag("consent", "update", granted)`.
- */
-const CONSENT_DEFAULTS_SCRIPT = `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-var stored = null;
-try { stored = localStorage.getItem("tmc_cookie_consent"); } catch(e) {}
-var state = stored === "granted" ? "granted" : "denied";
-gtag("consent", "default", {
-  analytics_storage: state,
-  ad_storage: "denied",
-  ad_user_data: "denied",
-  ad_personalization: "denied",
-  wait_for_update: 500
-});
-`.trim();
 
 export const revalidate = 60;
 
@@ -119,14 +97,6 @@ export default async function RootLayout({
       style={siteFontVars}
     >
       <head>
-        {/* Consent Mode v2 defaults. MUST be inline in <head> before
-            gtag.js, zodat default-consent is gezet voordat er events
-            worden gequeued. Leest optioneel localStorage zodat
-            returning visitors met eerdere "granted" meteen granted
-            beginnen. */}
-        <script
-          dangerouslySetInnerHTML={{ __html: CONSENT_DEFAULTS_SCRIPT }}
-        />
         {/* Connect early to de Sanity-CDN voor de LCP image. next/font
             self-host de .woff2, die komen dus vanaf onze eigen origin
             (geen preconnect nodig). */}
@@ -161,11 +131,14 @@ export default async function RootLayout({
             navigeert naar de returnpagina. Ook in de root layout, want bij
             een koude start kan de webview op /login staan. No-op op web. */}
         <DeepLinkHandler />
-        {/* gtag.js wordt uitgesteld tot eerste interactie of idle
-            (DeferredAnalytics) zodat het niet op de kritieke render-path
-            zit. Respecteert de consent-default state die inline in <head>
-            is gezet; events queuen in dataLayer tot gtag.js binnen is. */}
-        <DeferredAnalytics gaId={GA_MEASUREMENT_ID} />
+        {/* GA4 alleen op de publieke marketingsite (src/lib/analytics-scope.ts,
+            spec-analytics-scope.md). De gate zet de consent-defaults en laadt
+            gtag.js (uitgesteld) uitsluitend op gemeten paden, nooit native.
+            Productroutes krijgen geen script, geen dataLayer, geen stub. */}
+        <AnalyticsGate
+          gaId={GA_MEASUREMENT_ID}
+          isProduction={process.env.VERCEL_ENV === "production"}
+        />
         {/* AuthListener: zet GA4 user_id + vuurt portal_login bij
             SIGNED_IN / clear bij SIGNED_OUT. Alleen actief als
             consent-state granted is. */}

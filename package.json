@@ -19,6 +19,7 @@
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
+    "test:analytics-scope": "node --import ./scripts/ts-loader.mjs --test scripts/analytics-scope/*.test.mts",
     "test:sanity-structure": "node --import ./scripts/ts-loader.mjs --test scripts/sanity-structure/*.test.mts",
     "test:access": "node --import ./scripts/ts-loader.mjs --test scripts/access/*.test.mts",
     "test:mollie": "node --import ./scripts/ts-loader.mjs --test scripts/mollie/*.test.mts",
