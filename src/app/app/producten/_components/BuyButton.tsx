@@ -2,25 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { createOrderAndCheckout } from "@/lib/orders/create-order";
-import { trackPaymentStart, trackCTA } from "@/lib/analytics";
-import { paymentContextForProduct } from "@/lib/product-groups";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 
 interface Props {
   slug: string;
-  /** Alleen voor analytics-context, geen invloed op de prijs (die komt
-   * server-side uit create_order/_compute_order_price). */
-  productLabel: string;
 }
 
-export function BuyButton({ slug, productLabel }: Props) {
+export function BuyButton({ slug }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handleBuy() {
     setError(null);
-    trackCTA(`Koop ${productLabel}`, "/app/producten");
     startTransition(async () => {
       // Alleen de slug: geen extendedAccess/commit24m/earlyMember, die
       // gelden uitsluitend voor abonnementen en worden door
@@ -35,11 +29,6 @@ export function BuyButton({ slug, productLabel }: Props) {
         setNeedsProfile(res.reason === "profile_incomplete");
         return;
       }
-      trackPaymentStart({
-        amount: res.amountCents / 100,
-        context: paymentContextForProduct(slug),
-        planVariant: slug,
-      });
       await openCheckout(res.checkoutUrl);
     });
   }

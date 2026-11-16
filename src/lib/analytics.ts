@@ -49,9 +49,11 @@ type EventParams = {
 
 /** Module-privaat: alle call-sites gaan via de getypeerde helpers hieronder. */
 const trackEvent = (eventName: string, params?: EventParams) => {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", eventName, params);
-  }
+  if (typeof window === "undefined" || !window.gtag) return;
+  // Productroute of native app: ga-disable staat aan (AnalyticsGate), dus
+  // een stille no-op, ook als gtag.js na een soft nav nog geladen is.
+  if ((window as unknown as Record<string, unknown>)["ga-disable-G-2VFCDM4KRZ"]) return;
+  window.gtag("event", eventName, params);
 };
 
 export const trackLead = (type: string, value: number = 1) => {
@@ -232,17 +234,6 @@ export const trackCheckoutRejected = (params: {
   });
 };
 
-// ---- Portal login ----
-
-export const trackPortalLogin = (
-  method: "otp" | "oauth" = "otp",
-): void => {
-  trackEvent("portal_login", {
-    event_category: "portal",
-    method,
-  });
-};
-
 // ---- Payment (member side) ----
 
 export const trackPaymentStart = (params: {
@@ -256,25 +247,5 @@ export const trackPaymentStart = (params: {
     currency: "EUR",
     context: params.context,
     plan_variant: params.planVariant,
-  });
-};
-
-/**
- * Aankomst op de bedankpagina na een Mollie-checkout. Arrival-event
- * conform de drie voorwaarden in spec-analytics.md: geen `value`, geen
- * `currency`, de omzet gaat uitsluitend server-side, via het Measurement
- * Protocol purchase-event uit de Mollie-webhook (sendPurchaseToGa4).
- * `order_status` als dimensie houdt de webhook-race zichtbaar: wie
- * terugkeert vóór activatie, komt hier binnen met "pending".
- *
- * Verving payment_success/payment_failed (client-side, mét bedrag), de
- * laatste uitzondering op voorwaarde 3, opgeheven door de conversiebrug.
- */
-export const trackPaymentReturnView = (params: {
-  orderStatus: string;
-}): void => {
-  trackEvent("payment_return_view", {
-    event_category: "payment",
-    order_status: params.orderStatus,
   });
 };

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { getStoredUtm } from "@/lib/utm";
 import { verifyLoginOtp } from "@/lib/actions/auth";
-import { trackPortalLogin } from "@/lib/analytics";
 
 // text-base (16px) is intentional. Anything smaller triggers Safari
 // mobile's auto-zoom on focus, which shifts the login card outside the
@@ -131,7 +130,6 @@ export function LoginForm({ initialError, next }: Props) {
       return;
     }
 
-    trackPortalLogin("otp");
     // Harde navigatie (geen router.push) zodat server components de
     // nieuwe sessie-cookies meteen oppakken, zelfde patroon als de
     // implicit-flow fallback.

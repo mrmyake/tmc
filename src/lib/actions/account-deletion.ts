@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -151,6 +151,7 @@ export async function confirmAccountDeletion(input: {
   // sluit ook de sessie van dit toestel, zodat de volgende navigatie op
   // /login uitkomt.
   await supabase.auth.signOut({ scope: "global" });
+  (await cookies()).delete("tmc_staff");
   revalidatePath("/app/profiel");
 
   const freeze = result.freeze;

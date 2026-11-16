@@ -5,7 +5,6 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { PaymentTracker } from "./PaymentTracker";
 import { StatusPoller } from "@/components/checkout/StatusPoller";
 import { getOwnOrderStatus } from "@/lib/orders/status-actions";
 
@@ -90,9 +89,6 @@ export default async function BedanktPage({
   return (
     <>
       {copy.showConfetti && <Confetti />}
-      {order && (
-        <PaymentTracker status={status} transactionId={order.id} />
-      )}
       <Container className="py-20 max-w-2xl text-center">
         <span className="inline-block text-accent text-xs font-medium uppercase tracking-[0.25em] mb-4">
           {status === "activated"
