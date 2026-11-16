@@ -6,8 +6,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { ContactForm } from "@/components/blocks/ContactForm";
 import { GoogleReviewsBadge } from "@/components/ui/GoogleReviewsBadge";
-import { Button } from "@/components/ui/Button";
-import { QuietLink } from "@/components/ui/QuietLink";
+import { TrackedContactLink } from "@/components/ui/TrackedLink";
 import { SITE, OPENING_HOURS_FALLBACK } from "@/lib/constants";
 import { formatOpeningSchedule } from "@/lib/opening-hours-format";
 import { MarlonPresence } from "@/components/blocks/MarlonPresence";
@@ -60,16 +59,24 @@ export function ContactContent({ presence }: { presence: readonly PresenceWindow
 
                 <div>
                   <span className="tmc-eyebrow block mb-3">Telefoon</span>
-                  <QuietLink href={toTelHref(SITE.phone)}>
+                  <TrackedContactLink
+                    method="phone"
+                    appearance="quiet"
+                    href={toTelHref(SITE.phone)}
+                  >
                     {SITE.phone}
-                  </QuietLink>
+                  </TrackedContactLink>
                 </div>
 
                 <div>
                   <span className="tmc-eyebrow block mb-3">E-mail</span>
-                  <QuietLink href={`mailto:${SITE.email}`}>
+                  <TrackedContactLink
+                    method="email"
+                    appearance="quiet"
+                    href={`mailto:${SITE.email}`}
+                  >
                     {SITE.email}
-                  </QuietLink>
+                  </TrackedContactLink>
                 </div>
 
                 <div>
@@ -90,9 +97,13 @@ export function ContactContent({ presence }: { presence: readonly PresenceWindow
                   <p className="text-text-muted text-sm mb-4">
                     Liever direct chatten? Stuur ons een WhatsApp-bericht.
                   </p>
-                  <Button href={SITE.whatsapp} variant="secondary">
+                  <TrackedContactLink
+                    method="whatsapp"
+                    appearance="button"
+                    href={SITE.whatsapp}
+                  >
                     Open WhatsApp
-                  </Button>
+                  </TrackedContactLink>
                 </div>
               </div>
             </ScrollReveal>

@@ -4,6 +4,8 @@ import { Container } from "./Container";
 import { QuietLink } from "@/components/ui/QuietLink";
 import type { SanitySettings } from "../../../sanity/lib/fetch";
 import { toTelHref } from "@/lib/phone";
+import { TrackedContactLink } from "@/components/ui/TrackedLink";
+import { CookieSettingsButton } from "./CookieSettingsButton";
 
 interface FooterProps {
   settings: SanitySettings;
@@ -84,14 +86,22 @@ export function Footer({ settings }: FooterProps) {
                 {settings.address.postalCode} · {settings.address.city}
               </p>
               <p className="pt-3">
-                <QuietLink href={`mailto:${settings.email}`}>
+                <TrackedContactLink
+                  method="email"
+                  appearance="quiet"
+                  href={`mailto:${settings.email}`}
+                >
                   {settings.email}
-                </QuietLink>
+                </TrackedContactLink>
               </p>
               <p>
-                <QuietLink href={toTelHref(settings.phone)}>
+                <TrackedContactLink
+                  method="phone"
+                  appearance="quiet"
+                  href={toTelHref(settings.phone)}
+                >
                   {settings.phone}
-                </QuietLink>
+                </TrackedContactLink>
               </p>
             </address>
             {settings.instagramUrl && (
@@ -116,6 +126,8 @@ export function Footer({ settings }: FooterProps) {
               Onbegeleide toegang
             </QuietLink>
             <QuietLink href="/privacybeleid">Privacyverklaring</QuietLink>
+            {/* COPY: confirm met Marlon */}
+            <CookieSettingsButton>Cookie-instellingen</CookieSettingsButton>
             <p>
               KvK {settings.kvkNumber} · BTW {settings.btwNumber}
             </p>

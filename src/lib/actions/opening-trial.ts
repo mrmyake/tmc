@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trialBookingMode } from "@/lib/mollie-mode";
 import { sendNotification } from "@/lib/ntfy";
@@ -11,6 +12,8 @@ import { getOpeningTrialPeriod } from "@/lib/opening-trial/period";
 import { recordLeadAttribution } from "@/lib/attribution/record";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
 import type { LeadAttributionInput } from "@/lib/attribution/params";
+import { storeTrialBookingGaMeta, type GaSubmitMeta } from "@/lib/ga-mp/store";
+import { sendTrialBookedToGa4 } from "@/lib/trial-bookings/ga-trial-booked";
 import {
   OPENING_GENERIC_ERROR,
   OPENING_RATE_LIMITED_MESSAGE,
@@ -47,6 +50,12 @@ interface StartOpeningTrialBookingInput {
    * gevalideerd en weggeschreven; laat de boeking nooit falen.
    */
   attribution?: LeadAttributionInput;
+  /**
+   * GA4-id's van de sessie en de advertentiekeuze uit de cookiebanner
+   * (spec-conversiemeting.md), voor het server-side event trial_booked. Gaat
+   * met losse updates op de rij, na de RPC; laat de boeking nooit falen.
+   */
+  ga?: GaSubmitMeta;
 }
 
 const NAME_MAX = 120;
@@ -148,6 +157,14 @@ export async function startOpeningTrialBooking(
   }
 
   const trialBookingId = result.trial_booking_id ?? "";
+
+  // Conversiemeting (spec-conversiemeting.md): GA4-id's en advertentiekeuze
+  // met losse updates na de RPC, daarna het server-side trial_booked na de
+  // respons. Beide throwen nooit; een mislukte update wordt alleen gelogd.
+  await storeTrialBookingGaMeta(admin, trialBookingId, input.ga);
+  after(async () => {
+    await sendTrialBookedToGa4({ trialBookingId });
+  });
 
   // Attributie na de commit van de boeking; logt en gaat door bij een fout.
   await recordLeadAttribution({

@@ -1,6 +1,7 @@
 "use server";
 
 import { SequenceType } from "@mollie/api-client";
+import { writeAdConsent } from "@/lib/ga-mp/send";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileCompleteForCheckout } from "@/lib/checkout/profile-complete";
@@ -50,6 +51,13 @@ export interface CreateOrderSelection {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /**
+   * De advertentiekeuze uit de cookiebanner op het moment van de checkout
+   * (spec-conversiemeting.md): granted, denied of unknown. Gaat met een
+   * eigen losse update naar tmc.orders.ad_consent en bepaalt ad_user_data op
+   * het server-side purchase-event. Alleen vanaf de publieke site (PayStage).
+   */
+  adConsent?: string;
   /**
    * Terugkeerdoel na Mollie (workstream A, spec-ios-app.md): "app" laat
    * de redirectUrl op het custom scheme uitkomen zodat de native app
@@ -200,6 +208,14 @@ export async function createOrderAndCheckout(
       } catch (gaErr) {
         console.error("[createOrderAndCheckout] ga attribution write", gaErr);
       }
+    }
+
+    // Advertentiekeuze (spec-conversiemeting.md): een EIGEN update, nooit
+    // samen met ga_client_id. Ontbreekt de kolom nog (migratie niet gepusht),
+    // dan faalt alleen deze write en blijft de attributie hierboven intact.
+    // writeAdConsent throwt nooit en logt alleen.
+    if (selection.adConsent !== undefined) {
+      await writeAdConsent(admin, "orders", orderId, selection.adConsent, "createOrderAndCheckout");
     }
 
     const mollie = getMollieClient(mode);

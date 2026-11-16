@@ -46,7 +46,7 @@ export function YogaWaitlistForm() {
       /* lead-routes falen stil; we tonen alsnog de bevestiging */
     }
 
-    trackLead("yoga_waitlist", 5);
+    trackLead("yoga_waitlist");
     setStatus("done");
   };
 

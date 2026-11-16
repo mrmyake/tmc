@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
-import { trackLead, trackFormStart } from "@/lib/analytics";
+import { trackNewsletterSignup, trackFormStart } from "@/lib/analytics";
 
 export function InfoOptInBanner() {
   const [visible, setVisible] = useState(false);
@@ -61,16 +61,18 @@ export function InfoOptInBanner() {
     };
 
     try {
-      await fetch("/api/leads/info", {
+      const res = await fetch("/api/leads/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      // Pas na een 2xx: zonder geslaagde aanmelding geen event
+      // (spec-conversiemeting.md).
+      if (res.ok) trackNewsletterSignup("banner");
     } catch {
       /* continue */
     }
 
-    trackLead("info_optin", 1);
     setLoading(false);
     setSubmitted(true);
   };

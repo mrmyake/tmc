@@ -51,7 +51,7 @@ export function OverstapLeadForm() {
       return;
     }
 
-    trackLead("overstap_aanvraag", 1);
+    trackLead("overstap");
     setStatus("done");
   }
 

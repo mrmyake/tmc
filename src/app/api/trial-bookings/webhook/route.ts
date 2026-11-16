@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getMollieClient, type MollieMode } from "@/lib/mollie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/events/emit";
@@ -13,6 +13,7 @@ import {
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 import { cancellationReasonForMollieStatus } from "@/lib/trial-expiry";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
+import { sendTrialBookedToGa4 } from "@/lib/trial-bookings/ga-trial-booked";
 
 export async function POST(request: Request) {
   try {
@@ -243,6 +244,16 @@ export async function POST(request: Request) {
         );
         return NextResponse.json({ ok: true });
       }
+
+      // Conversiemeting (spec-conversiemeting.md): server-side GA4
+      // trial_booked. De rijtelling van de update hierboven is het
+      // exactly-once-signaal; pas na de controle op een geannuleerde sessie,
+      // want een direct geannuleerde boeking is geen conversie. value is het
+      // bedrag dat Mollie verwerkte. Na de respons via after(), daarbinnen
+      // ge-awaited; de helper throwt nooit.
+      after(async () => {
+        await sendTrialBookedToGa4({ trialBookingId: trial.id, amountCents });
+      });
 
       await sendNotification(
         "Nieuwe proefles-boeking!",

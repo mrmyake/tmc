@@ -9,6 +9,8 @@ interface QuietLinkProps {
   className?: string;
   ariaCurrent?: "page";
   ariaLabel?: string;
+  /** Alleen bruikbaar vanuit een Client Component (bv. TrackedContactLink). */
+  onClick?: () => void;
 }
 
 export function QuietLink({
@@ -19,6 +21,7 @@ export function QuietLink({
   className = "",
   ariaCurrent,
   ariaLabel,
+  onClick,
 }: QuietLinkProps) {
   const color = active ? "text-text" : "text-text-muted";
   const underlineState = active
@@ -54,6 +57,7 @@ export function QuietLink({
         rel="noopener noreferrer"
         aria-label={ariaLabel}
         className={classes}
+        onClick={onClick}
       >
         {content}
       </a>
@@ -66,6 +70,7 @@ export function QuietLink({
       aria-current={ariaCurrent}
       aria-label={ariaLabel}
       className={classes}
+      onClick={onClick}
     >
       {content}
     </Link>

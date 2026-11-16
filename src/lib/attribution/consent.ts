@@ -7,17 +7,14 @@ import {
 } from "./params";
 
 /**
- * Client-side: de bestaande bannerkeuze (src/lib/consent.ts, localStorage
- * tmc_cookie_consent) naar analytics_consent. Alleen lezen van de bestaande sleutel,
- * geen nieuwe opslag.
+ * Client-side: de bannerkeuze voor analytische cookies (src/lib/consent.ts,
+ * localStorage tmc_cookie_consent) naar analytics_consent. Alleen lezen.
  *
- * De banner kent een categorie (analytische cookies, analytics_storage); de
- * advertentiecategorieen van Consent Mode (ad_storage, ad_user_data,
- * ad_personalization) staan in de layout vast op denied. Accepteren wordt
- * hier dus granted, weigeren denied, geen keuze unknown. Dit is de keuze voor
- * analytische cookies en uitdrukkelijk geen advertentietoestemming: nooit
- * gebruiken als bron voor ad_user_data of ad_personalization
- * (spec-marketing-attribution.md).
+ * Sinds spec-conversiemeting.md kent de banner twee categorieen. Deze functie
+ * leest uitsluitend de analytische: granted, denied, of unknown zonder keuze.
+ * Dat is uitdrukkelijk geen advertentietoestemming. De advertentiekeuze staat
+ * los hiervan in ad_consent (adConsentFromBanner) op tmc.trial_bookings en
+ * tmc.orders; lead_attributions krijgt bewust geen ad_consent.
  */
 export function analyticsConsentFromBanner(): AnalyticsConsent {
   try {

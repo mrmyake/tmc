@@ -12,7 +12,7 @@ Advertenties (Google Ads, Meta) linken direct naar `/proefles` of `/proefles/gra
 - **Capture**: de server pages van `/proefles`, `/proefles/gratis`, `/proefles/boeken` en `/proefles/code` lezen de parameters uit `searchParams` (`resolveAttribution` in `src/lib/attribution/params.ts`) en geven ze als props aan de client-componenten. Onbekende sleutels vallen weg, waarden worden getrimd en begrensd (512 tekens), klik-ID's alleen `[A-Za-z0-9_.-]`.
 - **Doorgifte**: alleen via de URL en React-props. De kaarten op `/proefles`, de tabs op `/proefles/gratis` en de dagstrip van de slotkiezer (gratis en code) plakken de parameters aan hun href (`withAttribution`); de redirect van `/proefles/gratis` naar `/proefles` buiten de periode draagt ze mee (de redirect van `/proefles/boeken` naar `/proefles/gratis` bestaat sinds PR #296 niet meer). De codestap op `/proefles/code` ververst dezelfde URL. Het terugbelformulier blijft op `/proefles`. Zonder parameters blijven alle links precies zoals ze waren.
 - **Landingspad**: parameter `lp`, gezet bij de eerste /proefles-pagina met parameters (pad plus volledige querystring) en daarna ongewijzigd meegedragen. Ontbreekt `lp` of is hij ongeldig (begint niet met `/`, begint met `//`, bevat protocol, host, whitespace of besturingstekens, langer dan 2048), dan geldt de huidige URL als landing. Een ongeldige `lp` laat de insert nooit falen: hij wordt weggelaten.
-- **Consentmoment**: bij de inzending leest de client de bestaande bannerkeuze (`getConsent()` uit `src/lib/consent.ts`, localStorage `tmc_cookie_consent`, alleen lezen) en stuurt die mee als `analytics_consent`: `granted` bij Accepteren, `denied` bij Weigeren, `unknown` zonder keuze. De server valideert tegen de drie waarden; alles anders wordt `unknown`.
+- **Consentmoment**: bij de inzending leest de client de bannerkeuze voor analytische cookies (`getConsent()` uit `src/lib/consent.ts`, localStorage `tmc_cookie_consent`, alleen lezen) en stuurt die mee als `analytics_consent`: `granted`, `denied`, of `unknown` zonder keuze. De server valideert tegen de drie waarden; alles anders wordt `unknown`. Sinds `spec-conversiemeting.md` kent de banner ook advertentiemeting; die keuze gaat los hiervan als `ad_consent` naar de proefboeking, niet naar deze tabel.
 - **Server-side insert**: `recordLeadAttribution` (`src/lib/attribution/record.ts`, service_role) valideert opnieuw, schrijft alleen als er minstens een advertentie- of campagneparameter is, gebruikt `on conflict (source_type, source_id) do nothing` en logt elke fout zonder te throwen. Aangeroepen na succes: in `startOpeningTrialBooking` na de RPC, in `startTrialBooking` na `redeem_trial_code` (code) of na een geslaagde `payments.create` (betaald; een mislukte betaling ruimt de pending-rij op en krijgt dus ook geen attributierij), en in `/api/proefles` na de insert met `.select("id")`.
 - **Tabel `tmc.lead_attributions`** (migratie `20261011130000_lead_attributions.sql`): `id`, `created_at`, `source_type` (`trial_booking` of `trial_request`), `source_id` (geen FK: twee brontabellen), `email` (lowercase, max 254), de negen parameterkolommen (max 512), `landing_path` (begint met `/`, max 2048), `analytics_consent` (`granted`, `denied`, `unknown`, default `unknown`), check dat minstens een parameter gevuld is. Unieke index op `(source_type, source_id)`, index op `lower(email)` en op `created_at desc`. RLS aan met een `is_admin()`-leespolicy; grants uitsluitend `service_role`, niets voor `anon` of `authenticated`.
 - **Admin-export**: knop "Attributie CSV" in de Boekingen-toolbar van `/app/admin/proeflessen` (`AttributieCsvExport`, server action `exportLeadAttributionsCsv` achter `requireAdmin`). Beide brontypen in een bestand met status en bron van de gekoppelde proefboeking (`pending`, `paid`, ...; `paid`, `code`, `opening`) of de status van de terugbelaanvraag, plus `analytics_consent` (kolomkop `analytics_consent`). Testboekingen (`is_test`) en rijen zonder bestaande bron blijven weg. Geen nieuw scherm.
@@ -20,15 +20,20 @@ Advertenties (Google Ads, Meta) linken direct naar `/proefles` of `/proefles/gra
 
 ## Consentmapping
 
-De banner (`CookieConsent.tsx`) kent een categorie: analytische cookies (`analytics_storage`). Consent Mode v2 in de layout zet `ad_storage`, `ad_user_data` en `ad_personalization` vast op `denied`; de banner wijzigt alleen `analytics_storage`. `analytics_consent` legt dus de keuze voor analytische cookies vast en is uitdrukkelijk geen advertentietoestemming:
+Sinds `spec-conversiemeting.md` kent de banner (`CookieConsent.tsx`) twee categorieen: analytische cookies (`analytics_storage`) en advertentiemeting (`ad_storage` en `ad_user_data`). `ad_personalization` blijft altijd `denied`. De keuze staat in localStorage onder `tmc_cookie_consent` in formaat v2 (`{"v":2,"analytics":...,"ads":...}`); het oude formaat (de kale string `granted` of `denied`) ging alleen over analytisch en is nooit advertentietoestemming. De volledige mapping, inclusief het oude formaat, staat in `spec-conversiemeting.md` ("Consentmapping").
 
-| Bannertoestand | `tmc_cookie_consent` | `analytics_consent` |
+`analytics_consent` op `tmc.lead_attributions` legt uitsluitend de analytische keuze vast en is uitdrukkelijk geen advertentietoestemming:
+
+| Bannertoestand | Analytische keuze | `analytics_consent` |
 |---|---|---|
-| Accepteren | `granted` | `granted` |
-| Weigeren | `denied` | `denied` |
-| Geen keuze (banner nog open, of localStorage geblokkeerd) | ontbreekt | `unknown` |
+| Accepteren, of Zelf kiezen met analytisch aan | granted | `granted` |
+| Weigeren, of Zelf kiezen met analytisch uit | denied | `denied` |
+| Oude keuze `granted` of `denied` (tot de banner opnieuw is beantwoord) | de oude keuze | `granted` of `denied` |
+| Geen keuze (banner nog open, onleesbare waarde of localStorage geblokkeerd) | ontbreekt | `unknown` |
 
-Een server-side upload van conversies naar Google Ads of Meta mag pas nadat de banner een eigen advertentiecategorie heeft (en de banner-tekst "Geen advertentiecookies, geen tracking door derden" plus de Consent Mode-defaults zijn herzien) en er een aparte kolom `ad_consent` bestaat die die advertentiekeuze vastlegt. `analytics_consent` mag nooit als bron voor `ad_user_data` of `ad_personalization` worden gebruikt; `granted` betekent hier uitsluitend "heeft de analytische cookies geaccepteerd".
+De advertentiekeuze staat niet in deze tabel maar als `ad_consent` op `tmc.trial_bookings` en `tmc.orders`, en bepaalt daar `ad_user_data` op de server-side GA4-events `trial_booked` en `purchase`. `tmc.lead_attributions` krijgt bewust geen `ad_consent`. `analytics_consent` mag nooit als bron voor `ad_user_data` of `ad_personalization` worden gebruikt; `granted` betekent hier uitsluitend "heeft de analytische cookies geaccepteerd".
+
+Een server-side upload van conversies naar Google Ads of Meta (offline conversion import, Conversions API) is nog steeds niet gebouwd. De twee voorwaarden die hier eerder stonden, een eigen advertentiecategorie in de banner en een kolom die de advertentiekeuze vastlegt, zijn met `spec-conversiemeting.md` vervuld voor proefboekingen en orders; voor een upload op basis van `lead_attributions` (klik-ID's) moet de advertentiekeuze eerst ook daar beschikbaar zijn, bijvoorbeeld via de koppeling met de proefboeking.
 
 ## Uitbreiding: intake 12 weken programma
 
@@ -50,7 +55,7 @@ Een server-side upload van conversies naar Google Ads of Meta mag pas nadat de b
 ## Open punten
 
 - **Bewaartermijn**: geen automatische opruiming in deze PR. De rijen bevatten e-mail plus klik-ID's; een termijn (bijvoorbeeld 13 maanden, gelijk aan de analytics-retentie) en een cron horen in een volgende PR, samen met de tekst in de privacyverklaring.
-- **Advertentiecategorie in de banner en kolom `ad_consent`**: beide zijn voorwaarde voor elke upload met `ad_user_data` of `ad_personalization` (zie Consentmapping).
+- **Advertentiecategorie in de banner en kolom `ad_consent`**: gebouwd in `spec-conversiemeting.md` (banner met advertentiemeting, `ad_consent` op `tmc.trial_bookings` en `tmc.orders`). Voor een upload op basis van de klik-ID's in `lead_attributions` ontbreekt de advertentiekeuze op die tabel nog (zie Consentmapping).
 - **Koppeling met `tmc.profiles`**: `lower(email)` is de brug; een query of rapport dat proefles-leads aan latere leden koppelt is bewust nog niet gebouwd.
 - **Status van betaalde boekingen**: de attributierij ontstaat bij `pending`; de export leest de actuele status via de join. Een verlopen of mislukte betaling (`cancelled` via de expire-cron) blijft als rij staan met die status.
 

@@ -122,11 +122,10 @@ export function ProeflesContent({ attribution = {} }: { attribution?: Attributio
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    trackLead("proefles_booking", 20);
                     const form = e.currentTarget;
                     const formData = new FormData(form);
                     try {
-                      await fetch("/api/proefles", {
+                      const res = await fetch("/api/proefles", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -134,6 +133,9 @@ export function ProeflesContent({ attribution = {} }: { attribution?: Attributio
                           attribution: leadAttributionForSubmit(attribution),
                         }),
                       });
+                      // Pas na een 2xx: een mislukte aanvraag is geen lead
+                      // (spec-conversiemeting.md).
+                      if (res.ok) trackLead("terugbelverzoek");
                     } catch {
                       /* continue */
                     }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
-import { trackFormStart, trackLead } from "@/lib/analytics";
+import { trackFormStart } from "@/lib/analytics";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { startOpeningTrialBooking } from "@/lib/actions/opening-trial";
 import {
@@ -24,6 +24,7 @@ import { SlotFooter } from "@/app/app/rooster/_components/vrij-trainen/SlotFoote
 import { useSlotSelection } from "@/app/app/rooster/_components/vrij-trainen/useSlotSelection";
 import { CodeInfoBanner } from "../_components/CodeInfoBanner";
 import { leadAttributionForSubmit } from "@/lib/attribution/consent";
+import { readGaSubmitMeta } from "@/lib/ga-submit-meta";
 import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
 
 /** Een proefuur vrij trainen is altijd precies een uur; de server dwingt dat af. */
@@ -131,6 +132,10 @@ export function VisitorSlotPicker(props: Props) {
     }
     setBusy(true);
     setError("");
+    // Conversiemeting (spec-conversiemeting.md): GA4-id's en advertentiekeuze
+    // van dit moment gaan mee naar de server action, die het event
+    // trial_booked server-side vuurt. Er is geen client-side lead-event meer.
+    const gaMeta = await readGaSubmitMeta();
 
     if (props.variant === "opening") {
       const result = await startOpeningTrialBooking({
@@ -140,6 +145,7 @@ export function VisitorSlotPicker(props: Props) {
         email,
         phone,
         attribution: leadAttributionForSubmit(attribution),
+        ga: gaMeta,
       });
       if (!result.ok) {
         setBusy(false);
@@ -158,8 +164,6 @@ export function VisitorSlotPicker(props: Props) {
         setError(result.error);
         return;
       }
-      // Bestaand event, waarde 0 (spec-analytics.md eventregister).
-      trackLead("trial_booking", 0);
       window.location.assign(result.redirectUrl);
       return;
     }
@@ -173,6 +177,7 @@ export function VisitorSlotPicker(props: Props) {
       mode: "code",
       returnTarget: returnTargetForThisClient(),
       attribution: leadAttributionForSubmit(attribution),
+      ga: gaMeta,
     });
     if (!result.ok) {
       setBusy(false);
@@ -192,8 +197,6 @@ export function VisitorSlotPicker(props: Props) {
       return;
     }
     if (result.free) {
-      // Bestaand event, waarde 0 (spec-analytics.md eventregister).
-      trackLead("trial_booking", 0);
       window.location.assign(result.redirectUrl);
     }
   }
