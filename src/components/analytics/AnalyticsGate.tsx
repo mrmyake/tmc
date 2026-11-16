@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { DeferredAnalytics } from "./DeferredAnalytics";
 import {
   ensureConsentDefaults,
+  installHistoryGuard,
   syncGate,
   type GateWindow,
 } from "@/lib/analytics-gate-core";
@@ -39,6 +40,10 @@ export function AnalyticsGate({ gaId, isProduction }: Props) {
     shouldLoad = syncGate(win, pathname, Capacitor);
     if (shouldLoad) ensureConsentDefaults(win);
   }
+
+  useEffect(() => {
+    installHistoryGuard(window as unknown as Parameters<typeof installHistoryGuard>[0], Capacitor);
+  }, []);
 
   useEffect(() => {
     if (!shouldLoad) {

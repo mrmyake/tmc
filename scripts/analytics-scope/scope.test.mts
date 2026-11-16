@@ -8,6 +8,7 @@ import {
   hasStaffCookie,
   isStaffRole,
   disableKey,
+  installHistoryGuard,
   type GateWindow,
 } from "../../src/lib/analytics-gate-core.ts";
 
@@ -117,4 +118,21 @@ test("staff-rol: alleen admin en trainer", () => {
   assert.equal(isStaffRole("trainer"), true);
   assert.equal(isStaffRole("member"), false);
   assert.equal(isStaffRole(undefined), false);
+});
+
+test("history guard: ga-disable volgt de bestemming voor de history-call", () => {
+  const seen: unknown[] = [];
+  const win: any = {
+    location: { href: "https://x.nl/prijzen" },
+    history: {
+      pushState: () => { seen.push(win["ga-disable-G-2VFCDM4KRZ"]); },
+      replaceState: () => {},
+    },
+  };
+  installHistoryGuard(win, { isNativePlatform: () => false });
+  installHistoryGuard(win, { isNativePlatform: () => false });
+  win.history.pushState({}, "", "/login");
+  win.history.pushState({}, "", "/prijzen");
+  win.history.pushState({}, "", "/app/rooster?x=1");
+  assert.deepEqual(seen, [true, false, true]);
 });

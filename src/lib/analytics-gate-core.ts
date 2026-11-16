@@ -13,6 +13,7 @@ export interface GateWindow {
   dataLayer?: unknown[];
   gtag?: (...args: unknown[]) => void;
   __tmcConsentInit?: boolean;
+  __tmcHistoryGuard?: boolean;
   localStorage?: { getItem(key: string): string | null };
   [key: string]: unknown;
 }
@@ -105,4 +106,41 @@ export function staffCookieClear(): string {
 
 export function isStaffRole(role: string | null | undefined): boolean {
   return role === "admin" || role === "trainer";
+}
+
+/**
+ * gtag.js stuurt via Enhanced Measurement een page_view bij elke
+ * history-wijziging, op het moment van pushState en dus voordat React de
+ * nieuwe pathname rendert. Zonder ingreep lekt daardoor een hit bij een
+ * soft nav naar een productroute. Deze wrapper zet `ga-disable` op basis
+ * van de BESTEMMING voordat de history-call doorgaat. Idempotent.
+ */
+interface HistoryLike {
+  pushState: (...a: unknown[]) => unknown;
+  replaceState: (...a: unknown[]) => unknown;
+}
+
+export function installHistoryGuard(
+  win: GateWindow & { history?: HistoryLike; location?: { href: string } },
+  native: NativeProbe,
+): void {
+  if (win.__tmcHistoryGuard || !win.history || !win.location) return;
+  win.__tmcHistoryGuard = true;
+  const history = win.history;
+  const href = () => win.location!.href;
+  for (const method of ["pushState", "replaceState"] as const) {
+    const original = history[method].bind(history);
+    history[method] = (...args: unknown[]) => {
+      try {
+        const url = args[2];
+        if (url != null) {
+          const dest = new URL(String(url), href()).pathname;
+          syncGate(win, dest, native);
+        }
+      } catch {
+        /* ongeldige url: laat de history-call zelf falen */
+      }
+      return original(...args);
+    };
+  }
 }
