@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
@@ -7,6 +7,7 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
+import { sendTrialBookedToGa4 } from "@/lib/trial-bookings/ga-trial-booked";
 import {
   decideTrialExpiry,
   tripsCircuitBreaker,
@@ -60,7 +61,13 @@ type PendingTrial = {
 };
 
 type Lookup =
-  | { trial: PendingTrial; payment: MolliePaymentSnapshot; hasPaymentRow: boolean }
+  | {
+      trial: PendingTrial;
+      payment: MolliePaymentSnapshot;
+      hasPaymentRow: boolean;
+      /** Het bedrag dat Mollie verwerkte (voor GA4 trial_booked); null bij een 404. */
+      amountCents: number | null;
+    }
   | { trial: PendingTrial; error: unknown };
 
 function isMollieNotFound(err: unknown): boolean {
@@ -122,6 +129,7 @@ export async function GET(req: Request) {
         trial,
         payment: { found: true, status: payment.status, expiresAt: payment.expiresAt ?? null },
         hasPaymentRow: false,
+        amountCents: Math.round(parseFloat(payment.amount.value) * 100),
       });
     } catch (err) {
       if (isMollieNotFound(err)) {
@@ -131,7 +139,12 @@ export async function GET(req: Request) {
           .select("id")
           .eq("mollie_payment_id", trial.mollie_payment_id)
           .maybeSingle();
-        lookups.push({ trial, payment: { found: false }, hasPaymentRow: Boolean(paymentRow) });
+        lookups.push({
+          trial,
+          payment: { found: false },
+          hasPaymentRow: Boolean(paymentRow),
+          amountCents: null,
+        });
       } else {
         console.error("[cron/expire-trial-bookings] mollie lookup failed", trial.id, err);
         lookups.push({ trial, error: err });
@@ -214,6 +227,17 @@ export async function GET(req: Request) {
         paid += 1;
         continue;
       }
+      // Conversiemeting (spec-conversiemeting.md): zelfde helper en zelfde
+      // plek als de webhook, na de geslaagde guarded update en na de
+      // controle op een geannuleerde sessie. Zonder dit zou precies de groep
+      // met een gemiste webhook geen trial_booked krijgen.
+      const paidAmountCents = lookup.amountCents;
+      after(async () => {
+        await sendTrialBookedToGa4({
+          trialBookingId: trial.id,
+          amountCents: paidAmountCents,
+        });
+      });
       await sendNotification(
         "Nieuwe proefles-boeking!",
         `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,

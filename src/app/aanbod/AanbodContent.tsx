@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { PortableText } from "@portabletext/react";
+import { portableTextComponents } from "@/components/ui/portable-text";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -302,6 +303,7 @@ export function AanbodContent({ images, faqs }: AanbodContentProps) {
                       </h3>
                       <div className="text-text-muted text-sm leading-relaxed prose-invert">
                         <PortableText
+                          components={portableTextComponents}
                           value={
                             faq.answer as Parameters<
                               typeof PortableText

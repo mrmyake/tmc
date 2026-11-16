@@ -5,7 +5,7 @@ import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { Button } from "@/components/ui/Button";
-import { QuietLink } from "@/components/ui/QuietLink";
+import { TrackedContactLink } from "@/components/ui/TrackedLink";
 import { formatOpeningSchedule } from "@/lib/opening-hours-format";
 import { MarlonPresence } from "@/components/blocks/MarlonPresence";
 import type { PresenceWindow } from "@/lib/presence";
@@ -77,17 +77,23 @@ export function ContactSection({ settings, hours, presence }: ContactSectionProp
                 <span className="tmc-eyebrow block mb-3">Direct contact</span>
                 <p className="text-text-muted text-sm mb-4">
                   Stuur ons een bericht via WhatsApp, of mail naar{" "}
-                  <QuietLink
+                  <TrackedContactLink
+                    method="email"
+                    appearance="quiet"
                     href={`mailto:${settings.email}`}
                     className="inline"
                   >
                     {settings.email}
-                  </QuietLink>
+                  </TrackedContactLink>
                   .
                 </p>
-                <Button href={whatsappUrl} variant="secondary">
+                <TrackedContactLink
+                  method="whatsapp"
+                  appearance="button"
+                  href={whatsappUrl}
+                >
                   WhatsApp ons
-                </Button>
+                </TrackedContactLink>
               </div>
 
               <div className="pt-2">

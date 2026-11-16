@@ -37,15 +37,17 @@ export function ContactForm() {
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        trackLead("contact_form", 10);
         const form = e.currentTarget;
         const formData = new FormData(form);
         try {
-          await fetch("/api/contact", {
+          const res = await fetch("/api/contact", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(Object.fromEntries(formData.entries())),
           });
+          // Pas na een 2xx: een mislukte verzending is geen lead
+          // (spec-conversiemeting.md).
+          if (res.ok) trackLead("contact_form");
         } catch {
           /* continue */
         }

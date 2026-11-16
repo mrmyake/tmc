@@ -5,6 +5,8 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { Field, fieldInputClasses } from "@/components/ui/Field";
 import {
+  trackLead,
+  trackNewsletterSignup,
   trackYogaTestBookClick,
   trackYogaTestComplete,
   trackYogaTestEmailSubmit,
@@ -511,6 +513,10 @@ function MailBlock({
         setBusy(false);
         return;
       }
+      // Pas na een 2xx (spec-conversiemeting.md): de lead, en de
+      // nieuwsbrief-aanmelding alleen als de tips-opt-in is aangevinkt.
+      trackLead("yoga_quiz");
+      if (optIn) trackNewsletterSignup("yoga_quiz");
       setDoneName(name);
     } catch {
       setError(resultCopy.mailError);

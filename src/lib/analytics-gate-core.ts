@@ -4,10 +4,10 @@
  * Zie `spec-analytics-scope.md` en `src/lib/analytics-scope.ts`.
  */
 import { isMeasuredPath } from "@/lib/analytics-scope";
+import { CONSENT_KEY, consentModeState, parseStoredConsent } from "@/lib/consent-core";
 
 export const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
 export const STAFF_COOKIE = "tmc_staff";
-const CONSENT_KEY = "tmc_cookie_consent";
 
 export interface GateWindow {
   dataLayer?: unknown[];
@@ -53,8 +53,11 @@ function safeNative(native: NativeProbe): boolean {
 }
 
 /**
- * Consent Mode v2 defaults, exact dezelfde inhoud als het vroegere
- * head-script in layout.tsx. Maximaal een keer per page lifecycle.
+ * Consent Mode v2 defaults. Maximaal een keer per page lifecycle. De
+ * opgeslagen keuze (formaat v2, zie consent-core.ts) bepaalt de start:
+ * analytics_storage volgt de analytische keuze, ad_storage en ad_user_data
+ * de advertentiekeuze. Een oude waarde is nooit advertentietoestemming, en
+ * ad_personalization blijft altijd denied (geen remarketing).
  */
 export function ensureConsentDefaults(win: GateWindow): void {
   if (win.__tmcConsentInit) return;
@@ -72,12 +75,8 @@ export function ensureConsentDefaults(win: GateWindow): void {
   } catch {
     /* localStorage geblokkeerd */
   }
-  const state = stored === "granted" ? "granted" : "denied";
   win.gtag("consent", "default", {
-    analytics_storage: state,
-    ad_storage: "denied",
-    ad_user_data: "denied",
-    ad_personalization: "denied",
+    ...consentModeState(parseStoredConsent(stored)),
     wait_for_update: 500,
   });
 }

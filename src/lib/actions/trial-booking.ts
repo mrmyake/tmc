@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { PaymentMethod } from "@mollie/api-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
@@ -39,6 +40,9 @@ import {
 import { buildReturnUrl, isReturnTarget, type ReturnTarget } from "@/lib/native/return-url";
 import { recordLeadAttribution } from "@/lib/attribution/record";
 import type { LeadAttributionInput } from "@/lib/attribution/params";
+import { dropInSlugForPillar } from "@/lib/trial-pricing";
+import { storeTrialBookingGaMeta, type GaSubmitMeta } from "@/lib/ga-mp/store";
+import { sendTrialBookedToGa4 } from "@/lib/trial-bookings/ga-trial-booked";
 
 export type StartTrialBookingResult =
   | { ok: true; free: false; checkoutUrl: string }
@@ -50,28 +54,6 @@ export type StartTrialBookingResult =
    * niet meer boekbaar, terug naar de sessiekiezer (code blijft geldig).
    */
   | { ok: false; error: string; step?: "code" | "session" };
-
-/**
- * Catalogusslug per pillar (geen apart proefles-tarief, besluit
- * spec-community-growth.md §1: de proefles betaalt gewoon het drop-in-
- * tarief). yoga_mobility en kettlebell delen dezelfde 'drop_in'-rij (die
- * twee tarieven zijn altijd gelijk geweest, zie tmc.catalogue-seed).
- * vrij_trainen heeft bewust geen drop-in-slug en is dus niet boekbaar als
- * proefles.
- */
-function dropInSlugForPillar(pillar: string): string | null {
-  switch (pillar) {
-    case "yoga_mobility":
-    case "kettlebell":
-      return "drop_in";
-    case "kids":
-      return "drop_in_kids";
-    case "senior":
-      return "drop_in_senior";
-    default:
-      return null;
-  }
-}
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.themovementclub.nl";
@@ -106,6 +88,13 @@ interface StartTrialBookingInput {
    * weggeschreven; laat de boeking nooit falen.
    */
   attribution?: LeadAttributionInput;
+  /**
+   * GA4-id's van de sessie en de advertentiekeuze uit de cookiebanner
+   * (spec-conversiemeting.md), voor het server-side event trial_booked. Gaat
+   * met losse updates op de rij, na de insert of RPC; laat de boeking nooit
+   * falen.
+   */
+  ga?: GaSubmitMeta;
 }
 
 // COPY: confirm met Marlon
@@ -187,6 +176,7 @@ interface RedeemArgs {
   /** Vrij-trainen-code: start van het proefuur (ISO), anders null. */
   slotStartAt: string | null;
   attribution: LeadAttributionInput | undefined;
+  ga: GaSubmitMeta | undefined;
 }
 
 /**
@@ -280,6 +270,14 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
 
   const trialBookingId = result.trial_booking_id ?? "";
   const cancelToken = result.cancel_token ?? "";
+
+  // Conversiemeting (spec-conversiemeting.md): GA4-id's en advertentiekeuze
+  // met losse updates na de RPC, daarna het server-side trial_booked na de
+  // respons. Beide throwen nooit; een mislukte update wordt alleen gelogd.
+  await storeTrialBookingGaMeta(admin, trialBookingId, args.ga);
+  after(async () => {
+    await sendTrialBookedToGa4({ trialBookingId });
+  });
 
   // Attributie na de commit van de boeking; logt en gaat door bij een fout.
   await recordLeadAttribution({
@@ -435,6 +433,7 @@ export async function startTrialBooking(
       isTest: trialBookingMode() === "test",
       slotStartAt: input.slotStartAt ?? null,
       attribution: input.attribution,
+      ga: input.ga,
     });
   }
 
@@ -480,6 +479,7 @@ export async function startTrialBooking(
       isTest: mode === "test",
       slotStartAt: null,
       attribution: input.attribution,
+      ga: input.ga,
     });
   }
 
@@ -516,6 +516,12 @@ export async function startTrialBooking(
     console.error("[startTrialBooking] insert failed", insertErr);
     return { ok: false, error: "Kon boeking niet opslaan." };
   }
+
+  // Conversiemeting (spec-conversiemeting.md): GA4-id's en advertentiekeuze
+  // met losse updates na de insert, nooit in de insert zelf. De webhook (of
+  // de cron) vuurt trial_booked pas bij de overgang naar paid en leest ze
+  // dan van de rij. Throwt nooit; een mislukte update wordt alleen gelogd.
+  await storeTrialBookingGaMeta(admin, trial.id, input.ga);
 
   const amountValue = (priceCents / 100).toFixed(2);
   const url = siteUrl();

@@ -22,7 +22,8 @@ import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
-import { QuietLink } from "@/components/ui/QuietLink";
+import { TrackedContactLink } from "@/components/ui/TrackedLink";
+import { CookieSettingsButton } from "@/components/layout/CookieSettingsButton";
 import { SITE } from "@/lib/constants";
 
 const LAST_UPDATED = "2 juli 2026";
@@ -82,9 +83,13 @@ export function PrivacybeleidContent() {
               <p>
                 Voor alle vragen over deze verklaring of over hoe we met je
                 gegevens omgaan, kun je terecht bij{" "}
-                <QuietLink href={`mailto:${SITE.email}`}>
+                <TrackedContactLink
+                  method="email"
+                  appearance="quiet"
+                  href={`mailto:${SITE.email}`}
+                >
                   {SITE.email}
-                </QuietLink>
+                </TrackedContactLink>
                 .
               </p>
             </PolicySection>
@@ -145,8 +150,20 @@ export function PrivacybeleidContent() {
                 advertentie (van Google of Meta), de campagnegegevens uit de
                 link, de pagina waarop je binnenkwam en je keuze voor analytische
                 cookies uit de cookiebanner op dat moment, zodat we weten welke advertenties
-                tot proeflessen leiden. We sturen deze gegevens op dit moment
-                niet terug naar Google of Meta.
+                tot proeflessen leiden. Deze gegevens sturen we niet terug naar
+                Google of Meta.
+              </p>
+              {/* COPY: confirm met Marlon */}
+              <p>
+                Boek je een proefles of sluit je een abonnement af, dan melden
+                we die boeking of aankoop wel aan Google Analytics: het soort
+                boeking of product, de waarde en een willekeurig bezoekersnummer
+                uit je browser, zonder je naam, e-mailadres of telefoonnummer.
+                Bij een boeking of aankoop bewaren we daarvoor ook je keuze
+                voor advertentiemeting uit de cookiebanner. Alleen als je
+                advertentiemeting hebt toegestaan, mag Google die melding
+                gebruiken om te meten welke advertentie tot de boeking of
+                aankoop leidde.
               </p>
             </PolicySection>
 
@@ -287,13 +304,23 @@ export function PrivacybeleidContent() {
               eyebrow="07 · Cookies"
               heading="Cookies en vergelijkbare technieken"
             >
+              {/* COPY: confirm met Marlon */}
               <p>
-                Deze website gebruikt alleen analytische cookies (Google
-                Analytics) nadat je daar toestemming voor hebt gegeven via de
-                cookiebanner onderaan de pagina. Zonder jouw toestemming
-                meten we geanonimiseerd en zonder persoonsgegevens te
-                koppelen. Je kunt je keuze op elk moment aanpassen via de
-                cookie-instellingen.
+                Deze website kent twee soorten cookies waarvoor we je
+                toestemming vragen in de cookiebanner onderaan de pagina:
+                analytische cookies (Google Analytics) en advertentiemeting.
+                Zonder jouw toestemming meten we geanonimiseerd en zonder
+                persoonsgegevens te koppelen.
+              </p>
+              {/* COPY: confirm met Marlon */}
+              <p>
+                Met advertentiemeting meten we of een advertentie van Google
+                tot een proefles of aanmelding leidt. We gebruiken je gegevens
+                niet voor persoonlijke advertenties en doen niet aan
+                remarketing. Je kunt per soort kiezen en je keuze op elk
+                moment aanpassen via de{" "}
+                <CookieSettingsButton>cookie-instellingen</CookieSettingsButton>
+                .
               </p>
             </PolicySection>
 
@@ -474,9 +501,13 @@ export function PrivacybeleidContent() {
               </ul>
               <p>
                 Wil je een van deze rechten uitoefenen? Stuur een e-mail naar{" "}
-                <QuietLink href={`mailto:${SITE.email}`}>
+                <TrackedContactLink
+                  method="email"
+                  appearance="quiet"
+                  href={`mailto:${SITE.email}`}
+                >
                   {SITE.email}
-                </QuietLink>
+                </TrackedContactLink>
                 . We reageren zo snel mogelijk, uiterlijk binnen vier weken.
               </p>
               <p>
@@ -500,9 +531,13 @@ export function PrivacybeleidContent() {
             <PolicySection eyebrow="13 · Contact" heading="Vragen?">
               <p>
                 Neem gerust contact op via{" "}
-                <QuietLink href={`mailto:${SITE.email}`}>
+                <TrackedContactLink
+                  method="email"
+                  appearance="quiet"
+                  href={`mailto:${SITE.email}`}
+                >
                   {SITE.email}
-                </QuietLink>{" "}
+                </TrackedContactLink>{" "}
                 of per post naar {SITE.address.street}, {SITE.address.zip}{" "}
                 {SITE.address.city}.
               </p>

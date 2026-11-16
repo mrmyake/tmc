@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
+import { portableTextComponents } from "@/components/ui/portable-text";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -141,6 +142,7 @@ export default async function YogaTeacherPage(props: {
             <ScrollReveal>
               <div className="space-y-5 text-text-muted text-lg leading-relaxed prose-invert max-w-none">
                 <PortableText
+                  components={portableTextComponents}
                   value={
                     teacher.bio as Parameters<typeof PortableText>[0]["value"]
                   }

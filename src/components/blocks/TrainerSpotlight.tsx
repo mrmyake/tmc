@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { PortableText } from "@portabletext/react";
+import { portableTextComponents } from "@/components/ui/portable-text";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -41,7 +42,7 @@ export function TrainerSpotlight({ trainer }: TrainerSpotlightProps) {
             </h2>
             {trainer.bio ? (
               <div className="space-y-4 text-text-muted leading-relaxed prose-invert">
-                <PortableText value={trainer.bio} />
+                <PortableText value={trainer.bio} components={portableTextComponents} />
               </div>
             ) : (
               <div className="space-y-4 text-text-muted leading-relaxed">

@@ -301,16 +301,21 @@ export async function runActivationChain(
           });
         }
         followTimer.mark("confirmation_mail");
-        // Conversiebrug (spec-analytics.md): server-side GA4 purchase,
-        // fire-and-forget en buiten het idempotentiepad. Deze
-        // !already_activated-tak is het exactly-once-signaal (rijlock +
-        // statusovergang in tmc.activate_order); de helper voegt daar geen
-        // eigen dedupe aan toe. Geen await — een GA4-storing mag de
-        // betaalverwerking nooit blokkeren. De helper throwt zelf nooit;
-        // de .catch is de laatste vangrail.
-        void sendPurchaseToGa4({ orderId, amountCents }).catch((e) =>
-          console.error("[activation-chain] sendPurchaseToGa4", e),
-        );
+        // Conversiebrug (spec-analytics.md, spec-conversiemeting.md):
+        // server-side GA4 purchase. Deze !already_activated-tak is het
+        // exactly-once-signaal (rijlock + statusovergang in
+        // tmc.activate_order); de helper voegt daar geen eigen dedupe aan
+        // toe. Ge-awaited: dit is de naloop (bij de webhook na de respons,
+        // via after()), en zonder await kan Vercel de functie bevriezen
+        // terwijl het verzoek nog loopt, wat bij een productorder zonder
+        // Akiles-stap het event kostte. De helper throwt nooit en heeft een
+        // timeout van vijf seconden; de try/catch is de laatste vangrail.
+        try {
+          await sendPurchaseToGa4({ orderId, amountCents });
+        } catch (e) {
+          console.error("[activation-chain] sendPurchaseToGa4", e);
+        }
+        followTimer.mark("ga4_purchase");
 
         // Deurtoegang (spec-akiles-access.md): zelfde functie als de
         // nachtelijke cron, tweede aanroeppunt, zodat een nieuw lid niet

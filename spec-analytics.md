@@ -2,7 +2,7 @@
 
 ## Status
 
-**Besloten en gebouwd.** De meetgrens is geïmplementeerd (#134), en de conversiebrug, het server-side `purchase`-event vanuit de Mollie-webhook, is gebouwd in PR C (`sendPurchaseToGa4`, zie "De conversiebrug" hieronder). Enige open rest: de herziening van `payment_start`. Dit document vervangt `TRACKING.md`, dat verwijderd is omdat het crowdfunding-helpers beschreef die in #120 al waren weggehaald en negen slug-routes die niet bestaan.
+**Besloten en gebouwd.** De meetgrens is geïmplementeerd (#134), en de conversiebrug, het server-side `purchase`-event vanuit de Mollie-webhook, is gebouwd in PR C (`sendPurchaseToGa4`, zie "De conversiebrug" hieronder). De conversiemeting (server-side `trial_booked`, advertentietoestemming in de cookiebanner, leads pas na een 2xx, `contact_click`, `newsletter_signup`, `payment_start` zonder bedrag) staat in `spec-conversiemeting.md`; dat document is leidend voor die events en voor de consentmapping. Dit document vervangt `TRACKING.md`, dat verwijderd is omdat het crowdfunding-helpers beschreef die in #120 al waren weggehaald en negen slug-routes die niet bestaan.
 
 Achtergrond en de feitelijke nulmeting: `docs/analytics-audit-2026-07.md`.
 
@@ -32,17 +32,17 @@ Alles op de publieke marketingsite, tot het moment dat iemand klant wordt.
 
 | Categorie | Events |
 |---|---|
-| Lead-conversie | `generate_lead` (via `trackLead`) · `programma_intake` (via `trackProgrammaIntake`, eigen conversie voor de Google Ads-landing op `/12-weken-programma`) |
+| Lead-conversie | `generate_lead` (via `trackLead`, pas na een 2xx) · `programma_intake` (via `trackProgrammaIntake`, eigen conversie voor de Google Ads-landing op `/12-weken-programma`) · `trial_booked` (server-side, Measurement Protocol) · `newsletter_signup` |
 | Formulier-intentie | `form_start` |
 | CTA-interactie | `cta_click` |
-| Contactklik | `click_phone` · `click_whatsapp` · `click_email` |
+| Contactklik | `contact_click` (`method`: `whatsapp`, `phone`, `email`) |
 | Configurator (`/abonnement`) | `configurator_stage_view` · `configurator_select` · `begin_checkout` · `checkout_rejected` |
 | Login-conversie | `portal_login` |
-| Betaling | `payment_start` (voorlopig, herziening volgt) · `payment_return_view` (arrival, geen bedrag) · `purchase` (server-side, Measurement Protocol) |
+| Betaling | `payment_start` (intentie, zonder bedrag) · `purchase` (server-side, Measurement Protocol) |
 
 De configurator staat bewust aan de GA4-kant: `/abonnement` is een publieke route en de productkeuze dáár is een acquisitiebeslissing, geen productgebruik.
 
-`payment_start` staat hier met een asterisk: client-side mét bedrag, de laatste in zijn soort. Herziening volgt; de omzetmeting zelf leunt er sinds de conversiebrug niet meer op.
+`payment_start` draagt sinds `spec-conversiemeting.md` geen bedrag meer: het is een intentiesignaal aan het begin van de checkout. Bedragen gaan uitsluitend server-side mee, op `purchase` en `trial_booked`.
 
 ### Wat naar `tmc.events` gaat
 
@@ -107,15 +107,15 @@ De enige verbinding tussen de twee systemen: één server-side `purchase`-event 
 
 1. **Uitlezen**, `readGaIds()` (`src/lib/ga-ids.ts`) leest in `PayStage.handlePay()` de GA4 `client_id` en `session_id` via `gtag('get')`, met een harde timeout van 300 ms en een `_ga`-cookie-fallback voor de client_id. Bij consent denied of timeout: `undefined`, checkout gaat door.
 2. **Meedragen**, `createOrderAndCheckout` zet ze ná de `create_order`-RPC met een losse update op `tmc.orders.ga_client_id` / `ga_session_id` (migratie `20260816000000`; route (b), analytics-metadata loopt niet door de autoritatieve prijsfunctie). `NULL` is de normale toestand voor member-app-aankopen, admin-betaallinks en consent-denied-orders.
-3. **Vuren**, de Mollie-webhook roept binnen de `!activation.already_activated`-tak, direct ná `emitEvent("order.activated")`, fire-and-forget `sendPurchaseToGa4` aan (`src/lib/orders/ga-purchase.ts`). Die leest de orderrij zelf, slaat over zonder fout als `ga_client_id` ontbreekt, en POST anders één Measurement Protocol `purchase`-event: `transaction_id` = order-id, `currency` EUR, `value` = het door Mollie verwerkte bedrag, `items[0].item_id` = `catalogue_slug` (de join key met `begin_checkout`), `session_id` als event-parameter. **Geen `user_id`**, zie "Wat bewust niet gebeurt".
+3. **Vuren**, de naloop van de activatieketen (`src/lib/orders/activation-chain.ts`, door de Mollie-webhook via `after()` na de respons gedraaid) roept binnen de `!activation.already_activated`-tak, direct ná `emitEvent("order.activated")`, `sendPurchaseToGa4` aan en wacht erop (`src/lib/orders/ga-purchase.ts`). Die leest de orderrij zelf, slaat over zonder fout als `ga_client_id` ontbreekt, en POST anders één Measurement Protocol `purchase`-event: `transaction_id` = order-id, `currency` EUR, `value` = het door Mollie verwerkte bedrag, `items[0]` met `item_id` = `catalogue_slug` (de join key met `begin_checkout`), `item_name` en `item_category` uit `tmc.catalogue`, `session_id` als event-parameter, en een consent-object volgens de opgeslagen `ad_consent` (zie `spec-conversiemeting.md`, "MP-regels"). **Geen `user_id`**, zie "Wat bewust niet gebeurt".
 
 **Exactly-once** komt uit `tmc.activate_order` (rijlock + statusovergang): precies één webhook-aanroep ziet `already_activated: false`. De helper voegt daar geen eigen dedupe aan toe. Strikt genomen is het at-most-once: crasht de functie tussen activatie en het MP-verzoek, dan is dat ene event weg (Mollie's retry ziet `already_activated: true` en vuurt terecht niet). Geaccepteerd compromis, durability zou een write in de geldpijplijn vragen.
 
-**Dekking**: alle orders door de order-pijplijn, abonnementen, productorders (`/app/producten?tab=tegoed`-redirect) en WS-5-betaallinks, al vuren de laatste twee in de praktijk nooit (geen `ga_client_id`). Trial bookings lopen door een aparte webhook en vallen erbuiten.
+**Dekking**: alle orders door de order-pijplijn, abonnementen, productorders (`/app/producten?tab=tegoed`-redirect) en WS-5-betaallinks, al vuren de laatste twee in de praktijk nooit (geen `ga_client_id`). Trial bookings lopen door een aparte webhook en krijgen hun eigen server-side event, `trial_booked` (`spec-conversiemeting.md`).
 
 ### Twee harde regels (gehandhaafd in de bouw)
 
-1. **De webhook mag nooit op analytics falen.** `sendPurchaseToGa4` throwt nooit, wordt zonder `await` aangeroepen, en staat buiten het idempotentiepad. Zelfde contract als `emitEvent()`: bij falen alleen `console.error` naar de Vercel-logs. Een gemiste meting is een rapportageprobleem; een gemiste order-activatie is een klantprobleem.
+1. **De webhook mag nooit op analytics falen.** `sendPurchaseToGa4` throwt nooit en staat buiten het idempotentiepad. Hij wordt ge-awaited, maar pas in de naloop, na de respons aan Mollie: een losse `void` kon door Vercel worden bevroren voordat het verzoek klaar was. Zelfde contract als `emitEvent()`: bij falen alleen `console.error` naar de Vercel-logs. Een gemiste meting is een rapportageprobleem; een gemiste order-activatie is een klantprobleem.
 2. **Bedragen gaan uitsluitend hierlangs.** Client-side events dragen geen `value`. Dat is de reden dat `begin_checkout` en `configurator_select` bewust geen bedrag meesturen en GA4 daar €0 rapporteert.
 
 **Env:** `GA4_API_SECRET` (GA4 Admin → Data Streams → web-stream → Measurement Protocol API secrets), in Vercel als **Sensitive** voor Production en Preview. Nooit in code of logs, de MP-URL bevat het secret, dus ook die URL nooit loggen.
@@ -174,40 +174,44 @@ Voor pure contentpagina's is dat acceptabel: Enhanced Measurement dekt pageviews
 
 Alle levende GA4-events. **Elk nieuw event krijgt hier een regel in dezelfde PR waarin het gebouwd wordt.** Een event dat hier niet staat, bestaat wat dit project betreft niet: dit register is de bron waartegen een rapportage gecontroleerd wordt.
 
-Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met één uitzondering: `purchase` gaat server-side via het Measurement Protocol (`src/lib/orders/ga-purchase.ts`). Parameters zijn de daadwerkelijk verzonden sleutels.
+Alle events hieronder zijn client-side uit `src/lib/analytics.ts`, met twee uitzonderingen: `purchase` (`src/lib/orders/ga-purchase.ts`) en `trial_booked` (`src/lib/trial-bookings/ga-trial-booked.ts`) gaan server-side via het Measurement Protocol. Parameters zijn de daadwerkelijk verzonden sleutels. Voor `trial_booked`, `purchase`, `generate_lead`, `contact_click`, `newsletter_signup` en `payment_start` is `spec-conversiemeting.md` leidend: daar staan het moment, de bron van elke parameter, de key events en de consentmapping.
 
 | Event | Trigger | Parameters | Surface | Status |
 |---|---|---|---|---|
-| `generate_lead` | Submit van een lead-formulier | `event_category: lead_magnet`, `event_label` (type), `value` | 9 publieke formulieren | Levend |
+| `generate_lead` | Geslaagde lead-aanvraag, pas na een 2xx van de bijbehorende API | `lead_type` (`terugbelverzoek`, `contact_form`, `overstap`, `yoga_quiz`). Geen `value`, geen `currency` | `/proefles` (terugbelformulier), `/contact`, `/prijzen` (overstap), `/welke-yoga-past-bij-jou` (mailblok) | Levend. Zie `spec-conversiemeting.md`. De proefboeking zelf vuurt geen `generate_lead` meer maar `trial_booked` |
+| `trial_booked` | Proefboeking definitief: betaald na de overgang pending naar paid (trial-webhook of cron), met code na `redeem_trial_code`, gratis na `book_opening_trial` | `client_id`, `session_id`, `trial_type`, `pillar`, `code`, `action_page` (optioneel), `transaction_id`, `currency`, `value`, consent-object | Server-side (Measurement Protocol) | Levend, key event. Zie `spec-conversiemeting.md` |
+| `newsletter_signup` | Geslaagde aanmelding, pas na een 2xx | `location` (`banner`, `yoga_quiz`) | Banner op de marketingpagina's, mailblok van de yoga-test (alleen met de tips-opt-in) | Levend, geen key event. Vervangt `generate_lead` met label `info_optin` |
 | `programma_intake` | Geslaagde intake-aanvraag, pas na een 2xx van `/api/leads/programma-intake` | `value: 240`, `currency: EUR`, `lead_type: programma_intake` | `/12-weken-programma/intake` | Levend. Eigen conversie naast `generate_lead`, zodat de proefles-conversies schoon blijven; de intake vuurt geen `generate_lead` meer. `value` is een vaste leadwaarde voor Google Ads, geen omzet of prijs (bewuste uitzondering op "bedragen alleen server-side"). Na de merge in GA4 als key event markeren |
 | `cta_click` | Klik op een CTA-knop | `event_category: engagement`, `event_label` (knoptekst), `page_location` | `/proefles` | Levend. De call-site op `/app/producten` is verwijderd (spec-analytics-scope.md) |
 | `form_start` | Eerste focus in een formulier | `event_category: engagement`, `event_label` (formuliernaam) | 11 formulieren, publiek plus `/abonnement` (`abonnement_identify`) en `/kopen` (`kopen_identify`, zelfde `IdentifyStage`-component) | Levend |
-| `click_phone` · `click_whatsapp` · `click_email` | Klik op een contactlink | `event_category: contact`, `event_label` | Geen | **Helper aanwezig, nul call-sites.** Wacht op mount op de footer-`tel:`/`mailto:`-links, audit gap #4 |
+| `contact_click` | Klik op een publieke tel:-, mailto:- of wa.me-link | `method` (`whatsapp`, `phone`, `email`) | Footer, homepage (ContactSection), `/contact`, `/privacybeleid`, en contactlinks in Sanity-content | Levend. Enige call-site is `TrackedContactLink`. Vervangt de nooit gebruikte `click_phone`, `click_whatsapp` en `click_email` | Klik op een contactlink | `event_category: contact`, `event_label` | Geen | **Helper aanwezig, nul call-sites.** Wacht op mount op de footer-`tel:`/`mailto:`-links, audit gap #4 |
 | `configurator_stage_view` | Stage-wissel in de configurator, inclusief mount | `event_category: configurator`, `stage` | `/abonnement`, `/kopen` (onderscheid via `page_location`) | Levend, arrival-event |
 | `configurator_select` | Kaartselectie, vrij-trainen-swap, verlengde toegang, 12/24 maanden | `event_category: configurator`, `item_id`, `family`, `frequency`, `commitment_months`, `addon_vrij_trainen`, `addon_extended_access` | `/abonnement` | Levend |
 | `begin_checkout` | Klik op "Ga verder" | `event_category: configurator`, `items[0]` met `item_id`, `item_name`, `item_category` | `/abonnement`, `/kopen` (`item_category` is daar de catalogus-`family` van het product) | Levend, bewust zonder bedrag |
 | `checkout_rejected` | Server-side weigering van `create_order` | `event_category: configurator`, `item_id`, `reason` | `/abonnement`, `/kopen` | Levend |
 | `portal_login` | Geslaagde OTP-verificatie | `event_category: portal`, `method` | Geen | **Vervallen** in de PR van `spec-analytics-scope.md`: `/login` valt buiten de meetgrens, het event gaat ook niet naar `tmc.events` |
-| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | `/abonnement` (`context: first_membership`), `/kopen` (`context: ten_ride_card` of `pt_package`, zelfde call-site) | ⚠️ **Uitzondering, zie hieronder** |
+| `payment_start` (`PayStage.tsx`) | Klik op "Betaal nu" | `event_category: payment`, `context`, `plan_variant` | `/abonnement` (`context: first_membership`), `/kopen` (`context: ten_ride_card` of `pt_package`, zelfde call-site) | Levend, zonder bedrag sinds `spec-conversiemeting.md` |
 | `payment_start` (`BuyButton.tsx`) | Klik op "Koop" | `event_category: payment`, `value`, `currency`, `context`, `plan_variant` | Geen | **Vervallen**: `/app/producten` valt buiten de meetgrens (spec-analytics-scope.md) |
 | `payment_return_view` | Aankomst op de bedankpagina, per `transactionId` één keer | `event_category: payment`, `order_status` | Geen | **Vervallen**: `/app/abonnement/bedankt` valt buiten de meetgrens (spec-analytics-scope.md). Verving eerder `payment_success` en `payment_failed` in #139 |
 | `yoga_test_start` | Klik op "Start de test" | `event_category: yoga_test` | `/welke-yoga-past-bij-jou` | Levend. Alleen na toestemming in de cookiebanner (`hasConsent()`-poort in `src/lib/analytics.ts`) |
 | `yoga_test_complete` | Laatste vraag beantwoord (klik op een antwoord) | `event_category: yoga_test`, `result` (uitkomstsleutel `v`, `p`, `ym`, `y`, `r`, `n`) | `/welke-yoga-past-bij-jou` | Levend, zelfde toestemmingspoort. Geen mount-haak: vuurt op de klik |
 | `yoga_test_book_click` | Klik op een boekknop op de uitslag | `event_category: yoga_test`, `result`, `target` (`code`, `betaald`, `bellen`) | `/welke-yoga-past-bij-jou` | Levend, zelfde toestemmingspoort |
 | `yoga_test_email_submit` | Submit van het mailblok op de uitslag | `event_category: yoga_test`, `result`, `opt_in` (boolean) | `/welke-yoga-past-bij-jou` | Levend, zelfde toestemmingspoort. Geen e-mailadres of naam in de parameters |
-| `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0].item_id` | Server-side (Measurement Protocol) | Levend. Enige plek met een bedrag; zie "De conversiebrug" |
+| `purchase` | Order geactiveerd in de Mollie-webhook, exact één keer per order | `client_id`, `session_id`, `transaction_id`, `currency`, `value`, `items[0]` met `item_id`, `item_name`, `item_category`, `quantity`, consent-object | Server-side (Measurement Protocol) | Levend. Zie "De conversiebrug" en `spec-conversiemeting.md` |
 
 Daarnaast levert GA4 Enhanced Measurement automatisch `page_view`, scroll, outbound clicks en file downloads. Die staan niet in dit register: ze zijn een admin-instelling, niet iets dat in deze repo geschreven of gewijzigd wordt.
 
-### De twee `payment_start`-uitzonderingen (tijdelijk, vastgelegd 2026-07-31)
+### De twee `payment_start`-uitzonderingen (vervallen)
 
-Eén event, twee call-sites, twee verschillende overtredingen. Beide zijn bewuste, tijdelijke uitzonderingen die in een opvolg-PR verdwijnen, opgenomen op dezelfde manier als de `PaymentTracker`-afwijking hierboven.
+**Beide uitzonderingen zijn opgelost.** `BuyButton.tsx` vuurt niet meer (`spec-analytics-scope.md`), en `PayStage.tsx` stuurt sinds `spec-conversiemeting.md` geen `value` en geen `currency` meer. De tekst hieronder blijft staan als geschiedenis van het besluit.
+
+Eén event, twee call-sites, twee verschillende overtredingen. Beide waren bewuste, tijdelijke uitzonderingen, opgenomen op dezelfde manier als de `PaymentTracker`-afwijking hierboven.
 
 **`PayStage.tsx` op `/abonnement`: draagt een bedrag client-side.** Het event zelf is in orde (poort 1 tot en met 3 gehaald: publieke route, echte gebruikershandeling, geen mount-haak), maar het stuurt `value` en `currency` mee en dat is in strijd met poort 4. Bedragen komen uitsluitend server-side uit de Mollie-webhook. **Oplossing: het bedrag wordt verwijderd, het event blijft.** Zonder `value` blijft het precies wat het hoort te zijn, een intentiesignaal aan het begin van de checkout.
 
 **`BuyButton.tsx` op `/app/producten`: vuurt achter login.** Dit faalt poort 1: de route ligt achter de meetgrens en hoort helemaal geen GA4-event te hebben. Erger nog, het event landt in de praktijk nergens. `/app/**` valt binnen de `SiteShell`-uitsluiting, dus daar staat geen `CookieConsent`, blijft `analytics_storage` op `denied` en komt de hit hooguit cookieless binnen zonder bruikbare sessie. Het kost onderhoud en levert niets. **Oplossing: de call-site wordt verwijderd.** Wat daar gemeten moet worden hoort in `tmc.events`.
 
-**Geen nieuwe uitzonderingen.** Deze twee plus de `PaymentTracker`-afwijking zijn de volledige lijst. Een nieuw event dat een poort niet haalt, wordt niet gebouwd; het wordt aangepast tot het wel door de poorten komt, of het wordt niet gemeten en dat wordt vastgelegd. Een uitzondering toevoegen aan deze lijst vraagt een expliciet besluit, geen PR-voetnoot.
+**Geen nieuwe uitzonderingen.** De lijst is leeg: de enige client-side waarde die nog bestaat is de vaste leadwaarde van `programma_intake`, een bewust besluit bij dat event. Een nieuw event dat een poort niet haalt, wordt niet gebouwd; het wordt aangepast tot het wel door de poorten komt, of het wordt niet gemeten en dat wordt vastgelegd. Een uitzondering toevoegen vraagt een expliciet besluit, geen PR-voetnoot.
 
 ---
 
@@ -230,7 +234,7 @@ waitlist.promoted         pt_booking.rescheduled    member.created
 
 ## Wat bewust niet gebeurt
 
-- **Measurement Protocol voor iets anders dan `purchase`**, de conversiebrug is de enige MP-call. Geen server-side events voor gedrag; dat blijft `tmc.events`.
+- **Measurement Protocol voor iets anders dan conversies**, de enige MP-calls zijn `purchase` en `trial_booked` (`spec-conversiemeting.md`). Geen server-side events voor gedrag; dat blijft `tmc.events`.
 - **Consent-banner op `/app/**`**, niet nodig onder deze architectuur, en het toevoegen ervan zou de meetgrens juist ondermijnen.
 - **GA4 `user_id`**, verwijderd. Een GA4-identiteit koppelen aan iemand wiens gedrag daar toch niet meer gemeten wordt levert niets op en vergroot alleen de PII-oppervlakte. Cohort- en lifecycle-analyse hoort thuis op `tmc.events`, waar het `profile_id` al staat.
 - **Nieuwe `tmc.events` call-sites**, deze spec legt de grens vast; hij vult de gaten aan de `tmc.events`-kant niet. Die zijn geïnventariseerd in `docs/analytics-audit-2026-07.md` §8.
@@ -242,7 +246,7 @@ waitlist.promoted         pt_booking.rescheduled    member.created
 Uit de audit, nog niet geadresseerd:
 
 - De marketing top-of-funnel meet alleen formulier-submits. `/`, `/prijzen`, `/aanbod` en `/early-member` hebben geen CTA- of sectie-tracking, en de navbar-CTA "Plan je proefles", de primaire actie van de site, vuurt niets.
-- `trackContact` heeft op dit moment géén call-site. De helper staat er bewust, wachtend op een mount op de footer-`tel:`/`mailto:`-links van de publieke site. De vorige enige call-site zat op `/app/support`, dus achter de meetgrens, en is verwijderd.
+- Opgelost in `spec-conversiemeting.md`: de contactlinks op de publieke site vuren `contact_click` via `TrackedContactLink`. De helper `trackContact` en de events `click_*` bestaan niet meer.
 - Er is geen route-change-hook voor SPA-pageviews; soft navigation leunt volledig op GA4's Enhanced Measurement, een admin-instelling die niet vanuit de repo verifieerbaar is.
 
 ---

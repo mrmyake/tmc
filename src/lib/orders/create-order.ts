@@ -1,6 +1,8 @@
 "use server";
 
 import { SequenceType } from "@mollie/api-client";
+import { writeAdConsent } from "@/lib/ga-mp/send";
+import { gaIdsForStorage } from "@/lib/ga-mp/store";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileCompleteForCheckout } from "@/lib/checkout/profile-complete";
@@ -50,6 +52,19 @@ export interface CreateOrderSelection {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /**
+   * De keuze voor analytische cookies op het moment van de checkout
+   * (spec-conversiemeting.md): granted, denied of unknown. Server-side
+   * vangrail: de GA4-id's hierboven worden alleen opgeslagen bij "granted".
+   */
+  analyticsConsent?: string;
+  /**
+   * De advertentiekeuze uit de cookiebanner op het moment van de checkout
+   * (spec-conversiemeting.md): granted, denied of unknown. Gaat met een
+   * eigen losse update naar tmc.orders.ad_consent en bepaalt ad_user_data op
+   * het server-side purchase-event. Alleen vanaf de publieke site (PayStage).
+   */
+  adConsent?: string;
   /**
    * Terugkeerdoel na Mollie (workstream A, spec-ios-app.md): "app" laat
    * de redirectUrl op het custom scheme uitkomen zodat de native app
@@ -185,14 +200,14 @@ export async function createOrderAndCheckout(
     // blokkeren: eigen try/catch (de omhullende catch zou de order
     // abandonnen, en dat mag een analytics-write nooit veroorzaken),
     // error alleen gelogd, flow gaat door.
-    if (selection.gaClientId) {
+    // Alleen met analytische toestemming (gaIdsForStorage): zonder "granted"
+    // worden meegestuurde id's weggegooid en vertrekt er later geen purchase.
+    const gaIds = gaIdsForStorage(selection);
+    if (gaIds) {
       try {
         const { error: gaError } = await admin
           .from("orders")
-          .update({
-            ga_client_id: selection.gaClientId,
-            ga_session_id: selection.gaSessionId ?? null,
-          })
+          .update(gaIds)
           .eq("id", orderId);
         if (gaError) {
           console.error("[createOrderAndCheckout] ga attribution write", gaError);
@@ -200,6 +215,14 @@ export async function createOrderAndCheckout(
       } catch (gaErr) {
         console.error("[createOrderAndCheckout] ga attribution write", gaErr);
       }
+    }
+
+    // Advertentiekeuze (spec-conversiemeting.md): een EIGEN update, nooit
+    // samen met ga_client_id. Ontbreekt de kolom nog (migratie niet gepusht),
+    // dan faalt alleen deze write en blijft de attributie hierboven intact.
+    // writeAdConsent throwt nooit en logt alleen.
+    if (selection.adConsent !== undefined) {
+      await writeAdConsent(admin, "orders", orderId, selection.adConsent, "createOrderAndCheckout");
     }
 
     const mollie = getMollieClient(mode);

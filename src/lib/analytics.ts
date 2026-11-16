@@ -11,13 +11,14 @@
  * Voeg hier dus geen helper toe die alleen achter login vuurt. Hoort het
  * event bij productgedrag, dan hoort het in `tmc.events` via `emitEvent()`.
  *
- * Bedragen gaan uitsluitend server-side mee, vanuit de Mollie-webhook —
+ * Bedragen gaan uitsluitend server-side mee, via het Measurement Protocol,
  * nooit client-side. De browser kent de autoritatieve prijs niet (die komt
- * uit `tmc.create_order`) en is bovendien manipuleerbaar. De conversiebrug
- * die de omzet naar GA4 stuurt is `sendPurchaseToGa4`
- * (`src/lib/orders/ga-purchase.ts`), aangeroepen vanuit de Mollie-webhook;
- * de client-events hier dragen bewust geen `value`. Enige rest-uitzondering:
- * `payment_start` (herziening volgt).
+ * uit `tmc.create_order` en `tmc.catalogue`) en is bovendien manipuleerbaar.
+ * De twee server-events zijn `purchase` (`src/lib/orders/ga-purchase.ts`) en
+ * `trial_booked` (`src/lib/trial-bookings/ga-trial-booked.ts`); de
+ * client-events hier dragen bewust geen `value`. Enige uitzondering is de
+ * vaste leadwaarde van `programma_intake`. Het volledige eventplan staat in
+ * `spec-conversiemeting.md`.
  */
 
 import { hasConsent } from "@/lib/consent";
@@ -56,12 +57,32 @@ const trackEvent = (eventName: string, params?: EventParams) => {
   window.gtag("event", eventName, params);
 };
 
-export const trackLead = (type: string, value: number = 1) => {
-  trackEvent("generate_lead", {
-    event_category: "lead_magnet",
-    event_label: type,
-    value,
-  });
+/**
+ * De vier lead-formulieren (spec-conversiemeting.md). Aanroepen pas na een
+ * 2xx van de bijbehorende API, nooit bij de submit zelf: een mislukte
+ * aanvraag is geen lead. Geen value en geen currency.
+ *
+ * "yoga_waitlist" staat er alleen nog voor YogaWaitlistForm, dat nergens
+ * meer gemount is (dode code, zie "Bewust niet" in de spec).
+ */
+export type LeadType =
+  | "terugbelverzoek"
+  | "contact_form"
+  | "overstap"
+  | "yoga_quiz"
+  | "yoga_waitlist";
+
+export const trackLead = (leadType: LeadType) => {
+  trackEvent("generate_lead", { lead_type: leadType });
+};
+
+/**
+ * Aanmelding voor de nieuwsbrief of tips, pas na een 2xx. location is de
+ * plek: de banner op de marketingpagina's of het mailblok van de yoga-test
+ * (alleen als de tips-opt-in is aangevinkt). Geen key event, geen value.
+ */
+export const trackNewsletterSignup = (location: "banner" | "yoga_quiz") => {
+  trackEvent("newsletter_signup", { location });
 };
 
 /**
@@ -87,19 +108,17 @@ export const trackCTA = (buttonText: string, page: string) => {
   });
 };
 
+export type ContactMethod = "whatsapp" | "phone" | "email";
+
 /**
- * Publiek-gevormd, en op dit moment zonder call-site, dat is opzet, geen
- * dode code. De helper wacht op een mount op de footer-`tel:`/`mailto:`-links
- * van de publieke site (audit gap #4, `docs/analytics-audit-2026-07.md`).
- *
- * Niet achter login mounten: de vorige enige call-site zat op `/app/support`
- * en is verwijderd omdat die aan de verkeerde kant van de meetgrens stond.
+ * Klik op een publieke tel:-, mailto:- of wa.me-link. De enige call-site is
+ * `TrackedContactLink` (`src/components/ui/TrackedLink.tsx`); een nieuwe
+ * contactlink gaat via die component, niet via een losse aanroep hier.
+ * Buiten de gemeten paden (bijvoorbeeld /app/support) is dit een stille
+ * no-op: `ga-disable` staat daar aan.
  */
-export const trackContact = (method: "phone" | "whatsapp" | "email") => {
-  trackEvent(`click_${method}`, {
-    event_category: "contact",
-    event_label: `${method}_click`,
-  });
+export const trackContactClick = (method: ContactMethod) => {
+  trackEvent("contact_click", { method });
 };
 
 export const trackFormStart = (formName: string) => {
@@ -192,8 +211,7 @@ export const trackConfiguratorSelect = (params: {
 /**
  * Vervangt de oude `cta_click("Ga verder")`, die de gekozen variant niet
  * bevatte. Geen `value`/`currency`: dit event draagt bewust geen bedrag, dus
- * GA4 rapporteert hier €0 omzet, de betaalwaarde blijft bij `payment_start`
- * / `payment_success`.
+ * GA4 rapporteert hier €0 omzet; de omzet komt server-side mee op `purchase`.
  */
 export const trackBeginCheckout = (params: {
   itemId: string;
@@ -234,17 +252,19 @@ export const trackCheckoutRejected = (params: {
   });
 };
 
-// ---- Payment (member side) ----
+// ---- Betaling (configurators) ----
 
+/**
+ * Klik op "Betaal nu" op /abonnement of /kopen: een intentiesignaal aan het
+ * begin van de checkout. Zonder bedrag; de omzet komt uitsluitend
+ * server-side mee op `purchase`.
+ */
 export const trackPaymentStart = (params: {
-  amount: number;
   context: "first_membership" | "upgrade" | "pt_package" | "ten_ride_card";
   planVariant?: string;
 }): void => {
   trackEvent("payment_start", {
     event_category: "payment",
-    value: params.amount,
-    currency: "EUR",
     context: params.context,
     plan_variant: params.planVariant,
   });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
+import { portableTextComponents } from "@/components/ui/portable-text";
 import { Container } from "@/components/layout/Container";
 import { Section } from "@/components/layout/Section";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
@@ -150,6 +151,7 @@ export default async function YogaStylePage(props: {
             <ScrollReveal>
               <div className="space-y-5 text-text-muted text-lg leading-relaxed prose-invert max-w-none">
                 <PortableText
+                  components={portableTextComponents}
                   value={
                     data.body as Parameters<typeof PortableText>[0]["value"]
                   }

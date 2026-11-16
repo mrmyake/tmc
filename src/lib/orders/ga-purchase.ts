@@ -1,105 +1,125 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildPurchasePayload, isProductionEnv } from "@/lib/ga-mp/core";
+import { postMpEvent, readAdConsent, type MpSendDeps, type MpSendResult } from "@/lib/ga-mp/send";
 
-const GA_MEASUREMENT_ID = "G-2VFCDM4KRZ";
-const MP_ENDPOINT = "https://www.google-analytics.com/mp/collect";
+const LABEL = "sendPurchaseToGa4";
+
+export interface PurchaseDeps extends MpSendDeps {
+  admin?: SupabaseClient;
+  isProduction?: boolean;
+}
 
 /**
- * Conversiebrug (spec-analytics.md): één server-side GA4 `purchase` per
- * geactiveerde order, via het Measurement Protocol.
+ * Conversiebrug (spec-analytics.md, spec-conversiemeting.md): een
+ * server-side GA4 `purchase` per geactiveerde order, via het Measurement
+ * Protocol.
  *
- * Contract identiek aan notifyMemberPaymentFailed in de Mollie-webhook:
- * deze functie throwt NOOIT en wordt fire-and-forget aangeroepen
- * (`void sendPurchaseToGa4(...).catch(...)`), buiten het idempotentiepad.
- * Een GA4-storing mag geen betaling laten hangen; een gemiste meting is
- * een rapportageprobleem, een gemiste order-activatie een klantprobleem.
+ * Deze functie throwt NOOIT. Ze wordt ge-awaited binnen de naloop van de
+ * activatieketen (activation-chain.ts), die de webhook via after() na de
+ * respons draait: de betaalverwerking is dan al klaar, en zonder await kan
+ * Vercel de functie bevriezen terwijl het verzoek nog loopt. Een GA4-storing
+ * kost hooguit de timeout van vijf seconden in de naloop.
  *
  * Exactly-once komt niet uit deze helper maar uit de call-site: de
- * `!activation.already_activated`-tak van de webhook, gegarandeerd door de
- * rijlock + statusovergang in tmc.activate_order. Hier bewust geen eigen
- * dedupe-machinerie — at-most-once (een crash tussen activatie en dit
- * verzoek verliest het event; Mollie's retry ziet already_activated en
- * vuurt terecht niet opnieuw) is het geaccepteerde compromis.
+ * `!activation.already_activated`-tak, gegarandeerd door de rijlock en de
+ * statusovergang in tmc.activate_order. Hier bewust geen eigen dedupe:
+ * at-most-once is het geaccepteerde compromis.
  *
- * Geen `user_id` op het event — bewuste beslissing conform
- * spec-analytics.md ("GA4 user_id — verwijderd"); cohortanalyse hoort op
- * tmc.events, waar de profile_id al staat.
+ * Geen `user_id` op het event (spec-analytics.md).
  *
  * `value` komt uitsluitend uit amountCents: het bedrag dat Mollie
- * daadwerkelijk verwerkte (webhook, uit payment.amount.value). Niets wordt
- * herberekend; first_charge_cents dient alleen als controle en levert bij
- * afwijking uitsluitend een log-regel op.
+ * daadwerkelijk verwerkte. Niets wordt herberekend; first_charge_cents dient
+ * alleen als controle. items[0] krijgt item_name en item_category uit
+ * tmc.catalogue; is die rij niet te lezen, dan gaat alleen item_id mee.
+ *
+ * ad_consent wordt met een eigen select gelezen (readAdConsent): ontbreekt
+ * de kolom nog, dan is het "unknown" (telt als denied) en gaat het event
+ * gewoon door.
+ *
+ * Het resultaat is alleen voor tests en logging; productiecode negeert het.
  */
-export async function sendPurchaseToGa4(args: {
-  orderId: string;
-  amountCents: number;
-}): Promise<void> {
+export async function sendPurchaseToGa4(
+  args: { orderId: string; amountCents: number },
+  deps: PurchaseDeps = {},
+): Promise<MpSendResult> {
   try {
-    const apiSecret = process.env.GA4_API_SECRET;
+    const apiSecret = "apiSecret" in deps ? deps.apiSecret : process.env.GA4_API_SECRET;
     if (!apiSecret) {
       // Config ontbreekt (bv. lokale dev): stil overslaan, nooit falen.
-      console.warn("[sendPurchaseToGa4] GA4_API_SECRET ontbreekt — overgeslagen");
-      return;
+      console.warn(`[${LABEL}] GA4_API_SECRET ontbreekt, overgeslagen`);
+      return "skipped";
     }
 
-    const admin = createAdminClient();
+    const admin = deps.admin ?? createAdminClient();
     const { data: order, error } = await admin
       .from("orders")
       .select("catalogue_slug, ga_client_id, ga_session_id, first_charge_cents")
       .eq("id", args.orderId)
       .maybeSingle();
     if (error || !order) {
-      console.error("[sendPurchaseToGa4] order read failed", args.orderId, error);
-      return;
+      console.error(`[${LABEL}] order read failed`, args.orderId, error);
+      return "failed";
     }
 
     if (!order.ga_client_id) {
       // Normale situatie, geen fout: member-app-aankoop (/app/producten),
       // admin-betaallink (/betaal/<token>) of consent denied. Geen sessie
-      // om aan toe te rekenen → geen event.
-      return;
+      // om aan toe te rekenen, dus geen event.
+      return "skipped";
     }
 
     if (order.first_charge_cents !== args.amountCents) {
       // Alleen signaleren; value blijft het door Mollie verwerkte bedrag.
       console.warn(
-        `[sendPurchaseToGa4] bedrag wijkt af van first_charge_cents: order=${args.orderId} mollie=${args.amountCents} first_charge=${order.first_charge_cents}`,
+        `[${LABEL}] bedrag wijkt af van first_charge_cents: order=${args.orderId} mollie=${args.amountCents} first_charge=${order.first_charge_cents}`,
       );
     }
 
-    const body = {
-      client_id: order.ga_client_id,
-      events: [
-        {
-          name: "purchase",
-          params: {
-            ...(order.ga_session_id ? { session_id: order.ga_session_id } : {}),
-            transaction_id: args.orderId,
-            currency: "EUR",
-            value: args.amountCents / 100,
-            items: [{ item_id: order.catalogue_slug, quantity: 1 }],
-          },
-        },
-      ],
-    };
+    const adConsent = await readAdConsent(admin, "orders", args.orderId, LABEL);
+    const catalogue = await readCatalogueItem(admin, order.catalogue_slug);
 
-    // Let op: de URL bevat het api_secret — nooit de URL of de respons-body
-    // loggen, alleen status en order-id.
-    const res = await fetch(
-      `${MP_ENDPOINT}?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${apiSecret}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-    if (!res.ok) {
-      console.error(
-        `[sendPurchaseToGa4] MP-status ${res.status} voor order ${args.orderId}`,
-      );
-    }
+    const payload = buildPurchasePayload({
+      orderId: args.orderId,
+      amountCents: args.amountCents,
+      clientId: order.ga_client_id,
+      sessionId: order.ga_session_id,
+      adConsent,
+      catalogueSlug: order.catalogue_slug,
+      catalogue,
+      isProduction: deps.isProduction ?? isProductionEnv(),
+    });
+    if (!payload) return "skipped";
+
+    return await postMpEvent(payload, LABEL, `order ${args.orderId}`, {
+      apiSecret,
+      fetchImpl: deps.fetchImpl,
+    });
   } catch (e) {
-    console.error("[sendPurchaseToGa4] skipped", e);
+    console.error(`[${LABEL}] skipped`, e);
+    return "failed";
+  }
+}
+
+/** Naam en omzetcategorie uit tmc.catalogue; null als de rij niet te lezen is. */
+async function readCatalogueItem(
+  admin: SupabaseClient,
+  slug: string,
+): Promise<{ display_name: string | null; revenue_category: string | null } | null> {
+  try {
+    const { data, error } = await admin
+      .from("catalogue")
+      .select("display_name, revenue_category")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error || !data) {
+      console.error(`[${LABEL}] catalogue read failed`, slug, error);
+      return null;
+    }
+    return data as { display_name: string | null; revenue_category: string | null };
+  } catch (e) {
+    console.error(`[${LABEL}] catalogue read threw`, slug, e);
+    return null;
   }
 }

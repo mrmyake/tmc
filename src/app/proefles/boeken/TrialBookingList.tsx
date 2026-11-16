@@ -10,9 +10,10 @@ import { formatEuro } from "@/lib/format";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { startTrialBooking } from "@/lib/actions/trial-booking";
 import { startOpeningTrialBooking } from "@/lib/actions/opening-trial";
-import { trackLead, trackFormStart } from "@/lib/analytics";
+import { trackFormStart } from "@/lib/analytics";
 import { openCheckout, returnTargetForThisClient } from "@/lib/native/checkout";
 import { leadAttributionForSubmit } from "@/lib/attribution/consent";
+import { readGaSubmitMeta } from "@/lib/ga-submit-meta";
 import type { AttributionParams } from "@/lib/attribution/params";
 
 import type { TrialSessionOption } from "@/lib/trial-sessions";
@@ -81,6 +82,10 @@ export function TrialBookingList({
     if (!selected) return;
     setBusy(true);
     setError("");
+    // Conversiemeting (spec-conversiemeting.md): GA4-id's en advertentiekeuze
+    // van dit moment gaan mee naar de server action, die het event
+    // trial_booked server-side vuurt. Er is geen client-side lead-event meer.
+    const gaMeta = await readGaSubmitMeta();
 
     if (isFree) {
       // Gratis openingsperiode: eigen actie en RPC, geen Mollie en geen code.
@@ -90,6 +95,7 @@ export function TrialBookingList({
         email,
         phone,
         attribution: leadAttributionForSubmit(attribution),
+        ga: gaMeta,
       });
       if (!result.ok) {
         setBusy(false);
@@ -109,8 +115,6 @@ export function TrialBookingList({
         setError(result.error);
         return;
       }
-      // Bestaand event, waarde 0 (spec-analytics.md eventregister).
-      trackLead("trial_booking", 0);
       window.location.assign(result.redirectUrl);
       return;
     }
@@ -123,6 +127,7 @@ export function TrialBookingList({
       mode,
       returnTarget: returnTargetForThisClient(),
       attribution: leadAttributionForSubmit(attribution),
+      ga: gaMeta,
     });
 
     if (!result.ok) {
@@ -147,13 +152,10 @@ export function TrialBookingList({
 
     if (result.free) {
       // Gratis via proefcode: geen Mollie, de boeking staat al vast.
-      // Bestaand event, waarde 0 (spec-analytics.md eventregister).
-      trackLead("trial_booking", 0);
       window.location.assign(result.redirectUrl);
       return;
     }
 
-    trackLead("trial_booking", selected.priceCents / 100);
     await openCheckout(result.checkoutUrl);
   }
 
