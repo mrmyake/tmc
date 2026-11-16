@@ -21,6 +21,7 @@ const PREFIX_PATHS = [
   "/rooster",
   "/contact",
   "/proefles",
+  "/actie",
   "/welke-yoga-past-bij-jou",
   "/yoga",
   "/12-weken-programma",

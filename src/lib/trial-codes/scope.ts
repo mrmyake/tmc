@@ -54,6 +54,11 @@ export function scopeShowsPresence(scope: TrialCodeScope): boolean {
  * kids en senior, zoals in de betaalde flow). Vrij trainen heeft geen
  * sessielijst. All geeft voor de lessenlijst dezelfde lijst als group; de
  * vrij-trainen-tak van all loopt via de slotkiezer, niet via deze lijst.
+ *
+ * LET OP: deze lijst en de pijler-whitelist op het les-pad van
+ * tmc.redeem_trial_code (migratie 20261117090000_campaign_landings.sql)
+ * moeten gelijk blijven; wijzig ze samen. De RPC is de grens, dit is de
+ * weergave.
  */
 export function pillarsForScope(scope: TrialCodeScope): string[] {
   switch (scope) {

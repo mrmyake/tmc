@@ -52,8 +52,13 @@ export function SiteShell({ children, settings }: SiteShellProps) {
   // rendert dan zowel de standaard Navbar als die eigen header. Niet hier
   // herhalen.
   const isProgramma = pathname.startsWith("/12-weken-programma");
+  // Actiepagina's /actie/[slug] (spec-proefles-funnel.md): alleen het
+  // woordmerk, geen navbar of footer. Het eigen layout
+  // (src/app/actie/layout.tsx) mount de cookiebanner zelf, want dit is
+  // acquisitie en valt binnen de meetgrens.
+  const isActie = pathname.startsWith("/actie/");
 
-  if (isStudio || isApp || isLogin || isCheckin || isKiosk || isProgramma || isBetaal) {
+  if (isStudio || isApp || isLogin || isCheckin || isKiosk || isProgramma || isBetaal || isActie) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing
     // navbar, footer of opt-in banner.
     //
@@ -72,8 +77,8 @@ export function SiteShell({ children, settings }: SiteShellProps) {
     //
     // UtmTracker is de uitzondering, en hoort hier wél op de twee kale
     // routes waar een campagne rechtstreeks op kan landen: /login
-    // (MailerLite-mails) en /betaal/<token> (WS-5 betaallink via mail/
-    // WhatsApp). Dat is acquisitie-data, geen productgedrag. Zonder deze
+    // (MailerLite-mails), /betaal/<token> (WS-5 betaallink via mail/
+    // WhatsApp) en /actie/<slug> (advertenties en flyers). Dat is acquisitie-data, geen productgedrag. Zonder deze
     // mount leest signInWithOtp een lege sessionStorage en schrijft de
     // signup lege acquisition_*-velden weg — door ON CONFLICT DO NOTHING in
     // handle_new_auth_user zijn die daarna permanent leeg. UtmTracker
@@ -82,7 +87,7 @@ export function SiteShell({ children, settings }: SiteShellProps) {
     return (
       <>
         {children}
-        {(isLogin || isBetaal) && <UtmTracker />}
+        {(isLogin || isBetaal || isActie) && <UtmTracker />}
       </>
     );
   }

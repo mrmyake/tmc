@@ -18,7 +18,11 @@ import type { AttributionParams } from "@/lib/attribution/params";
 
 import type { TrialSessionOption } from "@/lib/trial-sessions";
 import type { TrialCodeScope } from "@/lib/trial-codes/scope";
-import { CodeInfoBanner } from "../_components/CodeInfoBanner";
+import {
+  CodeInfoBanner,
+  codeFlowEyebrow,
+  type CodeDisplay,
+} from "../_components/CodeInfoBanner";
 
 interface Props {
   options: TrialSessionOption[];
@@ -32,8 +36,11 @@ interface Props {
   mode: "paid" | "code" | "free";
   /** Code-modus: de code bleek bij het boeken niet (meer) geldig. */
   onCodeInvalid?: (message: string) => void;
-  /** Code-modus: de ingevoerde code en zijn scope (alleen voor weergave). */
-  codeInfo?: { code: string; scope: TrialCodeScope; onChangeCode: () => void };
+  /**
+   * Code-modus: de ingevoerde code (of in de actieflow alleen de aanbodnaam,
+   * nooit de code) en de scope, alleen voor weergave.
+   */
+  codeInfo?: { display: CodeDisplay; scope: TrialCodeScope; onChangeCode: () => void };
   /**
    * Gratis modus: de pagina heeft zelf al een kop en de keuze tussen
    * groepsles en vrij trainen; de lijst toont dan geen eigen kop.
@@ -178,7 +185,11 @@ export function TrialBookingList({
           <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
             <span aria-hidden className="w-12 h-px bg-accent" />
             {/* COPY: confirm met Marlon */}
-            {isCode ? "Gratis · Met proefcode" : isFree ? "Gratis · Openingsperiode" : "Direct een plek"}
+            {isCode
+              ? codeFlowEyebrow(codeInfo?.display)
+              : isFree
+                ? "Gratis · Openingsperiode"
+                : "Direct een plek"}
             <span aria-hidden className="w-12 h-px bg-accent" />
           </span>
           <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
@@ -187,7 +198,7 @@ export function TrialBookingList({
           </h1>
           {isCode && codeInfo && (
             <CodeInfoBanner
-              code={codeInfo.code}
+              display={codeInfo.display}
               scope={codeInfo.scope}
               onChangeCode={codeInfo.onChangeCode}
             />
@@ -358,7 +369,9 @@ export function TrialBookingList({
               <p className="text-text-muted text-xs text-center">
                 {/* COPY: confirm met Marlon */}
                 {isCode
-                  ? "Met je proefcode is de les gratis en staat je plek direct vast."
+                  ? codeInfo?.display.kind === "actie"
+                    ? "De les is gratis en je plek staat direct vast."
+                    : "Met je proefcode is de les gratis en staat je plek direct vast."
                   : isFree
                     ? "Tijdens onze openingsperiode is je proefles gratis en staat je plek direct vast. Een gratis proefles per persoon."
                     : "Je wordt doorgestuurd naar Mollie om veilig te betalen."}

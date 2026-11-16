@@ -22,7 +22,11 @@ import { SlotDayStrip } from "@/app/app/rooster/_components/vrij-trainen/SlotDay
 import { SlotGrid } from "@/app/app/rooster/_components/vrij-trainen/SlotGrid";
 import { SlotFooter } from "@/app/app/rooster/_components/vrij-trainen/SlotFooter";
 import { useSlotSelection } from "@/app/app/rooster/_components/vrij-trainen/useSlotSelection";
-import { CodeInfoBanner } from "../_components/CodeInfoBanner";
+import {
+  CodeInfoBanner,
+  codeFlowEyebrow,
+  type CodeDisplay,
+} from "../_components/CodeInfoBanner";
 import { leadAttributionForSubmit } from "@/lib/attribution/consent";
 import { readGaSubmitMeta } from "@/lib/ga-submit-meta";
 import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
@@ -42,7 +46,8 @@ type Props = {
   | {
       /** Codeflow (standaard): een code met scope vrij trainen (of all) uit het cookie. */
       variant?: "code";
-      code: string;
+      /** De ingevoerde code, of in de actieflow alleen de aanbodnaam (nooit de code). */
+      display: CodeDisplay;
       scope: TrialCodeScope;
       onChangeCode: () => void;
       onCodeInvalid: (message: string) => void;
@@ -210,8 +215,8 @@ export function VisitorSlotPicker(props: Props) {
         <>
           <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
             <span aria-hidden className="w-12 h-px bg-accent" />
-            {/* COPY: confirm met Marlon */}
-            Gratis · Met proefcode
+            {/* COPY: confirm met Marlon, tekst uit codeFlowEyebrow */}
+            {codeFlowEyebrow(props.variant === "opening" ? null : props.display)}
             <span aria-hidden className="w-12 h-px bg-accent" />
           </span>
           <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
@@ -221,7 +226,11 @@ export function VisitorSlotPicker(props: Props) {
         </>
       )}
       {props.variant !== "opening" && !props.embedded && (
-        <CodeInfoBanner code={props.code} scope={props.scope} onChangeCode={props.onChangeCode} />
+        <CodeInfoBanner
+          display={props.display}
+          scope={props.scope}
+          onChangeCode={props.onChangeCode}
+        />
       )}
 
       <div className="mb-6">
@@ -321,8 +330,11 @@ export function VisitorSlotPicker(props: Props) {
                 {isOpening
                   ? // COPY: confirm met Marlon
                     "Tijdens onze openingsperiode is het uur gratis en staat je plek direct vast. Een gratis proefles per persoon. Marlon ontvangt je bij de deur."
-                  : // COPY: confirm met Marlon
-                    "Met je proefcode is het uur gratis en staat je plek direct vast."}
+                  : props.display.kind === "actie"
+                    ? // COPY: confirm met Marlon
+                      "Het uur is gratis en je plek staat direct vast."
+                    : // COPY: confirm met Marlon
+                      "Met je proefcode is het uur gratis en staat je plek direct vast."}
               </p>
             </form>
           )}

@@ -7,7 +7,12 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import type { TrialSessionOption } from "@/lib/trial-sessions";
 import type { VisitorSlotData } from "@/lib/trial-codes/vrij-trainen-query";
 import { withAttribution, type AttributionParams } from "@/lib/attribution/params";
-import { CodeInfoBanner } from "../_components/CodeInfoBanner";
+import {
+  CodeInfoBanner,
+  codeDisplayKey,
+  codeFlowEyebrow,
+  type CodeDisplay,
+} from "../_components/CodeInfoBanner";
 import { TrialBookingList } from "../boeken/TrialBookingList";
 import { VisitorSlotPicker } from "./VisitorSlotPicker";
 import type { CodeSoort } from "./CodeFlow";
@@ -24,7 +29,7 @@ import type { CodeSoort } from "./CodeFlow";
  * boeken opnieuw, per sessie-pillar.
  */
 export function CodeAllFlow({
-  code,
+  display,
   soort,
   options,
   slotData,
@@ -32,7 +37,8 @@ export function CodeAllFlow({
   onCodeInvalid,
   attribution = {},
 }: {
-  code: string;
+  /** De ingevoerde code, of in de actieflow alleen de aanbodnaam (nooit de code). */
+  display: CodeDisplay;
   soort: CodeSoort | null;
   options: TrialSessionOption[];
   slotData: VisitorSlotData | null;
@@ -55,15 +61,15 @@ export function CodeAllFlow({
     <>
       <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
         <span aria-hidden className="w-12 h-px bg-accent" />
-        {/* COPY: confirm met Marlon */}
-        Gratis · Met proefcode
+        {/* COPY: confirm met Marlon, tekst uit codeFlowEyebrow */}
+        {codeFlowEyebrow(display)}
         <span aria-hidden className="w-12 h-px bg-accent" />
       </span>
       <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl text-text mb-6 leading-[1.05] tracking-[-0.02em]">
         {/* COPY: confirm met Marlon */}
         {soort === null ? "Wat wil je doen?" : soort === "les" ? "Kies je sessie" : "Kies je moment"}
       </h1>
-      <CodeInfoBanner code={code} scope="all" onChangeCode={onChangeCode} />
+      <CodeInfoBanner display={display} scope="all" onChangeCode={onChangeCode} />
     </>
   );
 
@@ -162,19 +168,19 @@ export function CodeAllFlow({
 
         {soort === "les" ? (
           <TrialBookingList
-            key={`${code}:all:les`}
+            key={`${codeDisplayKey(display)}:all:les`}
             options={options}
             mode="code"
             embedded
-            codeInfo={{ code, scope: "all", onChangeCode }}
+            codeInfo={{ display, scope: "all", onChangeCode }}
             onCodeInvalid={onCodeInvalid}
             attribution={attribution}
           />
         ) : slotData ? (
           <VisitorSlotPicker
-            key={`${code}:all:vrij`}
+            key={`${codeDisplayKey(display)}:all:vrij`}
             data={slotData}
-            code={code}
+            display={display}
             scope="all"
             embedded
             onChangeCode={onChangeCode}

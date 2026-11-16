@@ -38,6 +38,7 @@
     "test:overlap-layout": "node --import ./scripts/ts-loader.mjs --test scripts/scheduling/*.test.mts",
     "test:format": "node --import ./scripts/ts-loader.mjs --test scripts/format/*.test.mts",
     "test:trial-codes": "node --import ./scripts/ts-loader.mjs --test scripts/trial-codes/*.test.mts",
+    "test:actie": "node --import ./scripts/ts-loader.mjs --test scripts/actie/*.test.mts",
     "test:refunds": "node --import ./scripts/ts-loader.mjs --test scripts/refunds/*.test.mts",
     "test:chargebacks": "node --import ./scripts/ts-loader.mjs --test scripts/chargebacks/*.test.mts",
     "test:product-grants": "node --import ./scripts/ts-loader.mjs --test scripts/product-grants/core.test.mts && node --import tsx --test scripts/product-grants/abonnement-render.test.mts",

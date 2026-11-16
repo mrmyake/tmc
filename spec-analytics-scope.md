@@ -17,6 +17,7 @@ Bezoekersaantallen, betrokkenheid en kanalen in GA4 waren vertekend doordat ook 
 | Proefles zelfservice | `/proefles/annuleren/**` | Nee | Na conversie, geen acquisitie |
 | Content | `/welke-yoga-past-bij-jou`, `/yoga/**`, `/huisregels`, `/voorwaarden`, `/privacybeleid` | Ja | Publiek |
 | Ads-landing | `/12-weken-programma/**` (dekt `/intake`) | Ja | Google Ads, event `programma_intake` |
+| Actiepagina's | `/actie/**` | Ja | Advertenties en flyers voor de proefles (`spec-proefles-funnel.md`); `page_view`, conversie via `trial_booked` met `action_page` |
 | Configurators | `/abonnement`, `/kopen` | Ja | Publieke conversiefunnel, conversiebrug heeft de GA-ids nodig |
 | Product | `/app/**`, `/kiosk/**`, `/checkin/**`, `/studio/**` | Nee | Productgedrag, hoort in `tmc.events` |
 | Auth en betalen | `/login`, `/auth/**`, `/factuur/**`, `/betaal/**` | Nee | Product |

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isTrialCodeScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
 import { PROMOTED_TRIAL_CODE, type PromotedTrialCode } from "@/lib/trial-codes/promoted";
 
-type UsableRow = {
+export type UsableRow = {
   revoked_at: string | null;
   max_uses: number | null;
   uses_count: number;
@@ -23,7 +23,7 @@ function amsterdamToday(): string {
  * niet op en de einddatum (inclusief) nog niet voorbij. Een momentopname
  * voor de weergave; de RPC beslist opnieuw onder de rijlocks.
  */
-function isUsable(row: UsableRow | null): row is UsableRow {
+export function isUsable(row: UsableRow | null): row is UsableRow {
   return (
     row !== null &&
     row.revoked_at === null &&
