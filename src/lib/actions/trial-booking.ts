@@ -216,7 +216,10 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     return { ok: false, error: CODE_INVALID_PHONE_MESSAGE };
   }
 
-  const rpcArgs = {
+  // p_campaign_slug: de slug van de actiepagina of null. De RPC valideert
+  // hem en schrijft hem alleen in action_page als hij bij de code hoort
+  // (migratie 20261117090000, live sinds 2026-11-16).
+  const { data, error } = await admin.rpc("redeem_trial_code", {
     p_code: args.code,
     p_session_id: args.sessionId,
     p_name: args.name,
@@ -224,24 +227,8 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     p_phone: phone.e164,
     p_is_test: args.isTest,
     p_slot_start_at: args.slotStartAt,
-  };
-  // Zonder slug exact de oude aanroep; met slug de nieuwe parameter.
-  let { data, error } = await admin.rpc(
-    "redeem_trial_code",
-    args.campaignSlug ? { ...rpcArgs, p_campaign_slug: args.campaignSlug } : rpcArgs,
-  );
-  // TODO(spec-proefles-funnel.md, B10): deze fallback verwijderen zodra
-  // migratie 20261117090000 gepusht is. Tot die tijd kent de database
-  // p_campaign_slug nog niet (PostgREST: PGRST202, functie niet gevonden) en
-  // boeken we met de oude signatuur. De boeking slaagt dan gewoon, alleen de
-  // slug wordt niet opgeslagen.
-  if (error && args.campaignSlug && error.code === "PGRST202") {
-    console.warn(
-      "[startTrialBooking] redeem_trial_code kent p_campaign_slug nog niet; boeking zonder action_page",
-      args.campaignSlug,
-    );
-    ({ data, error } = await admin.rpc("redeem_trial_code", rpcArgs));
-  }
+    p_campaign_slug: args.campaignSlug,
+  });
   if (error) {
     console.error("[startTrialBooking] redeem_trial_code failed", error);
     // COPY: confirm met Marlon
