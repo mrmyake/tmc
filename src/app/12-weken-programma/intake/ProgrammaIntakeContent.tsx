@@ -44,6 +44,9 @@ export function ProgrammaIntakeContent({
   const [error, setError] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const tracked = useRef(false);
+  // Een uuid per pagina-load: de server gebruikt hem als idempotentiesleutel,
+  // zodat een dubbelklik of retry geen tweede aanvraag oplevert.
+  const submissionId = useRef<string | null>(null);
 
   const handleFocus = () => {
     if (!tracked.current) {
@@ -58,8 +61,10 @@ export function ProgrammaIntakeContent({
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    if (!submissionId.current) submissionId.current = crypto.randomUUID();
     const data = {
       ...Object.fromEntries(formData.entries()),
+      submissionId: submissionId.current,
       attribution: leadAttributionForSubmit(attribution),
       signupPath: window.location.pathname,
     };

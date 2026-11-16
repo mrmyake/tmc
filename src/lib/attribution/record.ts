@@ -10,7 +10,7 @@ const EMAIL_MAX = 254;
 
 export interface RecordLeadAttributionArgs {
   sourceType: LeadSourceType;
-  /** Id van de trial_booking of trial_request die net is aangemaakt; bij programma_intake een willekeurige uuid (idempotentiesleutel). */
+  /** Id van de trial_booking of trial_request die net is aangemaakt; bij programma_intake de id van de tmc.programma_intakes-rij. */
   sourceId: string;
   email: string;
   /** Wat de client meestuurde (action-input of JSON-body); wordt hier opnieuw gevalideerd. */

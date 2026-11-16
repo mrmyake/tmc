@@ -20,6 +20,7 @@ import {
   TrendingUp,
   PhoneCall,
   Mail,
+  ClipboardList,
 } from "lucide-react";
 
 type IconType = typeof LayoutDashboard;
@@ -73,6 +74,8 @@ const SECONDARY: NavItem[] = [
   { href: "/app/admin/proefcodes", label: "Proefcodes", icon: Ticket },
   // Terugbelaanvragen van /proefles (tmc.trial_requests).
   { href: "/app/admin/proeflessen", label: "Proeflessen", icon: PhoneCall },
+  // Intake-aanvragen 12 weken programma (tmc.programma_intakes); badge = aantal nieuwe.
+  { href: "/app/admin/intakes", label: "Intakes", icon: ClipboardList },
   // E-mailaanmeldingen uit MailerLite plus leden met marketing opt-in.
   { href: "/app/admin/aanmeldingen", label: "Aanmeldingen", icon: Mail },
   {
@@ -91,7 +94,7 @@ const EXTERNAL: ExternalItem[] = [
   { href: "/studio", label: "Content", icon: ExternalLink, external: true },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ newIntakes = 0 }: { newIntakes?: number }) {
   const pathname = usePathname();
 
   function isActive(href: string): boolean {
@@ -158,6 +161,14 @@ export function AdminSidebar() {
               )}
               <Icon size={16} strokeWidth={1.5} aria-hidden />
               <span>{item.label}</span>
+              {item.href === "/app/admin/intakes" && newIntakes > 0 && (
+                <span
+                  aria-label={`${newIntakes} nieuwe intakes`}
+                  className="ml-auto min-w-5 px-1.5 text-center text-[10px] leading-5 bg-accent text-bg"
+                >
+                  {newIntakes}
+                </span>
+              )}
             </Link>
           );
         })}
