@@ -63,4 +63,4 @@ Vergelijk `portal_login` en `payment_return_view` niet over de deploy-datum heen
 
 | PR | Branch | Merge-hash | Datum | Wat | Bewust niet aangeraakt |
 |---|---|---|---|---|---|
-| PR-nummer volgt na openen | `feat/analytics-marketing-scope` | volgt na merge | 2026-11-16 | Pad-gate, `ga-disable`, staff-cookie, `traffic_type` bij niet-productie, `portal_login` en drie product-call-sites verwijderd | `consent.ts`, cookiebanner, `ga-purchase.ts`, `ga-ids.ts`, conversie-events, Unassigned-attributie |
+| #346 | `feat/analytics-marketing-scope` | volgt na merge | 2026-11-16 | Pad-gate, `ga-disable`, staff-cookie, `traffic_type` bij niet-productie, `portal_login` en drie product-call-sites verwijderd | `consent.ts`, cookiebanner, `ga-purchase.ts`, `ga-ids.ts`, conversie-events, Unassigned-attributie |
