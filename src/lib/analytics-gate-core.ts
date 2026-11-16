@@ -38,8 +38,10 @@ export function syncGate(
 ): boolean {
   const isNative = safeNative(native);
   const measured = isMeasuredPath(pathname);
-  win[disableKey()] = isNative || !measured;
-  return !isNative && measured;
+  const disabled = isNative || !measured;
+  // Alleen schrijven bij een wijziging (idempotent, geen onnodige writes).
+  if (win[disableKey()] !== disabled) win[disableKey()] = disabled;
+  return !disabled;
 }
 
 function safeNative(native: NativeProbe): boolean {
