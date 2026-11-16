@@ -159,7 +159,7 @@ export function trialTypeForSource(source: string | null | undefined): TrialType
 
 /**
  * De parameter code: een unieke code (max_uses = 1) gaat als "uniek" mee,
- * elke andere (gedeelde campagnecodes zoals MOVENOW en JOUWYOGA) letterlijk.
+ * elke andere (gedeelde campagnecodes) letterlijk.
  */
 export function trialCodeParam(
   code: { code: string | null; max_uses: number | null } | null | undefined,
