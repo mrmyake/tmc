@@ -10,6 +10,7 @@ import { CodeEntry } from "./CodeEntry";
 import { CodeAllFlow } from "./CodeAllFlow";
 import { VisitorSlotPicker } from "./VisitorSlotPicker";
 import type { AttributionParams } from "@/lib/attribution/params";
+import { codeDisplayKey, type CodeDisplay } from "../_components/CodeInfoBanner";
 
 /**
  * De codeflow: eerst de codestap, na een door de server geldig bevonden code
@@ -21,6 +22,12 @@ import type { AttributionParams } from "@/lib/attribution/params";
  * te renderen, zodat lijst en scope uit de database komen en niet uit de
  * client. Bij scope all gaat het via CodeAllFlow: eerst de keuze groepsles of
  * vrij trainen, daarna dezelfde lijst of slotkiezer.
+ *
+ * `display` is wat de bezoeker van zijn toegang ziet: de zelf ingevoerde
+ * code, of in de actieflow (/actie/[slug]) alleen de naam van het aanbod. In
+ * de actieflow krijgt deze component geen code (spec-proefles-funnel.md, B1)
+ * en is `scope` al versmald tot het pijlerfilter van de slug, zodat de
+ * keuzestap en de tabs wegvallen.
  */
 
 /** De keuze van de bezoeker bij een code met scope all (?soort=les|vrij). */
@@ -29,7 +36,7 @@ export type CodeSoort = "les" | "vrij";
 export function CodeFlow({
   options,
   slotData,
-  code,
+  display,
   scope,
   soort = null,
   initialCode = "",
@@ -39,7 +46,8 @@ export function CodeFlow({
   options: TrialSessionOption[];
   /** Alleen bij scope vrij trainen (of all met soort vrij): dagstrip en kwartieren voor de slotkiezer. */
   slotData: VisitorSlotData | null;
-  code: string | null;
+  /** null = nog geen (geldige) toegang: de codestap. */
+  display: CodeDisplay | null;
   scope: TrialCodeScope | null;
   /** Alleen bij scope all: de gekozen tak uit de URL, null = nog niet gekozen. */
   soort?: CodeSoort | null;
@@ -57,7 +65,7 @@ export function CodeFlow({
   // ongeldig: terug naar de codestap, ook al is er nog een scope.
   const [forceEntry, setForceEntry] = useState(false);
 
-  if (!scope || !code || forceEntry) {
+  if (!scope || !display || forceEntry) {
     return (
       <CodeEntry
         initialCode={initialCode}
@@ -78,11 +86,13 @@ export function CodeFlow({
     startTransition(() => router.refresh());
   };
 
+  const key = codeDisplayKey(display);
+
   if (scope === "all") {
     return (
       <CodeAllFlow
-        key={code}
-        code={code}
+        key={key}
+        display={display}
         soort={soort}
         options={options}
         slotData={slotData}
@@ -96,9 +106,9 @@ export function CodeFlow({
   if (scope === "vrij_trainen" && slotData) {
     return (
       <VisitorSlotPicker
-        key={code}
+        key={key}
         data={slotData}
-        code={code}
+        display={display}
         scope={scope}
         onChangeCode={() => setForceEntry(true)}
         onCodeInvalid={invalid}
@@ -110,10 +120,10 @@ export function CodeFlow({
   return (
     <TrialBookingList
       // Nieuwe scope of code = verse lijst; de lijst houdt zelf state vast.
-      key={`${code}:${scope}`}
+      key={`${key}:${scope}`}
       options={options}
       mode="code"
-      codeInfo={{ code, scope, onChangeCode: () => setForceEntry(true) }}
+      codeInfo={{ display, scope, onChangeCode: () => setForceEntry(true) }}
       onCodeInvalid={invalid}
       attribution={attribution}
       initialSelectedId={preselectedSessionId}

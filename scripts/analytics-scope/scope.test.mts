@@ -15,7 +15,7 @@ import {
 const MEASURED = [
   "/", "/over", "/aanbod", "/prijzen", "/rooster", "/contact", "/proefles",
   "/proefles/boeken", "/proefles/boeken/bedankt", "/proefles/code",
-  "/proefles/gratis", "/welke-yoga-past-bij-jou", "/yoga", "/yoga/hatha",
+  "/proefles/gratis", "/actie/google-kettlebell", "/welke-yoga-past-bij-jou", "/yoga", "/yoga/hatha",
   "/yoga/docenten/anna", "/12-weken-programma", "/12-weken-programma/intake",
   "/huisregels", "/voorwaarden", "/privacybeleid", "/abonnement", "/kopen",
 ];

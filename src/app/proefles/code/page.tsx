@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { getTrialSessionOptions } from "@/lib/trial-sessions";
-import { readTrialCodeCookie } from "@/lib/trial-codes/server";
-import { lookupUsableTrialCodeScope } from "@/lib/trial-codes/lookup";
+import { resolveCodeFlowView } from "@/lib/actie/resolve";
+import { actieContent } from "@/lib/actie/content";
 import { loadVisitorSlotPicker } from "@/lib/trial-codes/vrij-trainen-query";
 import { resolveAttribution } from "@/lib/attribution/params";
 import { normalizeTrialCode } from "@/lib/trial-codes/normalize";
 import { pickPreselectedSessionId } from "@/lib/yoga-test/preselect";
 import { CodeFlow, type CodeSoort } from "./CodeFlow";
+import type { CodeDisplay } from "../_components/CodeInfoBanner";
 
 // Title zonder merknaam: de layout-template (%s | The Movement Club) voegt die toe.
 export const metadata: Metadata = {
@@ -30,6 +31,14 @@ export const dynamic = "force-dynamic";
  * en bevat de scope niet: die zoeken we hier bij elke render opnieuw op in
  * de database. De betaling wordt uitsluitend bij het boeken overgeslagen,
  * door tmc.redeem_trial_code, dat de scope opnieuw controleert.
+ *
+ * Actieflow (spec-proefles-funnel.md): wie via /actie/[slug]/start komt,
+ * heeft alleen het ondertekende cookie tmc_actie met de slug. De code wordt
+ * server-side via de slug opgezocht en gaat NOOIT als prop naar de client:
+ * de boekingsstap toont de naam van het aanbod. Het pijlerfilter van de slug
+ * komt ook uit dat cookie (geen URL-parameter) en versmalt de scope voor de
+ * weergave, zodat bij bijvoorbeeld kettlebell alleen kettlebell verschijnt,
+ * zonder keuzestap en zonder tabs.
  */
 export default async function TrialCodePage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -47,8 +56,14 @@ export default async function TrialCodePage(props: {
   const codeParamRaw = Array.isArray(sp.code) ? sp.code[0] : sp.code;
   const initialCode = normalizeTrialCode(codeParamRaw ?? "").slice(0, 32);
 
-  const code = await readTrialCodeCookie();
-  const scope = code ? await lookupUsableTrialCodeScope(code) : null;
+  // Zelf ingevoerde code (proefcode-cookie) gaat voor; anders de actie.
+  const view = await resolveCodeFlowView();
+  const scope = view?.scope ?? null;
+  const display: CodeDisplay | null = !view
+    ? null
+    : view.via === "cookie"
+      ? { kind: "code", code: view.code }
+      : { kind: "actie", offerName: actieContent(view.slug).pill };
   const soortRaw = Array.isArray(sp.soort) ? sp.soort[0] : sp.soort;
   const soort: CodeSoort | null =
     scope === "all" ? (soortRaw === "les" || soortRaw === "vrij" ? soortRaw : null) : null;
@@ -72,7 +87,7 @@ export default async function TrialCodePage(props: {
       preselectedSessionId={preselectedSessionId}
       options={options}
       slotData={slotData}
-      code={scope ? code : null}
+      display={display}
       scope={scope}
       soort={soort}
       initialCode={initialCode}

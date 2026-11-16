@@ -14,11 +14,9 @@ import { bookingTimes } from "@/lib/member/booking-times";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { sendTrialCodeAbuseAlert } from "@/lib/trial-codes/abuse-alert";
 import { notifyTrainerLastMinuteBooking } from "@/lib/alerts/last-minute-trainer";
-import {
-  clearTrialCodeCookie,
-  clientIp,
-  readTrialCodeCookie,
-} from "@/lib/trial-codes/server";
+import { clearTrialCodeCookie, clientIp } from "@/lib/trial-codes/server";
+import { clearActieCookie } from "@/lib/actie/cookie";
+import { resolveBookingCode } from "@/lib/actie/resolve";
 import {
   CODE_ALREADY_CUSTOMER_MESSAGE,
   CODE_ALREADY_USED_MESSAGE,
@@ -175,6 +173,12 @@ interface RedeemArgs {
   isTest: boolean;
   /** Vrij-trainen-code: start van het proefuur (ISO), anders null. */
   slotStartAt: string | null;
+  /**
+   * Slug van de actiepagina uit het ondertekende cookie tmc_actie, of null.
+   * Gaat als p_campaign_slug naar de RPC, die hem valideert en in
+   * trial_bookings.action_page schrijft (spec-proefles-funnel.md).
+   */
+  campaignSlug: string | null;
   attribution: LeadAttributionInput | undefined;
   ga: GaSubmitMeta | undefined;
 }
@@ -212,7 +216,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     return { ok: false, error: CODE_INVALID_PHONE_MESSAGE };
   }
 
-  const { data, error } = await admin.rpc("redeem_trial_code", {
+  const rpcArgs = {
     p_code: args.code,
     p_session_id: args.sessionId,
     p_name: args.name,
@@ -220,7 +224,24 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     p_phone: phone.e164,
     p_is_test: args.isTest,
     p_slot_start_at: args.slotStartAt,
-  });
+  };
+  // Zonder slug exact de oude aanroep; met slug de nieuwe parameter.
+  let { data, error } = await admin.rpc(
+    "redeem_trial_code",
+    args.campaignSlug ? { ...rpcArgs, p_campaign_slug: args.campaignSlug } : rpcArgs,
+  );
+  // TODO(spec-proefles-funnel.md, B10): deze fallback verwijderen zodra
+  // migratie 20261117090000 gepusht is. Tot die tijd kent de database
+  // p_campaign_slug nog niet (PostgREST: PGRST202, functie niet gevonden) en
+  // boeken we met de oude signatuur. De boeking slaagt dan gewoon, alleen de
+  // slug wordt niet opgeslagen.
+  if (error && args.campaignSlug && error.code === "PGRST202") {
+    console.warn(
+      "[startTrialBooking] redeem_trial_code kent p_campaign_slug nog niet; boeking zonder action_page",
+      args.campaignSlug,
+    );
+    ({ data, error } = await admin.rpc("redeem_trial_code", rpcArgs));
+  }
   if (error) {
     console.error("[startTrialBooking] redeem_trial_code failed", error);
     // COPY: confirm met Marlon
@@ -248,6 +269,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     // session_* blijft het cookie staan.
     if (step === "code") {
       await clearTrialCodeCookie();
+      await clearActieCookie();
       await registerTrialCodeFailure(ip);
     }
     return {
@@ -260,9 +282,10 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
     };
   }
 
-  // Geslaagd: het cookie is verbruikt (een volgende boeking vraagt weer
-  // om een codestap).
+  // Geslaagd: de cookies zijn verbruikt (een volgende boeking vraagt weer
+  // om een codestap of een actiepagina).
   await clearTrialCodeCookie();
+  await clearActieCookie();
 
   // Geslaagd: de teller van dit IP mag weg (zelfde patroon als de kiosk).
   const { error: clearErr } = await admin.from("trial_code_attempts").delete().eq("ip", ip);
@@ -390,15 +413,21 @@ export async function startTrialBooking(
     return { ok: false, error: "Vul alle velden in." };
   }
 
-  // Code-modus: de code komt alleen uit het ondertekende cookie. Zonder
-  // geldig cookie is er geen gratis pad, dan terug naar de codestap.
+  // Code-modus: de code komt alleen van de server. Ofwel uit het
+  // ondertekende proefcode-cookie, ofwel via de slug uit het ondertekende
+  // actie-cookie (resolveBookingCode; de code zelf staat dan nergens bij de
+  // bezoeker). Zonder een van beide is er geen gratis pad: terug naar de
+  // codestap.
   const codeMode = input.mode === "code";
   let code: string | null = null;
+  let campaignSlug: string | null = null;
   if (codeMode) {
-    code = await readTrialCodeCookie();
-    if (!code) {
+    const resolved = await resolveBookingCode();
+    if (!resolved) {
       return { ok: false, error: CODE_INVALID_MESSAGE, step: "code" };
     }
+    code = resolved.code;
+    campaignSlug = resolved.slug;
   }
 
   const admin = createAdminClient();
@@ -435,6 +464,7 @@ export async function startTrialBooking(
       phone,
       isTest: trialBookingMode() === "test",
       slotStartAt: input.slotStartAt ?? null,
+      campaignSlug,
       attribution: input.attribution,
       ga: input.ga,
     });
@@ -481,6 +511,7 @@ export async function startTrialBooking(
       phone,
       isTest: mode === "test",
       slotStartAt: null,
+      campaignSlug,
       attribution: input.attribution,
       ga: input.ga,
     });
