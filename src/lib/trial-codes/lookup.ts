@@ -1,7 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isTrialCodeScope, type TrialCodeScope } from "@/lib/trial-codes/scope";
-import { PROMOTED_TRIAL_CODE, type PromotedTrialCode } from "@/lib/trial-codes/promoted";
 
 export type UsableRow = {
   revoked_at: string | null;
@@ -57,15 +56,4 @@ export async function lookupUsableTrialCodeScope(code: string): Promise<TrialCod
   const row = await fetchRow(code);
   if (!isUsable(row)) return null;
   return isTrialCodeScope(row.scope) ? row.scope : null;
-}
-
-/**
- * De code die /proefles zelf noemt (PROMOTED_TRIAL_CODE), alleen als die nu
- * bruikbaar is. Null betekent: niets tonen. Zo verdwijnt de vermelding
- * vanzelf zodra de code op, ingetrokken of verlopen is.
- */
-export async function lookupPromotedTrialCode(): Promise<PromotedTrialCode | null> {
-  const row = await fetchRow(PROMOTED_TRIAL_CODE);
-  if (!isUsable(row)) return null;
-  return { code: PROMOTED_TRIAL_CODE, validThrough: row.valid_through };
 }

@@ -8,6 +8,7 @@ import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { StatusPoller } from "@/components/checkout/StatusPoller";
 import { getTrialBookingStatus } from "@/lib/orders/status-actions";
+import { ProeflesBookedHook } from "./ProeflesBookedHook";
 
 export const metadata: Metadata = {
   title: "Bedankt voor je boeking | The Movement Club",
@@ -52,7 +53,7 @@ export default async function TrialBookingThanksPage(props: {
           .from("trial_bookings")
           .select(
             `
-            status, cancel_token, slot_start_at, slot_end_at,
+            status, cancel_token, slot_start_at, slot_end_at, source, action_page,
             session:class_sessions(start_at, end_at, class_type:class_types(name))
           `,
           )
@@ -84,6 +85,15 @@ export default async function TrialBookingThanksPage(props: {
   return (
     <Section className="pt-32 md:pt-40 min-h-[80vh] flex items-center">
       <Container className="max-w-2xl text-center">
+        {/* dataLayer-haakje proefles_booked, eenmalig per boeking en pas als
+            de boeking definitief is (spec-proefles-funnel.md). */}
+        {trial?.status === "paid" && isLikelyUuid(trialId) && (
+          <ProeflesBookedHook
+            trialId={trialId}
+            source={trial.source ?? null}
+            slug={trial.action_page ?? null}
+          />
+        )}
         <span className="tmc-eyebrow tmc-eyebrow--accent block mb-6">
           {/* COPY: confirm met Marlon */}
           {!trial ? "Proefles" : trial.status === "paid" ? "Bevestigd" : "Verwerkt"}

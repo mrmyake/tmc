@@ -49,7 +49,7 @@ export default async function TrialCodePage(props: {
   // Advertentie- en campagneparameters uit de URL (spec-marketing-attribution.md);
   // de codestap ververst dezelfde URL, dus ze blijven staan tot de boeking.
   const attribution = resolveAttribution(sp, "/proefles/code");
-  // ?code=MOVENOW (kaart op /proefles, advertenties): alleen om het veld van
+  // ?code=... (terugval van de yoga-quiz, oude links): alleen om het veld van
   // de codestap vooraf in te vullen. De bezoeker bevestigt zelf met "Code
   // controleren"; hier wordt niets gecontroleerd en geen cookie gezet, dus
   // een link met een gegokte code kost geen poging op de IP-teller.

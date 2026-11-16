@@ -24,8 +24,18 @@ const benefits = [
  * advertentie- en campagneparameters van de URL van /proefles
  * (spec-marketing-attribution.md); ze gaan met de bannerkeuze van dit moment
  * mee in de JSON-body en worden server-side opnieuw gevalideerd.
+ *
+ * Sinds de organische /proefles (spec-proefles-funnel.md) opent dit formulier
+ * vanuit de regel "Liever eerst bellen?"; onBack brengt de bezoeker terug.
  */
-export function ProeflesContent({ attribution = {} }: { attribution?: AttributionParams }) {
+export function ProeflesContent({
+  attribution = {},
+  onBack,
+}: {
+  attribution?: AttributionParams;
+  /** Terug naar de keuzepagina (/proefles); zonder callback geen teruglink. */
+  onBack?: () => void;
+}) {
   const [submitted, setSubmitted] = useState(false);
   const tracked = useRef(false);
 
@@ -73,6 +83,16 @@ export function ProeflesContent({ attribution = {} }: { attribution?: Attributio
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-start">
             {/* Left: pitch */}
             <ScrollReveal>
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="block mb-8 text-sm text-text-muted underline underline-offset-4 hover:text-accent transition-colors cursor-pointer"
+                >
+                  {/* COPY: confirm met Marlon */}
+                  Terug naar de proefles
+                </button>
+              )}
               <span className="inline-flex items-center gap-4 text-accent text-[11px] font-medium uppercase tracking-[0.3em] mb-8">
                 <span aria-hidden className="w-12 h-px bg-accent" />
                 {/* COPY: confirm met Marlon */}

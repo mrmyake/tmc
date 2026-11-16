@@ -60,6 +60,8 @@ Covers three build-from-scratch-or-partial workstreams (trial booking, attendanc
 
 ### Proefcodes (v2, `20260928130000_trial_codes_v2.sql`)
 
+> **Vervangen op 16-11-2026.** De drie gelijke kaarten hieronder zijn vervangen door één hoofdactie met kleine opties eronder; zie `spec-proefles-funnel.md`. De tekst hieronder beschrijft de situatie tot dat besluit.
+
 `/proefles` toont drie gelijkwaardige kaarten (`ProeflesChoice.tsx`, op mobiel onder elkaar, op desktop naast elkaar): **Boek nu je proefles** (`/proefles/boeken`, drop-in-prijs uit `tmc.catalogue` betalen via Mollie, zonder codeveld), **Ik heb een code** (`/proefles/code`, gratis) en **Liever gebeld worden** (het terugbelformulier, zie hieronder). De betaalde route kent geen proefcode meer.
 
 ### Proefles-aanvragen (terugbelformulier, `20261004120000_trial_requests.sql`)

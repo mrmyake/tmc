@@ -343,7 +343,10 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
   } else {
     void sendNotification(
       "Proefles geboekt met code!",
-      `Proefles-boeking ${trialBookingId} is gratis geboekt met code ${result.code ?? "?"}. Zie de sessie in het admin-rooster.`,
+      // Zonder de code zelf: het topic is openbaar en codes staan nergens
+      // leesbaar (spec-proefles-funnel.md). De code staat bij de boeking in
+      // de admin.
+      `Proefles-boeking ${trialBookingId} is gratis geboekt met een proefcode. Zie de sessie in het admin-rooster.`,
       "ticket,muscle",
     );
   }
