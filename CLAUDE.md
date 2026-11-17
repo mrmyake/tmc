@@ -18,7 +18,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 ## Spec-ledger
 
-- **Elk project met een eigen spec-bestand houdt daarin een ledger bij.** Dat zijn: `spec-membership-flow.md`, `spec-ledenomgeving.md`, `spec-facturatie.md`, `spec-trainingsprotocol.md`, `spec-akiles-access.md`, `spec-community-growth.md`, `spec-session-overrides.md`, `spec-vrij-trainen-slots.md`, `spec-last-minute-alerts.md`, `spec-weekcap-extra-les.md` en `spec-proefles-funnel.md`.
+- **Elk project met een eigen spec-bestand houdt daarin een ledger bij.** Dat zijn: `spec-membership-flow.md`, `spec-ledenomgeving.md`, `spec-facturatie.md`, `spec-trainingsprotocol.md`, `spec-akiles-access.md`, `spec-community-growth.md`, `spec-session-overrides.md`, `spec-vrij-trainen-slots.md`, `spec-last-minute-alerts.md`, `spec-weekcap-extra-les.md`, `spec-proefles-funnel.md` en `spec-locatiepaginas.md`.
 - **Elke PR die gedrag, schema of data wijzigt voegt in dezelfde PR een ledger-regel toe** aan het bijbehorende spec-bestand. Geen losse opruim-PR achteraf.
 - **De regel bevat vier dingen:** PR-nummer, datum, wat er gewijzigd is in één zin, en wat er bewust niet is aangeraakt. Dat laatste is geen bijzaak: het scheelt de volgende persoon een zoektocht naar werk dat nooit gedaan is.
 - **Bold-lead formaat**, zoals de WS-ledger in `spec-membership-flow.md`.
@@ -67,7 +67,7 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 - [ ] **MailerLite automations** (PDF → 7-dagen sequence → Mobility Check CTA)
 - [ ] **PDF "Beweeg Beter" guide** (design + hosting in `/public/downloads/`)
 - [ ] **Homepage lead magnet integratie** (slide-in popup + footer CTA)
-- [ ] **Structured data** (`GymOrHealthClub` schema in `layout.tsx`)
+- [x] **Structured data** (`ExerciseGym` met `@id` `https://www.themovementclub.nl/#business` in `src/lib/structuredData.ts`, geïnjecteerd door `layout.tsx`; `GymOrHealthClub` bestaat niet op schema.org)
 - [ ] **Sitemap.xml + robots.txt** (check `next-sitemap`)
 - [ ] **Open Graph tags per pagina**
 
@@ -165,17 +165,22 @@ Context document voor Claude Code sessies op het TMC project. Dekt de volledige 
 
 ### Kleurenpalet
 
-- **Primair:** Donker (near-black `#0B0B0B` achtergrond)
-- **Accent:** Warm goud (`#C9A86B` voor CTA's, highlights, progress)
-- **Tekst op donker:** Off-white (`#F5F2EC`)
-- **Secundair donker:** `#1A1814` voor cards/sections
-- **Subtle borders:** `#2A2622`
+De bron van waarheid is `src/app/tokens.css`; hieronder de kernwaarden.
+
+- **Primair:** warm black `--ink-900` `#0E0C0B` (nooit `#000`)
+- **Kaarten en secties:** `--ink-800` `#17140F`, verhoogd `--ink-700` `#1F1A14`
+- **Tekst op donker:** Stone `--stone-100` `#F4EFE6`
+- **Accent:** Champagne `--champagne` `#B9986A` (CTA's, highlights), ingedrukt `--champagne-deep` `#8A6E47`
+- **Lichte vlakken:** `Section bg="stone"` (Stone als achtergrond, `--fg-on-light` als tekst)
+- **Borders:** `--ink-500` `#3A342B`, op licht `--border-on-light`
+- **Vormen:** kaarten 8px radius, controls 4px
 
 ### Typografie
 
-- **Display/headings:** Playfair Display (serif, premium)
-- **Body:** DM Sans (sans-serif, clean)
-- **Géén:** Inter, Roboto, Arial — te generiek
+- **Display/headings:** Fraunces (serif, premium), 400 en 500
+- **Body:** Inter (400, 500, 600)
+- **Techniek:** self-hosted via `next/font` in `src/app/layout.tsx`. De CSS-variabelen heten om historische redenen nog `--font-playfair` (Fraunces) en `--font-dm-sans` (Inter); in componenten `font-[family-name:var(--font-playfair)]` voor koppen.
+- **Géén:** Roboto, Arial en andere generieke fonts
 
 ### Framer Motion patronen
 
@@ -397,7 +402,8 @@ Mobility Check:
 ```tsx
 const structuredData = {
   "@context": "https://schema.org",
-  "@type": "GymOrHealthClub",
+  "@type": "ExerciseGym",
+  "@id": "https://www.themovementclub.nl/#business",
   "name": "The Movement Club",
   "description": "Boutique training studio in Loosdrecht. Personal training, small group sessions, mobility en strength.",
   "url": "https://www.themovementclub.nl",
@@ -472,7 +478,7 @@ Marlon beheert content via Sanity Studio op `themovementclub.nl/studio`. Login m
 
 Prijzen komen uit `tmc.catalogue` (Supabase), niet uit Sanity. De schema's en documenten van `pricingTier` en de crowdfunding-types zijn verwijderd (#277, #278); herstelpunt in `docs/archive/sanity-export-2026-10-07.json`. `testimonial` en `blogPost` zijn niet meer geregistreerd. Elk type in de desk structure van `sanity.config.ts` moet geregistreerd zijn: `scripts/check-sanity-structure.mjs` draait als `prebuild` en faalt de build anders.
 
-**Render:** ISR (Incremental Static Regeneration). Publish in Sanity → webhook naar Vercel → pagina binnen 5-10s live.
+**Render:** ISR (Incremental Static Regeneration), tijdgebaseerd via `export const revalidate` op de pagina (bijv. 60 seconden op `/yoga`). Er is geen revalidate-route of Sanity-webhook in de code; een publicatie in Sanity staat dus na de revalidate-periode live. Of er aan de Vercel- of Sanity-kant een webhook staat, valt niet uit de repo af te leiden.
 
 **CORS origins** (sanity.io/manage):
 - `https://www.themovementclub.nl` (credentials: allow)
@@ -530,7 +536,7 @@ vercel env pull .env.local
 - [ ] Tags correct toekennen bij submit
 
 **SEO:**
-- [ ] Structured data (`GymOrHealthClub` schema) in `layout.tsx`
+- [x] Structured data (`ExerciseGym` schema) in `layout.tsx`
 - [ ] `next-sitemap` configureren
 - [ ] Open Graph tags per pagina
 - [ ] Canonical URLs

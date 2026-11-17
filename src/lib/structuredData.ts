@@ -1,10 +1,17 @@
 import { SITE } from "./constants";
 import { toE164 } from "./phone";
 
+/**
+ * Vaste @id van de studio. Alle Service-schema's verwijzen hiernaar als
+ * provider; er is geen tweede bedrijf en nooit een LocalBusiness per plaats.
+ */
+export const BUSINESS_ID = `${SITE.url}/#business`;
+
 export function getLocalBusinessSchema() {
   return {
     "@context": "https://schema.org",
-    "@type": "GymOrHealthClub",
+    "@type": "ExerciseGym",
+    "@id": BUSINESS_ID,
     name: SITE.name,
     description:
       "Exclusieve boutique gym in Loosdrecht. Personal training, small group sessions, mobility en strength.",
@@ -56,11 +63,11 @@ export function getWebsiteSchema() {
 
 // --- Yoga (PR-Y4) ---
 
-/** Korte verwijzing naar de studio als provider/werkgever in yoga-schemas. */
+/** Verwijzing naar de studio (zie BUSINESS_ID) als provider/werkgever. */
 const localBusinessRef = {
-  "@type": "GymOrHealthClub",
+  "@type": "ExerciseGym",
+  "@id": BUSINESS_ID,
   name: SITE.name,
-  url: SITE.url,
 };
 
 /**
@@ -74,6 +81,13 @@ export const SERVICE_AREA = [
   { "@type": "Place", name: "Wijdemeren" },
   { "@type": "Place", name: "Kortenhoef" },
   { "@type": "Place", name: "Nederhorst den Berg" },
+  { "@type": "City", name: "Bussum" },
+  { "@type": "City", name: "Naarden" },
+  { "@type": "City", name: "Laren" },
+  { "@type": "City", name: "Blaricum" },
+  { "@type": "City", name: "Eemnes" },
+  { "@type": "City", name: "Huizen" },
+  { "@type": "Place", name: "'t Gooi" },
 ] as const;
 
 export interface BreadcrumbItem {
@@ -94,19 +108,47 @@ export function getBreadcrumbSchema(items: BreadcrumbItem[]) {
   };
 }
 
+export interface ServiceSchemaInput {
+  name: string;
+  serviceType: string;
+  description: string;
+  url: string;
+  /** Plaatsnamen; "'t Gooi" en Loosdrecht zijn Place, de rest City. */
+  areaServed: readonly string[];
+}
+
+const PLACE_ONLY = new Set(["Loosdrecht", "'t Gooi", "Wijdemeren"]);
+
+/** Service-schema met de studio (@id) als provider. */
+export function getServiceSchema(input: ServiceSchemaInput) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: input.name,
+    serviceType: input.serviceType,
+    description: input.description,
+    url: input.url,
+    provider: localBusinessRef,
+    areaServed: input.areaServed.map((name) => ({
+      "@type": PLACE_ONLY.has(name) ? "Place" : "City",
+      name,
+    })),
+  };
+}
+
 export function getYogaServiceSchema(style: {
   title: string;
   slug: string;
   definition: string;
 }) {
   return {
-    "@context": "https://schema.org",
-    "@type": "Service",
-    name: style.title,
-    serviceType: "Yogales",
-    description: style.definition,
-    url: `${SITE.url}/yoga/${style.slug}`,
-    provider: localBusinessRef,
+    ...getServiceSchema({
+      name: style.title,
+      serviceType: "Yogales",
+      description: style.definition,
+      url: `${SITE.url}/yoga/${style.slug}`,
+      areaServed: [],
+    }),
     areaServed: SERVICE_AREA,
   };
 }

@@ -4,6 +4,7 @@ import {
   getYogaTeacherSlugs,
 } from "../../sanity/lib/fetch";
 import { SITE_URL } from "@/lib/constants";
+import { LOKALE_PAGINAS } from "@/content/lokaal";
 
 // Canonieke base-URL (www) uit de gedeelde constant. Alle sitemap-URL's
 // staan zo exact in de geserveerde, niet-redirectende vorm.
@@ -57,5 +58,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Sanity fetch failed, static routes only:", e);
   }
 
-  return [...staticRoutes, ...yogaDynamic];
+  // Lokale dienst- en locatiepagina's: alleen status 'live' (concept-pagina's
+  // geven een redirect en horen niet in de sitemap). lastModified komt uit het
+  // veld `bijgewerkt` van het contentbestand.
+  const lokaal: MetadataRoute.Sitemap = Object.values(LOKALE_PAGINAS)
+    .filter((p) => p.status === "live")
+    .map((p) => ({
+      url: `${BASE_URL}/${p.slug}`,
+      lastModified: new Date(p.bijgewerkt),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    }));
+
+  return [...staticRoutes, ...yogaDynamic, ...lokaal];
 }
