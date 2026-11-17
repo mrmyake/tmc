@@ -120,7 +120,7 @@ export function DienstTemplate({ pagina }: { pagina: DienstPagina }) {
                 intro={pagina.basis.intro}
               />
             </ScrollReveal>
-            <ul className="mt-8 grid gap-4 md:mt-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+            <ul className="mt-8 grid items-start gap-4 md:mt-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
               {pagina.basis.items.map((item, i) => (
                 <li key={item.titel} className="overflow-hidden rounded-lg bg-stone-200">
                   {item.beeld && (

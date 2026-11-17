@@ -4,10 +4,11 @@ import { CTA_KENNISMAKING, CTA_PROEFLES, VOORHEEN_KORT } from "./gedeeld";
 
 // COPY: confirm met Marlon (hele pagina, copy uit mockup v2)
 // Coordinaten zijn de centra van de plaatsen (openbare gegevens); de kaart is
-// schematisch. Reistijden wachten op meting door Marlon of Ilja, behalve de ene
-// bekende: ongeveer 10 minuten met de auto vanaf het centrum van Hilversum.
+// schematisch. Reistijden: Google Maps, dinsdag 17-11-2026 rond 11:15, vertrek nu,
+// bestemming Industrieweg 14P, vertrekpunt het centrum van elke plaats. Zie
+// spec-locatiepaginas.md, sectie Reistijden.
 export const personalTrainerGooi: HubPagina = {
-  status: "concept",
+  status: "live",
   slug: "personal-trainer-gooi",
   bijgewerkt: "2026-11-17",
   seo: {
@@ -28,8 +29,8 @@ export const personalTrainerGooi: HubPagina = {
       lon: 5.1669,
       pagina: "personal-trainer-hilversum",
       omschrijving: "Route, parkeren en trainingstijden vanuit Hilversum.",
-      reistijdAutoMin: 10,
-      reistijdFietsMin: undefined,
+      reistijdAutoMin: 12,
+      reistijdFietsMin: 19,
     },
     {
       naam: "Bussum",
@@ -37,6 +38,8 @@ export const personalTrainerGooi: HubPagina = {
       lon: 5.1625,
       pagina: "personal-trainer-bussum",
       omschrijving: "Route en tijden vanuit Bussum en Naarden.",
+      reistijdAutoMin: 20,
+      reistijdFietsMin: 34,
     },
     {
       naam: "Laren",
@@ -44,16 +47,18 @@ export const personalTrainerGooi: HubPagina = {
       lon: 5.225,
       pagina: "personal-trainer-laren",
       omschrijving: "Route en tijden vanuit Laren, Blaricum en Eemnes.",
+      reistijdAutoMin: 18,
+      reistijdFietsMin: 36,
     },
-    { naam: "Blaricum", lat: 52.2717, lon: 5.2467 },
-    { naam: "Huizen", lat: 52.299, lon: 5.2417 },
-    { naam: "Naarden", lat: 52.2956, lon: 5.1611 },
-    { naam: "Eemnes", lat: 52.2528, lon: 5.2567 },
+    { naam: "Blaricum", lat: 52.2717, lon: 5.2467, reistijdAutoMin: 21, reistijdFietsMin: 47 },
+    { naam: "Huizen", lat: 52.299, lon: 5.2417, reistijdAutoMin: 23, reistijdFietsMin: 53 },
+    { naam: "Naarden", lat: 52.2956, lon: 5.1611, reistijdAutoMin: 25, reistijdFietsMin: 43 },
+    { naam: "Eemnes", lat: 52.2528, lon: 5.2567, reistijdAutoMin: 20, reistijdFietsMin: 45 },
   ],
   reistijden: {
     eyebrow: "Reistijden",
     titel: "Hoe ver is het vanaf jou?",
-    intro: "Gemeten op een doordeweekse ochtend, vanaf het centrum van elke plaats.",
+    intro: "Gemeten met Google Maps op een doordeweekse ochtend, vanaf het centrum van elke plaats.",
   },
   waarom: {
     eyebrow: "Waarom naar Loosdrecht",
@@ -61,7 +66,7 @@ export const personalTrainerGooi: HubPagina = {
     punten: [
       {
         titel: "Kleine groepen",
-        tekst: `Maximaal ${CLASS_CAPACITY.yogaMobility} bij yoga en mobility, maximaal ${CLASS_CAPACITY.kettlebell} bij kettlebell.`,
+        tekst: `Maximaal ${CLASS_CAPACITY.yogaMobility} bij yoga, maximaal ${CLASS_CAPACITY.kettlebell} bij kettlebell.`,
       },
       {
         titel: "Eén trainer die je kent",
@@ -84,12 +89,12 @@ export const personalTrainerGooi: HubPagina = {
       },
       {
         titel: "Kettlebell training",
-        tekst: "Les van een Kettlebell Master.",
+        tekst: "Les van een Master Kettlebell.",
         href: "/kettlebell-training",
       },
       {
-        titel: "Yoga en mobility",
-        tekst: `Vijf vormen, max ${CLASS_CAPACITY.yogaMobility} per les.`,
+        titel: "Yoga",
+        tekst: `Vijf vormen, maximaal ${CLASS_CAPACITY.yogaMobility} per les.`,
         href: "/yoga",
       },
       {

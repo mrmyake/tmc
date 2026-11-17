@@ -1,11 +1,11 @@
 import type { LocatiePagina } from "./types";
 import { CTA_KENNISMAKING } from "./gedeeld";
 
-// COPY: confirm met Marlon (hele pagina). Volgt het locatiesjabloon uit
-// mockup v2 ("Bussum en Laren gebruiken exact dit sjabloon met eigen inhoud");
-// de plaatsspecifieke inhoud is nog niet aangeleverd en blijft leeg.
+// COPY: confirm met Marlon (hele pagina)
+// Reistijden: Google Maps, dinsdag 17-11-2026 rond 11:15, vertrek nu, bestemming
+// Industrieweg 14P. Zie spec-locatiepaginas.md, sectie Reistijden.
 export const personalTrainerBussum: LocatiePagina = {
-  status: "concept",
+  status: "live",
   slug: "personal-trainer-bussum",
   bijgewerkt: "2026-11-17",
   plaats: "Bussum",
@@ -25,23 +25,28 @@ export const personalTrainerBussum: LocatiePagina = {
   voorheen:
     "Kende je PT Loosdrecht? Dat is nu The Movement Club. Zelfde trainer, nieuwe studio.",
   kaart: { lat: 52.2736, lon: 5.1625 },
-  // Wacht op meting: reistijd auto en fiets (doordeweekse ochtend, twee punten).
-  reistijdAutoMin: undefined,
-  reistijdAutoVanaf: undefined,
-  reistijdFietsMin: undefined,
-  reistijdFietsVanaf: undefined,
-  ov: undefined,
-  parkeren: "Voor de deur",
-  quoteKop: "Wie er uit Bussum traint",
-  // Wacht op Marlon: quote van een lid uit Bussum, met schriftelijke toestemming.
-  quote: undefined,
+  reistijdAutoMin: 20,
+  reistijdAutoVanaf: "het centrum van Bussum",
+  reistijdFietsMin: 34,
+  reistijdFietsVanaf: "het centrum van Bussum",
+  extraVertrekpunten: [
+    { van: "Naarden", autoMin: 25 },
+  ],
+  parkeren: "Parkeren voor de deur",
+  quoteEyebrow: "Ervaringen",
+  quoteKop: "Wat klanten zeggen",
+  quote: {
+    tekst: "Een persoonlijke aanpak (wat een fijn mens!) en een op maat gemaakt traject, precies afgestemd op wat je lijf nodig heeft en het was ook echt goed vol te houden.",
+    voornaam: "Savannah",
+    woonplaats: "Loosdrecht",
+    bron: "Google-review",
+    toestemmingsdatum: "2026-11-17",
+  },
   tijden: {
     eyebrow: "Wanneer het past",
     titel: "Voor je werk of na je werk",
     tekst:
       "Train je vroeg of juist na je werk? Personal training plan je samen met Marlon.",
-    // Wacht op Marlon: vaste PT-tijden of in overleg?
-    ptTijden: undefined,
   },
   aanbod: {
     eyebrow: "Wat je kunt doen",
@@ -59,21 +64,33 @@ export const personalTrainerBussum: LocatiePagina = {
       },
       {
         titel: "Groepslessen",
-        tekst: "Yoga, mobility en kettlebell in kleine groepen.",
+        tekst: "Yoga en kettlebell in kleine groepen.",
         href: "/aanbod#groepslessen",
       },
       {
         titel: "Vrij trainen",
-        tekst: "Zelf trainen met je schema in de app.",
+        tekst: "Zelf trainen op je eigen tijd, in de studio.",
         href: "/aanbod#vrij-trainen",
       },
     ],
   },
   faqKop: { eyebrow: "Vragen uit Bussum", titel: "Goed om te weten" },
   faq: [
-    { vraag: "Hoe lang ben ik onderweg vanuit Bussum?", antwoord: undefined },
-    { vraag: "Waarom niet een trainer in Bussum zelf?", antwoord: undefined },
-    { vraag: "Kan ik eerst kennismaken?", antwoord: undefined },
+    {
+      vraag: "Hoe lang ben ik onderweg vanuit Bussum?",
+      antwoord:
+        "Met de auto 20 minuten vanaf het centrum en 34 minuten met de fiets. Vanuit Naarden rijd je er in 25 minuten.",
+    },
+    {
+      vraag: "Is dat niet ver voor een training?",
+      antwoord:
+        "Het is ongeveer twintig minuten rijden en je parkeert voor de deur. Daarvoor krijg je een kleine studio waar Marlon je persoonlijk begeleidt, in plaats van een drukke sportschool.",
+    },
+    {
+      vraag: "Kan ik voor of na mijn werk trainen?",
+      antwoord:
+        "Ja. De studio is doordeweeks vroeg open en 's avonds tot laat. In het overzicht op deze pagina zie je precies wanneer Marlon er is.",
+    },
   ],
   buurplaatsen: [
     { label: "Personal trainer Hilversum", pagina: "personal-trainer-hilversum" },

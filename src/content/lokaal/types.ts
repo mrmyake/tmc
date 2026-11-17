@@ -166,7 +166,7 @@ interface DienstInhoud<B> {
   vormen: {
     eyebrow: string;
     titel: string;
-    /** Een kaart toevoegen (bv. Kettlebell bootcamp buiten) vraagt geen sjabloonwijziging. */
+    /** Een kaart toevoegen vraagt geen sjabloonwijziging. */
     kaarten: readonly VormKaart[];
   };
   faqKop: { eyebrow: string; titel: string };
@@ -203,9 +203,18 @@ export type DienstPagina = DienstConcept | DienstLive;
 export interface Quote {
   tekst: string;
   voornaam: string;
-  wijk: string;
-  /** YYYY-MM-DD van de schriftelijke toestemming. */
+  /** Woonplaats van de reviewer; de quote toont "Voornaam, woonplaats". */
+  woonplaats: string;
+  /** Herkomst van de quote, bv. "Google-review". */
+  bron: string;
+  /** YYYY-MM-DD van de toestemming. */
   toestemmingsdatum: string;
+}
+
+/** Een tweede vertrekpunt met alleen een autotijd, bv. een station. */
+export interface ExtraVertrekpunt {
+  van: string;
+  autoMin: number;
 }
 
 interface LocatieInhoud {
@@ -225,7 +234,11 @@ interface LocatieInhoud {
   kaart: Coordinaat;
   /** Openbaar vervoer, alleen invullen als het echt werkt. */
   ov?: string;
+  /** Eyebrow boven de quote-sectie, bv. "Ervaringen". */
+  quoteEyebrow: string;
   quoteKop: string;
+  /** Extra vertrekpunten met autotijd, naast het centrum van de plaats. */
+  extraVertrekpunten?: readonly ExtraVertrekpunt[];
   tijden: {
     eyebrow: string;
     titel: string;

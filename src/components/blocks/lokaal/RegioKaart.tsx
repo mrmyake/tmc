@@ -3,7 +3,7 @@ import type { Coordinaat } from "@/content/lokaal";
 export interface KaartPunt extends Coordinaat {
   naam: string;
   uitgelicht?: boolean;
-  /** Korte regel onder de naam, bv. "± 10 min". */
+  /** Korte regel onder de naam, bv. "12 min". */
   badge?: string;
 }
 
