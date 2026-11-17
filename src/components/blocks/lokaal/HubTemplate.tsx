@@ -12,7 +12,7 @@ import { RegioKaart } from "./RegioKaart";
 import { AanbodLijst, Afsluiter, Kop, Kruimels, Voorheen } from "./Delen";
 
 function minuten(n: number | undefined): string {
-  return n === undefined ? "volgt" : `± ${n} min`;
+  return n === undefined ? "volgt" : `${n} min`;
 }
 
 /**
@@ -83,7 +83,7 @@ export function HubTemplate({ pagina }: { pagina: HubPagina }) {
                   uitgelicht: Boolean(p.pagina),
                   badge:
                     p.pagina && p.reistijdAutoMin !== undefined
-                      ? `± ${p.reistijdAutoMin} min`
+                      ? `${p.reistijdAutoMin} min`
                       : undefined,
                 }))}
               />

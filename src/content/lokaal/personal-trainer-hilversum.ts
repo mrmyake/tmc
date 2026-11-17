@@ -1,9 +1,11 @@
 import type { LocatiePagina } from "./types";
 import { CTA_KENNISMAKING } from "./gedeeld";
 
-// COPY: confirm met Marlon (hele pagina, copy uit mockup v2)
+// COPY: confirm met Marlon (hele pagina)
+// Reistijden: Google Maps, dinsdag 17-11-2026 rond 11:15, vertrek nu, bestemming
+// Industrieweg 14P. Zie spec-locatiepaginas.md, sectie Reistijden.
 export const personalTrainerHilversum: LocatiePagina = {
-  status: "concept",
+  status: "live",
   slug: "personal-trainer-hilversum",
   bijgewerkt: "2026-11-17",
   plaats: "Hilversum",
@@ -11,7 +13,7 @@ export const personalTrainerHilversum: LocatiePagina = {
   seo: {
     title: "Personal trainer bij Hilversum",
     description:
-      "Personal training op 10 minuten van Hilversum. Kleine studio in Loosdrecht, parkeren voor de deur, voorheen PT Loosdrecht. Plan een kennismaking.",
+      "Personal training op 12 minuten van Hilversum. Kleine studio in Loosdrecht, parkeren voor de deur, voorheen PT Loosdrecht. Plan een kennismaking.",
   },
   eyebrow: "Vanuit Hilversum",
   h1: "Personal trainer bij Hilversum",
@@ -23,24 +25,29 @@ export const personalTrainerHilversum: LocatiePagina = {
   voorheen:
     "Kende je PT Loosdrecht? Dat is nu The Movement Club. Zelfde trainer, nieuwe studio.",
   kaart: { lat: 52.2292, lon: 5.1669 },
-  // De enige reistijd die al vastligt: ongeveer 10 minuten met de auto vanaf het
-  // centrum van Hilversum (staat ook op /yoga). Fiets en ov wachten op meting.
-  reistijdAutoMin: 10,
+  reistijdAutoMin: 12,
   reistijdAutoVanaf: "het centrum van Hilversum",
-  reistijdFietsMin: undefined,
-  reistijdFietsVanaf: undefined,
-  ov: undefined,
-  parkeren: "Voor de deur",
+  reistijdFietsMin: 19,
+  reistijdFietsVanaf: "het centrum van Hilversum",
+  extraVertrekpunten: [
+    { van: "station Hilversum", autoMin: 16 },
+  ],
+  ov: "Bus 104 vanaf Hilversum Centraal, in 29 minuten",
+  parkeren: "Parkeren voor de deur",
+  quoteEyebrow: "Ervaringen",
   quoteKop: "Wie er uit Hilversum traint",
-  // Wacht op Marlon: quote van een lid uit Hilversum, met schriftelijke toestemming.
-  quote: undefined,
+  quote: {
+    tekst: "Mijn een-op-een traject bij Marlon was life-changing. Ik heb me nog nooit zo lekker in mijn vel gevoeld.",
+    voornaam: "Sara",
+    woonplaats: "Hilversum",
+    bron: "Google-review",
+    toestemmingsdatum: "2026-11-17",
+  },
   tijden: {
     eyebrow: "Wanneer het past",
     titel: "Voor je werk of na je werk",
     tekst:
       "Train je vroeg en ga je daarna door naar Hilversum of de trein? Of juist na je werk? Personal training plan je samen met Marlon.",
-    // Wacht op Marlon: vaste PT-tijden of in overleg?
-    ptTijden: undefined,
   },
   aanbod: {
     eyebrow: "Wat je kunt doen",
@@ -63,7 +70,7 @@ export const personalTrainerHilversum: LocatiePagina = {
       },
       {
         titel: "Vrij trainen",
-        tekst: "Zelf trainen met je schema in de app.",
+        tekst: "Zelf trainen op je eigen tijd, in de studio.",
         href: "/aanbod#vrij-trainen",
       },
     ],
@@ -72,19 +79,18 @@ export const personalTrainerHilversum: LocatiePagina = {
   faq: [
     {
       vraag: "Hoe lang ben ik onderweg vanuit Hilversum?",
-      // Bekend: met de auto zo'n tien minuten vanaf het centrum. De fietstijd
-      // wacht op meting, dus het antwoord blijft leeg tot het compleet is.
-      antwoord: undefined,
+      antwoord:
+        "Met de auto 12 minuten vanaf het centrum en 19 minuten met de fiets. Vanaf station Hilversum ben je er in 16 minuten met de auto, of met bus 104 in 29 minuten.",
     },
     {
       vraag: "Waarom niet een trainer in Hilversum zelf?",
-      // Wacht op Marlon: wat maakt TMC anders, in eigen woorden.
-      antwoord: undefined,
+      antwoord:
+        "Bij The Movement Club train je in een kleine, rustige studio, met maximaal 8 mensen per yoga- of mobilityles en 12 bij kettlebell. Marlon begeleidt je zelf, van intake tot schema. Voor veel klanten is dat de korte rit waard, en je parkeert voor de deur.",
     },
     {
       vraag: "Kan ik eerst kennismaken?",
-      // Wacht op Marlon: hoe gaat de kennismaking voor PT, gratis of betaald, hoe lang?
-      antwoord: undefined,
+      antwoord:
+        "Ja. Je begint met een gratis en vrijblijvende intake in de studio. Vul het terugbelformulier in, dan neemt Marlon contact met je op.",
     },
   ],
   buurplaatsen: [

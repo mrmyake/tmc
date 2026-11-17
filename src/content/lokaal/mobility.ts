@@ -4,7 +4,6 @@ import {
   AREA_SERVED_REGIO,
   CTA_PROEFLES,
   marlon,
-  placeholder,
   REGIO_PLAATSEN,
 } from "./gedeeld";
 
@@ -13,20 +12,26 @@ import {
 // mockup. Er is geen aparte mobility-pijler in het rooster, dus geen live strip
 // maar een link naar het gefilterde rooster.
 export const mobility: DienstPagina = {
-  status: "concept",
+  status: "live",
   slug: "mobility",
   bijgewerkt: "2026-11-17",
   seo: {
     title: "Mobility training in Loosdrecht, voor het Gooi",
-    description: `Mobility sessies in kleine groepen van max ${CLASS_CAPACITY.yogaMobility}. Werk aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn. Op 10 minuten van Hilversum. Plan je proefles.`,
+    description: `Mobility sessies in kleine groepen van max ${CLASS_CAPACITY.yogaMobility}. Werk aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn. Op 12 minuten van Hilversum. Plan je proefles.`,
   },
   eyebrow: "Mobility",
   h1: "Mobility training in Loosdrecht",
   lead: "Mobility is geen nice-to-have, het is de basis. We werken gericht aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn.",
-  heroImage: placeholder("Beeldvullende foto: mobility sessie"),
+  heroImage: {
+    src: "/images/lokaal/mobility-hero.jpg",
+    alt: "Yogamat, foamrollers en weerstandsbanden in de studio.",
+  },
   cta: { primair: CTA_PROEFLES, secundair: { label: "Bekijk het rooster", href: "/rooster?pijler=yoga_mobility" } },
   stats: [
     { waarde: `Max ${CLASS_CAPACITY.yogaMobility}`, label: "per les" },
+    { waarde: "1 tot 2x", label: "per week" },
+    // Duur uit tmc.class_types en class_sessions (pijler yoga_mobility, 60 minuten).
+    { waarde: "60 min", label: "per les" },
   ],
   basis: {
     eyebrow: "Wat je doet",
@@ -86,9 +91,21 @@ export const mobility: DienstPagina = {
   },
   faqKop: { eyebrow: "Veelgestelde vragen", titel: "Voor je eerste les" },
   faq: [
-    { vraag: "Voor wie is mobility training?", antwoord: undefined },
-    { vraag: "Hoe vaak kan ik het beste komen?", antwoord: undefined },
-    { vraag: "Wat is het verschil met yoga?", antwoord: undefined },
+    {
+      vraag: "Wat is het verschil tussen mobility en yoga?",
+      antwoord:
+        "Yoga draait om houdingen, ademhaling en rust. Mobility richt zich op hoe soepel en sterk je gewrichten bewegen, met oefeningen, myofasciale release en ademwerk. Ze vullen elkaar goed aan en vallen onder hetzelfde abonnement.",
+    },
+    {
+      vraag: "Ik ben heel stijf. Kan ik toch beginnen?",
+      antwoord:
+        `Juist dan. Je begint waar je nu bent, in een groep van maximaal ${CLASS_CAPACITY.yogaMobility}, en de trainer past oefeningen aan waar dat nodig is.`,
+    },
+    {
+      vraag: "Hoe vaak per week heeft het zin?",
+      antwoord:
+        "Een of twee keer per week is genoeg om verschil te merken, los of als aanvulling op kracht- of kettlebelltraining.",
+    },
   ],
   regio: {
     tekst:

@@ -1,5 +1,5 @@
 import { SITE } from "@/lib/constants";
-import type { Link, Placeholder, PlaatsLink, Trainer, BeeldConcept } from "./types";
+import type { Foto, Link, Placeholder, PlaatsLink, Trainer } from "./types";
 
 // COPY: confirm met Marlon (alle Nederlandse tekst in src/content/lokaal/)
 
@@ -21,9 +21,13 @@ export function placeholder(label: string): Placeholder {
   return { placeholder: true, label };
 }
 
-export const MARLON_FOTO: BeeldConcept = placeholder("Portret Marlon");
+/** Portret van Marlon (AI-beeld uit Sanity; wordt vervangen door een echte foto). */
+export const MARLON_FOTO: Foto = {
+  src: "/images/lokaal/marlon.jpg",
+  alt: "Marlon, eigenaar en trainer van The Movement Club.",
+};
 
-export function marlon(tekst: string, opleiding?: string): Trainer<BeeldConcept> {
+export function marlon(tekst: string, opleiding?: string): Trainer<Foto> {
   return {
     naam: SITE.trainer.name,
     rol: SITE.trainer.role,

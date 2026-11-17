@@ -1,11 +1,11 @@
 import type { LocatiePagina } from "./types";
 import { CTA_KENNISMAKING } from "./gedeeld";
 
-// COPY: confirm met Marlon (hele pagina). Volgt het locatiesjabloon uit
-// mockup v2 ("Bussum en Laren gebruiken exact dit sjabloon met eigen inhoud");
-// de plaatsspecifieke inhoud is nog niet aangeleverd en blijft leeg.
+// COPY: confirm met Marlon (hele pagina)
+// Reistijden: Google Maps, dinsdag 17-11-2026 rond 11:15, vertrek nu, bestemming
+// Industrieweg 14P. Zie spec-locatiepaginas.md, sectie Reistijden.
 export const personalTrainerLaren: LocatiePagina = {
-  status: "concept",
+  status: "live",
   slug: "personal-trainer-laren",
   bijgewerkt: "2026-11-17",
   plaats: "Laren",
@@ -25,23 +25,29 @@ export const personalTrainerLaren: LocatiePagina = {
   voorheen:
     "Kende je PT Loosdrecht? Dat is nu The Movement Club. Zelfde trainer, nieuwe studio.",
   kaart: { lat: 52.2569, lon: 5.2250 },
-  // Wacht op meting: reistijd auto en fiets (doordeweekse ochtend, twee punten).
-  reistijdAutoMin: undefined,
-  reistijdAutoVanaf: undefined,
-  reistijdFietsMin: undefined,
-  reistijdFietsVanaf: undefined,
-  ov: undefined,
-  parkeren: "Voor de deur",
-  quoteKop: "Wie er uit Laren traint",
-  // Wacht op Marlon: quote van een lid uit Laren, met schriftelijke toestemming.
-  quote: undefined,
+  reistijdAutoMin: 18,
+  reistijdAutoVanaf: "het centrum van Laren",
+  reistijdFietsMin: 36,
+  reistijdFietsVanaf: "het centrum van Laren",
+  extraVertrekpunten: [
+    { van: "Blaricum", autoMin: 21 },
+    { van: "Eemnes", autoMin: 20 },
+  ],
+  parkeren: "Parkeren voor de deur",
+  quoteEyebrow: "Ervaringen",
+  quoteKop: "Wat klanten zeggen",
+  quote: {
+    tekst: "Ze is professioneel, gepassioneerd en weet precies hoe ze mijn doelen kan helpen realiseren.",
+    voornaam: "Jeroen",
+    woonplaats: "Loosdrecht",
+    bron: "Google-review",
+    toestemmingsdatum: "2026-11-17",
+  },
   tijden: {
     eyebrow: "Wanneer het past",
     titel: "Voor je werk of na je werk",
     tekst:
       "Train je vroeg of juist na je werk? Personal training plan je samen met Marlon.",
-    // Wacht op Marlon: vaste PT-tijden of in overleg?
-    ptTijden: undefined,
   },
   aanbod: {
     eyebrow: "Wat je kunt doen",
@@ -64,16 +70,28 @@ export const personalTrainerLaren: LocatiePagina = {
       },
       {
         titel: "Vrij trainen",
-        tekst: "Zelf trainen met je schema in de app.",
+        tekst: "Zelf trainen op je eigen tijd, in de studio.",
         href: "/aanbod#vrij-trainen",
       },
     ],
   },
   faqKop: { eyebrow: "Vragen uit Laren", titel: "Goed om te weten" },
   faq: [
-    { vraag: "Hoe lang ben ik onderweg vanuit Laren?", antwoord: undefined },
-    { vraag: "Waarom niet een trainer in Laren zelf?", antwoord: undefined },
-    { vraag: "Kan ik eerst kennismaken?", antwoord: undefined },
+    {
+      vraag: "Hoe lang ben ik onderweg vanuit Laren?",
+      antwoord:
+        "Met de auto 18 minuten vanaf het centrum en 36 minuten met de fiets. Vanuit Blaricum rijd je 21 minuten, vanuit Eemnes 20.",
+    },
+    {
+      vraag: "Is dat niet ver voor een training?",
+      antwoord:
+        "Je rijdt ongeveer achttien minuten, via de Utrechtseweg of de A27, en parkeert voor de deur. Je traint in een kleine studio met persoonlijke begeleiding, zonder drukte.",
+    },
+    {
+      vraag: "Kan ik eerst kennismaken?",
+      antwoord:
+        "Ja. Je begint met een gratis en vrijblijvende intake in de studio, waarin Marlon je doel en je situatie met je doorneemt. Vul het terugbelformulier in, dan neemt ze contact met je op.",
+    },
   ],
   buurplaatsen: [
     { label: "Personal trainer Hilversum", pagina: "personal-trainer-hilversum" },

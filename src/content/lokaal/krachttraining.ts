@@ -4,29 +4,33 @@ import {
   AREA_SERVED_REGIO,
   CTA_PROEFLES,
   marlon,
-  placeholder,
   REGIO_PLAATSEN,
 } from "./gedeeld";
 
 // COPY: confirm met Marlon (hele pagina). Route-pagina: kracht via de
-// kettlebell-groepsles, vrij trainen met schema of personal training. Staat niet
+// kettlebell-groepsles, vrij trainen of personal training. Staat niet
 // zelf in de mockup; volgt het dienstsjabloon en de tekst van /aanbod.
 export const krachttraining: DienstPagina = {
-  status: "concept",
+  status: "live",
   slug: "krachttraining",
   bijgewerkt: "2026-11-17",
   seo: {
     title: "Krachttraining in Loosdrecht, voor het Gooi",
     description:
-      "Krachttraining met begeleiding: kettlebell in de groep, vrij trainen met schema of personal training met Marlon. Op 10 minuten van Hilversum.",
+      "Krachttraining met begeleiding: kettlebell in de groep, vrij trainen of personal training met Marlon. Op 12 minuten van Hilversum.",
   },
   eyebrow: "Krachttraining",
   h1: "Krachttraining in Loosdrecht",
   lead: "Geen random workouts, maar een plan dat je meetbaar sterker maakt, week na week. Kies de vorm die bij je past.",
-  heroImage: placeholder("Beeldvullende foto: krachttraining in de Kracht Studio"),
+  heroImage: {
+    src: "/images/lokaal/krachttraining-hero.jpg",
+    alt: "Een man doet een pull-up aan het rek in de studio.",
+  },
   cta: { primair: CTA_PROEFLES },
   stats: [
-    { waarde: `Max ${CLASS_CAPACITY.kettlebell}`, label: "per kettlebell-les" },
+    { waarde: "Groepsles", label: `kettlebell, max ${CLASS_CAPACITY.kettlebell}` },
+    { waarde: "Vrij trainen", label: "op je eigen tijd" },
+    { waarde: "Personal training", label: "één op één" },
   ],
   basis: {
     eyebrow: "Wat je krijgt",
@@ -34,10 +38,6 @@ export const krachttraining: DienstPagina = {
     intro:
       "Periodisatie, progressieve overload en herstelbeheer, in plaats van losse trainingen.",
     items: [
-      {
-        titel: "Schema op maat",
-        tekst: "Een periodisatie-schema dat bij jouw doel past.",
-      },
       {
         titel: "Progressie bijhouden",
         tekst: "Je ziet wat je tilt en hoe dat groeit.",
@@ -65,8 +65,8 @@ export const krachttraining: DienstPagina = {
         uitgelicht: true,
       },
       {
-        titel: "Vrij trainen met schema",
-        tekst: "Train zelf op je eigen tijd, met een schema in de app.",
+        titel: "Vrij trainen",
+        tekst: "Train zelf op je eigen tijd, in de studio.",
         link: { label: "Vrij trainen", href: "/aanbod#vrij-trainen" },
       },
       {
@@ -78,9 +78,21 @@ export const krachttraining: DienstPagina = {
   },
   faqKop: { eyebrow: "Veelgestelde vragen", titel: "Voor je begint" },
   faq: [
-    { vraag: "Welke vorm past bij mij?", antwoord: undefined },
-    { vraag: "Kan ik beginnen zonder ervaring?", antwoord: undefined },
-    { vraag: "Hoe vaak moet ik trainen om sterker te worden?", antwoord: undefined },
+    {
+      vraag: "Welke route past bij mij?",
+      antwoord:
+        "Train je graag in een groep op vaste tijden, kies dan de kettlebell-groepsles. Train je liever zelf op je eigen tijd, dan past vrij trainen. Wil je volledige begeleiding en een schema op maat, dan is personal training de beste keus. Twijfel je, vraag Marlon dan om advies.",
+    },
+    {
+      vraag: "Ik heb nog nooit met gewichten getraind. Kan ik beginnen?",
+      antwoord:
+        "Ja. Je leert eerst de basisbewegingen met een licht gewicht, onder begeleiding. Het gewicht gaat pas omhoog als de techniek goed zit.",
+    },
+    {
+      vraag: "Hoe vaak per week moet ik trainen?",
+      antwoord:
+        "Voor de meeste mensen zijn twee tot drie trainingen per week een goed begin. Gevorderden trainen vaak drie tot vier keer per week.",
+    },
   ],
   regio: {
     tekst:

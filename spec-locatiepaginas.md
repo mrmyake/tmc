@@ -44,7 +44,7 @@ Title is wat in de browser staat (de layout-template voegt " | The Movement Club
 | `/personal-trainer-laren` | locatie (dekt ook Blaricum en Eemnes) | Personal trainer bij Laren, Blaricum en Eemnes \| The Movement Club | Personal trainer bij Laren, Blaricum en Eemnes |
 | `/personal-trainer-gooi` | hub | Personal trainer in het Gooi \| The Movement Club | Personal trainer in het Gooi |
 
-Alle pagina's staan in deze PR op `concept`.
+Alle acht pagina's staan sinds de inhoud-PR (`feat/lokale-inhoud`) op `live`. De `concept`-mechaniek (307 in productie, noindex en conceptbalk daarbuiten) blijft bestaan voor nieuwe pagina's.
 
 ### Keuzes in PR A
 
@@ -110,6 +110,50 @@ Ter referentie. De redirects zelf horen bij de migratie-PR, niet bij deze. Alle 
 
 Een redirect naar een nog niet live pagina komt via de 307-terugval op `/personal-trainer-gooi` of `/aanbod` uit, nooit op een 404.
 
+## Reistijden
+
+Methode: Google Maps, dinsdag 17-11-2026 rond 11:15, vertrek nu, bestemming Industrieweg 14P, vertrekpunt het centrum zoals Google dat kiest. Auto en fiets, enkele reis.
+
+| Vanaf | Auto | Fiets | Opmerking |
+|---|---|---|---|
+| Hilversum centrum | 12 min | 19 min | 6,1 km via Loosdrechtseweg en Rading |
+| Hilversum Centraal (station) | 16 min | 21 min | ov 29 min: bus 104 vanaf Hilversum Station, daarna 6 min lopen |
+| Bussum | 20 min | 34 min | 11,3 km via Loosdrechtseweg |
+| Naarden | 25 min | 43 min | |
+| Laren | 18 min | 36 min | 16,1 km via Utrechtseweg |
+| Blaricum | 21 min | 47 min | |
+| Huizen | 23 min | 53 min | |
+| Eemnes | 20 min | 45 min | |
+
+De hub toont alle zeven plaatsen (Hilversum is het centrum). De locatiepagina's tonen het centrum van de plaats groot, met een tweede vertrekpunt met alleen een autotijd: station Hilversum (16 min), Naarden bij Bussum (25 min), Blaricum (21 min) en Eemnes (20 min) bij Laren. Ov staat alleen op de Hilversum-pagina. `/yoga` zegt nog "tien minuten" en is bewust niet aangepast.
+
+## Bronnen inhoud
+
+- **Opleiding en gratis intake:** van ptloosdrecht.nl. Marlon is opgeleid als Master Kettlebell en T.O.P Personal Trainer bij Overload Worldwide; de intake is gratis en vrijblijvend.
+- **Quotes:** uit Google-reviews, met toestemming van de reviewers, bevestigd door Ilja op 17-11-2026 (toestemmingsdatum 2026-11-17). Woonplaatsen volgens Ilja: Sara (Hilversum, op de Hilversum-pagina), Savannah (Loosdrecht, op de Bussum-pagina), Jeroen (Loosdrecht, op de Laren-pagina).
+- **FAQ-antwoorden en overige copy:** aangeleverd door Ilja op 17-11-2026; nog te bevestigen door Marlon via de Vercel-preview.
+- **Lesduur:** uit `tmc.class_types` en `class_sessions` (alleen gelezen): Kettlebell Power en alle `yoga_mobility`-klassen duren 60 minuten.
+- **Foto's:** zie "Foto's" hieronder.
+
+## Foto's
+
+Alle beelden komen uit Sanity (`siteImages`, trainer) en zijn AI-gegenereerd; ze zijn omgezet naar JPEG (max 1920 px breed, niet opgeschaald) onder `public/images/lokaal/`. Het portret van Marlon is dus **niet** echt: er stond geen echte foto van Marlon in de repo, de git-historie of Sanity. Zodra er een echte foto is, vervangt `marlon.jpg` het AI-portret (alt: "Marlon, eigenaar en trainer van The Movement Club.").
+
+| Plek | Bestand | Bron in Sanity |
+|---|---|---|
+| Hero `/kettlebell-training` | `kettlebell-hero.jpg` | gallery "Rogue Kettlebells" |
+| Hero `/personal-training` | `personal-training-hero.jpg` | `offeringPersonalTraining` |
+| Hero `/mobility` | `mobility-hero.jpg` | gallery "Mobility Area" |
+| Hero `/krachttraining` | `krachttraining-hero.jpg` | gallery "Pull Up" |
+| Portret Marlon (trainersblok) | `marlon.jpg` | `trainer.photo` |
+| Kaart goblet squat | `goblet-squat.jpg` | `offeringSmallGroup` |
+
+De kaarten swing en Turkish get-up zijn tekstkaarten: er is geen passende foto. Niet gebruikt: `offeringStrength` (een man met "MARLON" op zijn hoodie, terwijl Marlon een vrouw is).
+
+## Vrij trainen en schema
+
+Leden met vrij trainen krijgen geen standaard schema in de app: een schema wordt alleen door Marlon aangemaakt via de admin-builder of het dupliceren van een bestaand schema, en er is geen koppeling aan een abonnement (`spec-trainingsprotocol.md`). Daarom staat nergens op deze pagina's dat vrij trainen een schema bevat. "Schema" bij personal training (intake en schema, door Marlon) blijft staan.
+
 ## Attributie van de kennismaking
 
 Locatiepagina's, hub en `/personal-training` linken naar `/proefles?kaart=bellen` (het terugbelformulier, dat naar `tmc.trial_requests`, MailerLite en ntfy gaat). Er is geen bronveld in `trial_requests`; een kolom toevoegen is een Supabase-wijziging en valt buiten deze PR.
@@ -118,19 +162,15 @@ Bevinding over `recordLeadAttribution`: `landing_path` wordt **niet** vastgelegd
 
 ## Open punten voor Marlon
 
-- **Copy bevestigen** voor alle pagina's (alle tekst staat onder `// COPY: confirm met Marlon`).
-- **Reistijden meten**: auto en fiets, op een doordeweekse ochtend, vanaf twee punten per plaats, voor Hilversum, Bussum, Laren, Blaricum, Huizen, Naarden en Eemnes. Alleen "ongeveer 10 minuten met de auto vanaf het centrum van Hilversum" ligt al vast. Ov alleen invullen als het echt werkt.
-- **Quotes met schriftelijke toestemming** van een lid uit Hilversum, Bussum en Laren (tekst, voornaam, wijk, toestemmingsdatum).
-- **FAQ-antwoorden**: drie per locatiepagina, drie of vier per dienstpagina. De vragen staan er, de antwoorden niet.
-- **Opleiding en certificering als Kettlebell Master**, één zin.
-- **Bestaat de kettlebell bootcamp buiten nog?** Zo ja: een vierde kaart bij "Drie manieren" op `/kettlebell-training` (alleen een extra item in `vormen.kaarten`, geen sjabloonwijziging).
-- **PT-tijden**: vaste tijden of in overleg? (veld `tijden.ptTijden`).
-- **Kennismaking PT**: gratis of betaald, hoe lang (antwoord op de FAQ).
-- **Echte foto's** onder `public/images/lokaal/`: hero per dienstpagina, de drie bewegingen op `/kettlebell-training`, portret van Marlon.
+- **Goedkeuring op de Vercel-preview.** Mergen zet de pagina's live. Alle copy, de FAQ-antwoorden en de reistijden zijn aangeleverd door Ilja en staan onder `// COPY: confirm met Marlon`.
+- **Echte foto's.** Alle beelden zijn AI-gegenereerd, ook het portret van Marlon. Vervangen door echte foto's onder `public/images/lokaal/` (hero's, goblet squat, portret).
+- **PT-tijden:** vaste tijden of in overleg? (veld `tijden.ptTijden`, nu leeg).
+- **Mobility in het rooster.** Het klassentype "Mobility Reset" bestaat (60 min, actief) maar heeft nog nooit een sessie gehad en geen actieve template; in pijler `yoga_mobility` staan alleen yoga-vormen. `/mobility` linkt daardoor naar een rooster met alleen yogalessen. Beslissen: een mobilityles inplannen, of de pagina herformuleren.
 - **Kaart**: de SVG is schematisch; een statische afbeelding is een latere keuze.
 
 ## Open punten voor ons
 
+- **PR B (interne links):** dienstblokken op `/aanbod`, Aanbod-submenu, footerkolom Regio en de regio-sectie op `/yoga` naar de nieuwe pagina's. Nog niet gebouwd.
 - **Prioriteit should: attributie van organische leads.** `recordLeadAttribution` schrijft alleen een rij in `tmc.lead_attributions` bij een gclid of utm-parameter (zie "Attributie van de kennismaking"). Organische leads, ook die via de nieuwe pagina's binnenkomen, laten daardoor geen spoor achter in de database, alleen in GA4. Apart oppakken (een eigen opdracht, mogelijk met een schemawijziging); niet in deze PR.
 
 ## Bestanden
@@ -150,3 +190,4 @@ Geen wijzigingen aan `/aanbod`, `AANBOD_DROPDOWN`, de footer of `/yoga`. De inte
 ## Ledger
 
 - **PR #357, PR A fundament:** 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Visueel gecontroleerd op de Vercel-preview (alle acht routes, 390 en 1280 px) en vergeleken met de mockup; screenshots niet bewaard. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
+- **PR (nummer volgt), inhoud en livegang:** 2026-11-17. Alle acht pagina's op `live`: reistijden (Google Maps, 17-11-2026), FAQ's, quotes met woonplaats en bron (type `Quote`: `woonplaats` in plaats van `wijk`), statbalken met de werkelijke lesduur, foto's uit Sanity onder `public/images/lokaal/`, Hilversum op 12 minuten, geen schema-claim bij vrij trainen, extra vertrekpunten op de locatiepagina's. Bewust niet aangeraakt: `/yoga`, `/aanbod`, `AANBOD_DROPDOWN`, Footer (PR B), Supabase, Sanity, `recordLeadAttribution`.

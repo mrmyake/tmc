@@ -24,7 +24,7 @@ import {
 } from "./Delen";
 
 function minuten(n: number | undefined): string {
-  return n === undefined ? "volgt" : `± ${n} min`;
+  return n === undefined ? "volgt" : `${n} min`;
 }
 
 /**
@@ -59,7 +59,7 @@ export async function LocatieTemplate({ pagina }: { pagina: LocatiePagina }) {
   const modi = [
     { label: "Fiets", waarde: minuten(pagina.reistijdFietsMin) },
     ...(pagina.ov ? [{ label: "Ov", waarde: pagina.ov }] : []),
-    { label: "Parkeren", waarde: pagina.parkeren ?? "volgt" },
+    { label: "Aankomst", waarde: pagina.parkeren ?? "volgt" },
   ];
 
   return (
@@ -106,7 +106,7 @@ export async function LocatieTemplate({ pagina }: { pagina: LocatiePagina }) {
               </div>
               <div className="flex items-baseline gap-3 px-5 pb-1.5 pt-4">
                 <b className="whitespace-nowrap font-[family-name:var(--font-playfair)] text-6xl font-normal leading-none text-accent md:text-7xl">
-                  {pagina.reistijdAutoMin === undefined ? "volgt" : `±\u00a0${pagina.reistijdAutoMin}`}
+                  {pagina.reistijdAutoMin === undefined ? "volgt" : `${pagina.reistijdAutoMin}`}
                 </b>
                 <span className="text-sm leading-snug text-text-muted">
                   {pagina.reistijdAutoMin === undefined ? (
@@ -120,6 +120,15 @@ export async function LocatieTemplate({ pagina }: { pagina: LocatiePagina }) {
                   )}
                 </span>
               </div>
+              {pagina.extraVertrekpunten && pagina.extraVertrekpunten.length > 0 && (
+                <ul className="px-5 pt-1 text-[13px] text-text-muted">
+                  {pagina.extraVertrekpunten.map((v) => (
+                    <li key={v.van}>
+                      Vanaf {v.van}: {v.autoMin} min met de auto
+                    </li>
+                  ))}
+                </ul>
+              )}
               <dl
                 className="mt-3 grid divide-x divide-ink-500/60 border-t border-ink-500/60"
                 style={{ gridTemplateColumns: `repeat(${modi.length}, minmax(0, 1fr))` }}
@@ -141,17 +150,20 @@ export async function LocatieTemplate({ pagina }: { pagina: LocatiePagina }) {
         <Section bg="stone">
           <Container>
             <span
-              className="tmc-eyebrow mb-5 block"
+              className="tmc-eyebrow mb-3 block"
               style={{ color: "var(--champagne-deep)" }}
             >
-              {pagina.quoteKop}
+              {pagina.quoteEyebrow}
             </span>
+            <h2 className="mb-6 font-[family-name:var(--font-playfair)] text-2xl leading-tight text-on-light md:text-3xl">
+              {pagina.quoteKop}
+            </h2>
             <blockquote>
               <p className="max-w-[24em] font-[family-name:var(--font-playfair)] text-3xl font-light leading-[1.32] text-on-light md:text-5xl">
                 {pagina.quote.tekst}
               </p>
               <cite className="mt-5 block text-[13.5px] not-italic text-on-light/70">
-                {pagina.quote.voornaam}, {pagina.quote.wijk}
+                {pagina.quote.voornaam}, {pagina.quote.woonplaats}
               </cite>
             </blockquote>
           </Container>

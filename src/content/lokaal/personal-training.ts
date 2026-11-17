@@ -3,7 +3,6 @@ import {
   AREA_SERVED_REGIO,
   CTA_KENNISMAKING,
   marlon,
-  placeholder,
   REGIO_PLAATSEN,
   VOORHEEN_KORT,
 } from "./gedeeld";
@@ -12,23 +11,27 @@ import {
 // mockup v2 en gebruikt de bestaande tekst van /aanbod; deze pagina staat niet
 // zelf in de mockup.
 export const personalTraining: DienstPagina = {
-  status: "concept",
+  status: "live",
   slug: "personal-training",
   bijgewerkt: "2026-11-17",
   seo: {
     title: "Personal training in Loosdrecht, voor het Gooi",
     description:
-      "Personal training één op één met Marlon, ook als Duo. Kleine studio in Loosdrecht, op 10 minuten van Hilversum. Plan een kennismaking.",
+      "Personal training één op één met Marlon, ook als Duo. Kleine studio in Loosdrecht, op 12 minuten van Hilversum. Plan een kennismaking.",
   },
   eyebrow: "Personal training",
   h1: "Personal training in Loosdrecht",
   lead: "Eén-op-één, volledig op maat. Elke sessie is afgestemd op jouw lichaam, niveau en ambities, met de volle aandacht van Marlon.",
-  heroImage: placeholder("Beeldvullende foto: personal training met Marlon"),
+  heroImage: {
+    src: "/images/lokaal/personal-training-hero.jpg",
+    alt: "Een trainer begeleidt een klant bij een squat in de studio.",
+  },
   // Dienstpagina "personal training": hoofdknop is de kennismaking, niet de proefles.
   cta: { primair: CTA_KENNISMAKING },
   stats: [
-    { waarde: "1 op 1", label: "met Marlon" },
-    { waarde: "Ook als Duo", label: "samen trainen" },
+    { waarde: "1 op 1", label: "of als Duo" },
+    { waarde: "Gratis", label: "intake" },
+    { waarde: "T.O.P", label: "Personal Trainer" },
   ],
   basis: {
     eyebrow: "Wat je krijgt",
@@ -83,19 +86,19 @@ export const personalTraining: DienstPagina = {
   faqKop: { eyebrow: "Veelgestelde vragen", titel: "Voor je eerste sessie" },
   faq: [
     {
-      vraag: "Hoe ziet de kennismaking eruit?",
-      // Wacht op Marlon: gratis of betaald, hoe lang.
-      antwoord: undefined,
+      vraag: "Hoe gaat een kennismaking?",
+      antwoord:
+        "Je begint met een gratis en vrijblijvende intake in de studio. Marlon neemt de tijd om je te leren kennen en bespreekt je doel, je leefstijl en eventuele beperkingen. Daarna maakt ze een schema dat past bij je doel en je niveau.",
     },
     {
-      vraag: "Kan ik samen met iemand anders trainen?",
-      // Wacht op Marlon: hoe werkt Duo.
-      antwoord: undefined,
+      vraag: "Voor wie is personal training?",
+      antwoord:
+        "Voor iedereen die met persoonlijke begeleiding sterker en fitter wil worden: of je nu net begint, terugkomt na een periode zonder training of al jaren traint. Heb je klachten of een blessure, dan houdt Marlon daar rekening mee.",
     },
     {
-      vraag: "Hoe vaak moet ik trainen?",
-      // Wacht op Marlon.
-      antwoord: undefined,
+      vraag: "Wat is het verschil tussen personal training en Duo?",
+      antwoord:
+        "Bij personal training train je één op één met Marlon. Bij Duo train je met z'n tweeën, bijvoorbeeld met je partner of een vriend, en krijgen jullie samen begeleiding.",
     },
   ],
   regio: {
