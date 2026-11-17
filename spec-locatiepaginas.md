@@ -1,6 +1,6 @@
 # spec-locatiepaginas.md
 
-Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in het Gooi en Wijdemeren. Ontwerp: `mockups/locatiepaginas-mockup.html` (v2, drie sjablonen: dienst, locatie, hub). Screenshots van de sjablonen met testdata op 390 en 1280 px: `mockups/screenshots/lokaal/`.
+Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in het Gooi en Wijdemeren. Ontwerp: `mockups/locatiepaginas-mockup.html` (v2, drie sjablonen: dienst, locatie, hub). Screenshots van de Vercel-preview (alle acht routes, 390 en 1280 px) en van de mockup ter vergelijking: `mockups/screenshots/lokaal/preview/` en `mockups/screenshots/lokaal/mockup/`.
 
 ## Doel en beslissingen
 
