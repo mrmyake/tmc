@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trialBookingMode } from "@/lib/mollie-mode";
 import { sendNotification } from "@/lib/ntfy";
+import { isTrialNotificationTest } from "@/lib/test-email";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { parsePhone } from "@/lib/phone-parse";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
@@ -206,6 +207,7 @@ export async function startOpeningTrialBooking(
     // COPY: confirm met Marlon
     `${result.slot_start_at ? "Gratis proefuur vrij trainen" : "Gratis proefles"} geboekt${whenLabel ? `: ${whenLabel}` : ""}. Zie Proeflessen in de admin.`,
     "ticket,muscle",
+    { test: isTrialNotificationTest(isTest, email) },
   );
 
   return { ok: true, redirectUrl: `/proefles/boeken/bedankt?trial=${trialBookingId}` };

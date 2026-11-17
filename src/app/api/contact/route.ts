@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
       sendNotification(
         "Nieuw contactbericht",
         "Nieuw bericht via het contactformulier. Inhoud staat in MailerLite, groep Contact.",
-        "speech_balloon"
+        "speech_balloon",
+        { test: isTestEmail(data.email) },
       ),
     ]);
 

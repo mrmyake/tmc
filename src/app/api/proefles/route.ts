@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordLeadAttribution } from "@/lib/attribution/record";
 
@@ -155,7 +156,8 @@ export async function POST(request: Request) {
       sendNotification(
         "Nieuwe proefles aanvraag!",
         "Nieuwe proefles-aanvraag. Bekijk hem in de admin onder Proeflessen (/app/admin/proeflessen).",
-        "muscle,fire"
+        "muscle,fire",
+        { test: isTestEmail(input.email) },
       ),
     ]);
 

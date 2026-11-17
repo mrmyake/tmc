@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { addSubscriber } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitizeLeadAttribution } from "@/lib/attribution/params";
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
       "Nieuwe yoga-test uitslag",
       `Uitslag ${outcome.name}, ${optIn ? "met" : "zonder"} opt-in.`,
       "yoga_mat",
+      { test: isTestEmail(email) },
     ),
   ]);
 

@@ -235,6 +235,7 @@ export async function resumeExtraClassCheckout(bookingId: string): Promise<Resum
       outcome: "expired",
       amountCents: booking.drop_in_price_cents ?? null,
       via: "resume",
+      test: mode === "test",
     });
     revalidatePath("/app/rooster");
     revalidatePath("/app/boekingen");
@@ -267,6 +268,7 @@ export async function resumeExtraClassCheckout(bookingId: string): Promise<Resum
     outcome: outcome ?? "expired",
     amountCents: booking.drop_in_price_cents ?? null,
     via: "resume",
+    test: mode === "test",
   });
   revalidatePath("/app/rooster");
   revalidatePath("/app/boekingen");

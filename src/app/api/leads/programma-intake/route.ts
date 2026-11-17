@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitizeLeadAttribution } from "@/lib/attribution/params";
 import { recordLeadAttribution } from "@/lib/attribution/record";
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
           // COPY: confirm met Marlon
           "Nieuwe intake-aanvraag. Gegevens staan in de mail aan Marlon en in het admin-dashboard.",
           "eyes,star",
+          { test: isTestEmail(input.email) },
         ),
     ],
     ["mail", () => sendProgrammaIntakeMail({ intakeId, input, params, createdAt })],

@@ -24,7 +24,7 @@ interface Calls {
   findMembership: number;
   setStatus: Array<{ membershipId: string; from: string; to: string }>;
   events: ChargebackEvent[];
-  staff: Array<{ title: string; message: string }>;
+  staff: Array<{ title: string; message: string; test: boolean | undefined }>;
   member: Array<{ profileId: string; amountCents: number; planLabel: string }>;
 }
 
@@ -60,8 +60,8 @@ function makeDeps(opts: {
     async emit(event) {
       calls.events.push(event);
     },
-    async notifyStaff(title, message) {
-      calls.staff.push({ title, message });
+    async notifyStaff(title, message, _tags, opts) {
+      calls.staff.push({ title, message, test: opts?.test });
     },
     async notifyMember(args) {
       calls.member.push(args);
@@ -118,6 +118,7 @@ test("eerste chargeback op recurring: spiegel, events, lid en staf gemeld, membe
   assert.equal(calls.staff.length, 1);
   assert.match(calls.staff[0].message, /MD06/);
   assert.match(calls.staff[0].message, /na drie storno's/);
+  assert.equal(calls.staff[0].test, false, "live betaalregel: geen testvlag");
   assert.deepEqual(
     calls.events.map((e) => e.type),
     ["payment.charged_back", "membership.payment_failed"],
@@ -350,4 +351,12 @@ test("centsFromMollieValue: afwezig of negatief is 0", () => {
   assert.equal(centsFromMollieValue("79.00"), 7900);
   assert.equal(centsFromMollieValue(null), 0);
   assert.equal(centsFromMollieValue("-1.00"), 0);
+});
+
+test("testbetaling (payments.is_test): de testvlag komt door naar de staffmelding", async () => {
+  const { deps, calls } = makeDeps({ chargebacks: [chb], membership: activeMembership });
+  await syncChargebackMirror(deps, row({ isTest: true }), recurring);
+  assert.equal(calls.staff.length, 1);
+  assert.equal(calls.staff[0].test, true);
+  assert.ok(!calls.staff[0].title.startsWith("TEST: "), "het prefix wordt alleen in sendNotification gezet");
 });

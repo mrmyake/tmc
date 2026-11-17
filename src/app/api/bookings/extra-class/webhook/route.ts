@@ -170,6 +170,7 @@ export async function POST(request: Request) {
       outcome,
       amountCents,
       via: "webhook",
+      test: profile?.is_test === true,
     });
     if (result === "error") {
       // De statusovergang zelf is niet gelukt (database niet bereikbaar of

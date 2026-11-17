@@ -411,8 +411,8 @@ function buildDeps(
         payload: event.payload,
       });
     },
-    notify: async (title, message) => {
-      await sendNotification(title, message, "wastebasket");
+    notify: async (title, message, opts) => {
+      await sendNotification(title, message, "wastebasket", opts);
     },
     now: () => new Date(),
     log: {

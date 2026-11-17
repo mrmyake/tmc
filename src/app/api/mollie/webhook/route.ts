@@ -169,6 +169,10 @@ export async function POST(request: Request) {
               : "Blijvend, geen retry. Mogelijke oorzaak: een betaling uit een andere Mollie-organisatie (oude subscription) of uit de andere modus; controleer in het Mollie-dashboard van die organisatie."
           }`,
           tags: "warning",
+          // Bewust zonder TEST-kenmerk: de modus komt hier alleen uit de
+          // query-parameter en is niet bevestigd. Een echte storing mag nooit
+          // als test binnenkomen.
+          modeUnverified: true,
         },
       });
       if (cls === "transient") return retryLater("payments_get_transient");
@@ -355,6 +359,7 @@ export async function POST(request: Request) {
             "PT-betaling zonder boeking",
             `Betaling ${payment.id} (€${(amountCents / 100).toFixed(2)}) verwijst naar pt_booking ${ptBookingId}, maar die bestaat niet meer (hold verlopen en opgeruimd). Refund of handmatig inplannen.`,
             "warning",
+            { test: mode === "test" },
           );
         }
         return NextResponse.json({ ok: true });
@@ -385,6 +390,7 @@ export async function POST(request: Request) {
             "Nieuwe PT-boeking",
             `PT sessie betaald. Booking ${ptBookingId}, €${(amountCents / 100).toFixed(2)}.`,
             "tada",
+            { test: mode === "test" },
           );
           await emitEvent({
             type: "pt_booking.confirmed",
@@ -451,7 +457,8 @@ export async function POST(request: Request) {
         await sendNotification(
           "Eerste betaling niet gelukt",
           `Order ${orderId} — eerste betaling ${payment.status}. Blijft openstaand tot de order verloopt; de klant kan het opnieuw proberen.`,
-          "warning"
+          "warning",
+          { test: mode === "test" },
         );
         return NextResponse.json({ ok: true });
       }
@@ -540,7 +547,8 @@ export async function POST(request: Request) {
         await sendNotification(
           "Incasso gefaald",
           `Membership ${membership.id} (${membership.plan_variant}): recurring ${payment.status}.`,
-          "warning"
+          "warning",
+          { test: mode === "test" },
         );
         // Fire-and-forget member email.
         void notifyMemberPaymentFailed({
@@ -583,6 +591,10 @@ export async function POST(request: Request) {
             : " (blijvend, geen retry)"
         }`,
         tags: "warning",
+        // Bewust zonder TEST-kenmerk: de modus komt hier alleen uit de
+        // query-parameter en is niet bevestigd. Een echte storing mag nooit
+        // als test binnenkomen.
+        modeUnverified: true,
       },
     });
     if (cls === "transient") return retryLater("unhandled_transient");

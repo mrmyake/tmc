@@ -1,7 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { mollieModeForMembership, mollieModeForProfile } from "@/lib/mollie-mode";
+import {
+  isTestMembership,
+  isTestProfile,
+  mollieModeForMembership,
+  mollieModeForProfile,
+} from "@/lib/mollie-mode";
 import {
   cancelMollieSubscription,
   createMollieRecurringSubscription,
@@ -178,6 +183,7 @@ export async function pauseMembershipCore(
       "Pauze half doorgevoerd",
       `De Mollie-incasso van membership ${params.membershipId} is gestopt, maar de lokale pauze-registratie faalde (${error.message}). Opnieuw proberen is veilig en idempotent.`,
       "warning",
+      { test: await isTestProfile(m.profile_id) },
     );
     return {
       ok: false,
@@ -326,6 +332,7 @@ export async function cancelMembershipCore(
       "Stopzetting half doorgevoerd",
       `De Mollie-incasso van membership ${params.membershipId} is gestopt, maar de lokale stopzetting faalde (${error.message}). Opnieuw proberen is veilig en idempotent.`,
       "warning",
+      { test: await isTestProfile(m.profile_id) },
     );
     return {
       ok: false,
@@ -609,6 +616,7 @@ export async function requestMembershipChangeCore(
         "Wijzigingsverzoek inconsistent",
         `Membership ${params.membershipId}: het Mollie-bedrag kon niet verhoogd worden EN het terugdraaien van verzoek ${result.request_id} faalde ook. Handmatig controleren.`,
         "warning",
+        { test: await isTestProfile(m.profile_id) },
       );
     }
     return {
@@ -686,6 +694,7 @@ export async function cancelMembershipChangeCore(params: {
       "Mollie-bedrag niet teruggezet",
       `Wijzigingsverzoek ${params.requestId} is geannuleerd, maar het Mollie-bedrag van subscription ${result.mollie_subscription_id ?? "?"} kon niet teruggezet worden naar ${result.restore_recurring_cents ?? "?"} cent. Handmatig herstellen bij Mollie.`,
       "warning",
+      { test: await isTestMembership(result.membership_id) },
     );
     return {
       ok: true,
@@ -852,6 +861,7 @@ export async function resumeMembershipCore(params: {
         "Hervatten inconsistent",
         `Membership ${params.membershipId}: de lokale hervat-registratie faalde EN de compenserende Mollie-cancel van ${sub.id} faalde ook. Handmatig controleren bij Mollie.`,
         "warning",
+        { test: mode === "test" },
       );
     }
     return {

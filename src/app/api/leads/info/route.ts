@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 import { utmToMailerliteFields, type UtmParams } from "@/lib/utm";
 
 interface LeadPayload {
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
       sendNotification(
         "Blijf op de hoogte aanmelding",
         "Nieuwe aanmelding via de blijf-op-de-hoogte banner. Adres staat in MailerLite, groep Early Member Interested.",
-        "bell"
+        "bell",
+        { test: isTestEmail(email) },
       ),
     ]);
 

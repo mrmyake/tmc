@@ -89,6 +89,7 @@ export async function GET(req: Request) {
       outcome: decision.action === "confirm" ? "paid" : decision.outcome,
       amountCents: row.drop_in_price_cents ?? null,
       via: "cron",
+      test: profile?.is_test === true,
     });
     if (result === "error") errors += 1;
     else if (result === "released") released += 1;
