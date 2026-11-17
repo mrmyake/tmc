@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TMC dienst- en locatiepagina's, mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --warm-black: #0E0C0B;
+    --surface: #171412;
+    --surface-lift: #1F1B18;
+    --stone: #F4EFE6;
+    --stone-muted: rgba(244, 239, 230, 0.62);
+    --stone-faint: rgba(244, 239, 230, 0.14);
+    --champagne: #B9986A;
+    --champagne-soft: rgba(185, 152, 106, 0.14);
+    --card-radius: 8px;
+    --control-radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050404; color: var(--stone); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-size: 15px; }
+  a { color: inherit; }
+  button { font: inherit; }
+
+  /* ---------- Mockup-omgeving (geen onderdeel van het ontwerp) ---------- */
+  .toolbar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 24px; background: rgba(5,4,4,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--stone-faint); }
+  .toolbar h1 { font-family: Fraunces, serif; font-weight: 400; font-size: 19px; margin-right: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--stone-faint); border-radius: var(--control-radius); overflow: hidden; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; color: var(--stone-muted); padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  .seg button[aria-pressed="true"] { background: var(--champagne); color: var(--warm-black); font-weight: 600; }
+  .check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--stone-muted); cursor: pointer; }
+  .check input { accent-color: var(--champagne); }
+
+  .board { padding: 28px 24px 60px; max-width: 1680px; margin: 0 auto; }
+  .frames { display: grid; grid-template-columns: 406px minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 1000px) { .frames { grid-template-columns: 1fr; justify-items: center; } .desk-col { width: 100%; } }
+  .desk-col { min-width: 0; }
+  .frame-label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--stone-muted); margin-bottom: 10px; }
+  .frame-label code { text-transform: none; letter-spacing: 0; color: var(--champagne); font-size: 12px; }
+  .phone { width: 406px; height: 796px; border-radius: 34px; border: 8px solid #1d1a18; overflow: hidden; background: var(--warm-black); position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .phone .scroller { height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+  .phone .scroller::-webkit-scrollbar { display: none; }
+  .desk-wrap { width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #262220; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .desk-chrome { height: 30px; background: #1a1715; display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .desk-chrome i { width: 9px; height: 9px; border-radius: 50%; background: #3a3532; display: block; }
+  .desk-chrome span { margin-left: 14px; font-size: 11px; color: var(--stone-muted); background: #0f0d0c; padding: 3px 12px; border-radius: 4px; }
+  .desk-scale { transform-origin: top left; width: 1280px; }
+  .desktop { width: 1280px; height: 800px; overflow-y: auto; background: var(--warm-black); scrollbar-width: thin; }
+
+  .notes { margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .note { background: var(--surface); border: 1px solid var(--stone-faint); border-radius: var(--card-radius); padding: 20px 22px; }
+  .note h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 19px; margin-bottom: 12px; }
+  .note p, .note li { font-size: 13.5px; line-height: 1.55; color: var(--stone-muted); }
+  .note li { margin: 0 0 8px 16px; }
+  .note strong { color: var(--stone); font-weight: 500; }
+  .note code { font-size: 12px; color: var(--champagne); }
+  .note table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .note th, .note td { text-align: left; padding: 7px 8px 7px 0; border-bottom: 1px solid var(--stone-faint); vertical-align: top; color: var(--stone-muted); }
+  .note th { color: var(--stone); font-weight: 500; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: 1px; }
+  .tag.must { background: var(--champagne); color: var(--warm-black); }
+  .tag.should { border: 1px solid var(--champagne); color: var(--champagne); }
+  .tag.could { border: 1px solid var(--stone-faint); color: var(--stone-muted); }
+
+  /* Invulplekken: inhoud die Marlon of Ilja nog moet aanleveren */
+  .fill { display: inline; border: 1px dashed var(--champagne); color: var(--champagne); background: var(--champagne-soft); border-radius: 3px; padding: 1px 6px; font-size: 0.86em; font-style: normal; white-space: normal; }
+  body.hide-fill .fill { border-color: transparent; background: none; color: inherit; padding: 0; }
+  body.hide-fill .fill::before { content: ""; }
+
+  /* =====================================================================
+     ONTWERP. Container queries: dezelfde markup schakelt op framebreedte.
+     ===================================================================== */
+  .screen { container-type: inline-size; min-height: 100%; display: flex; flex-direction: column; }
+  .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 22px; }
+  @container (min-width: 900px) { .wrap { padding: 0 48px; } }
+
+  .wordmark { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 20px; letter-spacing: 0.02em; text-decoration: none; }
+  .wordmark span { color: var(--champagne); }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--champagne); }
+  .display { font-family: Fraunces, Georgia, serif; font-weight: 400; letter-spacing: -0.01em; line-height: 1.06; }
+  .muted { color: var(--stone-muted); }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 24px; background: var(--champagne); color: var(--warm-black); border: 0; border-radius: var(--control-radius); font-weight: 600; font-size: 15.5px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .btn.ghost { background: none; color: var(--stone); border: 1px solid var(--stone-faint); font-weight: 500; }
+  .btn-row { display: grid; gap: 10px; margin-top: 24px; }
+  @container (min-width: 900px) { .btn-row { display: flex; gap: 12px; } }
+  .link { color: var(--stone); text-decoration: underline; text-decoration-color: var(--champagne); text-underline-offset: 4px; }
+
+  .rating { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--stone-muted); }
+  .rating .stars { color: var(--champagne); letter-spacing: 1px; }
+  .rating b { color: var(--stone); font-weight: 600; }
+
+  .photo { position: relative; overflow: hidden; border-radius: var(--card-radius); background: radial-gradient(120% 80% at 70% 30%, rgba(185,152,106,0.35), transparent 60%), radial-gradient(90% 70% at 30% 90%, rgba(244,239,230,0.10), transparent 60%), linear-gradient(160deg, #3a2f26 0%, #1c1714 55%, #110e0c 100%); }
+  .photo .ph-label { position: absolute; top: 12px; left: 12px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,239,230,0.75); background: rgba(14,12,11,0.55); padding: 4px 8px; border-radius: 3px; }
+  .photo svg.figure { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); height: 86%; opacity: 0.22; }
+
+  /* Nav */
+  .site-nav { border-bottom: 1px solid var(--stone-faint); }
+  .site-nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .site-nav ul { display: none; list-style: none; gap: 26px; font-size: 14px; color: var(--stone-muted); align-items: center; }
+  .site-nav ul .navbtn { background: var(--champagne); color: var(--warm-black); padding: 9px 14px; border-radius: var(--control-radius); font-weight: 600; }
+  .site-nav .menu { width: 22px; height: 14px; border-top: 1.5px solid var(--stone); border-bottom: 1.5px solid var(--stone); position: relative; }
+  .site-nav .menu::after { content: ""; position: absolute; left: 0; right: 0; top: 5.5px; border-top: 1.5px solid var(--stone); }
+  @container (min-width: 900px) { .site-nav .wrap { height: 76px; } .site-nav ul { display: flex; } .site-nav .menu { display: none; } }
+
+  .crumbs { font-size: 12.5px; color: var(--stone-muted); padding: 16px 0 0; }
+  .crumbs a { text-decoration: none; }
+  .crumbs span { margin: 0 6px; opacity: 0.6; }
+
+  /* Hero */
+  .hero { padding: 18px 0 34px; }
+  .hero-grid { display: grid; gap: 26px; }
+  .hero-grid > * { min-width: 0; }
+  .hero h1 { font-size: 40px; margin: 12px 0 14px; }
+  .hero .lead { font-size: 16px; line-height: 1.55; color: var(--stone-muted); max-width: 32em; }
+  .hero .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--stone-muted); }
+  .hero .meta b { color: var(--stone); font-weight: 500; }
+  .hero-photo { height: 260px; }
+  .hero-photo .chip { position: absolute; left: 14px; bottom: 14px; background: rgba(14,12,11,0.78); backdrop-filter: blur(6px); padding: 8px 12px; border-radius: var(--control-radius); }
+  .formerly { margin-top: 16px; font-size: 13px; color: var(--stone-muted); border-left: 2px solid var(--champagne); padding-left: 10px; }
+  @container (min-width: 900px) {
+    .hero { padding: 30px 0 64px; }
+    .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: center; }
+    .hero h1 { font-size: 62px; }
+    .hero .lead { font-size: 18px; }
+    .hero-photo { height: 440px; }
+  }
+
+  /* Secties */
+  .sec { border-top: 1px solid var(--stone-faint); padding: 34px 0 36px; }
+  .sec h2 { font-size: 28px; margin: 10px 0 14px; }
+  .sec .intro { font-size: 15px; line-height: 1.6; color: var(--stone-muted); max-width: 40em; }
+  @container (min-width: 900px) { .sec { padding: 64px 0; } .sec h2 { font-size: 40px; } .sec .intro { font-size: 16.5px; } }
+  .two { display: grid; gap: 22px; }
+  .two > * { min-width: 0; }
+  @container (min-width: 900px) { .two { grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: start; } }
+
+  .benefits { list-style: none; display: grid; gap: 0; margin-top: 20px; border-top: 1px solid var(--stone-faint); }
+  .benefits li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--stone-faint); }
+  .benefits .n { font-family: Fraunces, serif; color: var(--champagne); font-size: 19px; line-height: 1.1; }
+  .benefits b { display: block; font-weight: 500; font-size: 15px; margin-bottom: 3px; }
+  .benefits span { font-size: 13.5px; color: var(--stone-muted); line-height: 1.5; }
+  @container (min-width: 900px) { .benefits.cols { grid-template-columns: repeat(3, 1fr); gap: 32px; border-top: 0; } .benefits.cols li { border-bottom: 0; border-top: 1px solid var(--stone-faint); } }
+
+  .cards { display: grid; gap: 12px; margin-top: 22px; }
+  @container (min-width: 900px) { .cards { grid-template-columns: repeat(3, 1fr); gap: 16px; } .cards.four { grid-template-columns: repeat(4, 1fr); } }
+  .card { background: var(--surface); border: 1px solid var(--stone-faint); border-radius: var(--card-radius); padding: 20px; text-decoration: none; display: flex; flex-direction: column; gap: 8px; }
+  .card.accent { border-top: 2px solid var(--champagne); }
+  .card h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 21px; }
+  .card p { font-size: 13.5px; line-height: 1.5; color: var(--stone-muted); }
+  .card .go { margin-top: auto; padding-top: 6px; font-size: 13.5px; color: var(--champagne); }
+  .card .big { font-family: Fraunces, serif; font-size: 30px; line-height: 1; }
+  .card .big small { font-family: Inter, sans-serif; font-size: 12.5px; color: var(--stone-muted); margin-left: 6px; }
+
+  .trainer { display: grid; grid-template-columns: 84px 1fr; gap: 16px; align-items: center; margin-top: 20px; }
+  .trainer .photo { width: 84px; height: 84px; border-radius: 50%; }
+  .trainer b { font-family: Fraunces, serif; font-weight: 400; font-size: 21px; display: block; }
+  .trainer span { font-size: 13.5px; color: var(--stone-muted); line-height: 1.5; }
+
+  .sched-head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 12px; }
+  .sched-head span { font-size: 12.5px; color: var(--stone-muted); }
+  .sched-list { display: grid; gap: 8px; }
+  .sched-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; background: var(--surface); border-radius: var(--card-radius); padding: 12px 14px; }
+  .sched-row .d { font-size: 12px; color: var(--stone-muted); line-height: 1.3; }
+  .sched-row .d b { display: block; font-family: Fraunces, serif; font-weight: 400; font-size: 18px; color: var(--stone); font-variant-numeric: tabular-nums; }
+  .sched-row .c { font-size: 14.5px; font-weight: 500; }
+  .sched-row .c small { display: block; font-weight: 400; font-size: 12.5px; color: var(--stone-muted); margin-top: 2px; }
+  .sched-row .s { font-size: 12px; color: var(--champagne); white-space: nowrap; }
+
+  .travel { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+  .travel th { text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--stone-muted); padding: 0 10px 10px 0; }
+  .travel td { padding: 13px 10px 13px 0; border-top: 1px solid var(--stone-faint); vertical-align: middle; }
+  .travel td:first-child { font-family: Fraunces, serif; font-size: 18px; }
+  .travel td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .travel a { color: var(--champagne); text-decoration: none; font-size: 13.5px; white-space: nowrap; }
+  .travel .hide-m { display: none; }
+  @container (min-width: 900px) { .travel .hide-m { display: table-cell; } .travel td:first-child { font-size: 20px; } }
+
+  .route { display: grid; gap: 10px; margin-top: 20px; }
+  @container (min-width: 900px) { .route { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
+  .route .card { flex-direction: row; gap: 14px; align-items: flex-start; }
+  .route .ico { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--champagne-soft); color: var(--champagne); display: grid; place-items: center; }
+  .route .ico svg { width: 18px; height: 18px; }
+  .route b { display: block; font-weight: 500; font-size: 15px; margin-bottom: 3px; }
+  .map { height: 220px; margin-top: 14px; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @container (min-width: 900px) { .map { height: 100%; min-height: 360px; margin-top: 0; } }
+
+  .quote { background: var(--surface); border-radius: var(--card-radius); padding: 24px 22px; margin-top: 20px; border-left: 2px solid var(--champagne); }
+  .quote p { font-family: Fraunces, serif; font-weight: 300; font-size: 21px; line-height: 1.4; }
+  .quote cite { display: block; margin-top: 14px; font-style: normal; font-size: 13px; color: var(--stone-muted); }
+  @container (min-width: 900px) { .quote { padding: 34px 36px; } .quote p { font-size: 26px; } }
+
+  .hours { display: grid; gap: 8px; margin-top: 18px; }
+  .hours div { display: flex; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--stone-faint); font-size: 14px; }
+  .hours div span:last-child { color: var(--stone-muted); text-align: right; }
+
+  .faq { margin-top: 18px; border-top: 1px solid var(--stone-faint); }
+  .faq details { border-bottom: 1px solid var(--stone-faint); }
+  .faq summary { list-style: none; cursor: pointer; padding: 17px 30px 17px 0; font-size: 15.5px; font-weight: 500; position: relative; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; position: absolute; right: 2px; top: 13px; font-family: Fraunces, serif; font-size: 24px; color: var(--champagne); font-weight: 300; }
+  .faq details[open] summary::after { content: "−"; }
+  .faq details p { padding: 0 0 18px; font-size: 14.5px; line-height: 1.6; color: var(--stone-muted); max-width: 44em; }
+
+  .places { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .places a { text-decoration: none; border: 1px solid var(--stone-faint); border-radius: 999px; padding: 8px 14px; font-size: 13.5px; }
+  .places a:hover { border-color: var(--champagne); }
+
+  .closing { border-top: 1px solid var(--stone-faint); padding: 44px 0 48px; text-align: center; }
+  .closing h2 { font-size: 32px; }
+  .closing p { margin: 12px auto 0; max-width: 30em; font-size: 15px; color: var(--stone-muted); line-height: 1.55; }
+  .closing .btn-row { justify-content: center; }
+  @container (min-width: 900px) { .closing { padding: 72px 0; } .closing h2 { font-size: 48px; } }
+
+  .site-foot { margin-top: auto; border-top: 1px solid var(--stone-faint); padding: 34px 0 26px; font-size: 13px; color: var(--stone-muted); }
+  .foot-grid { display: grid; gap: 26px; }
+  @container (min-width: 900px) { .foot-grid { grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 40px; } }
+  .foot-grid h4 { font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--stone); margin-bottom: 12px; }
+  .foot-grid ul { list-style: none; display: grid; gap: 8px; }
+  .foot-grid a { text-decoration: none; }
+  .foot-grid .hl a { color: var(--champagne); }
+  .foot-legal { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--stone-faint); display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; }
+
+  /* ---------- v2: eigen hoofdelement per paginatype ---------- */
+  .light { background: var(--stone); color: var(--warm-black); }
+  .light .eyebrow { color: #8a6c43; }
+  .light .intro, .light .muted, .light p { color: rgba(14,12,11,0.68); }
+  .light .sec, .light.sec { border-top: 0; }
+
+  /* Dienstpagina: beeldvullende hero met cijferbalk */
+  .hero-full { position: relative; min-height: 520px; display: flex; align-items: flex-end; border-radius: 0; }
+  .hero-full .ph-label { top: 14px; left: 14px; }
+  .hero-full::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,12,11,0) 20%, rgba(14,12,11,0.92) 88%); }
+  .hero-full .wrap { position: relative; z-index: 2; padding-bottom: 30px; }
+  .hero-full h1 { font-size: 46px; margin: 10px 0 12px; max-width: 11em; }
+  .hero-full .lead { font-size: 16px; line-height: 1.55; color: rgba(244,239,230,0.78); max-width: 30em; }
+  @container (min-width: 900px) { .hero-full { min-height: 640px; } .hero-full h1 { font-size: 84px; } .hero-full .lead { font-size: 19px; } .hero-full .wrap { padding-bottom: 56px; } .hero-full .btn-row { margin-top: 28px; } }
+  .statbar { border-top: 1px solid var(--stone-faint); border-bottom: 1px solid var(--stone-faint); }
+  .statbar .wrap { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .statbar div.s { padding: 18px 0; }
+  .statbar div.s + div.s { border-left: 1px solid var(--stone-faint); padding-left: 14px; }
+  .statbar b { display: block; font-family: Fraunces, serif; font-weight: 400; font-size: 26px; color: var(--champagne); }
+  .statbar span { font-size: 12px; color: var(--stone-muted); }
+  @container (min-width: 900px) { .statbar div.s { padding: 26px 0; } .statbar div.s + div.s { padding-left: 32px; } .statbar b { font-size: 38px; } .statbar span { font-size: 13.5px; } }
+
+  .moves { display: grid; gap: 14px; margin-top: 26px; }
+  @container (min-width: 900px) { .moves { grid-template-columns: repeat(3, 1fr); gap: 20px; } }
+  .move { background: #EAE3D6; border-radius: var(--card-radius); overflow: hidden; }
+  .move .photo { height: 170px; border-radius: 0; }
+  .move .body { padding: 18px 18px 20px; }
+  .move .k { font-family: Fraunces, serif; font-size: 13px; color: #8a6c43; }
+  .move h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 24px; margin: 4px 0 6px; color: var(--warm-black); }
+  .move p { font-size: 14px; line-height: 1.5; }
+  @container (min-width: 900px) { .move .photo { height: 220px; } }
+
+  .regio-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 22px 0; }
+  .regio-line p { font-size: 14.5px; color: var(--stone-muted); flex: 1 1 280px; }
+  .regio-line .places { margin-top: 0; }
+
+  /* Locatiepagina: de reis is de hero */
+  .hero-route { padding: 18px 0 36px; }
+  .hero-route .grid { display: grid; gap: 22px; }
+  .hero-route .grid > * { min-width: 0; }
+  .hero-route h1 { font-size: 40px; margin: 12px 0 14px; }
+  .hero-route .lead { font-size: 16px; line-height: 1.55; color: var(--stone-muted); }
+  @container (min-width: 900px) { .hero-route { padding: 34px 0 64px; } .hero-route .grid { grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; } .hero-route h1 { font-size: 60px; } .hero-route .lead { font-size: 18px; } }
+  .trip { background: var(--surface); border: 1px solid var(--stone-faint); border-radius: var(--card-radius); overflow: hidden; }
+  .trip-map { position: relative; height: 210px; background: radial-gradient(90% 90% at 80% 10%, rgba(185,152,106,0.18), transparent 60%), #13100e; }
+  .trip-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .trip-map .ph-label { position: absolute; top: 10px; left: 10px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,239,230,0.6); }
+  .trip-time { display: flex; align-items: baseline; gap: 12px; padding: 18px 20px 6px; }
+  .trip-time b { font-family: Fraunces, serif; font-weight: 400; font-size: 54px; line-height: 1; color: var(--champagne); }
+  .trip-time span { font-size: 14px; color: var(--stone-muted); line-height: 1.4; }
+  .trip-modes { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--stone-faint); margin-top: 12px; }
+  .trip-modes div { padding: 13px 14px; font-size: 12.5px; color: var(--stone-muted); }
+  .trip-modes div + div { border-left: 1px solid var(--stone-faint); }
+  .trip-modes b { display: block; color: var(--stone); font-weight: 500; font-size: 13.5px; margin-bottom: 3px; }
+  @container (min-width: 900px) { .trip-map { height: 280px; } .trip-time b { font-size: 72px; } }
+
+  .bigquote { padding: 44px 0 46px; }
+  .bigquote p.q { font-family: Fraunces, serif; font-weight: 300; font-size: 27px; line-height: 1.32; color: var(--warm-black); max-width: 24em; }
+  .bigquote cite { display: block; margin-top: 18px; font-style: normal; font-size: 13.5px; }
+  @container (min-width: 900px) { .bigquote { padding: 84px 0; } .bigquote p.q { font-size: 44px; } }
+
+  .day { margin-top: 24px; }
+  .day-row { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .day-row > span { font-size: 12.5px; color: var(--stone-muted); }
+  .bar { position: relative; height: 34px; background: var(--surface); border-radius: var(--control-radius); overflow: hidden; }
+  .bar i { position: absolute; top: 0; bottom: 0; }
+  .bar i.open { background: rgba(244,239,230,0.10); }
+  .bar i.marlon { background: var(--champagne); top: 9px; bottom: 9px; border-radius: 2px; }
+  .ticks { display: grid; grid-template-columns: 74px 1fr; gap: 12px; }
+  .ticks div { position: relative; height: 16px; font-size: 11px; color: var(--stone-muted); }
+  .ticks em { position: absolute; transform: translateX(-50%); font-style: normal; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 12.5px; color: var(--stone-muted); }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 8px; border-radius: 2px; margin-right: 7px; vertical-align: 0; }
+  .legend .l1::before { background: rgba(244,239,230,0.18); }
+  .legend .l2::before { background: var(--champagne); }
+
+  .offer-list { margin-top: 20px; border-top: 1px solid var(--stone-faint); }
+  .offer-list a { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 16px 0; border-bottom: 1px solid var(--stone-faint); text-decoration: none; }
+  .offer-list b { font-family: Fraunces, serif; font-weight: 400; font-size: 21px; }
+  .offer-list span { grid-column: 1; font-size: 13.5px; color: var(--stone-muted); }
+  .offer-list em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; color: var(--champagne); }
+
+  /* Hubpagina: de regiokaart is de hero */
+  .hero-map { padding: 18px 0 30px; }
+  .hero-map .grid { display: grid; gap: 18px; }
+  .hero-map .grid > * { min-width: 0; }
+  .hero-map h1 { font-size: 40px; margin: 12px 0 14px; }
+  .hero-map .lead { font-size: 16px; line-height: 1.55; color: var(--stone-muted); }
+  @container (min-width: 900px) { .hero-map { padding: 30px 0 56px; } .hero-map .grid { grid-template-columns: 0.8fr 1.2fr; gap: 40px; align-items: center; } .hero-map h1 { font-size: 60px; } .hero-map .lead { font-size: 18px; } }
+  .region { position: relative; aspect-ratio: 560 / 440; border-radius: var(--card-radius); background: radial-gradient(70% 70% at 15% 90%, rgba(185,152,106,0.16), transparent 65%), #13100e; border: 1px solid var(--stone-faint); }
+  .region svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .region .ph-label { position: absolute; bottom: 10px; right: 12px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,239,230,0.5); }
+
+  .placecards { display: grid; gap: 0; margin-top: 22px; border-top: 1px solid rgba(14,12,11,0.14); }
+  .placecards a { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 20px 0; border-bottom: 1px solid rgba(14,12,11,0.14); text-decoration: none; color: var(--warm-black); }
+  .placecards b { font-family: Fraunces, serif; font-weight: 400; font-size: 30px; line-height: 1.1; }
+  .placecards span { grid-column: 1; font-size: 14px; color: rgba(14,12,11,0.65); }
+  .placecards em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; font-family: Fraunces, serif; font-size: 22px; color: #8a6c43; text-align: right; }
+  @container (min-width: 900px) { .placecards { grid-template-columns: repeat(3, 1fr); gap: 0 32px; border-top: 0; } .placecards a { border-top: 1px solid rgba(14,12,11,0.14); border-bottom: 0; padding: 26px 0; } .placecards b { font-size: 40px; } }
+  .light .fill { color: #7a5c33; border-color: #8a6c43; background: rgba(185,152,106,0.18); }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Dienst- en locatiepagina's, mockup v2</h1>
+  <div class="seg" role="group" aria-label="Pagina">
+    <button data-page="kettlebell" aria-pressed="true">/kettlebell-training</button>
+    <button data-page="hilversum" aria-pressed="false">/personal-trainer-hilversum</button>
+    <button data-page="gooi" aria-pressed="false">/personal-trainer-gooi</button>
+  </div>
+  <label class="check"><input type="checkbox" id="fillToggle" checked> Toon invulplekken</label>
+</div>
+
+<main class="board">
+  <div class="frames">
+    <div>
+      <div class="frame-label">Mobiel, 390 px <code id="urlM"></code></div>
+      <div class="phone"><div class="scroller" id="mobile"></div></div>
+    </div>
+    <div class="desk-col">
+      <div class="frame-label">Desktop, 1280 px (geschaald)</div>
+      <div class="desk-wrap" id="deskWrap">
+        <div class="desk-chrome"><i></i><i></i><i></i><span id="urlBar"></span></div>
+        <div class="desk-scale" id="deskScale"><div class="desktop" id="desktop"></div></div>
+      </div>
+    </div>
+  </div>
+  <section class="notes" id="notes"></section>
+</main>
+
+<script>
+// Alle Nederlandse copy hieronder: // COPY: confirm met Marlon
+// Gestippelde kaders (class "fill") = inhoud die nog aangeleverd of gemeten moet worden.
+
+var FIGURE = '<svg class="figure" viewBox="0 0 100 160" fill="#F4EFE6" aria-hidden="true"><circle cx="50" cy="26" r="16"/><path d="M18 160c0-44 12-92 32-92s32 48 32 92z"/></svg>';
+var RATING = '<span class="rating"><span class="stars">★★★★★</span><span><b>5.0</b> op Google, 25+ reviews</span></span>';
+function fill(t) { return '<em class="fill">' + t + '</em>'; }
+
+var ICON = {
+  car: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 16h14M6.5 16l1.4-5.2A2 2 0 0 1 9.8 9.3h4.4a2 2 0 0 1 1.9 1.5L17.5 16M5 16v2.5M19 16v2.5" stroke-linecap="round"/><circle cx="8" cy="14" r=".8" fill="currentColor"/><circle cx="16" cy="14" r=".8" fill="currentColor"/></svg>',
+  bike: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l3 7M9 6h3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="4" width="14" height="13" rx="2"/><path d="M5 11h14M8 17v2.5M16 17v2.5"/><circle cx="8.5" cy="14" r=".8" fill="currentColor"/><circle cx="15.5" cy="14" r=".8" fill="currentColor"/></svg>',
+  park: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M10 16V8h3a2.5 2.5 0 0 1 0 5h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+
+// Gestileerde kaart, geen echte geografie: definitieve versie wordt een statische kaartafbeelding.
+var MAP = '<div class="photo map"><span class="ph-label">Statische kaart, definitief via Mapbox of eigen illustratie</span>' +
+  '<svg viewBox="0 0 400 300" aria-hidden="true" preserveAspectRatio="xMidYMid slice">' +
+    '<path d="M40 250 C120 210 160 170 230 150 S330 90 380 40" stroke="rgba(185,152,106,0.7)" stroke-width="2" fill="none" stroke-dasharray="5 6"/>' +
+    '<circle cx="40" cy="250" r="7" fill="#B9986A"/><text x="54" y="255" fill="#F4EFE6" font-size="13" font-family="Inter">Studio Loosdrecht</text>' +
+    '<circle cx="380" cy="40" r="5" fill="#F4EFE6"/><text x="300" y="30" fill="rgba(244,239,230,0.75)" font-size="12" font-family="Inter">Hilversum</text>' +
+  '</svg></div>';
+
+function nav() {
+  return '<nav class="site-nav"><div class="wrap">' +
+    '<a class="wordmark" href="#">The Movement <span>Club</span></a>' +
+    '<ul><li>Aanbod</li><li>Rooster</li><li>Prijzen</li><li>Over ons</li><li>Inloggen</li><li class="navbtn">Plan je proefles</li></ul>' +
+    '<span class="menu" aria-label="Menu"></span>' +
+  '</div></nav>';
+}
+
+function crumbs(items) {
+  return '<div class="crumbs"><div class="wrap">' + items.map(function (x, i) {
+    return (i ? '<span>/</span>' : '') + '<a href="#">' + x + '</a>';
+  }).join('') + '</div></div>';
+}
+
+function foot() {
+  return '<footer class="site-foot"><div class="wrap">' +
+    '<div class="foot-grid">' +
+      '<div><a class="wordmark" href="#">The Movement <span>Club</span></a><p style="margin-top:12px;line-height:1.55">Boutique studio voor kracht, mobility en yoga in Loosdrecht. Voorheen PT Loosdrecht.</p></div>' +
+      '<div><h4>Aanbod</h4><ul><li><a href="#">Groepslessen</a></li><li><a href="#">Yoga</a></li><li><a href="#">Kettlebell training</a></li><li><a href="#">Mobility</a></li><li><a href="#">Krachttraining</a></li><li><a href="#">Personal training</a></li><li><a href="#">12-weken programma</a></li></ul></div>' +
+      '<div class="hl"><h4>Regio</h4><ul><li><a href="#">Personal trainer Hilversum</a></li><li><a href="#">Personal trainer Bussum</a></li><li><a href="#">Personal trainer Laren</a></li><li><a href="#">Personal trainer het Gooi</a></li></ul></div>' +
+      '<div><h4>Contact</h4><ul><li>Industrieweg 14P</li><li>1231 KH Loosdrecht</li><li>info@themovementclub.nl</li><li>06 25 13 05 84</li></ul></div>' +
+    '</div>' +
+    '<div class="foot-legal"><a href="#">Voorwaarden</a><a href="#">Huisregels</a><a href="#">Onbegeleide toegang</a><a href="#">Privacybeleid</a></div>' +
+  '</div></footer>';
+}
+
+function faq(items) {
+  return '<div class="faq">' + items.map(function (q, i) {
+    return '<details' + (i === 0 ? ' open' : '') + '><summary>' + q[0] + '</summary><p>' + q[1] + '</p></details>';
+  }).join('') + '</div>';
+}
+
+function closing(h, p, primary, secondary) {
+  return '<section class="closing"><div class="wrap">' +
+    '<div class="eyebrow">Proefles</div>' +
+    '<h2 class="display" style="margin-top:10px">' + h + '</h2><p>' + p + '</p>' +
+    '<div class="btn-row"><a class="btn" href="#">' + primary + ' →</a>' + (secondary ? '<a class="btn ghost" href="#">' + secondary + '</a>' : '') + '</div>' +
+  '</div></section>';
+}
+
+// =====================================================================
+// 1. Dienstpagina: /kettlebell-training. Hoofdelement: de les zelf.
+// =====================================================================
+function kettlebell() {
+  // COPY: confirm met Marlon (hele template)
+  return '<div class="screen">' + nav() + crumbs(['Aanbod', 'Kettlebell training']) +
+
+  '<section class="photo hero-full"><span class="ph-label">Beeldvullende foto: swing in de Kracht Studio, uit Sanity</span>' + FIGURE +
+    '<div class="wrap">' +
+      '<div class="eyebrow">Kettlebell</div>' +
+      '<h1 class="display">Kettlebell training in Loosdrecht</h1>' +
+      '<p class="lead">Sterker worden met één stuk ijzer en goede techniek. Les van Kettlebell Master Marlon, op zo\'n tien minuten van Hilversum.</p>' +
+      '<div class="btn-row"><a class="btn" href="#">Plan je proefles →</a><a class="btn ghost" href="#">Bekijk het rooster</a></div>' +
+    '</div>' +
+  '</section>' +
+
+  '<div class="statbar"><div class="wrap">' +
+    '<div class="s"><b>Max 12</b><span>per les</span></div>' +
+    '<div class="s"><b>60 min</b><span>kracht en conditie</span></div>' +
+    '<div class="s"><b>5.0</b><span>op Google, 25+ reviews</span></div>' +
+  '</div></div>' +
+
+  '<section class="sec light"><div class="wrap">' +
+    '<div class="eyebrow">De basis</div>' +
+    '<h2 class="display">Drie bewegingen die je hier leert</h2>' +
+    '<p class="intro">Elke les bouwt op dezelfde basis. Eerst de techniek, dan pas het gewicht.</p>' +
+    '<div class="moves">' +
+      '<div class="move"><div class="photo"><span class="ph-label">Foto swing</span></div><div class="body"><span class="k">01</span><h3>Swing</h3><p>De motor van elke les. Kracht uit je heupen, niet uit je rug.</p></div></div>' +
+      '<div class="move"><div class="photo"><span class="ph-label">Foto goblet squat</span></div><div class="body"><span class="k">02</span><h3>Goblet squat</h3><p>Diep zitten met een rechte rug. De basis voor sterke benen.</p></div></div>' +
+      '<div class="move"><div class="photo"><span class="ph-label">Foto get-up</span></div><div class="body"><span class="k">03</span><h3>Turkish get-up</h3><p>Van liggen naar staan met de kettlebell boven je hoofd. Controle en stabiliteit.</p></div></div>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div>' +
+      '<div class="eyebrow">Wie je begeleidt</div>' +
+      '<h2 class="display">Les van een Kettlebell Master</h2>' +
+      '<div class="trainer"><div class="photo"></div><div><b>Marlon</b><span>Eigenaar van The Movement Club en Kettlebell Master. ' + fill('Opleiding en certificering, één zin') + '</span></div></div>' +
+    '</div>' +
+    '<div>' +
+      '<div class="sched-head"><h3 class="display" style="font-size:22px">Kettlebell deze week</h3><span>live uit het rooster</span></div>' +
+      '<div class="sched-list">' +
+        '<div class="sched-row"><div class="d">ma 16<b>19:00</b></div><div class="c">Kettlebell Power<small>60 min</small></div><div class="s">Plek vrij</div></div>' +
+        '<div class="sched-row"><div class="d">wo 18<b>19:00</b></div><div class="c">Kettlebell Power<small>60 min</small></div><div class="s">Plek vrij</div></div>' +
+        '<div class="sched-row"><div class="d">zo 22<b>09:00</b></div><div class="c">Kettlebell Power<small>60 min</small></div><div class="s">Bijna vol</div></div>' +
+      '</div>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap">' +
+    '<div class="eyebrow">Zo train je kettlebell bij ons</div>' +
+    '<h2 class="display">Drie manieren</h2>' +
+    '<div class="cards">' +
+      '<a class="card accent" href="#"><h3>Groepsles</h3><p>Vaste tijden, maximaal 12 per les. Valt onder het kettlebell-abonnement of All Access.</p><span class="go">Bekijk prijzen →</span></a>' +
+      '<a class="card" href="#"><h3>Personal training</h3><p>Eén op één met Marlon, met een schema op jouw doel. Ook als Duo.</p><span class="go">Personal training →</span></a>' +
+      '<a class="card" href="#"><h3>Vrij trainen</h3><p>Kettlebells liggen klaar. Train zelf op je eigen tijd, met schema in de app.</p><span class="go">Vrij trainen →</span></a>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div><div class="eyebrow">Veelgestelde vragen</div><h2 class="display">Voor je eerste les</h2></div>' +
+    faq([
+      ['Ik heb nog nooit met een kettlebell getraind. Kan ik meedoen?', 'Ja. Marlon begint met de basis en kiest samen met jou een gewicht dat past. ' + fill('Marlon: hoe ziet de eerste les eruit?')],
+      ['Welk gewicht moet ik nemen?', fill('Marlon: richtlijn startgewicht')],
+      ['Is kettlebell slecht voor mijn rug?', fill('Marlon: antwoord over techniek en hip hinge')],
+      ['Wat neem ik mee?', 'Sportkleding, een handdoek en een flesje water. Kettlebells liggen klaar.']
+    ]) +
+  '</div></section>' +
+
+  '<div class="sec" style="padding:0"><div class="wrap regio-line">' +
+    '<p>Studio aan de Industrieweg in Loosdrecht, parkeren voor de deur. Leden komen uit:</p>' +
+    '<div class="places"><a href="#">Hilversum</a><a href="#">Bussum</a><a href="#">Laren</a><a href="#">Het Gooi</a></div>' +
+  '</div></div>' +
+
+  closing('Probeer een kettlebellles', 'Kies een les uit het rooster. Marlon laat je de techniek zien voordat je begint.', 'Plan je proefles', 'Bekijk het rooster') +
+  foot() + '</div>';
+}
+
+// =====================================================================
+// 2. Locatiepagina: /personal-trainer-hilversum. Hoofdelement: de reis.
+// =====================================================================
+var TRIP_SVG = '<svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+  '<path d="M60 175 C120 170 150 120 210 110 S300 70 345 48" stroke="#B9986A" stroke-width="2.5" fill="none" stroke-dasharray="6 6" stroke-linecap="round"/>' +
+  '<circle cx="345" cy="48" r="6" fill="#F4EFE6"/><text x="333" y="34" fill="rgba(244,239,230,0.8)" font-size="13" font-family="Inter" text-anchor="end">Hilversum centrum</text>' +
+  '<circle cx="60" cy="175" r="9" fill="#B9986A"/><circle cx="60" cy="175" r="16" fill="none" stroke="rgba(185,152,106,0.4)"/>' +
+  '<text x="84" y="180" fill="#F4EFE6" font-size="13" font-family="Inter">The Movement Club</text>' +
+  '</svg>';
+
+function hilversum() {
+  // COPY: confirm met Marlon (hele template)
+  return '<div class="screen">' + nav() + crumbs(['Home', 'Personal trainer Hilversum']) +
+
+  '<section class="hero-route"><div class="wrap grid">' +
+    '<div>' +
+      '<div class="eyebrow">Vanuit Hilversum</div>' +
+      '<h1 class="display">Personal trainer bij Hilversum</h1>' +
+      '<p class="lead">Een rustige studio in Loosdrecht, net buiten Hilversum. Parkeren voor de deur, en een trainer die je hele traject kent.</p>' +
+      '<div class="btn-row"><a class="btn" href="#">Plan een kennismaking →</a><a class="btn ghost" href="#">Bekijk personal training</a></div>' +
+      '<p class="formerly">Kende je PT Loosdrecht? Dat is nu The Movement Club. Zelfde trainer, nieuwe studio.</p>' +
+    '</div>' +
+    '<div class="trip">' +
+      '<div class="trip-map"><span class="ph-label">Schematisch, definitief als statische kaart</span>' + TRIP_SVG + '</div>' +
+      '<div class="trip-time"><b>± 10</b><span>minuten met de auto<br>vanaf het centrum van Hilversum</span></div>' +
+      '<div class="trip-modes">' +
+        '<div><b>Fiets</b>' + fill('meten') + '</div>' +
+        '<div><b>Ov</b>' + fill('checken') + '</div>' +
+        '<div><b>Parkeren</b>voor de deur</div>' +
+      '</div>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="light bigquote"><div class="wrap">' +
+    '<div class="eyebrow" style="margin-bottom:18px">Wie er uit Hilversum traint</div>' +
+    '<p class="q">' + fill('Quote van een lid uit Hilversum, met schriftelijke toestemming. Liefst over waarom de rit het waard is.') + '</p>' +
+    '<cite>' + fill('Voornaam, wijk in Hilversum') + '</cite>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div>' +
+      '<div class="eyebrow">Wanneer het past</div>' +
+      '<h2 class="display">Voor je werk of na je werk</h2>' +
+      '<p class="intro">Train je vroeg en ga je daarna door naar Hilversum of de trein? Of juist na je werk? Personal training plan je samen met Marlon. ' + fill('Marlon: vaste PT-tijden of in overleg?') + '</p>' +
+    '</div>' +
+    '<div class="day">' +
+      '<div class="day-row"><span>ma t/m vr</span><div class="bar"><i class="open" style="left:5.88%;width:88.24%"></i><i class="marlon" style="left:5.88%;width:29.41%"></i><i class="marlon" style="left:64.71%;width:23.53%"></i></div></div>' +
+      '<div class="day-row"><span>za en zo</span><div class="bar"><i class="open" style="left:11.76%;width:35.29%"></i></div></div>' +
+      '<div class="ticks"><span></span><div><em style="left:5.88%">07</em><em style="left:35.29%">12</em><em style="left:64.71%">17</em><em style="left:94.12%">22</em></div></div>' +
+      '<div class="legend"><span class="l1">Studio open voor vrij trainen</span><span class="l2">Marlon in de studio</span></div>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div><div class="eyebrow">Wat je kunt doen</div><h2 class="display">Van één sessie tot een traject</h2></div>' +
+    '<div class="offer-list">' +
+      '<a href="#"><b>Personal training</b><span>Eén op één of als Duo, met intake en schema.</span><em>→</em></a>' +
+      '<a href="#"><b>12-weken programma</b><span>Een vast traject met onbeperkt groepslessen erbij.</span><em>→</em></a>' +
+      '<a href="#"><b>Groepslessen</b><span>Yoga, mobility en kettlebell in kleine groepen.</span><em>→</em></a>' +
+      '<a href="#"><b>Vrij trainen</b><span>Zelf trainen met je schema in de app.</span><em>→</em></a>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div><div class="eyebrow">Vragen uit Hilversum</div><h2 class="display">Goed om te weten</h2></div>' +
+    faq([
+      ['Hoe lang ben ik onderweg vanuit Hilversum?', 'Met de auto zo\'n tien minuten vanaf het centrum. ' + fill('fietstijd invullen na meten')],
+      ['Waarom niet een trainer in Hilversum zelf?', fill('Marlon: wat maakt TMC anders, in eigen woorden')],
+      ['Kan ik eerst kennismaken?', 'Ja. ' + fill('Marlon: hoe gaat de kennismaking voor PT, gratis of betaald, hoe lang?')]
+    ]) +
+  '</div></section>' +
+
+  '<div class="sec" style="padding:0"><div class="wrap regio-line">' +
+    '<p>Ook in de buurt:</p>' +
+    '<div class="places"><a href="#">Personal trainer Bussum</a><a href="#">Personal trainer Laren</a><a href="#">Personal trainer het Gooi</a></div>' +
+  '</div></div>' +
+
+  closing('Kennismaken met Marlon', 'Vertel waar je naartoe wilt. Marlon neemt contact op en plant een eerste afspraak.', 'Plan een kennismaking', null) +
+  foot() + '</div>';
+}
+
+// =====================================================================
+// 3. Hubpagina: /personal-trainer-gooi. Hoofdelement: de regiokaart.
+// =====================================================================
+// Posities afgeleid van echte coördinaten (lengte- en breedtegraad), schematisch weergegeven.
+var TOWNS = [
+  ['Hilversum', 310, 357, true, '± 10 min'],
+  ['Bussum', 270, 195, true, ''],
+  ['Laren', 405, 262, true, ''],
+  ['Naarden', 270, 100, false, ''],
+  ['Huizen', 430, 100, false, ''],
+  ['Blaricum', 430, 195, false, ''],
+  ['Eemnes', 492, 262, false, ''],
+  ['Kortenhoef', 150, 292, false, '']
+];
+function regionSvg() {
+  var sx = 90, sy = 422;
+  var lines = TOWNS.map(function (t) {
+    return '<line x1="' + sx + '" y1="' + sy + '" x2="' + t[1] + '" y2="' + t[2] + '" stroke="' + (t[3] ? 'rgba(185,152,106,0.75)' : 'rgba(244,239,230,0.14)') + '" stroke-width="' + (t[3] ? 2 : 1) + '" stroke-dasharray="' + (t[3] ? '6 6' : '3 5') + '"/>';
+  }).join('');
+  var dots = TOWNS.map(function (t) {
+    return '<circle cx="' + t[1] + '" cy="' + t[2] + '" r="' + (t[3] ? 6 : 4) + '" fill="' + (t[3] ? '#F4EFE6' : 'rgba(244,239,230,0.45)') + '"/>' +
+      '<text x="' + t[1] + '" y="' + (t[2] - 14) + '" text-anchor="middle" font-family="' + (t[3] ? 'Fraunces' : 'Inter') + '" font-size="' + (t[3] ? 19 : 12.5) + '" fill="' + (t[3] ? '#F4EFE6' : 'rgba(244,239,230,0.6)') + '">' + t[0] + '</text>' +
+      (t[4] ? '<text x="' + t[1] + '" y="' + (t[2] + 24) + '" text-anchor="middle" font-family="Inter" font-size="12" fill="#B9986A">' + t[4] + '</text>' : '');
+  }).join('');
+  return '<svg viewBox="0 40 560 440" aria-hidden="true">' + lines + dots +
+    '<circle cx="' + sx + '" cy="' + sy + '" r="10" fill="#B9986A"/><circle cx="' + sx + '" cy="' + sy + '" r="20" fill="none" stroke="rgba(185,152,106,0.4)"/>' +
+    '<text x="' + (sx + 28) + '" y="' + (sy + 5) + '" font-family="Inter" font-size="13" font-weight="600" fill="#F4EFE6">The Movement Club, Loosdrecht</text>' +
+  '</svg>';
+}
+
+function gooi() {
+  // COPY: confirm met Marlon (hele template)
+  var rows = [
+    ['Hilversum', '± 10 min', fill('meten'), true],
+    ['Bussum', fill('meten'), fill('meten'), true],
+    ['Laren', fill('meten'), fill('meten'), true],
+    ['Blaricum', fill('meten'), fill('meten'), false],
+    ['Huizen', fill('meten'), fill('meten'), false],
+    ['Naarden', fill('meten'), fill('meten'), false],
+    ['Eemnes', fill('meten'), fill('meten'), false]
+  ].map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num hide-m">' + r[2] + '</td><td>' + (r[3] ? '<a href="#">Meer →</a>' : '') + '</td></tr>';
+  }).join('');
+
+  return '<div class="screen">' + nav() + crumbs(['Home', 'Personal trainer het Gooi']) +
+
+  '<section class="hero-map"><div class="wrap grid">' +
+    '<div>' +
+      '<div class="eyebrow">Regio</div>' +
+      '<h1 class="display">Personal trainer in het Gooi</h1>' +
+      '<p class="lead">The Movement Club staat in Loosdrecht, aan de rand van het Gooi. Personal training, kleine groepslessen en vrij trainen, met parkeren voor de deur.</p>' +
+      '<div class="btn-row"><a class="btn" href="#">Plan een kennismaking →</a><a class="btn ghost" href="#">Plan je proefles</a></div>' +
+      '<p class="formerly">Voorheen PT Loosdrecht. Zelfde trainer, nieuwe studio.</p>' +
+    '</div>' +
+    '<div class="region">' + regionSvg() + '<span class="ph-label">Schematisch</span></div>' +
+  '</div></section>' +
+
+  '<section class="sec light"><div class="wrap">' +
+    '<div class="eyebrow">Per plaats</div>' +
+    '<h2 class="display">Uit jouw plaats</h2>' +
+    '<div class="placecards">' +
+      '<a href="#"><b>Hilversum</b><span>Route, parkeren en trainingstijden vanuit Hilversum.</span><em>± 10 min</em></a>' +
+      '<a href="#"><b>Bussum</b><span>Route en tijden vanuit Bussum en Naarden.</span><em>' + fill('meten') + '</em></a>' +
+      '<a href="#"><b>Laren</b><span>Route en tijden vanuit Laren, Blaricum en Eemnes.</span><em>' + fill('meten') + '</em></a>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div>' +
+      '<div class="eyebrow">Reistijden</div>' +
+      '<h2 class="display">Hoe ver is het vanaf jou?</h2>' +
+      '<p class="intro">Gemeten op een doordeweekse ochtend, vanaf het centrum van elke plaats.</p>' +
+    '</div>' +
+    '<table class="travel"><thead><tr><th>Vanaf</th><th>Auto</th><th class="hide-m">Fiets</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap">' +
+    '<div class="eyebrow">Waarom naar Loosdrecht</div>' +
+    '<h2 class="display">Klein, rustig en persoonlijk</h2>' +
+    '<ul class="benefits cols">' +
+      '<li><span class="n">1</span><div><b>Kleine groepen</b><span>Maximaal 8 bij yoga en mobility, maximaal 12 bij kettlebell.</span></div></li>' +
+      '<li><span class="n">2</span><div><b>Eén trainer die je kent</b><span>Marlon volgt je van intake tot schema.</span></div></li>' +
+      '<li><span class="n">3</span><div><b>Geen gedoe met parkeren</b><span>Ruim parkeren voor de deur aan de Industrieweg.</span></div></li>' +
+    '</ul>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div><div class="eyebrow">Aanbod</div><h2 class="display">Wat je bij ons kunt doen</h2></div>' +
+    '<div class="offer-list">' +
+      '<a href="#"><b>Personal training</b><span>Eén op één of als Duo.</span><em>→</em></a>' +
+      '<a href="#"><b>Kettlebell training</b><span>Les van een Kettlebell Master.</span><em>→</em></a>' +
+      '<a href="#"><b>Yoga en mobility</b><span>Vijf vormen, max 8 per les.</span><em>→</em></a>' +
+      '<a href="#"><b>12-weken programma</b><span>Een vast traject met begeleiding.</span><em>→</em></a>' +
+    '</div>' +
+  '</div></section>' +
+
+  closing('Kennismaken met Marlon', 'Vertel waar je naartoe wilt. Marlon neemt contact op en plant een eerste afspraak.', 'Plan een kennismaking', 'Plan je proefles') +
+  foot() + '</div>';
+}
+
+// =====================================================================
+// Toelichting per pagina
+// =====================================================================
+var NOTES = {
+  kettlebell:
+    '<div class="note"><h3>SEO-kaart</h3><table>' +
+      '<tr><th>Title</th><td>Kettlebell training in Loosdrecht, voor het Gooi | The Movement Club</td></tr>' +
+      '<tr><th>Meta</th><td>Kettlebell training in kleine groepen van max 12, onder begeleiding van Kettlebell Master Marlon. Op 10 minuten van Hilversum. Plan je proefles.</td></tr>' +
+      '<tr><th>H1</th><td>Kettlebell training in Loosdrecht</td></tr>' +
+      '<tr><th>Schema</th><td><code>Service</code> (provider = <code>#business</code>, areaServed = Loosdrecht, Hilversum, Bussum, Laren), <code>BreadcrumbList</code></td></tr>' +
+      '<tr><th>Vervangt</th><td><code>/aanbod#strength</code> deels; oude <code>ptloosdrecht.nl/kettlebell-training/</code> (15 klikken) en <code>/kettlebell-bootcamp/</code> (18 klikken) redirecten hierheen</td></tr>' +
+    '</table></div>' +
+    '<div class="note"><h3>Sjabloon voor alle dienstpagina\'s</h3><ul>' +
+      '<li>Zelfde opbouw voor <code>/personal-training</code>, <code>/mobility</code> en <code>/krachttraining</code>: hero, waarom, trainer plus live rooster, vormen, regio, FAQ, afsluiter.</li>' +
+      '<li>Het regioblok volgt het yoga-patroon dat al werkt: reistijd en plaatsnamen, met links naar de locatiepagina\'s. Zo vangt de dienstpagina zoekopdrachten als "kettlebell training Gooi" zonder aparte combinatiepagina.</li>' +
+      '<li>Rooster: eerstvolgende 3 lessen van deze pijler, live. Bij <code>/personal-training</code> vervalt het rooster en komt er een intake-blok.</li></ul></div>' +
+    '<div class="note"><h3>Open voor Marlon</h3><ul>' +
+      '<li><span class="tag must">Must</span>Opleiding en certificering Kettlebell Master, één zin.</li>' +
+      '<li><span class="tag must">Must</span>Antwoorden op de drie FAQ-invulplekken.</li>' +
+      '<li><span class="tag should">Should</span>Bestaat de kettlebell bootcamp buiten nog? Zo ja, als vierde kaart bij "Drie manieren".</li>' +
+      '<li><span class="tag should">Should</span>Echte foto van een techniekcorrectie.</li></ul></div>',
+  hilversum:
+    '<div class="note"><h3>SEO-kaart</h3><table>' +
+      '<tr><th>Title</th><td>Personal trainer bij Hilversum | The Movement Club Loosdrecht</td></tr>' +
+      '<tr><th>Meta</th><td>Personal training op 10 minuten van Hilversum. Kleine studio in Loosdrecht, parkeren voor de deur, voorheen PT Loosdrecht. Plan een kennismaking.</td></tr>' +
+      '<tr><th>H1</th><td>Personal trainer bij Hilversum</td></tr>' +
+      '<tr><th>Schema</th><td><code>Service</code> personal training met areaServed = Hilversum, provider = <code>#business</code>. Geen eigen LocalBusiness.</td></tr>' +
+      '<tr><th>Nu</th><td>Oude pagina: 19 klikken, 1.743 vertoningen in 12 maanden, positie rond 26</td></tr>' +
+    '</table></div>' +
+    '<div class="note"><h3>Inhoudseis voor livegang</h3><ul>' +
+      '<li><strong>Reistijd</strong> auto en fiets vanaf twee punten, gemeten in Google Maps op een doordeweekse ochtend.</li>' +
+      '<li><strong>Route en parkeren</strong>, ov alleen als het echt werkt.</li>' +
+      '<li><strong>Een lid uit Hilversum</strong> met quote en schriftelijke toestemming.</li>' +
+      '<li><strong>Drie lokale FAQ\'s</strong> met echte antwoorden.</li>' +
+      '<li>Ontbreekt er iets, dan gaat de pagina niet live. Bussum en Laren gebruiken exact dit sjabloon met eigen inhoud.</li></ul></div>' +
+    '<div class="note"><h3>Keuzes in dit ontwerp</h3><ul>' +
+      '<li>De H1 zegt "bij Hilversum", niet "in Hilversum": eerlijk over de locatie, en de zoekterm staat er nog steeds in.</li>' +
+      '<li>De regel "Kende je PT Loosdrecht?" vangt bezoekers op die via een oude link of redirect binnenkomen.</li>' +
+      '<li>Hoofdknop is "Plan een kennismaking", niet de proefles: zoekers op "personal trainer" willen PT. <span class="tag must">Must</span>Welk formulier: het terugbelformulier van /proefles of /contact?</li>' +
+      '<li>Openingstijden komen uit de besluiten van 30 september.</li></ul></div>',
+  gooi:
+    '<div class="note"><h3>SEO-kaart</h3><table>' +
+      '<tr><th>Title</th><td>Personal trainer in het Gooi | The Movement Club Loosdrecht</td></tr>' +
+      '<tr><th>Meta</th><td>Personal training, kettlebell en yoga voor het Gooi. Reistijden vanaf Hilversum, Bussum, Laren en meer. Kleine studio in Loosdrecht.</td></tr>' +
+      '<tr><th>H1</th><td>Personal trainer in het Gooi</td></tr>' +
+      '<tr><th>Schema</th><td><code>Service</code> met areaServed = alle plaatsen in de tabel, <code>BreadcrumbList</code></td></tr>' +
+      '<tr><th>Nu</th><td>Oude pagina: 4 klikken, 877 vertoningen. Weinig eigen zoekvolume (± 130 vertoningen op "gooi"-zoekopdrachten).</td></tr>' +
+    '</table></div>' +
+    '<div class="note"><h3>Rol van deze pagina</h3><ul>' +
+      '<li>Hubpagina: verdeelt bezoekers en interne links over Hilversum, Bussum en Laren.</li>' +
+      '<li>De reistijdtabel is de unieke inhoud: één overzicht dat geen enkele plaatspagina heeft.</li>' +
+      '<li>Blaricum, Huizen, Naarden en Eemnes staan in de tabel maar krijgen geen eigen pagina.</li></ul></div>' +
+    '<div class="note"><h3>Open</h3><ul>' +
+      '<li><span class="tag must">Must</span>Reistijden meten voor alle zeven plaatsen (auto en fiets, doordeweekse ochtend).</li>' +
+      '<li><span class="tag should">Should</span>Kaart: statische afbeelding (geen Google Maps-embed, scheelt laadtijd en cookies).</li>' +
+      '<li><span class="tag could">Could</span>Score en aantal reviews in Sanity, zodat Marlon ze zelf bijhoudt.</li></ul></div>'
+};
+
+
+// v2: wat elke pagina eigen maakt
+NOTES.kettlebell = '<div class="note"><h3>Eigen hoofdelement</h3><p><strong>De les zelf.</strong> Beeldvullende foto van een swing, een cijferbalk en een lichte sectie met de drie basisbewegingen. Regio is hier één regel met links, geen tabel: de reis hoort bij de plaatspagina\'s.</p></div>' + NOTES.kettlebell;
+NOTES.hilversum = '<div class="note"><h3>Eigen hoofdelement</h3><p><strong>De reis.</strong> De hero is een routekaart met de reistijd groot in beeld. Daarna een grote quote van een lid uit Hilversum op een lichte achtergrond, en een dagbalk die laat zien wanneer Marlon er is. Bussum en Laren krijgen dit sjabloon, elk met hun eigen route, quote en vragen.</p></div>' + NOTES.hilversum;
+NOTES.gooi = '<div class="note"><h3>Eigen hoofdelement</h3><p><strong>De regio.</strong> Een schematische kaart met de studio en alle plaatsen eromheen, dan de drie plaatspagina\'s als grote verwijzingen op een lichte achtergrond. Geen foto in de hero.</p></div>' + NOTES.gooi;
+// =====================================================================
+var PAGES = { kettlebell: kettlebell, hilversum: hilversum, gooi: gooi };
+var URLS = { kettlebell: '/kettlebell-training', hilversum: '/personal-trainer-hilversum', gooi: '/personal-trainer-gooi' };
+var state = 'kettlebell';
+
+function render() {
+  var html = PAGES[state]();
+  document.getElementById('mobile').innerHTML = html;
+  document.getElementById('desktop').innerHTML = html;
+  document.getElementById('notes').innerHTML = NOTES[state];
+  document.getElementById('urlBar').textContent = 'themovementclub.nl' + URLS[state];
+  document.getElementById('urlM').textContent = URLS[state];
+  document.getElementById('mobile').scrollTop = 0;
+  document.getElementById('desktop').scrollTop = 0;
+  fit();
+}
+
+function fit() {
+  var wrap = document.getElementById('deskWrap');
+  var scale = Math.min(wrap.clientWidth / 1280, 1);
+  var sc = document.getElementById('deskScale');
+  sc.style.transform = 'scale(' + scale + ')';
+  sc.style.height = (800 * scale) + 'px';
+  sc.parentNode.style.height = (800 * scale + 30) + 'px';
+}
+
+document.querySelectorAll('[data-page]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    state = b.dataset.page;
+    document.querySelectorAll('[data-page]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+    history.replaceState(null, '', '#' + state);
+    render();
+  });
+});
+document.getElementById('fillToggle').addEventListener('change', function (e) {
+  document.body.classList.toggle('hide-fill', !e.target.checked);
+});
+window.addEventListener('resize', fit);
+
+var h = location.hash.replace('#', '');
+if (PAGES[h]) {
+  state = h;
+  document.querySelectorAll('[data-page]').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.page === h); });
+}
+render();
+</script>
+</body>
+</html>
