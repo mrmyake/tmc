@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMollieClient } from "@/lib/mollie";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
+import { isTrialNotificationTest } from "@/lib/test-email";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
 import { cancelIfSessionCancelled } from "@/lib/trial-booking-paid-on-cancelled-session";
@@ -113,7 +114,8 @@ export async function GET(req: Request) {
   const lookups: Lookup[] = [];
   let notFound = 0;
   // Voor het TEST-prefix op de circuit-breaker-melding: alleen test als
-  // alle onbekende betalingen van testrijen zijn (totaalmelding, B3).
+  // alle onbekende betalingen test zijn volgens isTrialNotificationTest
+  // (totaalmelding, B3 en B7).
   let notFoundTest = 0;
   let skipped = 0;
   for (const trial of rows) {
@@ -137,7 +139,7 @@ export async function GET(req: Request) {
     } catch (err) {
       if (isMollieNotFound(err)) {
         notFound += 1;
-        if (trial.is_test) notFoundTest += 1;
+        if (isTrialNotificationTest(trial.is_test, trial.email)) notFoundTest += 1;
         const { data: paymentRow } = await admin
           .from("payments")
           .select("id")
@@ -198,7 +200,7 @@ export async function GET(req: Request) {
           ? `Betaling ${trial.mollie_payment_id} van proefles-boeking ${trial.id} bestaat niet bij Mollie en de vervaltijd is voorbij. De boeking is geannuleerd (payment_expired) en de plek is vrij.`
           : `Betaling ${trial.mollie_payment_id} van proefles-boeking ${trial.id} bestaat niet bij Mollie (${decision.action === "leave" ? decision.detail : ""}). De boeking blijft staan.`,
         "warning",
-        { test: trial.is_test === true },
+        { test: isTrialNotificationTest(trial.is_test, trial.email) },
       );
     }
 
@@ -248,7 +250,7 @@ export async function GET(req: Request) {
         "Nieuwe proefles-boeking!",
         `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,
         "muscle,fire",
-        { test: trial.is_test === true },
+        { test: isTrialNotificationTest(trial.is_test, trial.email) },
       );
       // Dit is precies het scenario waarin de webhook nooit is aangekomen:
       // zonder deze mail zou de bezoeker zijn cancel_token nooit zien.

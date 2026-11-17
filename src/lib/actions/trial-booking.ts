@@ -9,6 +9,7 @@ import { trialWebhookUrl } from "@/lib/site-url";
 import { emitEvent } from "@/lib/events/emit";
 import { getCatalogue } from "@/lib/catalogue";
 import { sendNotification } from "@/lib/ntfy";
+import { isTrialNotificationTest } from "@/lib/test-email";
 import { formatWeekdayDate, formatTimeRange } from "@/lib/format-date";
 import { bookingTimes } from "@/lib/member/booking-times";
 import { sendTrialBookingConfirmationEmail } from "@/lib/trial-booking-email";
@@ -326,7 +327,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
       // COPY: confirm met Marlon
       `Proefuur vrij trainen geboekt: ${formatWeekdayDate(slotStart)} · ${formatTimeRange(slotStart, slotEnd)}. Zie Proefuren vandaag in het admin-rooster.`,
       "ticket,muscle",
-      { test: args.isTest },
+      { test: isTrialNotificationTest(args.isTest, args.email) },
     );
   } else {
     void sendNotification(
@@ -336,7 +337,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
       // de admin.
       `Proefles-boeking ${trialBookingId} is gratis geboekt met een proefcode. Zie de sessie in het admin-rooster.`,
       "ticket,muscle",
-      { test: args.isTest },
+      { test: isTrialNotificationTest(args.isTest, args.email) },
     );
   }
 
