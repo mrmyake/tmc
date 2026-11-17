@@ -65,7 +65,7 @@ export const personalTrainerHilversum: LocatiePagina = {
       },
       {
         titel: "Groepslessen",
-        tekst: "Yoga, mobility en kettlebell in kleine groepen.",
+        tekst: "Yoga en kettlebell in kleine groepen.",
         href: "/aanbod#groepslessen",
       },
       {
@@ -85,7 +85,7 @@ export const personalTrainerHilversum: LocatiePagina = {
     {
       vraag: "Waarom niet een trainer in Hilversum zelf?",
       antwoord:
-        "Bij The Movement Club train je in een kleine, rustige studio, met maximaal 8 mensen per yoga- of mobilityles en 12 bij kettlebell. Marlon begeleidt je zelf, van intake tot schema. Voor veel klanten is dat de korte rit waard, en je parkeert voor de deur.",
+        "Bij The Movement Club train je in een kleine, rustige studio, met maximaal 8 mensen per yogales en 12 bij kettlebell. Marlon begeleidt je zelf, van intake tot schema. Voor veel klanten is dat de korte rit waard, en je parkeert voor de deur.",
     },
     {
       vraag: "Kan ik eerst kennismaken?",

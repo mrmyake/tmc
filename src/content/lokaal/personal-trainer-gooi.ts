@@ -66,7 +66,7 @@ export const personalTrainerGooi: HubPagina = {
     punten: [
       {
         titel: "Kleine groepen",
-        tekst: `Maximaal ${CLASS_CAPACITY.yogaMobility} bij yoga en mobility, maximaal ${CLASS_CAPACITY.kettlebell} bij kettlebell.`,
+        tekst: `Maximaal ${CLASS_CAPACITY.yogaMobility} bij yoga, maximaal ${CLASS_CAPACITY.kettlebell} bij kettlebell.`,
       },
       {
         titel: "Eén trainer die je kent",
@@ -93,8 +93,8 @@ export const personalTrainerGooi: HubPagina = {
         href: "/kettlebell-training",
       },
       {
-        titel: "Yoga en mobility",
-        tekst: `Vijf vormen, max ${CLASS_CAPACITY.yogaMobility} per les.`,
+        titel: "Yoga",
+        tekst: `Vijf vormen, maximaal ${CLASS_CAPACITY.yogaMobility} per les.`,
         href: "/yoga",
       },
       {

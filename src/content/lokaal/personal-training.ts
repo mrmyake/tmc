@@ -24,7 +24,7 @@ export const personalTraining: DienstPagina = {
   lead: "Eén-op-één, volledig op maat. Elke sessie is afgestemd op jouw lichaam, niveau en ambities, met de volle aandacht van Marlon.",
   heroImage: {
     src: "/images/lokaal/personal-training-hero.jpg",
-    alt: "Een trainer begeleidt een klant bij een squat in de studio.",
+    alt: "Een trainer begeleidt een klant bij een squat.",
   },
   // Dienstpagina "personal training": hoofdknop is de kennismaking, niet de proefles.
   cta: { primair: CTA_KENNISMAKING },

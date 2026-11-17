@@ -65,7 +65,7 @@ export const personalTrainerLaren: LocatiePagina = {
       },
       {
         titel: "Groepslessen",
-        tekst: "Yoga, mobility en kettlebell in kleine groepen.",
+        tekst: "Yoga en kettlebell in kleine groepen.",
         href: "/aanbod#groepslessen",
       },
       {

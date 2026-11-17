@@ -45,11 +45,32 @@ test("dagbalk is leeg zonder geopende dagen en toont zonder presence alleen open
 const alsConcept = (slug: (typeof LOKAAL_SLUGS)[number]) =>
   ({ ...LOKALE_PAGINAS[slug], status: "concept" }) as never;
 
-test("alle acht pagina's staan op live", () => {
+test("zeven pagina's staan op live, /mobility blijft concept", () => {
   assert.equal(LOKAAL_SLUGS.length, 8);
   for (const slug of LOKAAL_SLUGS) {
-    assert.equal(LOKALE_PAGINAS[slug].status, "live", slug);
+    const verwacht = slug === "mobility" ? "concept" : "live";
+    assert.equal(LOKALE_PAGINAS[slug].status, verwacht, slug);
     assert.equal(LOKALE_PAGINAS[slug].bijgewerkt, "2026-11-17", slug);
+  }
+});
+
+test("production: /mobility geeft een 307 naar /aanbod", () => {
+  assert.equal(conceptRedirectHref(LOKALE_PAGINAS.mobility, "production"), "/aanbod");
+});
+
+test("geen mobility als groepsles op de zeven live pagina's", () => {
+  for (const slug of LOKAAL_SLUGS) {
+    if (slug === "mobility") continue;
+    assert.ok(!/mobility/i.test(JSON.stringify(LOKALE_PAGINAS[slug])), slug);
+  }
+});
+
+test("lege ptTijden rendert niets en de basisbewegingen zijn tekstkaarten", () => {
+  const kb = LOKALE_PAGINAS["kettlebell-training"];
+  assert.equal(kb.status, "live");
+  if ("basis" in kb && kb.basis) {
+    assert.equal(kb.basis.items.length, 3);
+    for (const i of kb.basis.items) assert.ok(!i.beeld, i.titel);
   }
 });
 
@@ -97,6 +118,7 @@ test("preview en lokaal: een conceptpagina rendert (geen redirect)", () => {
 
 test("een live pagina redirect nooit, ook niet in production", () => {
   for (const slug of LOKAAL_SLUGS) {
+    if (slug === "mobility") continue;
     assert.equal(conceptRedirectHref(LOKALE_PAGINAS[slug], "production"), null, slug);
   }
 });
@@ -105,7 +127,9 @@ test("conceptpagina krijgt robots noindex en nofollow, een live pagina niet", ()
   for (const slug of LOKAAL_SLUGS) {
     const m = lokaalMetadata(alsConcept(slug));
     assert.deepEqual(m.robots, { index: false, follow: false }, slug);
-    assert.equal(lokaalMetadata(LOKALE_PAGINAS[slug]).robots, undefined, slug);
+    if (slug !== "mobility") {
+      assert.equal(lokaalMetadata(LOKALE_PAGINAS[slug]).robots, undefined, slug);
+    }
     assert.equal(m.alternates?.canonical, `/${slug}`);
   }
 });

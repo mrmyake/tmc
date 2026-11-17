@@ -22,7 +22,7 @@ export const kettlebellTraining: DienstPagina = {
   lead: "Sterker worden met één stuk ijzer en goede techniek. Les van Master Kettlebell Marlon, op 12 minuten van Hilversum.",
   heroImage: {
     src: "/images/lokaal/kettlebell-hero.jpg",
-    alt: "Vijf kettlebells in oplopend gewicht op de vloer van de studio.",
+    alt: "Vijf kettlebells in oplopend gewicht.",
   },
   cta: { primair: CTA_PROEFLES, secundair: CTA_ROOSTER },
   stats: [
@@ -43,10 +43,6 @@ export const kettlebellTraining: DienstPagina = {
       {
         titel: "Goblet squat",
         tekst: "Diep zitten met een rechte rug. De basis voor sterke benen.",
-        beeld: {
-          src: "/images/lokaal/goblet-squat.jpg",
-          alt: "Een groep traint goblet squats met kettlebells terwijl de trainer een deelnemer corrigeert.",
-        },
       },
       {
         titel: "Turkish get-up",

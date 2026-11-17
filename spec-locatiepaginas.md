@@ -44,7 +44,7 @@ Title is wat in de browser staat (de layout-template voegt " | The Movement Club
 | `/personal-trainer-laren` | locatie (dekt ook Blaricum en Eemnes) | Personal trainer bij Laren, Blaricum en Eemnes \| The Movement Club | Personal trainer bij Laren, Blaricum en Eemnes |
 | `/personal-trainer-gooi` | hub | Personal trainer in het Gooi \| The Movement Club | Personal trainer in het Gooi |
 
-Alle acht pagina's staan sinds de inhoud-PR (`feat/lokale-inhoud`) op `live`. De `concept`-mechaniek (307 in productie, noindex en conceptbalk daarbuiten) blijft bestaan voor nieuwe pagina's.
+Zeven pagina's staan sinds de inhoud-PR (`feat/lokale-inhoud`) op `live`; `/mobility` blijft `concept` tot er een mobility-les in het rooster staat. De `concept`-mechaniek (307 in productie, noindex en conceptbalk daarbuiten) blijft bestaan voor nieuwe pagina's.
 
 ### Keuzes in PR A
 
@@ -137,7 +137,7 @@ De hub toont alle zeven plaatsen (Hilversum is het centrum). De locatiepagina's 
 
 ## Foto's
 
-Alle beelden komen uit Sanity (`siteImages`, trainer) en zijn AI-gegenereerd; ze zijn omgezet naar JPEG (max 1920 px breed, niet opgeschaald) onder `public/images/lokaal/`. Het portret van Marlon is dus **niet** echt: er stond geen echte foto van Marlon in de repo, de git-historie of Sanity. Zodra er een echte foto is, vervangt `marlon.jpg` het AI-portret (alt: "Marlon, eigenaar en trainer van The Movement Club.").
+Alle beelden komen uit Sanity (`siteImages`, trainer) en zijn omgezet naar JPEG (max 1920 px breed, niet opgeschaald) onder `public/images/lokaal/`. Het portret van Marlon (`trainer.photo`) is een echte foto van Marlon, bewerkt met AI, en blijft in het trainersblok (alt: "Marlon, eigenaar en trainer van The Movement Club."). De andere beelden (hero's) zijn door AI gemaakt; hun alt-teksten beweren daarom niet dat het beeld in de studio is gemaakt.
 
 | Plek | Bestand | Bron in Sanity |
 |---|---|---|
@@ -146,9 +146,8 @@ Alle beelden komen uit Sanity (`siteImages`, trainer) en zijn AI-gegenereerd; ze
 | Hero `/mobility` | `mobility-hero.jpg` | gallery "Mobility Area" |
 | Hero `/krachttraining` | `krachttraining-hero.jpg` | gallery "Pull Up" |
 | Portret Marlon (trainersblok) | `marlon.jpg` | `trainer.photo` |
-| Kaart goblet squat | `goblet-squat.jpg` | `offeringSmallGroup` |
 
-De kaarten swing en Turkish get-up zijn tekstkaarten: er is geen passende foto. Niet gebruikt: `offeringStrength` (een man met "MARLON" op zijn hoodie, terwijl Marlon een vrouw is).
+Alle drie de basisbewegingen op `/kettlebell-training` (swing, goblet squat, Turkish get-up) zijn tekstkaarten; `goblet-squat.jpg` is verwijderd. Niet gebruikt: `offeringStrength` (een man met "MARLON" op zijn hoodie, terwijl Marlon een vrouw is).
 
 ## Vrij trainen en schema
 
@@ -163,8 +162,10 @@ Bevinding over `recordLeadAttribution`: `landing_path` wordt **niet** vastgelegd
 ## Open punten voor Marlon
 
 - **Goedkeuring op de Vercel-preview.** Mergen zet de pagina's live. Alle copy, de FAQ-antwoorden en de reistijden zijn aangeleverd door Ilja en staan onder `// COPY: confirm met Marlon`.
-- **Echte foto's.** Alle beelden zijn AI-gegenereerd, ook het portret van Marlon. Vervangen door echte foto's onder `public/images/lokaal/` (hero's, goblet squat, portret).
-- **PT-tijden:** vaste tijden of in overleg? (veld `tijden.ptTijden`, nu leeg).
+- **Echte foto's (should).** De AI-beelden voor kettlebell, personal training, krachttraining en mobility vervangen door echte foto's van de studio onder `public/images/lokaal/`.
+- **PT-tijden (should):** vaste tijden of in overleg? (veld `tijden.ptTijden`, nu leeg).
+- **`/mobility` blijft concept (should)** tot er een mobility-les in het rooster staat. In productie geeft de route een 307 naar `/aanbod`; de sitemap bevat zeven nieuwe routes.
+- **`/aanbod` belooft "Mobility Sessions" (should)**, maar die lessen staan niet in het rooster. Buiten deze PR.
 - **Mobility in het rooster.** Het klassentype "Mobility Reset" bestaat (60 min, actief) maar heeft nog nooit een sessie gehad en geen actieve template; in pijler `yoga_mobility` staan alleen yoga-vormen. `/mobility` linkt daardoor naar een rooster met alleen yogalessen. Beslissen: een mobilityles inplannen, of de pagina herformuleren.
 - **Kaart**: de SVG is schematisch; een statische afbeelding is een latere keuze.
 
@@ -190,4 +191,4 @@ Geen wijzigingen aan `/aanbod`, `AANBOD_DROPDOWN`, de footer of `/yoga`. De inte
 ## Ledger
 
 - **PR #357, PR A fundament:** 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Visueel gecontroleerd op de Vercel-preview (alle acht routes, 390 en 1280 px) en vergeleken met de mockup; screenshots niet bewaard. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
-- **PR #358, inhoud en livegang:** 2026-11-17. Alle acht pagina's op `live`: reistijden (Google Maps, 17-11-2026), FAQ's, quotes met woonplaats en bron (type `Quote`: `woonplaats` in plaats van `wijk`), statbalken met de werkelijke lesduur, foto's uit Sanity onder `public/images/lokaal/`, Hilversum op 12 minuten, geen schema-claim bij vrij trainen, extra vertrekpunten op de locatiepagina's. Bewust niet aangeraakt: `/yoga`, `/aanbod`, `AANBOD_DROPDOWN`, Footer (PR B), Supabase, Sanity, `recordLeadAttribution`.
+- **PR #358, inhoud en livegang:** 2026-11-17. Zeven pagina's op `live` (`/mobility` blijft `concept`: er staat geen mobility-les in het rooster; mobility als groepsles is van de live pagina's gehaald): reistijden (Google Maps, 17-11-2026), FAQ's, quotes met woonplaats en bron (type `Quote`: `woonplaats` in plaats van `wijk`), statbalken met de werkelijke lesduur, foto's uit Sanity onder `public/images/lokaal/`, Hilversum op 12 minuten, geen schema-claim bij vrij trainen, extra vertrekpunten op de locatiepagina's. Bewust niet aangeraakt: `/yoga`, `/aanbod`, `AANBOD_DROPDOWN`, Footer (PR B), Supabase, Sanity, `recordLeadAttribution`.

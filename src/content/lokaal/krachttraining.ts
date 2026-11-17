@@ -24,7 +24,7 @@ export const krachttraining: DienstPagina = {
   lead: "Geen random workouts, maar een plan dat je meetbaar sterker maakt, week na week. Kies de vorm die bij je past.",
   heroImage: {
     src: "/images/lokaal/krachttraining-hero.jpg",
-    alt: "Een man doet een pull-up aan het rek in de studio.",
+    alt: "Een man doet een pull-up aan een rek.",
   },
   cta: { primair: CTA_PROEFLES },
   stats: [

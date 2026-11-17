@@ -12,7 +12,7 @@ import {
 // mockup. Er is geen aparte mobility-pijler in het rooster, dus geen live strip
 // maar een link naar het gefilterde rooster.
 export const mobility: DienstPagina = {
-  status: "live",
+  status: "concept",
   slug: "mobility",
   bijgewerkt: "2026-11-17",
   seo: {
@@ -24,7 +24,7 @@ export const mobility: DienstPagina = {
   lead: "Mobility is geen nice-to-have, het is de basis. We werken gericht aan je beweeglijkheid, flexibiliteit en lichaamsbewustzijn.",
   heroImage: {
     src: "/images/lokaal/mobility-hero.jpg",
-    alt: "Yogamat, foamrollers en weerstandsbanden in de studio.",
+    alt: "Yogamat, foamrollers en weerstandsbanden.",
   },
   cta: { primair: CTA_PROEFLES, secundair: { label: "Bekijk het rooster", href: "/rooster?pijler=yoga_mobility" } },
   stats: [
