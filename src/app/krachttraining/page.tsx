@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { ConceptBalk } from "@/components/blocks/lokaal/ConceptBalk";
 import { DienstTemplate } from "@/components/blocks/lokaal/DienstTemplate";
 import { LOKALE_PAGINAS } from "@/content/lokaal";
-import { fallbackHref } from "@/lib/lokaal/links";
+import { gateConcept } from "@/lib/lokaal/gate";
 import { lokaalMetadata } from "@/lib/lokaal/metadata";
 
 const pagina = LOKALE_PAGINAS["krachttraining"];
@@ -14,10 +14,17 @@ export function generateMetadata() {
 }
 
 /**
- * Status 'concept': tijdelijke redirect (307), nooit een 404, zodat een
- * redirect vanaf ptloosdrecht.nl altijd ergens landt. Zie spec-locatiepaginas.md.
+ * Status 'concept': in productie een tijdelijke redirect (307), nooit een 404,
+ * zodat een redirect vanaf ptloosdrecht.nl altijd ergens landt. Op preview en
+ * lokaal rendert de pagina met een conceptbalk en noindex. Zie gate.ts en
+ * spec-locatiepaginas.md.
  */
 export default function Page() {
-  if (pagina.status === "concept") redirect(fallbackHref(pagina));
-  return <DienstTemplate pagina={pagina} />;
+  gateConcept(pagina);
+  return (
+    <>
+      <ConceptBalk status={pagina.status} />
+      <DienstTemplate pagina={pagina} />
+    </>
+  );
 }

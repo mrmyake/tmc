@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bouwDagbalk } from "../../src/lib/lokaal/dagbalk.ts";
-import { fallbackHref, resolveHref } from "../../src/lib/lokaal/links.ts";
+import { conceptRedirectHref, fallbackHref, resolveHref } from "../../src/lib/lokaal/links.ts";
+import { lokaalMetadata } from "../../src/lib/lokaal/metadata.ts";
 import { LOKALE_PAGINAS, LOKAAL_SLUGS } from "../../src/content/lokaal/index.ts";
 
 // Lokale dienst- en locatiepagina's (spec-locatiepaginas.md): de dagbalk uit de
@@ -68,4 +69,35 @@ test("CTA's dragen geen UTM-parameters", () => {
 test("geen em dashes in de content", () => {
   const json = JSON.stringify(LOKALE_PAGINAS);
   assert.ok(!json.includes("—") && !json.includes("–"));
+});
+
+test("production: elke conceptpagina geeft een 307-route, nooit null", () => {
+  for (const slug of LOKAAL_SLUGS) {
+    const href = conceptRedirectHref(LOKALE_PAGINAS[slug], "production");
+    assert.equal(href, fallbackHref(LOKALE_PAGINAS[slug]), slug);
+    assert.ok(href && href.startsWith("/"), slug);
+  }
+});
+
+test("preview en lokaal: conceptpagina's renderen (geen redirect)", () => {
+  for (const slug of LOKAAL_SLUGS) {
+    assert.equal(conceptRedirectHref(LOKALE_PAGINAS[slug], "preview"), null, slug);
+    assert.equal(conceptRedirectHref(LOKALE_PAGINAS[slug], "development"), null, slug);
+    assert.equal(conceptRedirectHref(LOKALE_PAGINAS[slug], undefined), null, slug);
+  }
+});
+
+test("een live pagina redirect nooit, ook niet in production", () => {
+  const live = { ...LOKALE_PAGINAS["personal-trainer-gooi"], status: "live" } as never;
+  assert.equal(conceptRedirectHref(live, "production"), null);
+});
+
+test("conceptpagina krijgt robots noindex en nofollow, een live pagina niet", () => {
+  for (const slug of LOKAAL_SLUGS) {
+    const m = lokaalMetadata(LOKALE_PAGINAS[slug]);
+    assert.deepEqual(m.robots, { index: false, follow: false }, slug);
+    assert.equal(m.alternates?.canonical, `/${slug}`);
+  }
+  const live = { ...LOKALE_PAGINAS["kettlebell-training"], status: "live" } as never;
+  assert.equal(lokaalMetadata(live).robots, undefined);
 });

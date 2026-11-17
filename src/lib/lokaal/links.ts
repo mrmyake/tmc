@@ -37,3 +37,19 @@ export function resolveHref(href: string): string | null {
 export function paginaUrl(slug: LokaalSlug): string {
   return `/${slug}`;
 }
+
+/**
+ * Waar een pagina naartoe moet redirecten, of null als hij moet renderen.
+ * Alleen een 'concept'-pagina in productie (VERCEL_ENV === 'production')
+ * redirect (307). Op preview en lokaal rendert een concept-pagina, met een
+ * conceptbalk en noindex, zodat de pagina's te beoordelen zijn voor ze live
+ * staan. Pure functie, zodat de tests beide gevallen dekken.
+ */
+export function conceptRedirectHref(
+  pagina: LokaalPagina,
+  vercelEnv: string | undefined,
+): string | null {
+  if (pagina.status !== "concept") return null;
+  if (vercelEnv !== "production") return null;
+  return fallbackHref(pagina);
+}

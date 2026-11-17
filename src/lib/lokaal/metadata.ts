@@ -9,6 +9,10 @@ import type { LokaalPagina } from "@/content/lokaal";
 export function lokaalMetadata(pagina: LokaalPagina): Metadata {
   const path = `/${pagina.slug}`;
   return {
+    // Een conceptpagina rendert alleen buiten productie en hoort nooit in de index.
+    ...(pagina.status === "concept"
+      ? { robots: { index: false, follow: false } }
+      : {}),
     title: pagina.seo.title,
     description: pagina.seo.description,
     alternates: { canonical: path },

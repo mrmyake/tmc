@@ -12,7 +12,7 @@ Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in he
   - dienstpagina: `faq` met minimaal 3 vragen met antwoord en een `heroImage` met alt (alle beelden zijn dan een `Foto`);
   - hub: per plaats een reistijd auto en fiets.
   Een pagina op `live` zetten met een ontbrekend veld is een typefout en breekt de build. Bij `concept` mogen die velden ontbreken, en is een placeholder-beeld toegestaan. Dat is bewust, om dunne pagina's te voorkomen.
-- **307-terugval.** Een `concept`-pagina geeft een tijdelijke redirect (307, nooit een 404): locatiepagina naar `/personal-trainer-gooi`, hub en dienstpagina's naar `/aanbod`. Zo komt een redirect vanaf ptloosdrecht.nl nooit op een 404 uit. Concept-pagina's staan niet in de sitemap. Interne links naar een concept-pagina verdwijnen (`resolveHref` in `src/lib/lokaal/links.ts`), zodat een live pagina nooit naar een redirect linkt.
+- **307-terugval, alleen in productie.** Een `concept`-pagina geeft een tijdelijke redirect (307, nooit een 404) als `process.env.VERCEL_ENV === 'production'`: locatiepagina naar `/personal-trainer-gooi`, hub en dienstpagina's naar `/aanbod`. Zo komt een redirect vanaf ptloosdrecht.nl nooit op een 404 uit. Op preview en lokaal rendert een conceptpagina wel, zodat hij te beoordelen is voor hij live gaat. Daar krijgt hij altijd `robots: noindex, nofollow` (via `generateMetadata`) en een vaste smalle balk bovenaan, "Concept, niet live" (`ConceptBalk`). In productie verschijnt die balk nooit, want daar geeft concept een 307. De sitemap blijft ongewijzigd: alleen `live`-pagina's, in elke omgeving. De beslislogica staat in `conceptRedirectHref` (`src/lib/lokaal/links.ts`), de redirect zelf in `src/lib/lokaal/gate.ts`. Interne links naar een concept-pagina verdwijnen (`resolveHref` in `src/lib/lokaal/links.ts`), zodat een live pagina nooit naar een redirect linkt.
 - **Geen interne UTM's.** CTA's linken kaal naar `/proefles` of `/proefles?kaart=bellen`. UTM-parameters op interne links overschrijven in GA4 de bron van het bezoek, waarna organisch verkeer niet meer te meten is.
 - **Geen prijzen.** Prijzen komen uit `tmc.catalogue`; de pagina's verwijzen naar `/prijzen`.
 - **Geen Google Maps-embed.** De routekaart en regiokaart zijn een schematische SVG uit lat en lon in de content (`RegioKaart`), zonder laadtijd of cookies.
@@ -44,7 +44,15 @@ Title is wat in de browser staat (de layout-template voegt " | The Movement Club
 | `/personal-trainer-laren` | locatie (dekt ook Blaricum en Eemnes) | Personal trainer bij Laren, Blaricum en Eemnes \| The Movement Club | Personal trainer bij Laren, Blaricum en Eemnes |
 | `/personal-trainer-gooi` | hub | Personal trainer in het Gooi \| The Movement Club | Personal trainer in het Gooi |
 
-Alle pagina's staan in deze PR op `concept`. Pagina's die niet in mockup v2 staan (`/personal-training`, `/mobility`, `/krachttraining`, Bussum, Laren) volgen het sjabloon, gebruiken de bestaande tekst van `/aanbod` en laten alles wat nog niet bestaat leeg.
+Alle pagina's staan in deze PR op `concept`.
+
+### Keuzes in PR A
+
+- **Pagina's die niet in mockup v2 staan.** `/personal-training`, `/mobility`, `/krachttraining`, `/personal-trainer-bussum` en `/personal-trainer-laren` ontbreken in de mockup. Ze volgen het sjabloon. De drie dienstpagina's gebruiken de bestaande tekst van `/aanbod` (omschrijving, wat je krijgt, frequentie); Bussum en Laren gebruiken de Hilversum-tekst met de plaatsnaam vervangen ("Bussum en Laren gebruiken exact dit sjabloon met eigen inhoud", zegt de mockup). Alles wat plaatsspecifiek is en nog niet bestaat, blijft leeg.
+- **Lege FAQ-antwoorden zijn bewust.** De vragen staan er, de antwoorden niet. Ook antwoorden die in de mockup deels bekend zijn ("Ja. ..." plus een invulplek) staan leeg, zodat een half antwoord de livegang niet kan halen: bij `live` moet elk antwoord ingevuld zijn. De FAQ-vragen van de pagina's buiten de mockup zijn een voorstel.
+- **Kortenhoef staat niet op de hub.** De kaart in de mockup toont Kortenhoef, maar de opdracht en de reistijdtabel noemen zeven plaatsen: Hilversum, Bussum, Laren, Blaricum, Huizen, Naarden en Eemnes. Kortenhoef komt er alleen bij als er een reistijd voor gemeten is.
+- **Geen nieuwe `cta_click`-plekken.** De CTA's zijn gewone links naar `/proefles` en `/proefles?kaart=bellen`. Getoetst aan de vier poorten van `spec-analytics.md`: de stap van landingspagina naar `/proefles` is in GA4 zichtbaar via paginapaden en de conversie blijft `generate_lead` op `/proefles`. Het eventregister is dus ongewijzigd. Nieuwe call-sites zouden een eigen regel in het register vragen.
+- **Links naar conceptpagina's verdwijnen** (`resolveHref`), ook op preview, zodat preview zich gedraagt als productie.
 
 ## Nulmeting Search Console: ptloosdrecht.nl
 
@@ -121,6 +129,10 @@ Bevinding over `recordLeadAttribution`: `landing_path` wordt **niet** vastgelegd
 - **Echte foto's** onder `public/images/lokaal/`: hero per dienstpagina, de drie bewegingen op `/kettlebell-training`, portret van Marlon.
 - **Kaart**: de SVG is schematisch; een statische afbeelding is een latere keuze.
 
+## Open punten voor ons
+
+- **Prioriteit should: attributie van organische leads.** `recordLeadAttribution` schrijft alleen een rij in `tmc.lead_attributions` bij een gclid of utm-parameter (zie "Attributie van de kennismaking"). Organische leads, ook die via de nieuwe pagina's binnenkomen, laten daardoor geen spoor achter in de database, alleen in GA4. Apart oppakken (een eigen opdracht, mogelijk met een schemawijziging); niet in deze PR.
+
 ## Bestanden
 
 - Inhoud en types: `src/content/lokaal/`
@@ -137,4 +149,4 @@ Geen wijzigingen aan `/aanbod`, `AANBOD_DROPDOWN`, de footer of `/yoga`. De inte
 
 ## Ledger
 
-- **PR #357, PR A fundament:** 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, 307-terugval, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events.
+- **PR #357, PR A fundament:** 2026-11-17, bijgewerkt 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
