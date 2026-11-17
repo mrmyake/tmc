@@ -1,6 +1,6 @@
 # spec-locatiepaginas.md
 
-Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in het Gooi en Wijdemeren. Ontwerp: `mockups/locatiepaginas-mockup.html` (v2, drie sjablonen: dienst, locatie, hub). Screenshots van de Vercel-preview (alle acht routes, 390 en 1280 px) en van de mockup ter vergelijking: `mockups/screenshots/lokaal/preview/` en `mockups/screenshots/lokaal/mockup/`.
+Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in het Gooi en Wijdemeren. Ontwerp: `mockups/locatiepaginas-mockup.html` (v2, drie sjablonen: dienst, locatie, hub). Screenshots van de Vercel-preview (alle acht routes, 390 en 1280 px) en van de mockup ter vergelijking staan als bijlagen in PR #357, niet in de repo.
 
 ## Doel en beslissingen
 
@@ -149,4 +149,4 @@ Geen wijzigingen aan `/aanbod`, `AANBOD_DROPDOWN`, de footer of `/yoga`. De inte
 
 ## Ledger
 
-- **PR #357, PR A fundament:** 2026-11-17, bijgewerkt 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
+- **PR #357, PR A fundament:** 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Review-screenshots staan in de PR, niet in de repo. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
