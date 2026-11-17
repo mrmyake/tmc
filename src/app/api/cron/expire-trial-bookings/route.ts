@@ -112,6 +112,9 @@ export async function GET(req: Request) {
   // er iets geannuleerd is.
   const lookups: Lookup[] = [];
   let notFound = 0;
+  // Voor het TEST-prefix op de circuit-breaker-melding: alleen test als
+  // alle onbekende betalingen van testrijen zijn (totaalmelding, B3).
+  let notFoundTest = 0;
   let skipped = 0;
   for (const trial of rows) {
     const mode = trial.is_test ? "test" : "live";
@@ -134,6 +137,7 @@ export async function GET(req: Request) {
     } catch (err) {
       if (isMollieNotFound(err)) {
         notFound += 1;
+        if (trial.is_test) notFoundTest += 1;
         const { data: paymentRow } = await admin
           .from("payments")
           .select("id")
@@ -161,6 +165,7 @@ export async function GET(req: Request) {
       "Proefles-cron afgebroken",
       `${notFound} pending proefles-betalingen zijn onbekend bij Mollie (meer dan ${TRIAL_NOT_FOUND_CIRCUIT_BREAKER}). Dat wijst op een key- of profielprobleem. Er is niets geannuleerd; controleer MOLLIE_API_KEY_LIVE en het Mollie-profiel.`,
       "rotating_light",
+      { test: notFound > 0 && notFoundTest === notFound },
     );
     return NextResponse.json(
       { ok: false, error: "circuit_breaker", checked: rows.length, notFound, skipped },
@@ -193,6 +198,7 @@ export async function GET(req: Request) {
           ? `Betaling ${trial.mollie_payment_id} van proefles-boeking ${trial.id} bestaat niet bij Mollie en de vervaltijd is voorbij. De boeking is geannuleerd (payment_expired) en de plek is vrij.`
           : `Betaling ${trial.mollie_payment_id} van proefles-boeking ${trial.id} bestaat niet bij Mollie (${decision.action === "leave" ? decision.detail : ""}). De boeking blijft staan.`,
         "warning",
+        { test: trial.is_test === true },
       );
     }
 
@@ -242,6 +248,7 @@ export async function GET(req: Request) {
         "Nieuwe proefles-boeking!",
         `Proefles-boeking ${trial.id} is betaald (via reconciliatie). Zie de sessie in het admin-rooster.`,
         "muscle,fire",
+        { test: trial.is_test === true },
       );
       // Dit is precies het scenario waarin de webhook nooit is aangekomen:
       // zonder deze mail zou de bezoeker zijn cancel_token nooit zien.

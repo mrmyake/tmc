@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cancelMollieSubscription } from "@/lib/mollie";
-import { mollieModeForProfile } from "@/lib/mollie-mode";
+import { isTestProfile, mollieModeForProfile } from "@/lib/mollie-mode";
 import { emitEvent } from "@/lib/events/emit";
 import { sendNotification } from "@/lib/ntfy";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -49,6 +49,9 @@ export async function GET(req: Request) {
 
   let processed = 0;
   const failures: string[] = [];
+  // Voor het TEST-prefix op de totaalmelding: alleen test als alle mislukte
+  // lidmaatschappen van testprofielen zijn (B3). isTestProfile throwt nooit.
+  let failuresTest = 0;
 
   for (const m of due) {
     // 1. Stop de incasso bij Mollie. Geen subscription = niets te stoppen.
@@ -65,6 +68,7 @@ export async function GET(req: Request) {
           m.id,
         );
         failures.push(m.id);
+        if (await isTestProfile(m.profile_id)) failuresTest += 1;
         continue;
       }
     }
@@ -80,6 +84,7 @@ export async function GET(req: Request) {
     if (upErr) {
       console.error("[cron/process-cancellations] update failed", m.id, upErr);
       failures.push(m.id);
+      if (await isTestProfile(m.profile_id)) failuresTest += 1;
       continue;
     }
 
@@ -103,6 +108,7 @@ export async function GET(req: Request) {
       "Opzeggingen niet afgerond",
       `${failures.length} lidmaatschap(pen) konden niet worden afgerond (Mollie-cancel mislukt). Check de logs; de cron herprobeert.`,
       "warning",
+      { test: failures.length > 0 && failuresTest === failures.length },
     );
   }
 

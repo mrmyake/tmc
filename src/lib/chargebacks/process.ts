@@ -159,8 +159,8 @@ function buildDeps(mollie: MollieClient): ChargebackDeps {
         payload: event.payload,
       });
     },
-    notifyStaff(title, message, tags) {
-      return sendNotification(title, message, tags);
+    notifyStaff(title, message, tags, opts) {
+      return sendNotification(title, message, tags, opts);
     },
     notifyMember(args) {
       return notifyMemberPaymentFailed(args);

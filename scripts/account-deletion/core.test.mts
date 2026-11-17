@@ -72,6 +72,7 @@ class Fake implements DeletionDeps {
   live: DeletionProfileSnapshot["memberships"] = [];
   calls: string[] = [];
   notifications: string[] = [];
+  notificationTests: Array<boolean | undefined> = [];
   events: string[] = [];
   openDeviceTokens = false;
   financialHistory = true;
@@ -218,8 +219,9 @@ class Fake implements DeletionDeps {
   emit = async (event: Parameters<DeletionDeps["emit"]>[0]) => {
     this.events.push(event.type);
   };
-  notify = async (title: string, message: string) => {
+  notify = async (title: string, message: string, opts?: { test?: boolean }) => {
     this.notifications.push(`${title}: ${message}`);
+    this.notificationTests.push(opts?.test);
   };
 }
 
@@ -283,6 +285,8 @@ test("verzoek: snapshot eerst, dan freeze, geen opzegging; purge wacht op de ing
   assert.ok(!fake.notifications[0].includes("@"), "geen e-mailadres in de melding");
   assert.ok(!fake.notifications[0].includes("Test"), "geen naam in de melding");
   assert.ok(fake.notifications[0].includes(PROFILE));
+  // Het snapshot is een testprofiel (is_test): de vlag komt door naar ntfy.
+  assert.deepEqual(fake.notificationTests, [true]);
 });
 
 test("verzoek is idempotent: tweede aanvraag geeft dezelfde rij, geen tweede insert, wel opnieuw de freeze", async () => {

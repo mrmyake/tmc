@@ -206,6 +206,7 @@ export async function startOpeningTrialBooking(
     // COPY: confirm met Marlon
     `${result.slot_start_at ? "Gratis proefuur vrij trainen" : "Gratis proefles"} geboekt${whenLabel ? `: ${whenLabel}` : ""}. Zie Proeflessen in de admin.`,
     "ticket,muscle",
+    { test: isTest },
   );
 
   return { ok: true, redirectUrl: `/proefles/boeken/bedankt?trial=${trialBookingId}` };

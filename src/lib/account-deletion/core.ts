@@ -364,6 +364,7 @@ export async function requestDeletionCore(
     `Profiel ${snapshot.id} (verzoek ${row.id}) heeft accountverwijdering aangevraagd via ${input.requestedVia}. Purge na ${isoDate(purgeAfter)}.${
       freezeErrors.length > 0 ? ` ${freezeErrors.length} deel(en) van de freeze mislukt; zie last_error.` : ""
     }`,
+    { test: row.is_test === true },
   );
 
   return { ok: true, row: updated, alreadyOpen: false, freeze: freeze.result };
@@ -461,6 +462,7 @@ export async function runPurgeCore(
       await deps.notify(
         "Accountverwijdering geblokkeerd",
         `Verzoek ${row.id}: ${text}.`,
+        { test: row.is_test === true },
       );
       return { row, done, failed: [...failed, "mollie_subscription"], blocked: true, completed: false };
     }
@@ -619,6 +621,7 @@ export async function runPurgeCore(
           await deps.notify(
             "Accountverwijdering geblokkeerd",
             `Verzoek ${row.id}, profiel ${profileId}: anonimiseren geweigerd (${text}).`,
+            { test: row.is_test === true },
           );
           return { row, done, failed: [...failed, "profile"], blocked: true, completed: false };
         }
@@ -688,6 +691,7 @@ export async function runPurgeCore(
     await deps.notify(
       "Accountverwijdering blijft hangen",
       `Verzoek ${row.id}: na ${row.attempts} pogingen nog open: ${failed.join(", ")}. Zie last_error in tmc.account_deletions.`,
+      { test: row.is_test === true },
     );
   }
   return { row, done, failed, blocked: false, completed: false };

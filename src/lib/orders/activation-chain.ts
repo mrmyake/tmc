@@ -221,7 +221,8 @@ export async function runActivationChain(
           ? " Betaling is binnen zonder nieuw membership — refund of tegoed regelen."
           : " Handmatig naklopen."
       }`,
-      "warning"
+      "warning",
+      { test: mode === "test" },
     );
     return { outcome: "ok", step: "blocked" };
   }
@@ -232,7 +233,8 @@ export async function runActivationChain(
     await sendNotification(
       "Order geactiveerd na verlopen deadline of annulering",
       `Order ${orderId}: betaling kwam binnen nadat de link verlopen of geannuleerd was, en is gehonoreerd.`,
-      "warning"
+      "warning",
+      { test: mode === "test" },
     );
     timer.mark("ntfy_late_payment");
   }
@@ -264,7 +266,8 @@ export async function runActivationChain(
           activation.pt_order
             ? `Order ${orderId} (PT-sessie of programma) betaald. €${(amountCents / 100).toFixed(2)} ontvangen.`
             : `Order ${orderId} geactiveerd (membership ${activation.membership_id}). €${(amountCents / 100).toFixed(2)} ontvangen.`,
-          "tada,moneybag"
+          "tada,moneybag",
+          { test: mode === "test" },
         );
         followTimer.mark("ntfy_activated");
         await emitEvent({
@@ -292,7 +295,8 @@ export async function runActivationChain(
           await sendNotification(
             "Bevestigingsmail niet verstuurd",
             `Order ${orderId} is geactiveerd, maar de bevestigingsmail naar het lid is niet verstuurd. Handmatig nasturen of MailerSend checken.`,
-            "warning"
+            "warning",
+            { test: mode === "test" },
           );
         } else if (confirmation.outcome === "skipped") {
           console.warn("[activation-chain] confirmation skipped", {
@@ -340,13 +344,15 @@ export async function runActivationChain(
           await sendNotification(
             "Bevestigingsmail alsnog verstuurd",
             `Order ${orderId}: bevestigingsmail is bij een herhaalde verwerking alsnog verstuurd.`,
-            "envelope"
+            "envelope",
+            { test: mode === "test" },
           );
         } else if (retry.outcome === "failed") {
           await sendNotification(
             "Bevestigingsmail niet verstuurd",
             `Order ${orderId} (retry): de bevestigingsmail naar het lid is opnieuw niet verstuurd. MailerSend checken.`,
-            "warning"
+            "warning",
+            { test: mode === "test" },
           );
         }
         followTimer.mark("confirmation_mail_retry");
@@ -533,7 +539,8 @@ export async function runActivationChain(
         await sendNotification(
           "Bestaande subscription alsnog gekoppeld",
           `Order ${orderId}, membership ${membershipId}: Mollie had al subscription ${subscriptionId}; die is nu gekoppeld in plaats van een tweede aan te maken.`,
-          "envelope"
+          "envelope",
+          { test: mode === "test" },
         );
       }
     }

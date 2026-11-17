@@ -100,7 +100,7 @@ export async function notifyInvoicePaid(
     const [{ data: inv }, { data: lines }] = await Promise.all([
       admin
         .from("invoices")
-        .select("invoice_number, bill_to_name, bill_to_company, total_gross_cents")
+        .select("invoice_number, bill_to_name, bill_to_company, total_gross_cents, is_test")
         .eq("id", invoiceId)
         .maybeSingle(),
       admin.from("invoice_lines").select("catalogue_slug").eq("invoice_id", invoiceId),
@@ -115,7 +115,11 @@ export async function notifyInvoicePaid(
       catalogueSlugs: uniqueSlugs((lines ?? []).map((l) => l.catalogue_slug)),
       invoiceUrl: `${siteUrl()}/app/admin/facturen/${invoiceId}#product-klaarzetten`,
     });
-    await sendNotification(notice.title, notice.message, "moneybag");
+    // Het prefix komt alleen op de ntfy-titel; het mailonderwerp hieronder
+    // blijft notice.title.
+    await sendNotification(notice.title, notice.message, "moneybag", {
+      test: inv.is_test === true,
+    });
     await sendEmail({
       to: SITE.email,
       subject: notice.title,

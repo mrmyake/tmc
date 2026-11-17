@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addSubscriber, GROUPS } from "@/lib/mailerlite";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestEmail } from "@/lib/test-email";
 
 interface OverstapLeadPayload {
   name?: string;
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         "Overstap aanvraag",
         "Nieuwe overstap-aanvraag. Gegevens staan in MailerLite, groep Overstap.",
         "arrows_counterclockwise",
+        { test: isTestEmail(data.email) },
       ),
     ]);
 
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
         "Overstap-aanvraag niet opgeslagen",
         "MailerLite weigerde de aanmelding; de lead is niet vastgelegd. Check de Vercel-logs van /api/leads/overstap.",
         "warning",
+        { test: isTestEmail(data.email) },
       );
     }
     if (ntfyResult.status === "rejected") {

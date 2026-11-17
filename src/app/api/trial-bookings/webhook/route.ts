@@ -183,6 +183,7 @@ export async function POST(request: Request) {
           "Proefles betaald na annulering",
           `Betaling ${payment.id} kwam binnen voor proefles-boeking ${trial.id}, maar die was al geannuleerd. Niets automatisch gedaan: controleer de plek en beslis over terugbetaling.`,
           "rotating_light",
+          { test: trial.is_test === true },
         );
       }
       return NextResponse.json({ ok: true });
@@ -241,6 +242,7 @@ export async function POST(request: Request) {
           "Proefles betaald op geannuleerde sessie",
           `Proefles-boeking ${trial.id} kwam binnen op een geannuleerde sessie en is direct geannuleerd met terugbetaling.`,
           "warning",
+          { test: trial.is_test === true },
         );
         return NextResponse.json({ ok: true });
       }
@@ -259,6 +261,7 @@ export async function POST(request: Request) {
         "Nieuwe proefles-boeking!",
         `Proefles-boeking ${trial.id} is betaald. Zie de sessie in het admin-rooster.`,
         "muscle,fire",
+        { test: trial.is_test === true },
       );
 
       // Bevestiging naar de bezoeker zelf: datum/tijd/lestype, adres,

@@ -118,7 +118,13 @@ export interface ChargebackDeps {
   /** Laatste membership.payment_failed-event voor dit membership, of null. */
   lastPaymentFailedCause(membershipId: string): Promise<PaymentFailedCause | null>;
   emit(event: ChargebackEvent): Promise<unknown>;
-  notifyStaff(title: string, message: string, tags?: string): Promise<unknown>;
+  /** opts.test: de betaalregel is een testbetaling (payments.is_test). */
+  notifyStaff(
+    title: string,
+    message: string,
+    tags?: string,
+    opts?: { test?: boolean },
+  ): Promise<unknown>;
   /** Dezelfde mail plus push als bij een mislukte incasso. */
   notifyMember(args: { profileId: string; amountCents: number; planLabel: string }): Promise<unknown>;
   now(): Date;
@@ -296,6 +302,7 @@ export async function syncChargebackMirror(
         "Storno op betaling",
         `Storno van ${amount} op ${paymentLabel}, ${reasonText(cb)}. ${describeAttachment(row, view)} Niets automatisch teruggedraaid; beoordeel en handel zelf af in Mollie.`,
         "warning",
+        { test: row.isTest },
       );
       return { outcome: "charged_back", chargebackId: cb?.id ?? null, membershipFlipped: false, memberNotified: false };
     }
@@ -311,6 +318,7 @@ export async function syncChargebackMirror(
         "Storno zonder gekoppeld abonnement",
         `Storno van ${amount} op ${paymentLabel}, ${reasonText(cb)}, maar er is geen membership gevonden bij subscription ${view.subscriptionId ?? "(geen)"} of order ${row.orderId ?? "(geen)"}. Handmatig koppelen en beoordelen.${subscriptionWarningFor(cb?.reasonCode ?? null)}`,
         "warning",
+        { test: row.isTest },
       );
       return { outcome: "charged_back", chargebackId: cb?.id ?? null, membershipFlipped: false, memberNotified: false };
     }
@@ -341,6 +349,7 @@ export async function syncChargebackMirror(
         "Incasso gestorneerd",
         `Membership ${membership.id} (${planLabel}): storno van ${amount} op ${paymentLabel}, ${reasonText(cb)}. Status naar payment_failed; het lid heeft mail en push gekregen.${subscriptionWarningFor(cb?.reasonCode ?? null)}`,
         "warning",
+        { test: row.isTest },
       );
       return { outcome: "charged_back", chargebackId: cb?.id ?? null, membershipFlipped: true, memberNotified: true };
     }
@@ -350,6 +359,7 @@ export async function syncChargebackMirror(
       "Incasso gestorneerd",
       `Membership ${membership.id} (${planLabel}) staat op ${membership.status}: storno van ${amount} op ${paymentLabel}, ${reasonText(cb)}. Status ongewijzigd, geen ledenmail verstuurd.${subscriptionWarningFor(cb?.reasonCode ?? null)}`,
       "warning",
+      { test: row.isTest },
     );
     return { outcome: "charged_back", chargebackId: cb?.id ?? null, membershipFlipped: false, memberNotified: false };
   }
@@ -370,6 +380,7 @@ export async function syncChargebackMirror(
       "Storno deels teruggedraaid",
       `Op ${paymentLabel} staat nu ${eurosFromCents(next)} gestorneerd (was ${eurosFromCents(previous)}). Geen statuswijziging; beoordeel zelf in Mollie.`,
       "warning",
+      { test: row.isTest },
     );
     return { outcome: "partially_reversed", chargebackId: cb?.id ?? null };
   }
@@ -387,6 +398,7 @@ export async function syncChargebackMirror(
       "Storno teruggedraaid",
       `De storno van ${eurosFromCents(previous)} op ${paymentLabel} is door de bank teruggedraaid. ${describeAttachment(row, view)}`,
       "white_check_mark",
+      { test: row.isTest },
     );
     return { outcome: "reversed", chargebackId: cb?.id ?? null, membershipReactivated: false };
   }
@@ -402,6 +414,7 @@ export async function syncChargebackMirror(
       "Storno teruggedraaid",
       `De storno van ${eurosFromCents(previous)} op ${paymentLabel} is teruggedraaid, maar er is geen membership gevonden. Handmatig beoordelen.`,
       "warning",
+      { test: row.isTest },
     );
     return { outcome: "reversed", chargebackId: cb?.id ?? null, membershipReactivated: false };
   }
@@ -439,6 +452,7 @@ export async function syncChargebackMirror(
           "Storno teruggedraaid, abonnement weer actief",
           `Membership ${membership.id} (${planLabel}): de storno van ${eurosFromCents(previous)} op ${paymentLabel} is door de bank teruggedraaid. Status terug naar active; geen ledenmail verstuurd.`,
           "white_check_mark",
+          { test: row.isTest },
         );
         return { outcome: "reversed", chargebackId: cb?.id ?? null, membershipReactivated: true };
       }
@@ -448,6 +462,7 @@ export async function syncChargebackMirror(
       "Storno teruggedraaid, abonnement blijft payment_failed",
       `Membership ${membership.id} (${planLabel}): de storno van ${eurosFromCents(previous)} op ${paymentLabel} is teruggedraaid, maar de status payment_failed heeft een andere oorzaak. Handmatig beoordelen.`,
       "warning",
+      { test: row.isTest },
     );
     return { outcome: "reversed", chargebackId: cb?.id ?? null, membershipReactivated: false };
   }
@@ -457,6 +472,7 @@ export async function syncChargebackMirror(
     "Storno teruggedraaid",
     `Membership ${membership.id} (${planLabel}) staat op ${membership.status}: de storno van ${eurosFromCents(previous)} op ${paymentLabel} is teruggedraaid. Geen statuswijziging.`,
     "white_check_mark",
+    { test: row.isTest },
   );
   return { outcome: "reversed", chargebackId: cb?.id ?? null, membershipReactivated: false };
 }

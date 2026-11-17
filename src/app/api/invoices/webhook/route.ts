@@ -292,6 +292,7 @@ export async function POST(request: Request) {
             `Dubbele betaling factuur ${invoice.invoice_number}`,
             `Er is online ${formatEuroCentsSigned(amountCents)} betaald op een factuur die al betaald was. ${refundNote} Controleer ${siteUrl()}/app/admin/facturen/${invoice.id}`,
             "warning,money_with_wings",
+            { test: invoice.is_test === true },
           );
         }
       }

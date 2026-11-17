@@ -212,7 +212,12 @@ export interface RegisterFailureArgs {
   error: unknown;
   classification?: FailureClass;
   extra?: Record<string, unknown>;
-  notify?: { title: string; message: string; tags?: string };
+  /**
+   * modeUnverified: de modus komt alleen uit de webhook-URL en is nog niet
+   * bevestigd door Mollie of een databaserij. De melding krijgt dan nooit
+   * het TEST-kenmerk mee, zodat een echte storing niet als test binnenkomt.
+   */
+  notify?: { title: string; message: string; tags?: string; modeUnverified?: boolean };
 }
 
 /**
@@ -259,6 +264,8 @@ export async function registerFailure(args: RegisterFailureArgs): Promise<Failur
         args.notify.title,
         `${args.notify.message}${suffix}`,
         args.notify.tags ?? "warning",
+        // mode null is niet-test.
+        { test: args.mode === "test" && args.notify.modeUnverified !== true },
       );
       if (!notified) {
         console.error("[activation-failure] ntfy niet geaccepteerd", {

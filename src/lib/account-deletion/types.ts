@@ -168,7 +168,7 @@ export interface DeletionDeps {
     payload: Record<string, unknown>;
   }): Promise<void>;
   /** Alleen ids in de tekst (PR #205). */
-  notify(title: string, message: string): Promise<void>;
+  notify(title: string, message: string, opts?: { test?: boolean }): Promise<void>;
   now(): Date;
   log: {
     info(message: string, meta?: Record<string, unknown>): void;

@@ -55,6 +55,8 @@ export async function applyExtraClassOutcome(args: {
   outcome: ExtraClassOutcome;
   amountCents: number | null;
   via: "webhook" | "cron" | "resume";
+  /** Testprofiel (profiles.is_test): markeert de staffmelding met TEST. */
+  test: boolean;
 }): Promise<ConfirmResult> {
   const { admin, bookingId, outcome } = args;
   const { data, error } = await admin.rpc("confirm_extra_class_booking", {
@@ -163,6 +165,7 @@ export async function applyExtraClassOutcome(args: {
       "Extra les te laat betaald",
       `Boeking ${bookingId} is betaald nadat de plek was vrijgegeven en past niet meer (${r.reason ?? "onbekend"}). Terugbetaling: ${refundStatus ?? "niet aangemaakt"}. Controleer in het Mollie-dashboard als dit niet 'pending' of 'refunded' is.`,
       "warning",
+      { test: args.test },
     );
     return "refund_needed";
   }

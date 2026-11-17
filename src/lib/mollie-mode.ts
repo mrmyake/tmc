@@ -47,3 +47,26 @@ export async function mollieModeForMembership(
   const ref = Array.isArray(data?.profile) ? data?.profile[0] : data?.profile;
   return ref?.is_test ? "test" : "live";
 }
+
+/**
+ * Testsignaal voor het "TEST: "-prefix op ntfy-meldingen
+ * (spec-membership-flow.md, ntfy-testprefix). Throwt nooit: een mislukte
+ * of onbekende lookup telt als niet-test, zodat de melding altijd uitgaat
+ * en een echte storing nooit als test binnenkomt.
+ */
+export async function isTestProfile(profileId: string | null | undefined): Promise<boolean> {
+  try {
+    return (await mollieModeForProfile(profileId)) === "test";
+  } catch {
+    return false;
+  }
+}
+
+/** Als isTestProfile, via een membership. Throwt nooit. */
+export async function isTestMembership(membershipId: string | null | undefined): Promise<boolean> {
+  try {
+    return (await mollieModeForMembership(membershipId)) === "test";
+  } catch {
+    return false;
+  }
+}

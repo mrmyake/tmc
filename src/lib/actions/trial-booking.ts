@@ -326,6 +326,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
       // COPY: confirm met Marlon
       `Proefuur vrij trainen geboekt: ${formatWeekdayDate(slotStart)} · ${formatTimeRange(slotStart, slotEnd)}. Zie Proefuren vandaag in het admin-rooster.`,
       "ticket,muscle",
+      { test: args.isTest },
     );
   } else {
     void sendNotification(
@@ -335,6 +336,7 @@ async function redeemTrialCodeBooking(args: RedeemArgs): Promise<StartTrialBooki
       // de admin.
       `Proefles-boeking ${trialBookingId} is gratis geboekt met een proefcode. Zie de sessie in het admin-rooster.`,
       "ticket,muscle",
+      { test: args.isTest },
     );
   }
 

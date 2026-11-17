@@ -83,7 +83,7 @@ async function fetchMollieRefunds(
   return out;
 }
 
-async function markFailed(refundId: string, message: string, ctx: { amountCents: number; trialBookingId: string | null; sessionId: string | null }) {
+async function markFailed(refundId: string, message: string, ctx: { amountCents: number; trialBookingId: string | null; sessionId: string | null; isTest: boolean }) {
   const admin = createAdminClient();
   await admin
     .from("payment_refunds")
@@ -105,12 +105,15 @@ async function markFailed(refundId: string, message: string, ctx: { amountCents:
     "Terugbetaling proefles mislukt",
     `Refund van EUR ${eurosFromCents(ctx.amountCents)} is niet bij Mollie aangekomen. Opnieuw proberen via ${link}`,
     "warning,money_with_wings",
+    { test: ctx.isTest },
   );
 }
 
 export async function processPaymentRefund(refundId: string): Promise<ProcessRefundResult> {
   const admin = createAdminClient();
-  let ctx = { amountCents: 0, trialBookingId: null as string | null, sessionId: null as string | null };
+  // isTest blijft false tot de betaalregel gelezen is: onbekend telt als
+  // niet-test, zodat een echte fout nooit als TEST binnenkomt.
+  let ctx = { amountCents: 0, trialBookingId: null as string | null, sessionId: null as string | null, isTest: false };
 
   try {
     const { data: row, error } = await admin
@@ -121,7 +124,7 @@ export async function processPaymentRefund(refundId: string): Promise<ProcessRef
     if (error || !row) {
       return { ok: false, status: "skipped", message: "Refund-intentie niet gevonden." };
     }
-    ctx = { amountCents: row.amount_cents, trialBookingId: row.trial_booking_id, sessionId: null };
+    ctx = { amountCents: row.amount_cents, trialBookingId: row.trial_booking_id, sessionId: null, isTest: false };
     if (row.status !== "requested" && row.status !== "failed") {
       return { ok: true, status: row.status, mollieRefundId: row.mollie_refund_id, amountCents: row.amount_cents };
     }
@@ -144,6 +147,7 @@ export async function processPaymentRefund(refundId: string): Promise<ProcessRef
       await markFailed(refundId, message, ctx);
       return { ok: false, status: "failed", message };
     }
+    ctx.isTest = payment.is_test === true;
 
     const mollie = getMollieClient(payment.is_test ? "test" : "live");
     if (!mollie) {

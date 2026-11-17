@@ -15,6 +15,7 @@ import { sendNotification } from "../../src/lib/ntfy";
 type Mode = "hang" | "ok" | "fail";
 let mode: Mode = "ok";
 let received = 0;
+let lastTitle: string | undefined;
 let server: Server;
 let baseUrl: string;
 
@@ -30,6 +31,7 @@ function listen(s: Server): Promise<string> {
 before(async () => {
   server = createServer((req, res) => {
     received += 1;
+    lastTitle = req.headers["title"] as string | undefined;
     // Body consumeren zodat de socket niet blijft hangen op backpressure.
     req.resume();
     if (mode === "hang") return; // nooit antwoorden: de client-timeout moet ingrijpen
@@ -131,4 +133,68 @@ test("NTFY_URL wordt op Vercel-productie genegeerd (guard), elders gehonoreerd",
     else process.env.VERCEL_ENV = previousEnv;
     process.env.NTFY_URL = previousUrl;
   }
+});
+
+/**
+ * TEST-prefix (spec-membership-flow.md, ntfy-testprefix). Uitgelezen op de
+ * Title-header zoals de lokale server hem ontvangt. Productie wordt
+ * nagebootst met VERCEL_ENV=production en een vervangen fetch, omdat de
+ * NTFY_URL-override daar genegeerd wordt en het echte topic niet geraakt
+ * mag worden.
+ */
+async function titleOnProduction(
+  title: string,
+  opts?: { test?: boolean },
+): Promise<string | null> {
+  const previousEnv = process.env.VERCEL_ENV;
+  const realFetch = globalThis.fetch;
+  let seen: string | null = null;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    seen = new Headers(init?.headers).get("Title");
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+  try {
+    process.env.VERCEL_ENV = "production";
+    await sendNotification(title, "Bericht", "warning", opts);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+  return seen;
+}
+
+test("prefix bij test true, ook op productie", async () => {
+  assert.equal(await titleOnProduction("Nieuwe proefles-boeking!", { test: true }), "TEST: Nieuwe proefles-boeking!");
+});
+
+test("prefix buiten productie, ook zonder testvlag (preview en lokaal)", async () => {
+  mode = "ok";
+  const previousEnv = process.env.VERCEL_ENV;
+  try {
+    delete process.env.VERCEL_ENV;
+    await sendNotification("Lokaal", "Bericht");
+    assert.equal(lastTitle, "TEST: Lokaal");
+    process.env.VERCEL_ENV = "preview";
+    await sendNotification("Preview", "Bericht", "warning", { test: false });
+    assert.equal(lastTitle, "TEST: Preview");
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test("geen prefix op productie zonder test", async () => {
+  assert.equal(await titleOnProduction("Incasso gefaald"), "Incasso gefaald");
+  assert.equal(await titleOnProduction("Incasso gefaald", { test: false }), "Incasso gefaald");
+  assert.equal(await titleOnProduction("Incasso gefaald", {}), "Incasso gefaald");
+});
+
+test("nooit een dubbel prefix", async () => {
+  assert.equal(await titleOnProduction("TEST: Al gemarkeerd", { test: true }), "TEST: Al gemarkeerd");
+  mode = "ok";
+  await sendNotification("TEST: Al gemarkeerd", "Bericht");
+  assert.equal(lastTitle, "TEST: Al gemarkeerd");
+  // Op productie zonder testvlag blijft een titel die toevallig zo begint ongewijzigd.
+  assert.equal(await titleOnProduction("TEST: Al gemarkeerd"), "TEST: Al gemarkeerd");
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendNotification } from "@/lib/ntfy";
+import { isTestProfile } from "@/lib/mollie-mode";
 import { verifyCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function GET(req: Request) {
       "Betaallink verlopen",
       `Order ${order.id} (${order.catalogue_slug}) is verlopen zonder betaling. Opnieuw versturen?`,
       "warning",
+      { test: await isTestProfile(order.profile_id) },
     );
   }
 
