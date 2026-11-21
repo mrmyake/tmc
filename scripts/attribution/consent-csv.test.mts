@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { leadAttributionsCsv, LEAD_ATTRIBUTION_CSV_HEADER } from "../../src/lib/attribution/csv.ts";
+import { leadAttributionsCsv, LEAD_ATTRIBUTION_CSV_HEADER, SOURCE_TYPES_WITHOUT_JOIN } from "../../src/lib/attribution/csv.ts";
 
 // De bannerkeuze (test h) en de CSV-export (spec-marketing-attribution.md).
 // consent.ts leest localStorage via src/lib/consent.ts; hier met een
@@ -113,4 +113,31 @@ test("CSV: kop, quoting en analytics_consent als laatste kolom", () => {
     lines[2],
     '"2026-10-11T12:05:00.000Z","trial_request","1f1e2d3c-4b5a-4968-8777-66554433aabb","new","","c@d.nl","","","","fb1","","","","","","","unknown"',
   );
+});
+
+test("CSV: hormoonprofiel_kennismaking heeft een eigen Brontype en telt niet als programma_intake", () => {
+  assert.deepEqual([...SOURCE_TYPES_WITHOUT_JOIN], ["programma_intake", "hormoonprofiel_kennismaking"]);
+  const row = (sourceType: "programma_intake" | "hormoonprofiel_kennismaking") => ({
+    createdAt: "2026-11-21T10:00:00.000Z",
+    sourceType,
+    sourceId: "11111111-2222-4333-8444-555555555555",
+    status: "",
+    bookingSource: "",
+    email: "e@f.nl",
+    gclid: null,
+    gbraid: null,
+    wbraid: null,
+    fbclid: null,
+    utmSource: "hormoonprofiel",
+    utmMedium: "redirect",
+    utmCampaign: null,
+    utmTerm: null,
+    utmContent: null,
+    landingPath: "/hormoonprofiel",
+    analyticsConsent: "unknown" as const,
+  });
+  const lines = leadAttributionsCsv([row("hormoonprofiel_kennismaking"), row("programma_intake")]).split("\n");
+  assert.match(lines[1], /^"2026-11-21T10:00:00\.000Z","hormoonprofiel_kennismaking","1111/);
+  assert.match(lines[2], /^"2026-11-21T10:00:00\.000Z","programma_intake","1111/);
+  assert.notEqual(lines[1].split(",")[1], lines[2].split(",")[1]);
 });

@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       "attribution",
       () =>
         recordLeadAttribution({
-          sourceType: "programma_intake",
+          sourceType: "hormoonprofiel_kennismaking",
           sourceId: intakeId,
           email: input.email,
           attribution: attributionRaw,
