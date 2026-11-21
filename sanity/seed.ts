@@ -34,7 +34,7 @@ async function seed() {
     },
     kvkNumber: "42063910",
     btwNumber: "NL869541651B01",
-    instagramUrl: "https://instagram.com/ptloosdrecht",
+    instagramUrl: "https://instagram.com/tmcloosdrecht",
   });
   console.log("✓ siteSettings");
 
