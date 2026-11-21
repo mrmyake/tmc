@@ -52,8 +52,9 @@ const PT_LOOSDRECHT_RULES: readonly MappingRule[] = [
 
   exact("/ervaren-personal-trainer", "/over", "/over"),
   exact("/ervaren-personal-trainer-2", "/over", "/over"),
-  // Open: hangt af van het hormoonprofiel-besluit.
-  exact("/personal-hormonal-profiling", "/over", "/over", true),
+  // Doel nu /over. Eindbestemming volgens spec-locatiepaginas.md; volgt het
+  // hormoonprofiel-besluit.
+  exact("/personal-hormonal-profiling", "/over", "/personal-training", true),
   exact("/kosten", "/prijzen", "/prijzen"),
   exact("/personal-training-loosdrecht-contact", "/contact", "/contact"),
   exact("/neem-contact-op", "/contact", "/contact"),
