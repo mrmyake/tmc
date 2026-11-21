@@ -70,9 +70,10 @@ export function Footer({ settings }: FooterProps) {
               <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted mb-5">
                 Ook van Marlon
               </h3>
-              <QuietLink href="https://hormoonprofiel.com" external>
-                Hormoonprofiel.com
-              </QuietLink>
+              {/* Intern pad: in elke modus van hormoonprofiel.com klopt de
+                  bestemming (standalone stuurt /hormoonprofiel met 307
+                  door naar hormoonprofiel.com). */}
+              <QuietLink href="/hormoonprofiel">Hormoonprofiel</QuietLink>
             </div>
           </div>
 

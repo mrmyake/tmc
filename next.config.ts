@@ -29,8 +29,11 @@ const nextConfig: NextConfig = {
     // via /early-member.
     return [
       {
-        source: "/:path+/",
-        destination: "/:path+",
+        // /hormoonprofiel valt hierbuiten: de proxy handelt een pad met slash
+        // daar in een hop af (naar hormoonprofiel.com of naar de canonieke
+        // vorm), nooit eerst een slash-redirect en dan een domeinredirect.
+        source: "/:path((?!hormoonprofiel(?:/|$)).+)/",
+        destination: "/:path",
         permanent: true,
         missing: [{ type: "host", value: LEGACY_HOSTS }],
       },

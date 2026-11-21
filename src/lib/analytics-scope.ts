@@ -30,6 +30,21 @@ const PREFIX_PATHS = [
   "/privacybeleid",
   "/abonnement",
   "/kopen",
+  // Hormoonprofiel (spec-hormoonprofiel.md). /hormoonprofiel is de sectie op
+  // TMC. /hp-site is de interne route van hormoonprofiel.com; de browser ziet
+  // daar echter de publieke paden hieronder (een rewrite verandert usePathname
+  // niet), dus die staan er ook in. Ze bestaan op TMC niet als pagina.
+  "/hormoonprofiel",
+  "/hp-site",
+  "/wat-is-personal-hormonal-profiling",
+  "/waarom-is-een-persoonlijk-hormoonprofiel-belangrijk",
+  "/hoe-werkt-personal-hormonal-profiling",
+  "/het-belang-van-hormoontraining",
+  "/voedingssupplementen",
+  "/voedingsrichtlijnen",
+  "/verschillende-hormoonprofielen",
+  "/veel-gestelde-vragen",
+  "/contact-gegevens",
 ] as const;
 
 /** Uitzonderingen binnen een gemeten prefix: zelfservice na conversie. */

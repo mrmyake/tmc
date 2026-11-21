@@ -1,19 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/constants";
-
-// AI-crawlers expliciet toegestaan zodat de content (incl. de yoga-minisite)
-// meegenomen wordt in AI-zoekmachines en LLM-antwoorden (GEO).
-const AI_CRAWLERS = [
-  "GPTBot",
-  "OAI-SearchBot",
-  "ChatGPT-User",
-  "ClaudeBot",
-  "Claude-Web",
-  "PerplexityBot",
-  "Google-Extended",
-  "Applebot-Extended",
-  "CCBot",
-];
+import { AI_CRAWLERS } from "@/lib/robots-policy";
 
 // Prive/utility-paden die niet in de index horen. Raakt bewust geen
 // publieke route (en geen /yoga-route).

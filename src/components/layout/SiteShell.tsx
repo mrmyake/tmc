@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { usePathname, useSelectedLayoutSegment } from "next/navigation";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { PageTransition } from "./PageTransition";
@@ -30,6 +30,12 @@ interface SiteShellProps {
 
 export function SiteShell({ children, settings }: SiteShellProps) {
   const pathname = usePathname();
+  // De standalone hormoonprofiel-schil (/hp-site, via een rewrite vanaf
+  // hormoonprofiel.com) heeft eigen chrome. usePathname geeft hier het
+  // browserpad (bijvoorbeeld /veel-gestelde-vragen), niet het herschreven
+  // pad; het geselecteerde layout-segment volgt wel de echte route.
+  const segment = useSelectedLayoutSegment();
+  const isHpSite = segment === "hp-site";
   const isStudio = pathname.startsWith("/studio");
   const isApp = pathname === "/app" || pathname.startsWith("/app/");
   const isLogin = pathname === "/login";
@@ -57,6 +63,10 @@ export function SiteShell({ children, settings }: SiteShellProps) {
   // (src/app/actie/layout.tsx) mount de cookiebanner zelf, want dit is
   // acquisitie en valt binnen de meetgrens.
   const isActie = pathname.startsWith("/actie/");
+
+  if (isHpSite) {
+    return <>{children}</>;
+  }
 
   if (isStudio || isApp || isLogin || isCheckin || isKiosk || isProgramma || isBetaal || isActie) {
     // Member-app en login: eigen chrome (AppNav / kaal). Geen marketing

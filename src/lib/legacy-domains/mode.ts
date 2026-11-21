@@ -72,5 +72,16 @@ export async function resolveMode(
   const value = (raw as Record<string, unknown>)[domain.domain];
   if (value === undefined) return fallback("geen waarde voor dit domein");
   if (!isLegacyMode(value)) return fallback("ongeldige waarde");
+  if (value === "standalone" && !domain.allowStandalone) {
+    return fallback("standalone is niet geldig voor dit domein");
+  }
+  // Een domein met een eigen site toont nooit een kale TMC-homepage of een
+  // 404: off geldt daar als standalone.
+  if (value === "off" && domain.allowStandalone) {
+    console.warn(
+      `[legacy-domains] ${domain.domain}: off geldt als standalone`,
+    );
+    return "standalone";
+  }
   return value;
 }

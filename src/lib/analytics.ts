@@ -100,6 +100,28 @@ export const trackProgrammaIntake = () => {
   });
 };
 
+/**
+ * Geslaagde kennismaking hormoonprofiel (formulier op hormoonprofiel.com en de
+ * sectie /hormoonprofiel). Eigen event, bewust geen generate_lead, zodat de
+ * proefles-conversies schoon blijven. Pas na een 2xx van
+ * /api/leads/hormoonprofiel, en alleen na toestemming in de cookiebanner
+ * (hasConsent), strenger dan Consent Mode. Geen persoonsgegevens en geen
+ * bedrag. Geen cross-domain koppeling: op hormoonprofiel.com is dit een
+ * aparte first-party sessie in dezelfde property.
+ */
+export const trackKennismakingHormoonprofiel = (siteMode: "standalone" | "section") => {
+  try {
+    if (!hasConsent()) return;
+  } catch {
+    // localStorage geblokkeerd (privemodus): zonder bevestigde toestemming niet sturen.
+    return;
+  }
+  trackEvent("kennismaking_hormoonprofiel", {
+    lead_type: "hormoonprofiel",
+    site_mode: siteMode,
+  });
+};
+
 export const trackCTA = (buttonText: string, page: string) => {
   trackEvent("cta_click", {
     event_category: "engagement",

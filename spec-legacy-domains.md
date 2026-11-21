@@ -93,7 +93,7 @@ Eindbestemmingen komen uit `spec-locatiepaginas.md` en wijken af van het doel nu
 
 **Keuze `/training-en-begeleiding` (en `-old`):** doel is `/aanbod`. De live pagina (gelezen op 2026-11-21) beschrijft kettlebell training, T.O.P. personal training, herstel training, individuele trainingsschema's, personal hormonal profiling en Mylogenics; het 12-wekenprogramma komt er niet in voor. De `-old`-variant heeft dezelfde inleiding en is een eerdere versie van dezelfde pagina.
 
-`hormoonprofiel.com`: lege mapping, fallback `/`, standaardmodus `off`.
+`hormoonprofiel.com`: lege mapping in dit register; de afhandeling (eigen site, doorverwijzing naar de sectie `/hormoonprofiel`, 410's) staat in `spec-hormoonprofiel.md`. Sinds die spec is de standaardmodus `standalone`, `off` geldt voor dit domein als `standalone`, en `standalone` is alleen voor dit domein geldig.
 
 ## DNS-baseline ptloosdrecht.nl (2026-11-21)
 
@@ -170,3 +170,4 @@ Apex en www terug naar A `35.204.44.59` (de www-CNAME eerst verwijderen). De CDN
 | PR | Branch | Merge-hash | Datum | Omschrijving |
 |---|---|---|---|---|
 | #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts (gedrag TMC gelijk aan main, sectie `tmc-trailing-slash` in het controlescript), tests en controlescript, `tsx` als devDependency. Tweede vervolgcommit: Instagram-handle naar `tmcloosdrecht` (`SITE.instagram` en `sanity/seed.ts`; Sanity-content niet aangeraakt), DNS-baseline aangevuld (DKIM, ssh, autoconfig, localhost, CDN-opmerking), Mail-, CDN- en uitrolsectie en rollback bijgewerkt met de Vercel-waarden. Eerste vervolgcommit: specs gelijkgetrokken (`spec-locatiepaginas.md` bevat geen redirect-doelen meer, geen 410's), `finalTarget` van `/personal-hormonal-profiling` gelijk aan `spec-locatiepaginas.md`. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, de doelen nu (`finalTarget` is nergens in gebruik voor routing). |
+| #(volgt) | feat/hormoonprofiel-site | (volgt) | 2026-11-21 | **Hormoonprofiel:** modus `standalone` (alleen hormoonprofiel.com, `off` geldt daar als standalone), `/hormoonprofiel` en `/hp-site` in de proxy-matcher, preview-override `?__host` en `?__mode`. Details in `spec-hormoonprofiel.md`. Bewust niet aangeraakt: ptloosdrecht.nl-mapping en -modi. |

@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { AnalyticsGate } from "@/components/analytics/AnalyticsGate";
 import { SiteShell } from "@/components/layout/SiteShell";
+import { GlobalJsonLd } from "@/components/seo/GlobalJsonLd";
 import { AuthListener } from "@/components/layout/AuthListener";
 import { SplashScreenHide } from "@/components/capacitor/SplashScreenHide";
 import { DeepLinkHandler } from "@/components/capacitor/DeepLinkHandler";
@@ -107,18 +108,7 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://featurable.com" />
       </head>
       <body className="min-h-screen flex flex-col">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(getLocalBusinessSchema()),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(getWebsiteSchema()),
-          }}
-        />
+        <GlobalJsonLd data={[getLocalBusinessSchema(), getWebsiteSchema()]} />
         <SiteShell settings={settings}>{children}</SiteShell>
         {/* Verbergt het native Capacitor-launchscherm zodra déze pagina
             client-side mount — no-op in de browser-PWA

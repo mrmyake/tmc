@@ -89,7 +89,7 @@ test("proxy: niet-oude host loopt door de bestaande flow (login-redirect)", asyn
   );
 });
 
-test("matcher: bestaande items ongewijzigd, plus host- en headeritem", () => {
+test("matcher: bestaande items ongewijzigd, plus host, hormoonprofiel en override", () => {
   const matcher = config.matcher as unknown[];
   assert.deepEqual(matcher.slice(0, 7), [
     "/app",
@@ -110,6 +110,12 @@ test("matcher: bestaande items ongewijzigd, plus host- en headeritem", () => {
         },
       ],
     },
+    "/hormoonprofiel",
+    "/hormoonprofiel/:path*",
+    "/hp-site",
+    "/hp-site/:path*",
     { source: "/:path*", has: [{ type: "header", key: "x-legacy-host-test" }] },
+    { source: "/:path*", has: [{ type: "query", key: "__host" }] },
+    { source: "/:path*", has: [{ type: "cookie", key: "__host" }] },
   ]);
 });
