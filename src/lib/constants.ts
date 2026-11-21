@@ -64,9 +64,7 @@ export const SITE = {
   // gebruiken als linkdoel.
   phone: "06 25 13 05 84",
   whatsapp: "https://wa.me/31625130584",
-  // Het bestaande account (ptloosdrecht) blijft voorlopig in gebruik; dit is
-  // bewust niet het themovementclub-handle.
-  instagram: "https://instagram.com/ptloosdrecht",
+  instagram: "https://instagram.com/tmcloosdrecht",
   address: {
     street: "Industrieweg 14P",
     city: "Loosdrecht",

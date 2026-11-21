@@ -28,6 +28,7 @@ Lokale dienst- en locatiepagina's op themovementclub.nl, voor vindbaarheid in he
 2. Vervang placeholders door echte foto's onder `public/images/lokaal/` (`Foto` met alt).
 3. `npm run typecheck` en `npm run build` moeten groen zijn; ontbreekt er iets, dan geeft het type een fout.
 4. De pagina verschijnt dan in de sitemap met `lastModified` uit `bijgewerkt`. Interne links naar de pagina verschijnen vanzelf.
+5. Zodra de pagina in productie 200 geeft: zet in een eigen PR het doel van de bijbehorende oude URL('s) op de `finalTarget` uit `spec-legacy-domains.md` (register `src/lib/legacy-domains/registry.ts`), pas de letterlijke verwachtingen in de unit-tests (`scripts/legacy-domains/cases.mts` en `final-target.test.mts`) aan en werk de ledger in `spec-legacy-domains.md` bij.
 
 ## URL-tabel
 
@@ -87,28 +88,9 @@ Zoekvraag per plaats (vertoningen, positie):
 
 De oude plaatspagina's bestonden voor ongeveer 95% uit algemene tekst en stonden op pagina 2 tot 3 van Google. Context: organisch zoeken is 49% van de sessies, met 11 conversies en 893 euro omzet sinds mei.
 
-## Mapping ptloosdrecht.nl naar themovementclub.nl
+## Redirects vanaf ptloosdrecht.nl
 
-Ter referentie. De redirects zelf horen bij de migratie-PR, niet bij deze. Alle varianten (http, https, www) afvangen.
-
-| Oud pad | Nieuw pad |
-|---|---|
-| `/` | `/` |
-| `/personal-training-loosdrecht/` | `/personal-training` |
-| `/kettlebell-training/` | `/kettlebell-training` |
-| `/kettlebell-bootcamp/` | `/kettlebell-training` |
-| `/training-en-begeleiding/` | `/aanbod` |
-| `/ervaren-personal-trainer/` | de pagina over Marlon (of `/over`) |
-| `/personal-hormonal-profiling/` | `/personal-training` (tijdelijk, volgt het hormoonprofiel-besluit) |
-| `/personal-training-loosdrecht-contact/` | `/contact` |
-| `/personal-trainer-hilversum/` | `/personal-trainer-hilversum` |
-| `/personal-trainer-bussum/` | `/personal-trainer-bussum` |
-| `/personal-trainer-laren/` | `/personal-trainer-laren` |
-| `/personal-trainer-gooi/` | `/personal-trainer-gooi` |
-| `/personal-trainer-wijdemeren/` | `/personal-training` |
-| `/training-en-begeleiding-old/`, `/product/*`, `/product-category/*`, `/portfolio/*`, `/portfolio-category/*` | 410 |
-
-Een redirect naar een nog niet live pagina komt via de 307-terugval op `/personal-trainer-gooi` of `/aanbod` uit, nooit op een 404.
+De redirects van oude domeinen, met alle doelen, eindbestemmingen en de uitrol, staan in `spec-legacy-domains.md`. Dat is de enige bron; deze spec bevat bewust geen redirect-doelen. Elke ptloosdrecht.nl-URL gaat met een 308 naar themovementclub.nl. De 307-terugval voor `concept`-pagina's (hierboven) blijft bestaan voor het geval een doel op een nog niet live pagina wordt gezet; een redirect vanaf een oud domein komt zo nooit op een 404 uit.
 
 ## Reistijden
 
@@ -192,3 +174,4 @@ Geen wijzigingen aan `/aanbod`, `AANBOD_DROPDOWN`, de footer of `/yoga`. De inte
 
 - **PR #357, PR A fundament:** 2026-11-17. Acht routes met sjablonen, contentbestanden op `concept`, typegebonden inhoudseis, `ExerciseGym` met `@id`, `Service` en `BreadcrumbList`, sitemap voor `live`-pagina's, CLAUDE.md gecorrigeerd. Conceptpagina's geven alleen in productie een 307 (`VERCEL_ENV === 'production'`); op preview en lokaal renderen ze met `noindex, nofollow` en een conceptbalk. Visueel gecontroleerd op de Vercel-preview (alle acht routes, 390 en 1280 px) en vergeleken met de mockup; screenshots niet bewaard. Bewust niet aangeraakt: Sanity, Supabase, `/aanbod`, `AANBOD_DROPDOWN`, Footer, `/yoga`, interne links, redirects vanaf ptloosdrecht.nl, nieuwe analytics-events, `recordLeadAttribution` (open punt, apart oppakken).
 - **PR #358, inhoud en livegang:** 2026-11-17. Zeven pagina's op `live` (`/mobility` blijft `concept`: er staat geen mobility-les in het rooster; mobility als groepsles is van de live pagina's gehaald): reistijden (Google Maps, 17-11-2026), FAQ's, quotes met woonplaats en bron (type `Quote`: `woonplaats` in plaats van `wijk`), statbalken met de werkelijke lesduur, foto's uit Sanity onder `public/images/lokaal/`, Hilversum op 12 minuten, geen schema-claim bij vrij trainen, extra vertrekpunten op de locatiepagina's. Bewust niet aangeraakt: `/yoga`, `/aanbod`, `AANBOD_DROPDOWN`, Footer (PR B), Supabase, Sanity, `recordLeadAttribution`.
+- **PR #359, redirects gelijkgetrokken:** 2026-11-21. De mappingtabel met redirect-doelen is uit deze spec gehaald en vervangen door een verwijzing naar `spec-legacy-domains.md` (enige bron); geen 410's meer (elke ptloosdrecht.nl-URL krijgt een 308); stap 5 toegevoegd aan "Een pagina live zetten". Bewust niet aangeraakt: de locatiepagina's zelf, de 307-terugval voor concept-pagina's en de inhoud.
