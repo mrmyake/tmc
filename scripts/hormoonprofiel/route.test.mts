@@ -137,7 +137,11 @@ test("sectie op TMC: host en modus in landing_path, advertentielanding als lp", 
     "/hormoonprofiel?host=www.themovementclub.nl&mode=section&lp=%2Fhormoonprofiel%3Fgclid%3Dabc",
   );
   assert.equal(row.gclid, "abc");
-  assert.equal(to("http://supabase.test/rest/v1/lead_attributions").length, 1);
+  const attr = to("http://supabase.test/rest/v1/lead_attributions");
+  assert.equal(attr.length, 1);
+  const attrRow = (Array.isArray(attr[0].body) ? attr[0].body[0] : attr[0].body) as Record<string, unknown>;
+  assert.equal(attrRow.source_type, "hormoonprofiel_kennismaking", "eigen brontype, niet programma_intake");
+  assert.equal(attrRow.source_id, "11111111-2222-4333-8444-555555555555", "source_id is het id van de intake-rij");
 });
 
 test("zonder MAILERLITE_HORMOONPROFIEL_GROUP_ID: MailerLite overgeslagen met een warning", async () => {
