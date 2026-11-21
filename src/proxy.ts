@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { handleLegacyDomain } from "@/lib/legacy-domains/handle";
 
 /**
  * Next 16 proxy (voorheen middleware). Ververst de Supabase sessie-cookies
@@ -10,6 +11,11 @@ const PROTECTED_PREFIXES = ["/app", "/checkin", "/kiosk"] as const;
 const KIOSK_PREFIXES = ["/checkin", "/kiosk"] as const;
 
 export async function proxy(request: NextRequest) {
+  // Eerste stap, vóór auth: verkeer van oude domeinen (ptloosdrecht.nl,
+  // hormoonprofiel.com) wordt hier afgehandeld. Zie spec-legacy-domains.md.
+  const legacyResponse = await handleLegacyDomain(request);
+  if (legacyResponse) return legacyResponse;
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -78,5 +84,21 @@ export const config = {
     "/kiosk",
     "/kiosk/:path*",
     "/login",
+    // Oude domeinen: elk pad op die hosts, ook /wp-content/, .xml, .txt en
+    // .ico. Een host-conditie houdt TMC-assets buiten de proxy.
+    {
+      source: "/:path*",
+      has: [
+        {
+          type: "host",
+          value: "(www\\.)?(ptloosdrecht\\.nl|hormoonprofiel\\.com)",
+        },
+      ],
+    },
+    // Testhook voor previews; de code negeert hem buiten preview en dev.
+    {
+      source: "/:path*",
+      has: [{ type: "header", key: "x-legacy-host-test" }],
+    },
   ],
 };

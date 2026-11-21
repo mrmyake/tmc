@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
+// Hosts van de oude domeinen (zie src/lib/legacy-domains). Houd gelijk met de
+// host-conditie in de matcher van src/proxy.ts.
+const LEGACY_HOSTS = "(www\\.)?(ptloosdrecht\\.nl|hormoonprofiel\\.com)";
+
 const nextConfig: NextConfig = {
+  // Next's ingebouwde trailing-slash-redirect draait vóór de proxy. Op een
+  // oud domein geeft dat een extra hop (eerst /kosten/ naar /kosten op het
+  // oude domein zelf, dan pas naar TMC). Daarom uit, en hieronder voor alle
+  // andere hosts exact dezelfde redirect expliciet terug. De proxy handelt
+  // het trailing-slash-pad van oude hosts in één hop af.
+  skipTrailingSlashRedirect: true,
   // De factuur-PDF (react-pdf) leest Fraunces en Inter van schijf. Zonder
   // deze include neemt Vercel de bestanden niet mee in de serverless bundel,
   // omdat ze alleen via een runtime-pad worden geladen.
@@ -18,6 +28,12 @@ const nextConfig: NextConfig = {
     // QR, Google-index) blijven werken, rechtstreeks en zonder tussenstap
     // via /early-member.
     return [
+      {
+        source: "/:path+/",
+        destination: "/:path+",
+        permanent: true,
+        missing: [{ type: "host", value: LEGACY_HOSTS }],
+      },
       {
         source: "/crowdfunding",
         destination: "/prijzen",
