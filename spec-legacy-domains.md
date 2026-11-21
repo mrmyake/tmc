@@ -98,27 +98,47 @@ Eindbestemmingen komen uit `spec-locatiepaginas.md` en wijken af van het doel nu
 ## DNS-baseline ptloosdrecht.nl (2026-11-21)
 
 - Nameservers: `ns1.siteground.net` en `ns2.siteground.net` (bij SiteGround). Registrar: GoDaddy. DNSSEC: uit. CAA: geen.
-- A apex (TTL 30): `34.120.190.48`, `34.149.36.179`, `34.149.120.3`, `34.160.17.71`. Geen AAAA.
-- A www (TTL 30): `34.149.120.3`, `34.160.17.71`, `35.227.194.51`, `34.160.81.203`. Geen CNAME, geen AAAA.
+- A apex, oorspronkelijk (SiteGround CDN, TTL 30): `34.120.190.48`, `34.149.36.179`, `34.149.120.3`, `34.160.17.71`. Geen AAAA.
+- A www, oorspronkelijk (SiteGround CDN, TTL 30): `34.149.120.3`, `34.160.17.71`, `35.227.194.51`, `34.160.81.203`. Geen CNAME, geen AAAA.
+- Dit zijn CDN-records: ze kunnen pas gewijzigd worden nadat de SiteGround CDN voor ptloosdrecht.nl is uitgezet. Daarna wijst het domein naar het server-IP. Gemeten later op 2026-11-21, na het uitzetten van de CDN: apex en www hebben A `35.204.44.59` (TTL 86400). De CDN-IP's hierboven gelden dan niet meer.
 - MX (TTL 86400): `10 mx10.antispam.mailspamprotection.com.`, `20 mx20.antispam.mailspamprotection.com.`, `30 mx30.antispam.mailspamprotection.com.`
 - TXT apex: drie `google-site-verification`-records (`mpVB4xYBK81o0TYRqaAVwIq6iagGzYYGyaLDdxTdH08`, `D7un53mxOMLDfzNDblyoX5shHE-kurJP549eUW4oOX4`, `kW9JtU72zuYV-vgXhABcYOChwzyB_IF-J9XMDpc2Rrw`), `Sendinblue-code:219d12a82d0b4f1ebc299960a97a55a5` en `v=spf1 include:_spf.google.com ~all`.
 - `_dmarc`: `v=DMARC1; p=none; sp=none; rua=mailto:dmarc@mailinblue.com!10m; ruf=mailto:dmarc@mailinblue.com!10m; rf=afrf; pct=100; ri=86400`
 - `_domainkey`: `v=DKIM1; o=~`. Er is geen `google._domainkey`.
-- `mail`, `ftp`, `autodiscover` (A): `35.204.44.59`.
+- `default._domainkey` (CNAME, TTL 14400): `ptloosdrecht.nl.default.dkim.auto.dnssmarthost.net.` (DKIM van SiteGround).
+- `mail._domainkey` (TXT, TTL 300, DKIM van Brevo): `k=rsa;p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDeMVIzrCa3T14JsNY0IRv5/2V1/v2itlviLQBwXsa7shBD6TrBkswsFUToPyMRWC9tbR/5ey0nRBH0ZVxp+lsmTxid2Y2z+FApQ6ra2VsXfbJP3HE6wAO0YTVEJt1TmeczhEd2Jiz/fcabIISgXEdSpTYJhb0ct0VJRxcg4c8c7wIDAQAB`
+- `mail`, `ftp`, `autodiscover`, `ssh`, `autoconfig` (A): `35.204.44.59`. `localhost` (A): `127.0.0.1`.
 
-Vergelijken na de omzetting (de MX-, TXT-, `_dmarc`-, `_domainkey`- en mail-A-uitvoer moet gelijk blijven aan de baseline hierboven; alleen de A-records van apex en www veranderen):
+Ruwe `dig`-output van de aanvullingen (2026-11-21):
+
+```
+default._domainkey.ptloosdrecht.nl. 14400 IN CNAME ptloosdrecht.nl.default.dkim.auto.dnssmarthost.net.
+mail._domainkey.ptloosdrecht.nl. 300 IN TXT "k=rsa;p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDeMVIzrCa3T14JsNY0IRv5/2V1/v2itlviLQBwXsa7shBD6TrBkswsFUToPyMRWC9tbR/5ey0nRBH0ZVxp+lsmTxid2Y2z+FApQ6ra2VsXfbJP3HE6wAO0YTVEJt1TmeczhEd2Jiz/fcabIISgXEdSpTYJhb0ct0VJRxcg4c8c7wIDAQAB"
+ssh.ptloosdrecht.nl.          86400 IN A 35.204.44.59
+autoconfig.ptloosdrecht.nl.   86400 IN A 35.204.44.59
+localhost.ptloosdrecht.nl.    86400 IN A 127.0.0.1
+ptloosdrecht.nl.              86400 IN A 35.204.44.59   (apex, na uitzetten CDN)
+www.ptloosdrecht.nl.          86400 IN A 35.204.44.59   (www, na uitzetten CDN)
+```
+
+Vergelijken na de omzetting (de MX-, TXT-, `_dmarc`-, `_domainkey`-, DKIM- en mail-A-uitvoer moet gelijk blijven aan de baseline hierboven; alleen de A-records van apex en www veranderen, en www wordt een CNAME). De functie werkt in bash en zsh:
 
 ```sh
-for q in "ptloosdrecht.nl MX" "ptloosdrecht.nl TXT" "_dmarc.ptloosdrecht.nl TXT" "_domainkey.ptloosdrecht.nl TXT" "mail.ptloosdrecht.nl A"; do
-  echo "## $q"; dig +noall +answer $q | sort
-done
+q() { echo "## $*"; dig +noall +answer "$@" | sort; }
+q ptloosdrecht.nl MX
+q ptloosdrecht.nl TXT
+q _dmarc.ptloosdrecht.nl TXT
+q _domainkey.ptloosdrecht.nl TXT
+q default._domainkey.ptloosdrecht.nl CNAME
+q mail._domainkey.ptloosdrecht.nl TXT
+q mail.ptloosdrecht.nl A
 # Autoritatief, zonder resolvercache:
 dig +noall +answer @ns1.siteground.net ptloosdrecht.nl MX
 ```
 
 ## Mail
 
-`marlon@ptloosdrecht.nl` moet blijven werken. De MX wijst naar `*.antispam.mailspamprotection.com` (SiteGround), dus de mail hangt aan het SiteGround-hostingpakket. MX-, SPF-, DKIM- en DMARC-records mogen nooit wijzigen in dit traject. **SiteGround niet opzeggen voordat de mail is gemigreerd** (apart traject). De nameservers blijven bij SiteGround; er wordt niets naar Vercel-nameservers verhuisd.
+`marlon@ptloosdrecht.nl` moet blijven werken. De MX wijst naar `*.antispam.mailspamprotection.com` (SiteGround), dus de mail hangt aan het SiteGround-hostingpakket. Op SiteGround staan de mailboxen `marlon@`, `hp1@` en `hp2@ptloosdrecht.nl`. Het SiteGround-account host ook andere sites (onder meer ilja.com, tvmuur.com en hormoonprofiel.com): bij een latere opzegging alleen het pakket van ptloosdrecht.nl opzeggen, nooit het account. MX-, SPF-, DKIM- en DMARC-records mogen nooit wijzigen in dit traject. **SiteGround niet opzeggen voordat de mail is gemigreerd** (apart traject). De nameservers blijven bij SiteGround; er wordt niets naar Vercel-nameservers verhuisd.
 
 ## Uitrol (handmatig door Ilja)
 
@@ -126,16 +146,17 @@ Alleen de volgorde:
 
 1. Global Config-store `tmc-legacy-domains` aanmaken en aan het project koppelen.
 2. Item `legacy_domains` toevoegen (voorbeeld hierboven).
-3. Na merge: domeinen `ptloosdrecht.nl` en `www.ptloosdrecht.nl` toevoegen in Vercel, zonder domeinredirect.
+3. Domeinen `ptloosdrecht.nl` en `www.ptloosdrecht.nl` in Vercel zonder domeinredirect. Ze staan al op Production zonder redirect; controleer dat dat zo blijft.
 4. Pre-DNS-test met `curl --resolve`. Het certificaat is dan nog niet uitgegeven, dus met `-k`:
-   `curl -sk -o /dev/null -D - --resolve ptloosdrecht.nl:443:76.76.21.21 https://ptloosdrecht.nl/kosten`
-5. In SiteGround DNS alleen de A-records van apex en www vervangen (www wordt een CNAME). Gebruik de waarden die Vercel bij het domein toont (standaard A `76.76.21.21` en CNAME `cname.vercel-dns.com`).
-6. Controle: `npm run check:legacy-redirects -- --base https://ptloosdrecht.nl` (zonder `--host-header`; de sectie `tmc-trailing-slash` wordt overgeslagen als `--base` een oud domein is, draai hem voor TMC met `--base https://www.themovementclub.nl`) en de `www`-variant, daarna de dig-vergelijking en een testmail naar en van `marlon@ptloosdrecht.nl`.
-7. Search Console: adreswijziging van `ptloosdrecht.nl` naar `themovementclub.nl`.
+   `curl -sk -o /dev/null -D - --resolve ptloosdrecht.nl:443:216.150.1.1 https://ptloosdrecht.nl/kosten`
+5. SiteGround CDN voor ptloosdrecht.nl uitzetten (Speed > CDN > Deactivate). Pas daarna zijn de A-records van apex en www te wijzigen; ze wijzen dan naar het server-IP `35.204.44.59`.
+6. In SiteGround DNS alleen apex en www vervangen: apex A `216.150.1.1`; www CNAME `33359dffc27e2946.vercel-dns-017.com.` (de www-A-records eerst verwijderen, want een CNAME kan niet naast een A bestaan). MX, TXT, DKIM, `_dmarc` en de overige records blijven onaangeroerd.
+7. Controle: `npm run check:legacy-redirects -- --base https://ptloosdrecht.nl` (zonder `--host-header`; de sectie `tmc-trailing-slash` wordt overgeslagen als `--base` een oud domein is, draai hem voor TMC met `--base https://www.themovementclub.nl`) en de `www`-variant, daarna de dig-vergelijking en een testmail naar en van `marlon@ptloosdrecht.nl`.
+8. Search Console: adreswijziging van `ptloosdrecht.nl` naar `themovementclub.nl`.
 
 ## Rollback
 
-De oude A-records van apex en www terugzetten (waarden uit de baseline hierboven; de www-CNAME weer verwijderen). Daarna kan de modus desgewenst op `off` of `redirect_temporary` staan terwijl de site wordt hersteld. Door de TTL van 30 seconden werkt een terugzetting snel; browsers kunnen een 308 maximaal een uur cachen.
+Apex en www terug naar A `35.204.44.59` (de www-CNAME eerst verwijderen). De CDN-IP's uit de oorspronkelijke baseline gelden niet meer na het uitzetten van de CDN; de CDN zelf hoeft niet opnieuw aan. Daarna kan de modus desgewenst op `off` of `redirect_temporary` staan terwijl de site wordt hersteld. Let op de TTL: de A-records van het server-IP hebben TTL 86400 en 308's kunnen een uur in browsercaches blijven; zet de TTL van apex en www tijdens de uitrol zo laag als SiteGround toelaat.
 
 ## Moduswijzigingen
 
@@ -148,4 +169,4 @@ De oude A-records van apex en www terugzetten (waarden uit de baseline hierboven
 
 | PR | Branch | Merge-hash | Datum | Omschrijving |
 |---|---|---|---|---|
-| #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts (gedrag TMC gelijk aan main, sectie `tmc-trailing-slash` in het controlescript), tests en controlescript, `tsx` als devDependency. Vervolgcommit: specs gelijkgetrokken (`spec-locatiepaginas.md` bevat geen redirect-doelen meer, geen 410's), `finalTarget` van `/personal-hormonal-profiling` gelijk aan `spec-locatiepaginas.md`. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, de doelen nu (`finalTarget` is nergens in gebruik voor routing). |
+| #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts (gedrag TMC gelijk aan main, sectie `tmc-trailing-slash` in het controlescript), tests en controlescript, `tsx` als devDependency. Tweede vervolgcommit: Instagram-handle naar `tmcloosdrecht` (`SITE.instagram` en `sanity/seed.ts`; Sanity-content niet aangeraakt), DNS-baseline aangevuld (DKIM, ssh, autoconfig, localhost, CDN-opmerking), Mail-, CDN- en uitrolsectie en rollback bijgewerkt met de Vercel-waarden. Eerste vervolgcommit: specs gelijkgetrokken (`spec-locatiepaginas.md` bevat geen redirect-doelen meer, geen 410's), `finalTarget` van `/personal-hormonal-profiling` gelijk aan `spec-locatiepaginas.md`. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, de doelen nu (`finalTarget` is nergens in gebruik voor routing). |
