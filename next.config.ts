@@ -35,7 +35,15 @@ const nextConfig: NextConfig = {
         source: "/:path((?!hormoonprofiel(?:/|$)).+)/",
         destination: "/:path",
         permanent: true,
-        missing: [{ type: "host", value: LEGACY_HOSTS }],
+        // De header, query en cookie zijn de preview-override voor een oud
+        // domein (src/lib/legacy-domains/override.ts): een gesimuleerde host
+        // krijgt zijn slash-afhandeling van de proxy, net als de echte host.
+        // Op production negeert de proxy ze; de rest van de site blijft gelijk.
+        missing: [
+          { type: "host", value: LEGACY_HOSTS },
+          { type: "header", key: "x-legacy-host-test" },
+          { type: "cookie", key: "__host" },
+        ],
       },
       {
         source: "/crowdfunding",
