@@ -184,8 +184,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
                 <p>
                   Marlon kijkt verder dan de training alleen. Via{" "}
                   <QuietLink
-                    href="https://hormoonprofiel.com"
-                    external
+                    href="/hormoonprofiel"
                     className="inline"
                   >
                     Hormoonprofiel.com
@@ -201,7 +200,7 @@ export function OverContent({ marlonImage, hormoonprofielImage, gallery }: OverC
               </div>
               <div className="mt-8">
                 <Button
-                  href="https://hormoonprofiel.com"
+                  href="/hormoonprofiel"
                   variant="secondary"
                 >
                   Ontdek Hormoonprofiel

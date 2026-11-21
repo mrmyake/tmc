@@ -5,6 +5,14 @@ import {
 } from "../../sanity/lib/fetch";
 import { SITE_URL } from "@/lib/constants";
 import { LOKALE_PAGINAS } from "@/content/lokaal";
+import { LEGACY_DOMAINS } from "@/lib/legacy-domains/registry";
+import { resolveMode } from "@/lib/legacy-domains/mode";
+import { HP_PAGE_KEYS, sectionPath } from "@/lib/hormoonprofiel/slugs";
+import { HP_PAGES } from "../../content/hormoonprofiel";
+
+// De modus van hormoonprofiel.com kan wijzigen zonder deploy: de sitemap
+// ververst elk uur.
+export const revalidate = 3600;
 
 // Canonieke base-URL (www) uit de gedeelde constant. Alle sitemap-URL's
 // staan zo exact in de geserveerde, niet-redirectende vorm.
@@ -70,5 +78,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-  return [...staticRoutes, ...yogaDynamic, ...lokaal];
+  // Hormoonprofiel: alleen in een redirect-modus bestaat de sectie op TMC. Bij
+  // standalone (en off) heeft hormoonprofiel.com een eigen sitemap en staat
+  // /hormoonprofiel hier niet in.
+  const hpMode = await resolveMode(LEGACY_DOMAINS["hormoonprofiel.com"]);
+  const hormoonprofiel: MetadataRoute.Sitemap =
+    hpMode === "redirect_temporary" || hpMode === "redirect_permanent"
+      ? HP_PAGE_KEYS.map((key) => ({
+          url: `${BASE_URL}${sectionPath(key)}`,
+          lastModified: new Date(HP_PAGES[key].dateModified),
+          changeFrequency: "monthly" as const,
+          priority: key === "home" ? 0.8 : 0.6,
+        }))
+      : [];
+
+  return [...staticRoutes, ...yogaDynamic, ...lokaal, ...hormoonprofiel];
 }

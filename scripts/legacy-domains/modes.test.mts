@@ -101,25 +101,32 @@ test("ontbrekende connection string: standaardmodus en een enkele warn", async (
   assert.match(warnings[0], /geen Global Config gekoppeld/);
 });
 
-test("hormoonprofiel.com: off geeft 404 met noindex", async () => {
+test("hormoonprofiel.com: off geldt als standalone, met een warn", async () => {
   const res = await handleLegacyDomain(
     new NextRequest("https://hormoonprofiel.com/"),
     async () => ({ "hormoonprofiel.com": "off" }),
   );
-  assert.equal(res?.status, 404);
-  assert.equal(res?.headers.get("x-robots-tag"), "noindex");
-  assert.equal(res?.headers.get("cache-control"), "no-store");
+  assert.equal(res?.status, 200);
+  assert.match(res?.headers.get("x-middleware-rewrite") ?? "", /\/hp-site$/);
+  assert.ok(warnings.some((w) => /off geldt als standalone/.test(w)));
 });
 
-test("hormoonprofiel.com: standaardmodus is off", async () => {
+test("hormoonprofiel.com: standaardmodus is standalone", async () => {
   const res = await handleLegacyDomain(
-    new NextRequest("https://www.hormoonprofiel.com/over-ons"),
+    new NextRequest("https://hormoonprofiel.com/veel-gestelde-vragen"),
     async () => undefined,
   );
-  assert.equal(res?.status, 404);
+  assert.match(res?.headers.get("x-middleware-rewrite") ?? "", /\/hp-site\/veel-gestelde-vragen$/);
+  assert.equal(warnings.length, 1);
 });
 
-test("hormoonprofiel.com: bij redirect valt alles terug op de homepage", async () => {
+test("standalone is ongeldig voor ptloosdrecht.nl: standaardmodus en een warn", async () => {
+  const res = await handleLegacyDomain(kosten(), async () => ({ "ptloosdrecht.nl": "standalone" }));
+  assert.equal(res?.status, 308);
+  assert.match(warnings[0], /standalone is niet geldig/);
+});
+
+test("hormoonprofiel.com: bij redirect valt onbekend terug op de sectie-home", async () => {
   const res = await handleLegacyDomain(
     new NextRequest("https://hormoonprofiel.com/wat-dan-ook"),
     async () => ({ "hormoonprofiel.com": "redirect_permanent" }),
@@ -127,7 +134,7 @@ test("hormoonprofiel.com: bij redirect valt alles terug op de homepage", async (
   assert.equal(res?.status, 308);
   assert.equal(
     res?.headers.get("location"),
-    "https://www.themovementclub.nl/?utm_source=hormoonprofiel&utm_medium=redirect",
+    "https://www.themovementclub.nl/hormoonprofiel?utm_source=hormoonprofiel&utm_medium=redirect",
   );
 });
 

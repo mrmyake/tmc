@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hormoonprofiel, mockup v1.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050404; color: #F4EFE6; font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-size: 15px; }
+  a { color: inherit; }
+  button, input, textarea { font: inherit; }
+
+  /* ---------- Mockup-omgeving (geen onderdeel van het ontwerp) ---------- */
+  .toolbar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 24px; background: rgba(5,4,4,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(244,239,230,0.14); }
+  .toolbar h1 { font-family: Fraunces, serif; font-weight: 400; font-size: 19px; margin-right: 8px; }
+  .seg { display: inline-flex; border: 1px solid rgba(244,239,230,0.14); border-radius: 4px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { background: none; border: 0; color: rgba(244,239,230,0.62); padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  .seg button[aria-pressed="true"] { background: #B9986A; color: #0E0C0B; font-weight: 600; }
+  .check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: rgba(244,239,230,0.62); cursor: pointer; }
+  .check input { accent-color: #B9986A; }
+  .board { padding: 28px 24px 60px; max-width: 1680px; margin: 0 auto; }
+  .frames { display: grid; grid-template-columns: 406px minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 1000px) { .frames { grid-template-columns: 1fr; justify-items: center; } .desk-col { width: 100%; } }
+  .desk-col { min-width: 0; }
+  .frame-label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(244,239,230,0.62); margin-bottom: 10px; }
+  .frame-label code { text-transform: none; letter-spacing: 0; color: #B9986A; font-size: 12px; }
+  .phone { width: 406px; height: 796px; border-radius: 34px; border: 8px solid #1d1a18; overflow: hidden; background: #0E0C0B; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .phone .scroller { height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+  .phone .scroller::-webkit-scrollbar { display: none; }
+  .desk-wrap { width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #262220; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .desk-chrome { height: 30px; background: #1a1715; display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .desk-chrome i { width: 9px; height: 9px; border-radius: 50%; background: #3a3532; display: block; }
+  .desk-chrome span { margin-left: 14px; font-size: 11px; color: rgba(244,239,230,0.62); background: #0f0d0c; padding: 3px 12px; border-radius: 4px; }
+  .desk-scale { transform-origin: top left; width: 1280px; }
+  .desktop { width: 1280px; height: 800px; overflow-y: auto; scrollbar-width: thin; }
+  .notes { margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .note { background: #171412; border: 1px solid rgba(244,239,230,0.14); border-radius: 8px; padding: 20px 22px; }
+  .note h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 19px; margin-bottom: 12px; }
+  .note p, .note li { font-size: 13.5px; line-height: 1.55; color: rgba(244,239,230,0.62); }
+  .note li { margin: 0 0 8px 16px; }
+  .note strong { color: #F4EFE6; font-weight: 500; }
+  .note code { font-size: 12px; color: #B9986A; }
+  .note table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .note th, .note td { text-align: left; padding: 7px 8px 7px 0; border-bottom: 1px solid rgba(244,239,230,0.14); vertical-align: top; color: rgba(244,239,230,0.62); }
+  .note th { color: #F4EFE6; font-weight: 500; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: 1px; }
+  .tag.must { background: #B9986A; color: #0E0C0B; }
+  .tag.should { border: 1px solid #B9986A; color: #B9986A; }
+  .tag.could { border: 1px solid rgba(244,239,230,0.14); color: rgba(244,239,230,0.62); }
+
+  /* =====================================================================
+     ONTWERP. Eén set componenten, twee identiteiten via CSS-variabelen.
+     .hp  = hormoonprofiel.com (standalone, eigen identiteit)
+     .tmc = themovementclub.nl/hormoonprofiel (sectie binnen TMC)
+     ===================================================================== */
+  .screen { container-type: inline-size; min-height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); }
+  .screen.hp { --bg: #F4EFE6; --fg: #0E0C0B; --muted: rgba(14,12,11,0.66); --line: rgba(14,12,11,0.13); --surface: #EBE4D7; --surface-2: #E2DACB; --accent: #4E5C46; --accent-ink: #4E5C46; --accent-soft: rgba(78,92,70,0.10); --btn-fg: #F4EFE6; }
+  .screen.tmc { --bg: #0E0C0B; --fg: #F4EFE6; --muted: rgba(244,239,230,0.62); --line: rgba(244,239,230,0.14); --surface: #171412; --surface-2: #1F1B18; --accent: #B9986A; --accent-ink: #B9986A; --accent-soft: rgba(185,152,106,0.14); --btn-fg: #0E0C0B; }
+
+  .fill { display: inline; border: 1px dashed var(--accent); color: var(--accent-ink); background: var(--accent-soft); border-radius: 3px; padding: 1px 6px; font-size: 0.86em; font-style: normal; }
+  body.hide-fill .fill { border-color: transparent; background: none; color: inherit; padding: 0; }
+
+  .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 22px; }
+  @container (min-width: 900px) { .wrap { padding: 0 48px; } }
+  .display { font-family: Fraunces, Georgia, serif; font-weight: 400; letter-spacing: -0.01em; line-height: 1.08; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); }
+  .muted { color: var(--muted); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 24px; background: var(--accent); color: var(--btn-fg); border: 0; border-radius: 4px; font-weight: 600; font-size: 15.5px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .btn.ghost { background: none; color: var(--fg); border: 1px solid var(--line); font-weight: 500; }
+  .btn-row { display: grid; gap: 10px; margin-top: 24px; }
+  @container (min-width: 900px) { .btn-row { display: flex; gap: 12px; } }
+  .link { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 4px; }
+
+  .photo { position: relative; overflow: hidden; border-radius: 8px; }
+  .hp .photo { background: radial-gradient(110% 80% at 75% 25%, rgba(78,92,70,0.30), transparent 60%), radial-gradient(90% 70% at 20% 90%, rgba(185,152,106,0.22), transparent 60%), linear-gradient(160deg, #d9d0bf 0%, #c9bea9 60%, #b8ad97 100%); }
+  .tmc .photo { background: radial-gradient(120% 80% at 70% 30%, rgba(185,152,106,0.35), transparent 60%), linear-gradient(160deg, #3a2f26 0%, #1c1714 55%, #110e0c 100%); }
+  .photo .ph-label { position: absolute; top: 12px; left: 12px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px; border-radius: 3px; }
+  .hp .photo .ph-label { color: rgba(14,12,11,0.7); background: rgba(244,239,230,0.7); }
+  .tmc .photo .ph-label { color: rgba(244,239,230,0.75); background: rgba(14,12,11,0.55); }
+  .photo svg.figure { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); height: 84%; opacity: 0.18; }
+
+  /* Nav standalone */
+  .hp-nav { border-bottom: 1px solid var(--line); }
+  .hp-nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .hp-mark { text-decoration: none; display: flex; flex-direction: column; line-height: 1; }
+  .hp-mark b { font-family: Fraunces, serif; font-weight: 400; font-size: 22px; letter-spacing: -0.01em; }
+  .hp-mark b span { color: var(--accent-ink); font-style: italic; }
+  .hp-mark small { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 5px; }
+  .navlinks { display: none; list-style: none; gap: 24px; font-size: 14px; color: var(--muted); align-items: center; }
+  .navlinks .navbtn { background: var(--accent); color: var(--btn-fg); padding: 9px 14px; border-radius: 4px; font-weight: 600; }
+  .menu { width: 22px; height: 14px; border-top: 1.5px solid var(--fg); border-bottom: 1.5px solid var(--fg); position: relative; }
+  .menu::after { content: ""; position: absolute; left: 0; right: 0; top: 5.5px; border-top: 1.5px solid var(--fg); }
+  @container (min-width: 900px) { .hp-nav .wrap { height: 80px; } .navlinks { display: flex; } .menu { display: none; } }
+
+  /* Nav TMC + sectiebalk */
+  .tmc-nav { border-bottom: 1px solid var(--line); }
+  .tmc-nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .wordmark { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 20px; letter-spacing: 0.02em; text-decoration: none; }
+  .wordmark span { color: #B9986A; }
+  @container (min-width: 900px) { .tmc-nav .wrap { height: 76px; } }
+  .secbar { border-bottom: 1px solid var(--line); background: var(--surface); }
+  .secbar .wrap { display: flex; align-items: center; gap: 16px; height: 48px; overflow-x: auto; scrollbar-width: none; }
+  .secbar .wrap::-webkit-scrollbar { display: none; }
+  .secbar b { font-family: Fraunces, serif; font-weight: 400; font-size: 16px; white-space: nowrap; color: var(--accent-ink); }
+  .secbar a { font-size: 13px; color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .secbar a.on { color: var(--fg); border-bottom: 1px solid var(--accent); padding-bottom: 2px; }
+  .crumbs { font-size: 12.5px; color: var(--muted); padding: 16px 0 0; }
+  .crumbs span { margin: 0 6px; opacity: 0.6; }
+
+  /* Hero */
+  .hero { padding: 22px 0 36px; }
+  .hero-grid { display: grid; gap: 26px; }
+  .hero-grid > * { min-width: 0; }
+  .hero h1 { font-size: 40px; margin: 12px 0 14px; }
+  .hero .lead { font-size: 16px; line-height: 1.55; color: var(--muted); max-width: 32em; }
+  .hero .meta { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+  .hero .meta span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  .hero-photo { height: 280px; }
+  @container (min-width: 900px) {
+    .hero { padding: 40px 0 70px; }
+    .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: center; }
+    .hero h1 { font-size: 60px; }
+    .hero .lead { font-size: 18px; }
+    .hero-photo { height: 460px; }
+  }
+
+  .kort { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 18px 20px; margin-top: 4px; }
+  .kort .eyebrow { margin-bottom: 8px; }
+  .kort p { font-size: 15px; line-height: 1.6; }
+  @container (min-width: 900px) { .kort { padding: 24px 30px; } .kort p { font-size: 17px; } }
+
+  .sec { border-top: 1px solid var(--line); padding: 36px 0; }
+  .sec h2 { font-size: 28px; margin: 10px 0 14px; }
+  .sec .intro { font-size: 15px; line-height: 1.6; color: var(--muted); max-width: 40em; }
+  @container (min-width: 900px) { .sec { padding: 66px 0; } .sec h2 { font-size: 40px; } .sec .intro { font-size: 16.5px; } }
+  .sec.alt { background: var(--surface); border-top: 0; }
+  .two { display: grid; gap: 22px; }
+  .two > * { min-width: 0; }
+  @container (min-width: 900px) { .two { grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: start; } }
+
+  /* Traject */
+  .steps { list-style: none; margin-top: 24px; display: grid; gap: 0; border-top: 1px solid var(--line); }
+  .steps li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .steps .n { font-family: Fraunces, serif; font-size: 26px; line-height: 1; color: var(--accent-ink); }
+  .steps b { display: block; font-weight: 500; font-size: 16px; margin-bottom: 4px; }
+  .steps span { font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .steps em { display: inline-block; margin-top: 8px; font-style: normal; font-size: 12px; color: var(--accent-ink); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+  @container (min-width: 900px) { .steps.row { grid-template-columns: repeat(5, 1fr); gap: 24px; border-top: 0; } .steps.row li { grid-template-columns: 1fr; border-bottom: 0; border-top: 2px solid var(--line); padding-top: 18px; } .steps.row li:first-child { border-top-color: var(--accent); } }
+
+  /* Profielkaarten */
+  .pcards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+  @container (min-width: 900px) { .pcards { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+  .pcard { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px; text-decoration: none; display: flex; flex-direction: column; gap: 6px; min-height: 128px; }
+  .tmc .sec.alt .pcard { background: var(--surface-2); }
+  .pcard h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 21px; }
+  .pcard p { font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .pcard .go { margin-top: auto; font-size: 13px; color: var(--accent-ink); }
+  @container (min-width: 900px) { .pcard { padding: 22px; min-height: 150px; } .pcard h3 { font-size: 26px; } .pcard p { font-size: 14px; } }
+
+  /* Marlon */
+  .person { display: grid; gap: 20px; }
+  .person .photo { height: 300px; }
+  @container (min-width: 900px) { .person { grid-template-columns: 0.8fr 1.2fr; gap: 56px; align-items: center; } .person .photo { height: 420px; } }
+  .creds { list-style: none; margin-top: 18px; display: grid; gap: 10px; }
+  .creds li { font-size: 14px; padding-left: 22px; position: relative; line-height: 1.5; }
+  .creds li::before { content: ""; position: absolute; left: 0; top: 7px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); }
+
+  /* Wel / niet */
+  .wn { display: grid; gap: 12px; margin-top: 22px; }
+  @container (min-width: 900px) { .wn { grid-template-columns: 1fr 1fr; gap: 20px; } }
+  .wn div { border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+  .wn h3 { font-family: Fraunces, serif; font-weight: 400; font-size: 22px; margin-bottom: 10px; }
+  .wn ul { list-style: none; display: grid; gap: 8px; }
+  .wn li { font-size: 14px; line-height: 1.5; color: var(--muted); padding-left: 20px; position: relative; }
+  .wn .yes li::before { content: "+"; position: absolute; left: 0; color: var(--accent-ink); font-weight: 600; }
+  .wn .no li::before { content: "\00d7"; position: absolute; left: 1px; color: var(--muted); }
+
+  /* FAQ */
+  .faq { margin-top: 18px; border-top: 1px solid var(--line); }
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary { list-style: none; cursor: pointer; padding: 17px 30px 17px 0; font-size: 15.5px; font-weight: 500; position: relative; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; position: absolute; right: 2px; top: 12px; font-family: Fraunces, serif; font-size: 24px; color: var(--accent-ink); font-weight: 300; transition: transform .2s; }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq details p { padding: 0 0 18px; font-size: 14.5px; line-height: 1.6; color: var(--muted); max-width: 44em; }
+
+  /* Kennismakingsformulier */
+  .closing { border-top: 1px solid var(--line); padding: 40px 0 44px; }
+  .closing .two { align-items: center; }
+  .closing h2 { font-size: 32px; margin: 10px 0 12px; }
+  .closing p.sub { font-size: 15px; color: var(--muted); line-height: 1.55; max-width: 28em; }
+  .form { display: grid; gap: 12px; background: var(--surface); border-radius: 8px; padding: 20px; }
+  .form label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+  .form input, .form textarea { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 12px; font-size: 15px; }
+  .form textarea { min-height: 84px; resize: none; }
+  .form .row2 { display: grid; gap: 12px; }
+  .form small { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  @container (min-width: 900px) { .closing { padding: 72px 0; } .closing h2 { font-size: 46px; } .form { padding: 28px; } .form .row2 { grid-template-columns: 1fr 1fr; } }
+
+  /* Disclaimer + footer */
+  .disclaimer { border-top: 1px solid var(--line); padding: 16px 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .disclaimer b { color: var(--fg); font-weight: 500; }
+  .site-foot { margin-top: auto; border-top: 1px solid var(--line); padding: 34px 0 26px; font-size: 13px; color: var(--muted); }
+  .foot-grid { display: grid; gap: 26px; }
+  @container (min-width: 900px) { .foot-grid { grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 40px; } }
+  .foot-grid h4 { font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); margin-bottom: 12px; }
+  .foot-grid ul { list-style: none; display: grid; gap: 8px; }
+  .foot-grid a { text-decoration: none; }
+  .foot-grid .hl a { color: var(--accent-ink); }
+  .foot-legal { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; }
+
+  /* ---------- Profielenpagina ---------- */
+  .page-head { padding: 22px 0 30px; }
+  .page-head h1 { font-size: 40px; margin: 10px 0 18px; }
+  .byline { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 13px; color: var(--muted); }
+  .byline .photo { width: 40px; height: 40px; border-radius: 50%; flex: none; }
+  .byline b { color: var(--fg); font-weight: 500; }
+  @container (min-width: 900px) { .page-head { padding: 40px 0 50px; } .page-head h1 { font-size: 60px; max-width: 14em; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .chips a { text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 13.5px; }
+  .chips a:hover { border-color: var(--accent); }
+  .warn { margin-top: 16px; font-size: 13.5px; line-height: 1.55; color: var(--muted); padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; }
+  .warn b { color: var(--fg); font-weight: 500; }
+
+  .prof { border-top: 1px solid var(--line); padding: 30px 0; }
+  .prof-grid { display: grid; gap: 16px; }
+  .prof-grid > * { min-width: 0; }
+  .prof .idx { font-family: Fraunces, serif; font-size: 14px; color: var(--accent-ink); }
+  .prof h2 { font-size: 34px; margin: 4px 0 6px; }
+  .prof .sub { font-size: 14.5px; color: var(--muted); }
+  .facets { display: grid; gap: 10px; }
+  .facet { background: var(--surface); border-radius: 8px; padding: 16px 18px; }
+  .facet h3 { font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); margin-bottom: 6px; }
+  .facet p { font-size: 14.5px; line-height: 1.55; }
+  .facet.note2 p { color: var(--muted); font-size: 13.5px; }
+  @container (min-width: 900px) { .prof { padding: 50px 0; } .prof-grid { grid-template-columns: 0.75fr 1.25fr; gap: 56px; } .prof h2 { font-size: 46px; } .facets { grid-template-columns: 1fr 1fr; gap: 14px; } .facet.wide { grid-column: 1 / -1; } }
+
+  /* ---------- Inhoudspagina-sjabloon ---------- */
+  .article { display: grid; gap: 30px; padding-bottom: 20px; }
+  .article > * { min-width: 0; }
+  @container (min-width: 900px) { .article { grid-template-columns: minmax(0, 1fr) 300px; gap: 72px; } }
+  .prose h2 { font-size: 28px; margin: 34px 0 10px; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose p { font-size: 16px; line-height: 1.7; color: var(--muted); margin-bottom: 14px; max-width: 38em; }
+  .prose ul.q { list-style: none; display: grid; gap: 8px; margin: 6px 0 16px; }
+  .prose ul.q li { font-size: 15px; padding: 12px 14px; background: var(--surface); border-radius: 6px; }
+  .prose .dur { display: inline-block; font-size: 12px; color: var(--accent-ink); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; margin-left: 8px; vertical-align: 6px; font-family: Inter, sans-serif; }
+  .get { list-style: none; display: grid; gap: 0; border-top: 1px solid var(--line); margin: 10px 0 16px; }
+  .get li { display: flex; justify-content: space-between; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .get li span { color: var(--muted); font-size: 13.5px; text-align: right; }
+  @container (min-width: 900px) { .prose h2 { font-size: 34px; margin-top: 46px; } .prose p { font-size: 17px; } }
+  .aside { display: grid; gap: 16px; align-content: start; }
+  @container (min-width: 900px) { .aside { position: sticky; top: 24px; } }
+  .toc { border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
+  .toc h4, .ctacard h4 { font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .toc ol { list-style: none; display: grid; gap: 8px; counter-reset: t; }
+  .toc li { font-size: 14px; counter-increment: t; }
+  .toc li::before { content: counter(t) ". "; color: var(--accent-ink); }
+  .ctacard { background: var(--accent); color: var(--btn-fg); border-radius: 8px; padding: 20px; }
+  .ctacard h4 { color: inherit; opacity: 0.75; }
+  .ctacard p { font-family: Fraunces, serif; font-size: 22px; line-height: 1.25; margin-bottom: 14px; }
+  .ctacard a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 16px; border-radius: 4px; background: var(--btn-fg); color: var(--accent); font-weight: 600; text-decoration: none; font-size: 14.5px; }
+  .related { display: grid; gap: 10px; margin-top: 8px; }
+  @container (min-width: 900px) { .related { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Hormoonprofiel, mockup v1.1</h1>
+  <div class="seg" role="group" aria-label="Modus">
+    <button data-mode="hp" aria-pressed="true">Standalone: hormoonprofiel.com</button>
+    <button data-mode="tmc" aria-pressed="false">Sectie: themovementclub.nl/hormoonprofiel</button>
+  </div>
+  <div class="seg" role="group" aria-label="Pagina">
+    <button data-page="home" aria-pressed="true">Home</button>
+    <button data-page="profielen" aria-pressed="false">Profielen</button>
+    <button data-page="hoewerkt" aria-pressed="false">Inhoudspagina</button>
+  </div>
+  <label class="check"><input type="checkbox" id="fillToggle" checked> Toon invulplekken</label>
+</div>
+
+<main class="board">
+  <div class="frames">
+    <div>
+      <div class="frame-label">Mobiel, 390 px <code id="urlM"></code></div>
+      <div class="phone"><div class="scroller" id="mobile"></div></div>
+    </div>
+    <div class="desk-col">
+      <div class="frame-label">Desktop, 1280 px (geschaald)</div>
+      <div class="desk-wrap" id="deskWrap">
+        <div class="desk-chrome"><i></i><i></i><i></i><span id="urlBar"></span></div>
+        <div class="desk-scale" id="deskScale"><div class="desktop" id="desktop"></div></div>
+      </div>
+    </div>
+  </div>
+  <section class="notes" id="notes"></section>
+</main>
+
+<script>
+// Alle Nederlandse copy hieronder: // COPY: confirm met Marlon
+// Gestippelde kaders (class "fill") = inhoud die nog aangeleverd of bevestigd moet worden.
+
+var mode = 'hp';
+var page = 'home';
+var FIGURE = '<svg class="figure" viewBox="0 0 100 160" fill="currentColor" aria-hidden="true"><circle cx="50" cy="26" r="16"/><path d="M18 160c0-44 12-92 32-92s32 48 32 92z"/></svg>';
+function fill(t) { return '<em class="fill">' + t + '</em>'; }
+
+var SLUGS = {
+  home: '/',
+  wat: '/wat-is-personal-hormonal-profiling/',
+  waarom: '/waarom-is-een-persoonlijk-hormoonprofiel-belangrijk/',
+  hoewerkt: '/hoe-werkt-personal-hormonal-profiling/',
+  training: '/het-belang-van-hormoontraining/',
+  supplementen: '/voedingssupplementen/',
+  voeding: '/voedingsrichtlijnen/',
+  profielen: '/verschillende-hormoonprofielen/',
+  faq: '/veel-gestelde-vragen/',
+  contact: '/contact-gegevens/'
+};
+function url(key) {
+  var s = SLUGS[key];
+  if (mode === 'hp') return 'hormoonprofiel.com' + s;
+  return 'themovementclub.nl/hormoonprofiel' + (s === '/' ? '' : s);
+}
+
+var PROFILES = [
+  { id: 'insuline-profiel', site: 'de huidplooien onder je schouderblad en boven je heupkam', name: 'Insuline', short: 'Bloedsuiker en energieopslag',
+    does: 'Insuline helpt suiker uit je bloed naar je cellen. Het bepaalt mee of energie uit je maaltijd wordt verbruikt of opgeslagen.',
+    signs: 'Een dip na het eten, snel weer trek, vooral zin in zoet of brood.',
+    self: 'Eiwit en groente bij elke maaltijd, koolhydraten vooral rond je training, en krachttraining.' },
+  { id: 'cortisol-profiel', site: 'de huidplooi naast je navel', name: 'Cortisol', short: 'Stress en herstel',
+    does: 'Cortisol maakt je wakker en alert en helpt je in actie komen. Bij langdurige stress blijft het te lang hoog.',
+    signs: 'Moe maar onrustig, slecht doorslapen, vet vooral rond je buik.',
+    self: 'Vaste slaaptijden, herstel inplannen en niet elke training op maximaal.' },
+  { id: 'oestrogeen-profiel', site: 'de huidplooien aan de voor- en achterkant van je bovenbeen', name: 'Oestrogeen', short: 'Cyclus, botten en vetverdeling',
+    does: 'Belangrijk voor de cyclus en voor sterke botten, bij vrouwen en in kleinere mate bij mannen. Het beïnvloedt waar je vet opslaat.',
+    signs: 'Vocht vasthouden, schommelingen rond je cyclus, vet op heupen en bovenbenen.',
+    self: 'Veel groente en vezels, minder alcohol, en regelmatig krachttraining.' },
+  { id: 'groeihormoon-profiel', site: 'de huidplooien bij je knie en je kuit', name: 'Groeihormoon', short: 'Slaap, herstel en spieropbouw',
+    does: 'Wordt vooral \'s nachts aangemaakt en speelt een rol bij herstel en de opbouw van spieren.',
+    signs: 'Traag herstel na trainen, slecht slapen, moeite met spier opbouwen.',
+    self: 'Genoeg slaap, korte intensieve trainingen en \'s avonds niet laat zwaar eten.' },
+  { id: 'thyroid-profiel', site: 'de huidplooi aan de zijkant van je borstkas, onder je oksel', name: 'Schildklier', short: 'Het tempo van je stofwisseling',
+    does: 'De schildklier regelt het tempo van je stofwisseling, je lichaamstemperatuur en je energie.',
+    signs: 'Snel koud, weinig energie, het gevoel dat je stofwisseling traag is.',
+    self: 'Twijfel je over je schildklier? Laat het checken bij je huisarts: dat kan alleen met bloedonderzoek.' },
+  { id: 'testosteron-profiel', site: 'de huidplooien op je borst en aan de achterkant van je bovenarm', name: 'Testosteron', short: 'Kracht, energie en zin in trainen',
+    does: 'Bij mannen en vrouwen belangrijk voor spierkracht, energie en zin in bewegen.',
+    signs: 'Minder kracht, weinig energie, moeilijk spieren vasthouden.',
+    self: 'Zwaar genoeg trainen, goed slapen en genoeg eten.' }
+];
+
+// ---------- Gedeelde onderdelen per modus ----------
+function nav(active) {
+  if (mode === 'hp') {
+    return '<nav class="hp-nav"><div class="wrap">' +
+      '<a class="hp-mark" href="#"><b>hormoon<span>profiel</span></b><small>bij The Movement Club</small></a>' +
+      '<ul class="navlinks"><li>Wat is PHP</li><li>Hoe werkt het</li><li>Profielen</li><li>Voeding</li><li>Training</li><li>Vragen</li><li class="navbtn">Plan een kennismaking</li></ul>' +
+      '<span class="menu" aria-label="Menu"></span></div></nav>';
+  }
+  var items = [['home', 'Overzicht'], ['wat', 'Wat is PHP'], ['hoewerkt', 'Hoe werkt het'], ['profielen', 'Profielen'], ['voeding', 'Voeding'], ['supplementen', 'Supplementen'], ['training', 'Training'], ['faq', 'Vragen']];
+  return '<nav class="tmc-nav"><div class="wrap">' +
+      '<a class="wordmark" href="#">The Movement <span>Club</span></a>' +
+      '<ul class="navlinks"><li>Aanbod</li><li>Rooster</li><li>Prijzen</li><li>Over ons</li><li>Inloggen</li><li class="navbtn">Plan je proefles</li></ul>' +
+      '<span class="menu" aria-label="Menu"></span></div></nav>' +
+    '<div class="secbar"><div class="wrap"><b>Hormoonprofiel</b>' +
+      items.map(function (i) { return '<a href="#" class="' + (i[0] === active ? 'on' : '') + '">' + i[1] + '</a>'; }).join('') +
+    '</div></div>';
+}
+
+function crumbs(items) {
+  if (mode === 'hp') {
+    if (items.length < 2) return '';
+    return '<div class="crumbs"><div class="wrap">' + items.join('<span>/</span>') + '</div></div>';
+  }
+  return '<div class="crumbs"><div class="wrap">' + ['Home', 'Hormoonprofiel'].concat(items.slice(1)).join('<span>/</span>') + '</div></div>';
+}
+
+function kennismaking() {
+  return '<section class="closing" id="kennismaken"><div class="wrap two">' +
+    '<div>' +
+      '<div class="eyebrow">Kennismaken</div>' +
+      '<h2 class="display">Plan een kennismaking met Marlon</h2>' +
+      '<p class="sub">Vertel waar je aan wilt werken. Marlon neemt ' + fill('binnen 1 werkdag') + ' contact op voor een vrijblijvend gesprek in de studio in Loosdrecht.</p>' +
+    '</div>' +
+    '<form class="form" onsubmit="return false">' +
+      '<div class="row2"><label>Naam<input placeholder="Voor- en achternaam"></label><label>Telefoon<input placeholder="06 ..."></label></div>' +
+      '<label>E-mail<input placeholder="naam@voorbeeld.nl"></label>' +
+      '<label>Waar wil je aan werken?<textarea placeholder="Bijvoorbeeld: meer energie, vet kwijt op een bepaalde plek, sterker worden"></textarea></label>' +
+      '<button class="btn" type="submit">Verstuur aanvraag</button>' +
+      '<small>Je gegevens gaan alleen naar Marlon en worden gebruikt om contact met je op te nemen. ' + fill('link privacybeleid TMC') + '</small>' +
+    '</form>' +
+  '</div></section>';
+}
+
+function disclaimer() {
+  return '<div class="disclaimer"><div class="wrap"><b>Geen medisch advies.</b> Personal Hormonal Profiling is een methode om training, voeding en leefstijl op af te stemmen. Het is geen medische test en geen diagnose. Heb je klachten, ga dan naar je huisarts.</div></div>';
+}
+
+function foot() {
+  if (mode === 'hp') {
+    return '<footer class="site-foot"><div class="wrap"><div class="foot-grid">' +
+      '<div><a class="hp-mark" href="#"><b>hormoon<span>profiel</span></b><small>bij The Movement Club</small></a><p style="margin-top:14px;line-height:1.55">Personal Hormonal Profiling bij Marlon van der Leij, in The Movement Club in Loosdrecht.</p></div>' +
+      '<div><h4>Informatie</h4><ul><li><a href="#">Wat is PHP</a></li><li><a href="#">Hoe werkt het</a></li><li><a href="#">De 6 profielen</a></li><li><a href="#">Voedingsrichtlijnen</a></li><li><a href="#">Supplementen</a></li><li><a href="#">Hormoontraining</a></li><li><a href="#">Veelgestelde vragen</a></li></ul></div>' +
+      '<div class="hl"><h4>The Movement Club</h4><ul><li><a href="#">Personal training</a></li><li><a href="#">12-weken programma</a></li><li><a href="#">Groepslessen</a></li><li><a href="#">themovementclub.nl</a></li></ul></div>' +
+      '<div><h4>Contact</h4><ul><li>Industrieweg 14P</li><li>1231 KH Loosdrecht</li><li>info@hormoonprofiel.com</li><li>' + fill('telefoon: 06 25 13 05 84?') + '</li><li>Instagram @tmcloosdrecht</li></ul></div>' +
+      '</div><div class="foot-legal"><a href="#">Privacybeleid</a><span>Een onderdeel van The Movement Club</span></div></div></footer>';
+  }
+  return '<footer class="site-foot"><div class="wrap"><div class="foot-grid">' +
+    '<div><a class="wordmark" href="#">The Movement <span>Club</span></a><p style="margin-top:12px;line-height:1.55">Boutique studio voor kracht, mobility en yoga in Loosdrecht.</p></div>' +
+    '<div><h4>Aanbod</h4><ul><li><a href="#">Groepslessen</a></li><li><a href="#">Personal training</a></li><li><a href="#">12-weken programma</a></li><li><a href="#">Hormoonprofiel</a></li></ul></div>' +
+    '<div class="hl"><h4>Regio</h4><ul><li><a href="#">Personal trainer Hilversum</a></li><li><a href="#">Personal trainer Bussum</a></li><li><a href="#">Personal trainer Laren</a></li><li><a href="#">Personal trainer het Gooi</a></li></ul></div>' +
+    '<div><h4>Contact</h4><ul><li>Industrieweg 14P</li><li>1231 KH Loosdrecht</li><li>info@themovementclub.nl</li><li>06 25 13 05 84</li><li>Instagram @tmcloosdrecht</li></ul></div>' +
+    '</div><div class="foot-legal"><a href="#">Voorwaarden</a><a href="#">Huisregels</a><a href="#">Privacybeleid</a></div></div></footer>';
+}
+
+function faq(items) {
+  return '<div class="faq">' + items.map(function (q, i) {
+    return '<details' + (i === 0 ? ' open' : '') + '><summary>' + q[0] + '</summary><p>' + q[1] + '</p></details>';
+  }).join('') + '</div>';
+}
+
+// =====================================================================
+// 1. Home
+// =====================================================================
+function home() {
+  return '<div class="screen ' + mode + '">' + nav('home') + crumbs(['Home']) +
+  '<section class="hero"><div class="wrap hero-grid">' +
+    '<div>' +
+      '<div class="eyebrow">Personal Hormonal Profiling in Loosdrecht</div>' +
+      '<h1 class="display">Persoonlijk hormoonprofiel bij Marlon van der Leij</h1>' +
+      '<p class="lead">Waar je lichaam vet opslaat, vertelt iets over hoe je het beste kunt trainen, eten en herstellen. Marlon meet, luistert en maakt een plan dat bij jou past.</p>' +
+      '<div class="btn-row"><a class="btn" href="#kennismaken">Plan een kennismaking →</a><a class="btn ghost" href="#">Hoe werkt het?</a></div>' +
+      '<div class="meta"><span>Gecertificeerd practitioner</span><span>Studio aan de Industrieweg</span><span>Op afspraak</span></div>' +
+    '</div>' +
+    '<div class="photo hero-photo"><span class="ph-label">Foto: Marlon tijdens een meting in de studio</span>' + FIGURE + '</div>' +
+  '</div></section>' +
+
+  '<section style="padding-bottom:36px"><div class="wrap"><div class="kort">' +
+    '<div class="eyebrow">In het kort</div>' +
+    '<p>Personal Hormonal Profiling (PHP) is een methode waarbij een intakegesprek, een uitgebreide vragenlijst en een huidplooimeting op 12 punten samen het startpunt vormen voor je training, voeding en supplementadvies. Je doet het bij Marlon van der Leij in The Movement Club in Loosdrecht. Het is geen medische test.</p>' +
+  '</div></div></section>' +
+
+  '<section class="sec"><div class="wrap">' +
+    '<div class="eyebrow">Het traject</div>' +
+    '<h2 class="display">Van kennismaking tot hermeting</h2>' +
+    '<ol class="steps row">' +
+      '<li><span class="n">1</span><div><b>Kennismaking</b><span>Een vrijblijvend gesprek over je doel en of PHP bij je past.</span></div></li>' +
+      '<li><span class="n">2</span><div><b>Intake en vragenlijst</b><span>Je leefstijl, werk, slaap en herstel. Een vragenlijst vul je vooraf in.</span><em>Afspraak 1, 1 uur</em></div></li>' +
+      '<li><span class="n">3</span><div><b>Huidplooimeting</b><span>Marlon meet op 12 punten. De verhoudingen bepalen je profiel.</span><em>Afspraak 1</em></div></li>' +
+      '<li><span class="n">4</span><div><b>Jouw plan</b><span>Training, voeding en supplementadvies, afgestemd op je profiel.</span><em>Afspraak 2, 1 uur</em></div></li>' +
+      '<li><span class="n">5</span><div><b>Hermeting</b><span>Na 6 weken meet je opnieuw en stel je het plan bij.</span><em>Na 6 weken</em></div></li>' +
+    '</ol>' +
+  '</div></section>' +
+
+  '<section class="sec alt"><div class="wrap">' +
+    '<div class="eyebrow">De profielen</div>' +
+    '<h2 class="display">Zes hormonen, zes profielen</h2>' +
+    '<p class="intro">Je profiel laat zien op welk gebied je plan de meeste winst geeft. Lees per profiel wat het hormoon doet en wat je er zelf aan kunt doen.</p>' +
+    '<div class="pcards">' + PROFILES.map(function (p) {
+      return '<a class="pcard" href="#"><h3>' + p.name + '</h3><p>' + p.short + '</p><span class="go">Lees meer →</span></a>';
+    }).join('') + '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap person">' +
+    '<div class="photo"><span class="ph-label">Portret Marlon</span>' + FIGURE + '</div>' +
+    '<div>' +
+      '<div class="eyebrow">Wie je begeleidt</div>' +
+      '<h2 class="display">Marlon van der Leij</h2>' +
+      '<p class="intro">Eigenaar en hoofdtrainer van The Movement Club in Loosdrecht. Ze begeleidt je van de eerste meting tot je hermeting, en past je training aan op wat je profiel laat zien.</p>' +
+      '<ul class="creds">' +
+        '<li>Gecertificeerd Personal Hormonal Practitioner (Overload) ' + fill('sinds jaar') + '</li>' +
+        '<li>Kettlebell Master</li>' +
+        '<li>' + fill('aantal jaar ervaring als personal trainer') + '</li>' +
+      '</ul>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap">' +
+    '<div class="eyebrow">Eerlijk is eerlijk</div>' +
+    '<h2 class="display">Wat het wel is, en wat niet</h2>' +
+    '<div class="wn">' +
+      '<div class="yes"><h3>Wel</h3><ul><li>Een startpunt om training, voeding en leefstijl op jou af te stemmen</li><li>Persoonlijke begeleiding door een vaste trainer</li><li>Meetbaar: na 6 weken zie je wat er veranderd is</li></ul></div>' +
+      '<div class="no"><h3>Niet</h3><ul><li>Een medische test of diagnose</li><li>Bloed- of speekselonderzoek</li><li>Een vervanging van je huisarts</li></ul></div>' +
+    '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="wrap two">' +
+    '<div><div class="eyebrow">Veelgestelde vragen</div><h2 class="display">Goed om te weten</h2><p class="intro" style="margin-top:6px"><a class="link" href="#">Alle vragen</a></p></div>' +
+    faq([
+      ['Is dit een medische test?', 'Nee. De huidplooimeting en de vragenlijst geven een startpunt voor je training en voeding. Wil je weten hoe je hormoonwaarden echt zijn, dan kan dat alleen met bloedonderzoek via je huisarts.'],
+      ['Hoe lang duren de afspraken?', 'Er zijn twee afspraken van een uur: eerst de intake en de meting, daarna de uitleg van je plan. Na 6 weken volgt de hermeting.'],
+      ['Kan iedereen gemeten worden?', 'Bij flink overgewicht is een huidplooimeting minder betrouwbaar. Marlon bespreekt dan met je hoe je het beste kunt beginnen.'],
+      ['Wat kost het?', 'Dat bespreek je in de kennismaking, zodat het traject past bij wat je nodig hebt. ' + fill('Marlon: akkoord met deze formulering?')]
+    ]) +
+  '</div></section>' +
+
+  kennismaking() + disclaimer() + foot() + '</div>';
+}
+
+// =====================================================================
+// 2. Profielenpagina
+// =====================================================================
+function profielen() {
+  return '<div class="screen ' + mode + '">' + nav('profielen') + crumbs(['Home', 'De 6 hormoonprofielen']) +
+  '<section class="page-head"><div class="wrap">' +
+    '<div class="eyebrow">Profielen</div>' +
+    '<h1 class="display">De 6 hormoonprofielen</h1>' +
+    '<div class="byline"><div class="photo"></div><div><b>Marlon van der Leij</b>, gecertificeerd Personal Hormonal Practitioner<br>Bijgewerkt ' + fill('datum') + '</div></div>' +
+    '<div class="kort"><div class="eyebrow">In het kort</div><p>Personal Hormonal Profiling werkt met zes profielen: insuline, cortisol, oestrogeen, groeihormoon, schildklier en testosteron. Je profiel laat zien waar je plan de meeste winst geeft. Per profiel lees je wat het hormoon doet, waar mensen mee komen en wat je zelf kunt doen.</p></div>' +
+    '<div class="chips">' + PROFILES.map(function (p) { return '<a href="#' + p.id + '">' + p.name + '</a>'; }).join('') + '</div>' +
+    '<p class="warn"><b>Herken je jezelf hieronder?</b> Dat zegt nog niets over je gezondheid. De signalen zijn voorbeelden, geen symptomen. Heb je klachten, ga dan naar je huisarts.</p>' +
+  '</div></section>' +
+
+  PROFILES.map(function (p, i) {
+    return '<section class="prof" id="' + p.id + '"><div class="wrap prof-grid">' +
+      '<div><span class="idx">0' + (i + 1) + '</span><h2 class="display">' + p.name + '</h2><p class="sub">' + p.short + '</p></div>' +
+      '<div class="facets">' +
+        '<div class="facet wide"><h3>Wat doet het</h3><p>' + p.does + '</p></div>' +
+        '<div class="facet"><h3>Waar mensen mee komen</h3><p>' + p.signs + '</p></div>' +
+        '<div class="facet"><h3>Wat je zelf kunt doen</h3><p>' + p.self + '</p></div>' +
+        '<div class="facet wide note2"><h3>In de meting</h3><p>In PHP hoort dit profiel bij ' + p.site + '.</p></div>' +
+      '</div>' +
+    '</div></section>';
+  }).join('') +
+
+  '<section class="sec alt"><div class="wrap">' +
+    '<div class="eyebrow">Verder lezen</div>' +
+    '<h2 class="display">Van profiel naar plan</h2>' +
+    '<div class="related pcards">' +
+      '<a class="pcard" href="#"><h3>Hoe werkt het</h3><p>Het traject van kennismaking tot hermeting.</p><span class="go">Lees meer →</span></a>' +
+      '<a class="pcard" href="#"><h3>Hormoontraining</h3><p>Trainen met een doel, afgestemd op je profiel.</p><span class="go">Lees meer →</span></a>' +
+      '<a class="pcard" href="#"><h3>Voedingsrichtlijnen</h3><p>De basisregels die voor elk profiel gelden.</p><span class="go">Lees meer →</span></a>' +
+    '</div>' +
+  '</div></section>' +
+  kennismaking() + disclaimer() + foot() + '</div>';
+}
+
+// =====================================================================
+// 3. Inhoudspagina-sjabloon: /hoe-werkt-personal-hormonal-profiling/
+// =====================================================================
+function hoewerkt() {
+  return '<div class="screen ' + mode + '">' + nav('hoewerkt') + crumbs(['Home', 'Hoe werkt het']) +
+  '<section class="page-head"><div class="wrap">' +
+    '<div class="eyebrow">Het traject</div>' +
+    '<h1 class="display">Hoe werkt Personal Hormonal Profiling?</h1>' +
+    '<div class="byline"><div class="photo"></div><div><b>Marlon van der Leij</b>, gecertificeerd Personal Hormonal Practitioner<br>Bijgewerkt ' + fill('datum') + '</div></div>' +
+    '<div class="kort"><div class="eyebrow">In het kort</div><p>Je begint met een vrijblijvende kennismaking. Daarna volgen twee afspraken van een uur: eerst een intake met vragenlijst en een huidplooimeting op 12 punten, dan de uitleg van je persoonlijke plan voor training, voeding en supplementen. Na 6 weken meet je opnieuw.</p></div>' +
+  '</div></section>' +
+
+  '<div class="wrap article">' +
+    '<div class="prose">' +
+      '<h2 class="display" id="s1">1. De kennismaking</h2>' +
+      '<p>Je vertelt waar je naartoe wilt en Marlon legt uit hoe het traject werkt. Zo weet je of PHP bij je past voordat je begint.</p>' +
+      '<h2 class="display" id="s2">2. Intake en vragenlijst <span class="dur">Afspraak 1</span></h2>' +
+      '<p>Vooraf vul je een uitgebreide vragenlijst in over je energie, slaap, eetpatroon en herstel. In de intake bespreek je de antwoorden, je werk en je leefsituatie. Een paar voorbeeldvragen:</p>' +
+      '<ul class="q"><li>Ben je 1 tot 3 uur na een maaltijd moe?</li><li>Heb je een droge huid, broze nagels of dun haar?</li><li>Zweet je snel?</li><li>Heb je vaak stijve of pijnlijke spieren en gewrichten?</li></ul>' +
+      '<p>' + fill('Marlon: wie ziet de antwoorden, en waar worden ze bewaard?') + '</p>' +
+      '<h2 class="display" id="s3">3. De huidplooimeting <span class="dur">Afspraak 1</span></h2>' +
+      '<p>Marlon meet met een huidplooimeter op 12 vaste punten van je lichaam. Niet de totale hoeveelheid vet telt, maar de verhoudingen tussen de punten. Die bepalen je profiel. Tien punten horen bij een van de zes profielen; kin en wang horen bij geen enkel profiel en laten vooral zien hoe je totale vetpercentage verandert. Bij flink overgewicht is de meting minder betrouwbaar; dan bespreek je samen hoe je begint.</p>' +
+      '<h2 class="display" id="s4">4. Je plan <span class="dur">Afspraak 2</span></h2>' +
+      '<p>In de tweede afspraak krijg je uitleg over je profiel en je plan. Wat je meekrijgt:</p>' +
+      '<ul class="get"><li>Persoonlijk trainingsschema<span>afgestemd op je profiel</span></li><li>Voedingsrichtlijnen<span>met porties per maaltijd</span></li><li>Supplementadvies<span>alleen wat jij nodig hebt</span></li><li>Hermeting<span>na 6 weken</span></li></ul>' +
+      '<h2 class="display" id="s5">5. Hermeting na 6 weken</h2>' +
+      '<p>Je lichaam heeft tijd nodig om te reageren, daarom meet je pas na 6 weken opnieuw. Je ziet wat er veranderd is en Marlon stelt je plan bij.</p>' +
+    '</div>' +
+    '<aside class="aside">' +
+      '<div class="toc"><h4>Op deze pagina</h4><ol><li>De kennismaking</li><li>Intake en vragenlijst</li><li>De huidplooimeting</li><li>Je plan</li><li>Hermeting</li></ol></div>' +
+      '<div class="ctacard"><h4>Eerste stap</h4><p>Kennismaken met Marlon, vrijblijvend.</p><a href="#kennismaken">Plan een kennismaking →</a></div>' +
+    '</aside>' +
+  '</div>' +
+
+  '<section class="sec alt"><div class="wrap">' +
+    '<div class="eyebrow">Verder lezen</div>' +
+    '<h2 class="display">Meer over je profiel</h2>' +
+    '<div class="related pcards">' +
+      '<a class="pcard" href="#"><h3>De 6 profielen</h3><p>Wat elk hormoon doet en wat je zelf kunt doen.</p><span class="go">Lees meer →</span></a>' +
+      '<a class="pcard" href="#"><h3>Voedingsrichtlijnen</h3><p>De basisregels voor elke maaltijd.</p><span class="go">Lees meer →</span></a>' +
+      '<a class="pcard" href="#"><h3>Supplementen</h3><p>Vier basissupplementen en waarom.</p><span class="go">Lees meer →</span></a>' +
+    '</div>' +
+  '</div></section>' +
+  kennismaking() + disclaimer() + foot() + '</div>';
+}
+
+// =====================================================================
+// Toelichting
+// =====================================================================
+function seoCard(p) {
+  var d = {
+    home: {
+      title: mode === 'hp' ? 'Persoonlijk hormoonprofiel in Loosdrecht | Hormoonprofiel' : 'Persoonlijk hormoonprofiel bij Marlon | The Movement Club',
+      meta: 'Personal Hormonal Profiling bij Marlon van der Leij in Loosdrecht: intake, 12-punts huidplooimeting en een plan voor training, voeding en supplementen. Plan een kennismaking.',
+      h1: 'Persoonlijk hormoonprofiel bij Marlon van der Leij',
+      schema: '<code>WebSite</code> (alleen standalone), <code>WebPage</code>, <code>Person</code> Marlon met <code>hasCredential</code>, <code>provider</code> = TMC <code>#business</code>, <code>FAQPage</code>, <code>BreadcrumbList</code>'
+    },
+    profielen: {
+      title: mode === 'hp' ? 'De 6 hormoonprofielen | Hormoonprofiel' : 'De 6 hormoonprofielen | The Movement Club',
+      meta: 'Insuline, cortisol, oestrogeen, groeihormoon, schildklier en testosteron: wat elk hormoon doet, waar mensen mee komen en wat je zelf kunt doen.',
+      h1: 'De 6 hormoonprofielen',
+      schema: '<code>Article</code> met <code>author</code> = Marlon en <code>dateModified</code>, <code>BreadcrumbList</code>. Ankers blijven gelijk, ook <code>#thyroid-profiel</code>.'
+    },
+    hoewerkt: {
+      title: mode === 'hp' ? 'Hoe werkt Personal Hormonal Profiling? | Hormoonprofiel' : 'Hoe werkt Personal Hormonal Profiling? | The Movement Club',
+      meta: 'Van kennismaking tot hermeting: twee afspraken van een uur, een 12-punts huidplooimeting en een persoonlijk plan. Zo werkt een hormoonprofiel bij Marlon.',
+      h1: 'Hoe werkt Personal Hormonal Profiling?',
+      schema: '<code>Article</code> met author en datum, <code>BreadcrumbList</code>. Bestemming van de oude productpagina\'s.'
+    }
+  }[p];
+  var canon = 'https://' + url(p === 'home' ? 'home' : p);
+  return '<div class="note"><h3>SEO-kaart (' + (mode === 'hp' ? 'standalone' : 'sectie') + ')</h3><table>' +
+    '<tr><th>Title</th><td>' + d.title + '</td></tr>' +
+    '<tr><th>Meta</th><td>' + d.meta + '</td></tr>' +
+    '<tr><th>H1</th><td>' + d.h1 + '</td></tr>' +
+    '<tr><th>Canonical</th><td><code>' + canon + '</code></td></tr>' +
+    '<tr><th>Schema</th><td>' + d.schema + '</td></tr>' +
+  '</table></div>';
+}
+
+var MODE_NOTE =
+  '<div class="note"><h3>Twee modi, één bron</h3><ul>' +
+    '<li><strong>Inhoud is identiek</strong> en komt uit één bron in de code. Alleen schil, kleur, navigatie, footer, canonical en schema verschillen.</li>' +
+    '<li><strong>Standalone:</strong> licht met salie als accent, eigen woordmerk "hormoonprofiel" met "bij The Movement Club" als afzender. Zelfde Fraunces en Inter, zodat het herkenbaar familie is.</li>' +
+    '<li><strong>Sectie:</strong> TMC-huisstijl, met een sectiebalk onder de hoofdnavigatie en breadcrumbs Home / Hormoonprofiel.</li>' +
+    '<li><span class="tag should">Voorstel</span>In standalone bestaat <code>themovementclub.nl/hormoonprofiel</code> niet als tweede kopie: die URL\'s sturen door naar hormoonprofiel.com. Zo is er altijd precies één publieke versie.</li>' +
+  '</ul></div>';
+
+var NOTES = {
+  home: function () {
+    return seoCard('home') + MODE_NOTE +
+      '<div class="note"><h3>Verwerkte besluiten</h3><ul>' +
+        '<li>Alleen Marlon, geen Quinty en Triin. Lokale insteek: Loosdrecht en Industrieweg 14P.</li>' +
+        '<li>Geen prijs, geen pakket, geen bestelknop. CTA overal "Plan een kennismaking".</li>' +
+        '<li>Claims afgezwakt; blok "Wat het wel is, en wat niet" en vaste disclaimer onderaan elke pagina.</li>' +
+        '<li>Certificering via Overload; Instagram wordt @tmcloosdrecht.</li>' +
+        '<li>Formulier gaat naar dezelfde stroom als de intake van het 12-weken programma (MailerLite plus mail aan Marlon), bron <code>hormoonprofiel</code>.</li>' +
+      '</ul></div>' +
+      '<div class="note"><h3>Nog open</h3><ul>' +
+        '<li><span class="tag must">Must</span>Telefoonnummer: het TMC-nummer 06 25 13 05 84, of een eigen nummer voor hormoonprofiel?</li>' +
+        '<li><span class="tag must">Must</span>Jaar van certificering en aantal jaar ervaring.</li>' +
+        '<li><span class="tag must">Must</span>Reactietijd na aanvraag (nu: binnen 1 werkdag).</li>' +
+        '<li><span class="tag should">Should</span>Twee echte foto\'s: Marlon tijdens een meting en een portret.</li>' +
+        '<li><span class="tag should">Should</span>Formulering "Wat kost het?" zonder prijs.</li>' +
+      '</ul></div>';
+  },
+  profielen: function () {
+    return seoCard('profielen') + MODE_NOTE +
+      '<div class="note"><h3>Keuzes in dit ontwerp</h3><ul>' +
+        '<li>Elk profiel heeft dezelfde vier blokken: wat doet het, waar mensen mee komen, wat je zelf kunt doen, en de meting. Dat leest snel en AI-zoekmachines kunnen per profiel een antwoord citeren.</li>' +
+        '<li>De oude symptoomlijsten (met onder meer depressie en onvruchtbaarheid) zijn vervangen door herkenbare signalen in gewone taal, met een duidelijke verwijzing naar de huisarts.</li>' +
+        '<li>"Thyroid" heet nu Schildklier; het anker <code>#thyroid-profiel</code> blijft werken voor bestaande links.</li>' +
+        '<li>Bij Schildklier staat expliciet dat alleen bloedonderzoek uitsluitsel geeft.</li>' +
+      '</ul></div>' +
+      '<div class="note"><h3>Nog open</h3><ul>' +
+        '<li><span class="tag should">Should</span>Meetpunten komen uit de BioSignature-indeling (PHP is daaraan vrijwel gelijk). Marlon checkt ze tegen haar Overload-materiaal.</li>' +
+        '<li><span class="tag must">Must</span>Marlon leest alle profielteksten na.</li>' +
+      '</ul></div>';
+  },
+  hoewerkt: function () {
+    return seoCard('hoewerkt') + MODE_NOTE +
+      '<div class="note"><h3>Sjabloon voor alle inhoudspagina\'s</h3><ul>' +
+        '<li>Zelfde opbouw voor Wat is PHP, Waarom, Hormoontraining, Supplementen en Voedingsrichtlijnen: kop, auteur en datum, In het kort, tekst met inhoudsopgave en een CTA-kaart ernaast, dan Verder lezen, kennismaking en disclaimer.</li>' +
+        '<li>Voorbeeldvragen uit de vragenlijst: alleen de niet-medische zijn gehouden.</li>' +
+        '<li>Oude <code>/product/hormonen-in-balans/</code> en <code>/hormonen-in-balans/</code> komen hier uit (308).</li>' +
+      '</ul></div>' +
+      '<div class="note"><h3>Nog open</h3><ul>' +
+        '<li><span class="tag must">Must</span>Wie ziet de antwoorden op de vragenlijst, en waar worden ze bewaard? Bepaalt ook de tekst in het privacybeleid.</li>' +
+      '</ul></div>';
+  }
+};
+
+// =====================================================================
+var PAGES = { home: home, profielen: profielen, hoewerkt: hoewerkt };
+
+function render() {
+  var html = PAGES[page]();
+  document.getElementById('mobile').innerHTML = html;
+  document.getElementById('desktop').innerHTML = html;
+  document.getElementById('notes').innerHTML = NOTES[page]();
+  var u = url(page);
+  document.getElementById('urlBar').textContent = u;
+  document.getElementById('urlM').textContent = u.replace(/^[^/]+/, '') || '/';
+  document.getElementById('mobile').scrollTop = 0;
+  document.getElementById('desktop').scrollTop = 0;
+  fit();
+}
+
+function fit() {
+  var wrap = document.getElementById('deskWrap');
+  var scale = Math.min(wrap.clientWidth / 1280, 1);
+  var sc = document.getElementById('deskScale');
+  sc.style.transform = 'scale(' + scale + ')';
+  sc.style.height = (800 * scale) + 'px';
+  sc.parentNode.style.height = (800 * scale + 30) + 'px';
+}
+
+function setPressed(attr, val) {
+  document.querySelectorAll('[' + attr + ']').forEach(function (x) { x.setAttribute('aria-pressed', x.getAttribute(attr) === val); });
+}
+document.querySelectorAll('[data-page]').forEach(function (b) {
+  b.addEventListener('click', function () { page = b.dataset.page; setPressed('data-page', page); history.replaceState(null, '', '#' + mode + '-' + page); render(); });
+});
+document.querySelectorAll('[data-mode]').forEach(function (b) {
+  b.addEventListener('click', function () { mode = b.dataset.mode; setPressed('data-mode', mode); history.replaceState(null, '', '#' + mode + '-' + page); render(); });
+});
+document.getElementById('fillToggle').addEventListener('change', function (e) {
+  document.body.classList.toggle('hide-fill', !e.target.checked);
+});
+window.addEventListener('resize', fit);
+
+var h = location.hash.replace('#', '').split('-');
+if (h.length === 2 && (h[0] === 'hp' || h[0] === 'tmc') && PAGES[h[1]]) { mode = h[0]; page = h[1]; }
+setPressed('data-page', page); setPressed('data-mode', mode);
+render();
+</script>
+</body>
+</html>

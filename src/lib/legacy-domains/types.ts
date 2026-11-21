@@ -1,6 +1,11 @@
-/** Modus per oud domein. Global Config bepaalt alleen deze waarde. */
+/**
+ * Modus per oud domein. Global Config bepaalt alleen deze waarde.
+ * `standalone` is alleen geldig voor een domein met `allowStandalone`
+ * (hormoonprofiel.com): het domein draait dan als eigen site.
+ */
 export const LEGACY_MODES = [
   "off",
+  "standalone",
   "redirect_temporary",
   "redirect_permanent",
 ] as const;
@@ -43,6 +48,8 @@ export type LegacyDomain = {
   /** Waarde van utm_source in de doel-URL. */
   utmSource: string;
   defaultMode: LegacyMode;
+  /** True: de modus `standalone` is geldig. Alleen hormoonprofiel.com. */
+  allowStandalone?: boolean;
   rules: readonly MappingRule[];
   /** Doelpad voor alles wat niet matcht. */
   fallback: string;

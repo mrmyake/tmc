@@ -15,13 +15,17 @@ export interface ProgrammaIntakeMailProps {
   /** E.164, zoals opgeslagen. */
   phone: string;
   email: string;
-  preferredDay: string;
+  /** Null verbergt de regel (kennismaking hormoonprofiel kent geen voorkeursdag). */
+  preferredDay: string | null;
   message: string | null;
   submittedAtLabel: string;
   sourceLines: string[];
   dashboardUrl: string;
   /** Alleen buiten productie: het adres waar de mail normaal heen gaat. */
   originalRecipientLabel: string | null;
+  /** Hergebruik voor de kennismaking hormoonprofiel; standaard de 12 weken-intake. */
+  eyebrow?: string;
+  previewSuffix?: string;
 }
 
 const row = { color: emailTokens.STONE_100, margin: "0 0 6px 0" } as const;
@@ -38,11 +42,14 @@ export default function ProgrammaIntake({
   sourceLines,
   dashboardUrl,
   originalRecipientLabel,
+  // COPY: confirm met Marlon
+  eyebrow = "Intake-aanvraag 12 weken programma",
+  // COPY: confirm met Marlon
+  previewSuffix = "vraagt een intake aan voor het 12 weken programma",
 }: ProgrammaIntakeMailProps) {
   const name = `${firstName} ${lastName}`.trim();
   return (
-    // COPY: confirm met Marlon
-    <EmailLayout preview={`${name} vraagt een intake aan voor het 12 weken programma`}>
+    <EmailLayout preview={`${name} ${previewSuffix}`}>
       <Text
         style={{
           color: emailTokens.CHAMPAGNE,
@@ -52,8 +59,7 @@ export default function ProgrammaIntake({
           margin: "0 0 16px 0",
         }}
       >
-        {/* COPY: confirm met Marlon */}
-        Intake-aanvraag 12 weken programma
+        {eyebrow}
       </Text>
       <Heading
         as="h1"
@@ -96,10 +102,12 @@ export default function ProgrammaIntake({
           {email}
         </Link>
       </Text>
-      <Text style={row}>
-        {/* COPY: confirm met Marlon */}
-        Voorkeursdag: {preferredDay}
-      </Text>
+      {preferredDay ? (
+        <Text style={row}>
+          {/* COPY: confirm met Marlon */}
+          Voorkeursdag: {preferredDay}
+        </Text>
+      ) : null}
       <Text style={row}>
         {/* COPY: confirm met Marlon */}
         Aangevraagd: {submittedAtLabel}

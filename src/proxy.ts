@@ -95,10 +95,25 @@ export const config = {
         },
       ],
     },
-    // Testhook voor previews; de code negeert hem buiten preview en dev.
+    // Hormoonprofiel (spec-hormoonprofiel.md): de sectie op TMC volgt de modus
+    // van hormoonprofiel.com, en de interne route /hp-site is op elke andere
+    // host dan hormoonprofiel.com een 404.
+    "/hormoonprofiel",
+    "/hormoonprofiel/:path*",
+    "/hp-site",
+    "/hp-site/:path*",
+    // Testhook en preview-override; de code negeert ze buiten preview en dev.
     {
       source: "/:path*",
       has: [{ type: "header", key: "x-legacy-host-test" }],
+    },
+    {
+      source: "/:path*",
+      has: [{ type: "query", key: "__host" }],
+    },
+    {
+      source: "/:path*",
+      has: [{ type: "cookie", key: "__host" }],
     },
   ],
 };

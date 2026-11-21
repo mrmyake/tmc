@@ -117,11 +117,13 @@ export const LEGACY_DOMAINS: Readonly<Record<string, LegacyDomain>> = {
     rules: PT_LOOSDRECHT_RULES,
     fallback: "/",
   },
-  // Plek in de configuratie; inhoudelijke afhandeling volgt apart.
+  // Eigen site of doorverwijzing naar de sectie op TMC: de afhandeling staat
+  // in src/lib/hormoonprofiel (spec-hormoonprofiel.md), niet in deze regels.
   "hormoonprofiel.com": {
     domain: "hormoonprofiel.com",
     utmSource: "hormoonprofiel",
-    defaultMode: "off",
+    defaultMode: "standalone",
+    allowStandalone: true,
     rules: [],
     fallback: "/",
   },
