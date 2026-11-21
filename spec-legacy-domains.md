@@ -8,6 +8,8 @@ Doorverwijzing van oude domeinen naar themovementclub.nl, met een schakelbare mo
 
 PT Loosdrecht bestaat niet meer. `ptloosdrecht.nl` draaide als WordPress-site op SiteGround met verouderde prijzen en concurreerde met TMC. Al het verkeer en alle SEO-waarde gaat permanent naar `https://www.themovementclub.nl`. `hormoonprofiel.com` krijgt in dezelfde configuratie een plek met modus `off`; de inhoudelijke afhandeling volgt in een aparte opdracht.
 
+Dit bestand is de enige bron voor redirects van oude domeinen; `spec-locatiepaginas.md` verwijst hiernaartoe. Elke URL van een oud domein krijgt een 308 (of 307 in de tijdelijke modus), nooit een 410.
+
 De redirect draait in `src/proxy.ts` (Next 16, Node-runtime) als eerste stap, vóór auth en de Supabase-client. De code staat in `src/lib/legacy-domains/`.
 
 ## Modi
@@ -46,6 +48,10 @@ Bij een ontbrekende connection string, een leesfout (of timeout van 2 seconden),
 - **Eén hop:** Next's ingebouwde trailing-slash-redirect draait vóór de proxy en zou op een oud domein een extra hop geven (`/kosten/` naar `/kosten` op het oude domein, dan pas naar TMC). `next.config.ts` zet die daarom uit (`skipTrailingSlashRedirect`) en herstelt exact dezelfde redirect expliciet voor alle niet-oude hosts (`missing`-conditie op host). Voor TMC-bezoekers verandert er niets.
 - **Matcher:** twee items erbij in `src/proxy.ts`, een host-conditie voor de oude hosts en een header-conditie voor de testhook. TMC-assets en TMC-pagina's veroorzaken daardoor geen extra proxy-aanroepen.
 
+## Trailing slash op TMC
+
+`skipTrailingSlashRedirect` mag alleen aan als het gedrag voor TMC gelijk blijft aan main. Gemeten op 2026-11-21 (preview van PR #359 tegen productie, `curl` zonder redirects te volgen): identiek op 18 gevallen, waaronder `/` (200), `/over/` (308 naar `/over`), `/over/?utm_source=x` (308 naar `/over?utm_source=x`), `/yoga/docenten/` (308), `/api/contact/` (308), `/robots.txt/`, `/favicon.ico/`, `/manifest.json/` (308), `/studio/`, `/app/`, `/login/` (308) en `/over//` (308 naar `/over/`). Het controlescript bevat hiervoor de vaste sectie `tmc-trailing-slash`, die altijd tegen `--base` meedraait (behalve als `--base` zelf een oud domein is).
+
 ## Testhook
 
 Header `x-legacy-host-test: ptloosdrecht.nl` simuleert een oude host. Alleen actief als `VERCEL_ENV=preview` of `NODE_ENV=development`; op productie wordt de header genegeerd. Op een preview is de echte host TMC, dus de expliciete trailing-slash-redirect (alleen voor niet-oude hosts) grijpt bij `/pad/` eerder in. Dat is een artefact van de testhook; het controlescript slaat die variant daarom over met `--host-header`. Op de echte oude host is het één hop (unit-tests en de live-controle zonder `--host-header` dekken dat).
@@ -62,7 +68,7 @@ Header `x-legacy-host-test: ptloosdrecht.nl` simuleert een oude host. Alleen act
 | `/kettlebell-bootcamp` | `/aanbod` | exact | ja, wacht op kettlebellpagina | `/kettlebell-training` |
 | `/training-en-begeleiding`, `/training-en-begeleiding-old` | `/aanbod` | exact | nee | `/aanbod` |
 | `/ervaren-personal-trainer`, `/ervaren-personal-trainer-2` | `/over` | exact | nee | `/over` |
-| `/personal-hormonal-profiling` | `/over` | exact | ja, hangt af van het hormoonprofiel-besluit | open |
+| `/personal-hormonal-profiling` | `/over` | exact | ja, hangt af van het hormoonprofiel-besluit | `/personal-training` (volgens `spec-locatiepaginas.md`) |
 | `/kosten` | `/prijzen` | exact | nee | `/prijzen` |
 | `/personal-training-loosdrecht-contact`, `/neem-contact-op` | `/contact` | exact | nee | `/contact` |
 | `/personal-trainer-hilversum` | `/aanbod` | exact | ja, wacht op locatiepagina | `/personal-trainer-hilversum` |
@@ -80,6 +86,10 @@ Header `x-legacy-host-test: ptloosdrecht.nl` simuleert een oude host. Alleen act
 | `/favicon.ico` | `/favicon.ico` | exact, geen UTM | nee | `/favicon.ico` |
 | alles anders | `/` | fallback | nee | `/` |
 | `/.well-known/acme-challenge/*` | nooit afgevangen | n.v.t. | n.v.t. | n.v.t. |
+
+Eindbestemmingen komen uit `spec-locatiepaginas.md` en wijken af van het doel nu waar de lokale pagina nog niet in productie staat. Per oud pad is `finalTarget` overgenomen, ook waar dat afwijkt van de eerder vastgelegde waarde (`/personal-hormonal-profiling`: was `/over`, is `/personal-training`).
+
+**Opvolging:** zodra een lokale pagina in productie 200 geeft, zet je in een eigen PR het doel van de bijbehorende oude URL('s) op `finalTarget`, pas je de letterlijke verwachtingen aan in `scripts/legacy-domains/cases.mts` en `final-target.test.mts`, en werk je de ledger hieronder bij (checklist: "Een pagina live zetten" in `spec-locatiepaginas.md`).
 
 **Keuze `/training-en-begeleiding` (en `-old`):** doel is `/aanbod`. De live pagina (gelezen op 2026-11-21) beschrijft kettlebell training, T.O.P. personal training, herstel training, individuele trainingsschema's, personal hormonal profiling en Mylogenics; het 12-wekenprogramma komt er niet in voor. De `-old`-variant heeft dezelfde inleiding en is een eerdere versie van dezelfde pagina.
 
@@ -120,7 +130,7 @@ Alleen de volgorde:
 4. Pre-DNS-test met `curl --resolve`. Het certificaat is dan nog niet uitgegeven, dus met `-k`:
    `curl -sk -o /dev/null -D - --resolve ptloosdrecht.nl:443:76.76.21.21 https://ptloosdrecht.nl/kosten`
 5. In SiteGround DNS alleen de A-records van apex en www vervangen (www wordt een CNAME). Gebruik de waarden die Vercel bij het domein toont (standaard A `76.76.21.21` en CNAME `cname.vercel-dns.com`).
-6. Controle: `npm run check:legacy-redirects -- --base https://ptloosdrecht.nl` (zonder `--host-header`) en de `www`-variant, daarna de dig-vergelijking en een testmail naar en van `marlon@ptloosdrecht.nl`.
+6. Controle: `npm run check:legacy-redirects -- --base https://ptloosdrecht.nl` (zonder `--host-header`; de sectie `tmc-trailing-slash` wordt overgeslagen als `--base` een oud domein is, draai hem voor TMC met `--base https://www.themovementclub.nl`) en de `www`-variant, daarna de dig-vergelijking en een testmail naar en van `marlon@ptloosdrecht.nl`.
 7. Search Console: adreswijziging van `ptloosdrecht.nl` naar `themovementclub.nl`.
 
 ## Rollback
@@ -138,4 +148,4 @@ De oude A-records van apex en www terugzetten (waarden uit de baseline hierboven
 
 | PR | Branch | Merge-hash | Datum | Omschrijving |
 |---|---|---|---|---|
-| #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts, tests en controlescript. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, lokale landingspagina's (`finalTarget` is nergens in gebruik). |
+| #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts (gedrag TMC gelijk aan main, sectie `tmc-trailing-slash` in het controlescript), tests en controlescript, `tsx` als devDependency. Vervolgcommit: specs gelijkgetrokken (`spec-locatiepaginas.md` bevat geen redirect-doelen meer, geen 410's), `finalTarget` van `/personal-hormonal-profiling` gelijk aan `spec-locatiepaginas.md`. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, de doelen nu (`finalTarget` is nergens in gebruik voor routing). |
