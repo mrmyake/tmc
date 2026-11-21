@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "./require-admin";
 import {
+  SOURCE_TYPES_WITHOUT_JOIN,
   leadAttributionsCsv,
   type LeadAttributionExportRow,
 } from "@/lib/attribution/csv";
@@ -101,8 +102,9 @@ export async function exportLeadAttributionsCsv(): Promise<ExportLeadAttribution
       const request = requests.get(r.source_id);
       if (!request) continue;
       status = request.status;
-    } else if (r.source_type === "programma_intake") {
-      // Geen brontabel (MailerLite plus ntfy): de rij staat op zichzelf.
+    } else if ((SOURCE_TYPES_WITHOUT_JOIN as readonly string[]).includes(r.source_type)) {
+      // programma_intake en hormoonprofiel_kennismaking: geen eigen brontabel-
+      // join, de rij staat op zichzelf en de status blijft leeg.
       status = "";
     } else {
       continue;

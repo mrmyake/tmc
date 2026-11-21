@@ -8,9 +8,9 @@ import type { AnalyticsConsent } from "./params";
  */
 export interface LeadAttributionExportRow {
   createdAt: string;
-  sourceType: "trial_booking" | "trial_request" | "programma_intake";
+  sourceType: "trial_booking" | "trial_request" | "programma_intake" | "hormoonprofiel_kennismaking";
   sourceId: string;
-  /** Status van de trial_booking (pending, paid, ...) of trial_request (new, ...); leeg als de bron weg is en bij programma_intake (geen brontabel). */
+  /** Status van de trial_booking (pending, paid, ...) of trial_request (new, ...); leeg als de bron weg is en bij programma_intake en hormoonprofiel_kennismaking (geen eigen brontabel-join). */
   status: string;
   /** Alleen bij trial_booking: paid, code of opening. */
   bookingSource: string;
@@ -27,6 +27,13 @@ export interface LeadAttributionExportRow {
   landingPath: string | null;
   analyticsConsent: AnalyticsConsent;
 }
+
+/**
+ * Brontypen zonder eigen brontabel-join in de export: de rij staat op zichzelf
+ * en de status blijft leeg. hormoonprofiel_kennismaking heeft een eigen type
+ * zodat die kennismakingen niet als leads van het 12 weken programma tellen.
+ */
+export const SOURCE_TYPES_WITHOUT_JOIN = ["programma_intake", "hormoonprofiel_kennismaking"] as const;
 
 // COPY: confirm met Marlon
 export const LEAD_ATTRIBUTION_CSV_HEADER = [
