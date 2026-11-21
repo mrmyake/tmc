@@ -138,4 +138,4 @@ De oude A-records van apex en www terugzetten (waarden uit de baseline hierboven
 
 | PR | Branch | Merge-hash | Datum | Omschrijving |
 |---|---|---|---|---|
-| PR_NUMMER | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts, tests en controlescript. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, lokale landingspagina's (`finalTarget` is nergens in gebruik). |
+| #359 | feat/legacy-domain-redirects | (volgt bij de volgende PR op deze spec) | 2026-11-21 | **Legacy-domeinredirects:** register, modus uit Global Config met fallback, proxy-stap vóór auth, matcher met host- en headeritem, trailing-slash-redirect expliciet voor niet-oude hosts, tests en controlescript. Bewust niet aangeraakt: DNS, Vercel-domeininstellingen, Global Config-store en -items, Supabase, hormoonprofiel.com-mapping, lokale landingspagina's (`finalTarget` is nergens in gebruik). |
