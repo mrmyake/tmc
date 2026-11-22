@@ -19,7 +19,7 @@ afterEach(() => {
 
 const permanent = async () => ({ "ptloosdrecht.nl": "redirect_permanent" });
 const HOOK_TARGET =
-  "https://www.themovementclub.nl/prijzen?utm_source=ptloosdrecht&utm_medium=redirect";
+  "https://www.themovementclub.nl/prijzen";
 
 function hooked(simulatedHost: string): NextRequest {
   return new NextRequest("https://preview.example.test/kosten", {
