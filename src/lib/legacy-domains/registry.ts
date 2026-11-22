@@ -56,7 +56,6 @@ const PT_LOOSDRECHT_RULES: readonly MappingRule[] = [
   exact("/password-reset", "/"),
   exact("/register", "/"),
   exact("/user", "/"),
-  exact("/xmlrpc.php", "/"),
 
   // 410 Gone: oude variant, themademo-inhoud, WordPress-archieven en media.
   goneExact("/training-en-begeleiding-old"),
@@ -76,6 +75,7 @@ const PT_LOOSDRECHT_RULES: readonly MappingRule[] = [
   gonePrefix("/wp-admin"),
   gonePrefix("/wp-includes"),
   goneExact("/wp-login.php"),
+  goneExact("/xmlrpc.php"),
 
   // Technische bestanden.
   technical("exact", "/robots.txt", "/robots.txt"),

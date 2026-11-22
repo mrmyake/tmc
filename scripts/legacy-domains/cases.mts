@@ -28,7 +28,6 @@ export const LEGACY_CASES: readonly LegacyCase[] = [
   { path: "/password-reset", location: "https://www.themovementclub.nl/" },
   { path: "/register", location: "https://www.themovementclub.nl/" },
   { path: "/user", location: "https://www.themovementclub.nl/" },
-  { path: "/xmlrpc.php", location: "https://www.themovementclub.nl/" },
   { path: "/robots.txt", location: "https://www.themovementclub.nl/robots.txt" },
   { path: "/sitemap.xml", location: "https://www.themovementclub.nl/sitemap.xml" },
   { path: "/sitemap_index.xml", location: "https://www.themovementclub.nl/sitemap.xml" },
@@ -77,4 +76,5 @@ export const GONE_PATHS: readonly string[] = [
   "/wp-includes",
   "/wp-includes/js/jquery/jquery.min.js",
   "/wp-login.php",
+  "/xmlrpc.php",
 ];

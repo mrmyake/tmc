@@ -74,11 +74,11 @@ Elk doel staat op `https://www.themovementclub.nl<doel>`, zonder query. Dit is d
 | `/kosten` | 308 | `/prijzen` |
 | `/personal-training-loosdrecht-contact`, `/neem-contact-op` | 308 | `/contact` |
 | `/personal-trainer-hilversum`, `-bussum`, `-laren`, `-gooi` | 308 | zelfde pad |
-| `/account`, `/login`, `/logout`, `/members`, `/password-reset`, `/register`, `/user`, `/xmlrpc.php` | 308 | `/` |
+| `/account`, `/login`, `/logout`, `/members`, `/password-reset`, `/register`, `/user` | 308 | `/` |
 | `/training-en-begeleiding-old` | 410 | n.v.t. |
 | `/product`, `/product-category`, `/product-tag`, `/portfolio`, `/portfolio-category` (met alles eronder) | 410 | n.v.t. |
 | `/category`, `/tag`, `/author`, `/page`, `/feed`, `/comments` (met alles eronder) | 410 | n.v.t. |
-| `/wp-content`, `/wp-json`, `/wp-admin`, `/wp-includes` (met alles eronder) en `/wp-login.php` | 410 | n.v.t. |
+| `/wp-content`, `/wp-json`, `/wp-admin`, `/wp-includes` (met alles eronder), `/wp-login.php` en `/xmlrpc.php` | 410 | n.v.t. |
 | `/robots.txt` | 308 | `/robots.txt` |
 | `/sitemap.xml`, `/sitemap_index.xml`, `/wp-sitemap.xml`, `/sitemap.rss` en elk pad dat eindigt op `-sitemap.xml` | 308 | `/sitemap.xml` |
 | `/favicon.ico` | 308 | `/favicon.ico` |
