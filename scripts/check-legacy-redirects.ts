@@ -4,7 +4,7 @@
  *   npm run check:legacy-redirects -- --base <url> [--host-header ptloosdrecht.nl]
  *                                     [--expect-status 308] [--skip-target-check]
  *
- * Loopt alle URL's uit scripts/legacy-domains/cases.mts af zonder redirects te
+ * Loopt alle URL's uit scripts/legacy-domains/cases.mts af (redirects en 410's) zonder redirects te
  * volgen en rapporteert per URL de status, de Location en of het een enkele
  * hop is (de Location wijst op de canonieke TMC-host en geeft daar zelf geen
  * redirect). Exitcode 1 bij elke afwijking.
@@ -20,7 +20,7 @@
  * de opmerking in main). VERCEL_AUTOMATION_BYPASS_SECRET wordt als bypass-header meegestuurd als
  * Deployment Protection aanstaat.
  */
-import { LEGACY_CASES } from "./legacy-domains/cases.mts";
+import { LEGACY_CASES, GONE_PATHS } from "./legacy-domains/cases.mts";
 
 const CANONICAL_HOST = "www.themovementclub.nl";
 
@@ -100,6 +100,15 @@ async function check(path: string, expectedLocation: string): Promise<Row> {
   return { url: path, status: res.status, location, hop, problems };
 }
 
+async function checkGone(path: string): Promise<Row> {
+  const res = await fetch(`${base}${path}`, { redirect: "manual", headers: headers() });
+  const location = res.headers.get("location") ?? "";
+  const problems: string[] = [];
+  if (res.status !== 410) problems.push(`status ${res.status}, verwacht 410`);
+  if (location) problems.push(`onverwachte Location ${location}`);
+  return { url: path, status: res.status, location, hop: "n.v.t.", problems };
+}
+
 async function checkAcme(): Promise<Row> {
   const path = "/.well-known/acme-challenge/legacy-check";
   const res = await fetch(`${base}${path}`, { redirect: "manual", headers: headers() });
@@ -161,6 +170,10 @@ async function main() {
     // variant wordt daarom alleen zonder testhook gecontroleerd; de unit-tests
     // dekken hem altijd.
     if (path !== "/" && !hostHeader) rows.push(await check(`${path}/`, location));
+  }
+  for (const path of GONE_PATHS) {
+    rows.push(await checkGone(path));
+    if (path !== "/" && !hostHeader) rows.push(await checkGone(`${path}/`));
   }
   rows.push(await checkAcme());
 

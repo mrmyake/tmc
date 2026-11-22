@@ -31,22 +31,21 @@ export type MappingRule = {
   path: string;
   /** Doelpad op de canonieke TMC-host (nu actief). */
   target: string;
-  /** Technische bestanden krijgen geen UTM. Standaard true (wel UTM). */
-  utm?: boolean;
-  /** Het huidige doel is een tussenoplossing, wacht op een eigen pagina. */
-  temporaryTarget: boolean;
   /**
-   * Eindbestemming zodra de lokale landingspagina's bestaan. Niet-actief
-   * veld: wordt in deze PR nergens voor routing gebruikt.
+   * True: het pad geeft 410 Gone in plaats van een redirect. `target` is dan
+   * niet in gebruik (conventie: "/").
    */
-  finalTarget: string;
+  gone?: boolean;
 };
 
 export type LegacyDomain = {
   /** Apex-domein, lowercase, zonder www. */
   domain: string;
-  /** Waarde van utm_source in de doel-URL. */
-  utmSource: string;
+  /**
+   * Waarde van utm_source in de doel-URL. Afwezig: geen query-parameters op
+   * het doel (ptloosdrecht.nl, zodat organisch verkeer organisch blijft).
+   */
+  utmSource?: string;
   defaultMode: LegacyMode;
   /** True: de modus `standalone` is geldig. Alleen hormoonprofiel.com. */
   allowStandalone?: boolean;

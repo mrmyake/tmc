@@ -37,9 +37,14 @@ export function findRule(
   return best;
 }
 
+/** True als het pad een 410 Gone krijgt (regel met `gone`). */
+export function isGone(domain: LegacyDomain, rawPathname: string): boolean {
+  return findRule(domain, rawPathname)?.gone === true;
+}
+
 /**
  * De absolute doel-URL op de canonieke TMC-host. Inkomende query strings
- * worden niet doorgegeven. Technische bestanden krijgen geen UTM.
+ * worden niet doorgegeven. Alleen een domein met `utmSource` krijgt UTM's.
  */
 export function resolveTargetUrl(
   domain: LegacyDomain,
@@ -47,8 +52,7 @@ export function resolveTargetUrl(
 ): string {
   const rule = findRule(domain, rawPathname);
   const target = rule ? rule.target : domain.fallback;
-  const withUtm = rule ? rule.utm !== false : true;
   const base = `${CANONICAL_ORIGIN}${target}`;
-  if (!withUtm) return base;
+  if (!domain.utmSource) return base;
   return `${base}?utm_source=${domain.utmSource}&utm_medium=redirect`;
 }

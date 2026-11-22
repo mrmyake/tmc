@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { LEGACY_DOMAINS } from "./registry";
 import { normalizeHost } from "./normalize";
 import { resolveMode, type ModeSource, globalConfigSource } from "./mode";
-import { isAcmeChallenge, resolveTargetUrl } from "./resolve";
+import { isAcmeChallenge, isGone, resolveTargetUrl } from "./resolve";
 import {
   HOST_COOKIE,
   HOST_PARAM,
@@ -142,6 +142,10 @@ export async function handleLegacyDomain(
       www: rawHost.replace(/:\d+$/, "").startsWith("www."),
     });
     return withOverrideCookies(executeHpDecision(request, decision), override);
+  }
+
+  if (isGone(domain, pathname)) {
+    return withOverrideCookies(plain(410, "Gone", "public, max-age=3600"), override);
   }
 
   const location = resolveTargetUrl(domain, pathname);

@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { handleLegacyDomain, resolveMode, LEGACY_DOMAINS } from "./load.mts";
 
 const KOSTEN_PERMANENT =
-  "https://www.themovementclub.nl/prijzen?utm_source=ptloosdrecht&utm_medium=redirect";
+  "https://www.themovementclub.nl/prijzen";
 
 const warnings: string[] = [];
 const realWarn = console.warn;

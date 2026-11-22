@@ -46,7 +46,7 @@ test("host met hoofdletters en poort wordt genormaliseerd", async () => {
   assert.equal(res?.status, 308);
   assert.equal(
     res?.headers.get("location"),
-    "https://www.themovementclub.nl/prijzen?utm_source=ptloosdrecht&utm_medium=redirect",
+    "https://www.themovementclub.nl/prijzen",
   );
 });
 
@@ -73,16 +73,15 @@ test("acme-challenge wordt nooit afgevangen, in elke modus", async () => {
 });
 
 test("langste prefix wint en exact gaat voor prefix", async () => {
-  // /product-category valt onder prefix /product-category, niet /product.
+  // /product-category valt onder prefix /product-category, niet /product:
+  // beide zijn 410, maar het pad wordt als geheel gematcht.
   const res = await handleLegacyDomain(req("ptloosdrecht.nl", "/product-category/misc"), permanent);
-  assert.equal(
-    res?.headers.get("location"),
-    "https://www.themovementclub.nl/?utm_source=ptloosdrecht&utm_medium=redirect",
-  );
+  assert.equal(res?.status, 410);
   // /pagina bestaat niet als /page-prefix: valt terug op de fallback.
   const near = await handleLegacyDomain(req("ptloosdrecht.nl", "/pagina"), permanent);
-  assert.equal(
-    near?.headers.get("location"),
-    "https://www.themovementclub.nl/?utm_source=ptloosdrecht&utm_medium=redirect",
-  );
+  assert.equal(near?.status, 308);
+  assert.equal(near?.headers.get("location"), "https://www.themovementclub.nl/");
+  // /products is geen /product-prefix: ook de fallback.
+  const products = await handleLegacyDomain(req("ptloosdrecht.nl", "/products"), permanent);
+  assert.equal(products?.status, 308);
 });
