@@ -157,6 +157,9 @@ export type EventType =
   | "access.device_token_revoked"
   // Uitlogpad: meegestuurd token-id of pushtoken hoort niet bij de sessie (device-cleanup-core.ts)
   | "access.device_cleanup_rejected"
+  // Pincode gebruikt op de PinPad (Akiles-webhook; src/lib/access/pin-webhook-core.ts).
+  // Payload: Akiles-event-id, gadget-id, occurred_at, naambron; nooit een naam of code.
+  | "access.pin_used"
   // Zaalbediening licht en Sonos vanaf de kiosk (spec-kiosk-room-control.md,
   // src/lib/home-assistant.ts). Alleen TS-uitbreiding: tmc.events checkt
   // enkel actor_type, geen migratie nodig.

@@ -10,7 +10,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { sendNotification } from "../../src/lib/ntfy";
+import { encodeTitleHeader, sendNotification } from "../../src/lib/ntfy";
 
 type Mode = "hang" | "ok" | "fail";
 let mode: Mode = "ok";
@@ -197,4 +197,241 @@ test("nooit een dubbel prefix", async () => {
   assert.equal(lastTitle, "TEST: Al gemarkeerd");
   // Op productie zonder testvlag blijft een titel die toevallig zo begint ongewijzigd.
   assert.equal(await titleOnProduction("TEST: Al gemarkeerd"), "TEST: Al gemarkeerd");
+});
+
+/**
+ * Access token, tweede topic, titelcodering en de terugval bij een
+ * geweigerd token (spec-akiles-access.md, melding bij pincodegebruik). De
+ * fetch wordt vervangen zodat URL, headers en body exact te inspecteren
+ * zijn en er nooit een echt topic geraakt wordt.
+ */
+const FAKE_TOKEN = "tk_testtoken_nooit_echt_0123456789";
+
+interface Seen {
+  url: string;
+  headers: Record<string, string>;
+  rawHeaders: unknown;
+  body: string;
+}
+
+async function withFakeNtfy<T>(
+  env: Record<string, string | undefined>,
+  respond: (call: Seen, index: number) => number,
+  fn: (seen: Seen[], logs: string[]) => Promise<T>,
+): Promise<T> {
+  const realFetch = globalThis.fetch;
+  const previous: Record<string, string | undefined> = {};
+  for (const key of Object.keys(env)) {
+    previous[key] = process.env[key];
+    if (env[key] === undefined) delete process.env[key];
+    else process.env[key] = env[key];
+  }
+  const seen: Seen[] = [];
+  const logs: string[] = [];
+  const consoleMethods = ["log", "info", "warn", "error"] as const;
+  const realConsole = consoleMethods.map((m) => console[m]);
+  for (const m of consoleMethods) {
+    console[m] = (...args: unknown[]) => {
+      logs.push(args.map((a) => (a instanceof Error ? `${a.message} ${a.stack}` : typeof a === "string" ? a : JSON.stringify(a))).join(" "));
+    };
+  }
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const headers: Record<string, string> = {};
+    new Headers(init?.headers).forEach((value, key) => {
+      headers[key] = value;
+    });
+    const call: Seen = { url: String(input), headers, rawHeaders: init?.headers, body: String(init?.body) };
+    seen.push(call);
+    return new Response("x", { status: respond(call, seen.length - 1) });
+  }) as typeof fetch;
+  try {
+    return await fn(seen, logs);
+  } finally {
+    globalThis.fetch = realFetch;
+    consoleMethods.forEach((m, i) => {
+      console[m] = realConsole[i];
+    });
+    for (const key of Object.keys(env)) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+}
+
+const PROD = { VERCEL_ENV: "production", NTFY_URL: undefined };
+
+test("met NTFY_ACCESS_TOKEN: Authorization Bearer op de post, ook op het standaardtopic", async () => {
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, () => 200, async (seen) => {
+    assert.equal(await sendNotification("Titel", "Bericht", "warning"), true);
+    assert.equal(await sendNotification("Deur", "Bericht", "key", { topic: "tmc-deur-test", priority: "high" }), true);
+    assert.equal(seen.length, 2);
+    assert.equal(seen[0].url, "https://ntfy.sh/tmc-leads");
+    assert.equal(seen[0].headers.authorization, `Bearer ${FAKE_TOKEN}`);
+    assert.equal(seen[1].url, "https://ntfy.sh/tmc-deur-test");
+    assert.equal(seen[1].headers.authorization, `Bearer ${FAKE_TOKEN}`);
+    assert.equal(seen[1].headers.priority, "high");
+  });
+});
+
+test("zonder NTFY_ACCESS_TOKEN: geen Authorization, headers exact zoals voorheen", async () => {
+  for (const token of [undefined, "", "   "]) {
+    await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: token }, () => 200, async (seen) => {
+      assert.equal(await sendNotification("Incasso gefaald", "Bericht", "warning"), true);
+      assert.equal(seen.length, 1);
+      // Het ruwe headerobject is byte voor byte dat van voor deze wijziging.
+      assert.deepEqual(seen[0].rawHeaders, { Title: "Incasso gefaald", Tags: "warning" });
+      assert.equal(seen[0].url, "https://ntfy.sh/tmc-leads");
+      assert.equal(seen[0].body, "Bericht");
+
+      await sendNotification("Zonder tags", "Bericht");
+      assert.deepEqual(seen[1].rawHeaders, { Title: "Zonder tags", Tags: "incoming_envelope" });
+    });
+  }
+});
+
+test("het token komt nooit in logs: bij succes, weigering, terugval, 5xx en een netwerkfout", async () => {
+  const scenarios: Array<(call: Seen, i: number) => number> = [
+    () => 200,
+    () => 401,
+    (_c, i) => (i === 0 ? 403 : 200),
+    () => 500,
+    () => {
+      throw new Error("netwerk weg");
+    },
+  ];
+  for (const respond of scenarios) {
+    await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, respond, async (_seen, logs) => {
+      await sendNotification("Titel", "Bericht");
+      await sendNotification("Deur", "Bericht", "key", { topic: "tmc-deur-test" });
+      const all = logs.join("\n");
+      assert.doesNotMatch(all, /tk_/, "tokenwaarde in de log");
+      assert.doesNotMatch(all, /Bearer|Authorization/i, "header in de log");
+    });
+  }
+});
+
+test("terugval: 401 of 403 met token geeft een anonieme herhaling naar tmc-leads, met de waarschuwingsregel", async () => {
+  for (const status of [401, 403]) {
+    await withFakeNtfy(
+      { ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN },
+      (_c, i) => (i === 0 ? status : 200),
+      async (seen, logs) => {
+        assert.equal(await sendNotification("Incasso gefaald", "Regel een\nRegel twee", "warning"), true);
+        assert.equal(seen.length, 2);
+        assert.equal(seen[0].headers.authorization, `Bearer ${FAKE_TOKEN}`);
+        assert.equal(seen[1].url, "https://ntfy.sh/tmc-leads");
+        assert.equal(seen[1].headers.authorization, undefined);
+        assert.deepEqual(seen[1].rawHeaders, { Title: "Incasso gefaald", Tags: "warning" });
+        assert.equal(
+          seen[1].body,
+          "Regel een\nRegel twee\n\nLet op: ntfy-token geweigerd, anoniem verstuurd.",
+        );
+        assert.ok(logs.some((l) => l.includes("Token geweigerd") && l.includes(String(status))));
+      },
+    );
+  }
+});
+
+test("terugval nooit naar een topic uit opts.topic: geweigerd token op het deur-topic geeft false en een post", async () => {
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, () => 401, async (seen) => {
+    const ok = await sendNotification("Code gebruikt: Fenna", "Voordeur", "key", { topic: "tmc-deur-test" });
+    assert.equal(ok, false);
+    assert.equal(seen.length, 1, "geen herhaling, en zeker niet naar tmc-leads");
+    assert.equal(seen[0].url, "https://ntfy.sh/tmc-deur-test");
+  });
+});
+
+test("terugval alleen bij 401 en 403 en alleen met token; mislukte terugval geeft false", async () => {
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, () => 500, async (seen) => {
+    assert.equal(await sendNotification("Titel", "Bericht"), false);
+    assert.equal(seen.length, 1);
+  });
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: undefined }, () => 403, async (seen) => {
+    assert.equal(await sendNotification("Titel", "Bericht"), false);
+    assert.equal(seen.length, 1);
+  });
+  // tmc-leads op deny-all: ook de anonieme post wordt geweigerd.
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, () => 403, async (seen) => {
+    assert.equal(await sendNotification("Titel", "Bericht"), false);
+    assert.equal(seen.length, 2);
+  });
+});
+
+test("ongeldig topic: niets verstuurd, nooit terug naar het standaardtopic", async () => {
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: FAKE_TOKEN }, () => 200, async (seen) => {
+    for (const topic of ["", "a/b", "met spatie", "../tmc-leads", "x".repeat(65)]) {
+      assert.equal(await sendNotification("Titel", "Bericht", "key", { topic }), false, topic);
+    }
+    assert.equal(seen.length, 0);
+  });
+});
+
+test("topic met de NTFY_URL-testhaak: het topic vervangt het laatste padsegment; op productie genegeerd", async () => {
+  await withFakeNtfy(
+    { VERCEL_ENV: "preview", NTFY_URL: "http://127.0.0.1:9/test-topic", NTFY_ACCESS_TOKEN: undefined },
+    () => 200,
+    async (seen) => {
+      await sendNotification("Titel", "Bericht");
+      await sendNotification("Titel", "Bericht", "key", { topic: "tmc-deur-test" });
+      assert.equal(seen[0].url, "http://127.0.0.1:9/test-topic");
+      assert.equal(seen[1].url, "http://127.0.0.1:9/tmc-deur-test");
+      assert.equal(seen[1].headers.title, "TEST: Titel", "TEST-prefix blijft buiten productie");
+    },
+  );
+  await withFakeNtfy(
+    { VERCEL_ENV: "production", NTFY_URL: "http://127.0.0.1:9/test-topic", NTFY_ACCESS_TOKEN: undefined },
+    () => 200,
+    async (seen) => {
+      await sendNotification("Titel", "Bericht", "key", { topic: "tmc-deur-test" });
+      assert.equal(seen[0].url, "https://ntfy.sh/tmc-deur-test");
+    },
+  );
+});
+
+function decodeRfc2047(value: string): string {
+  const match = /^=\?UTF-8\?B\?([A-Za-z0-9+/=]+)\?=$/.exec(value);
+  assert.ok(match, `geen RFC 2047 encoded-word: ${value}`);
+  return Buffer.from(match[1], "base64").toString("utf8");
+}
+
+test("titel met niet-ASCII (ë, ł) gaat als RFC 2047 en komt heel aan; fetch gooit niet", async () => {
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: undefined }, () => 200, async (seen) => {
+    for (const title of ["Code gebruikt: Zoë Janssen", "Code gebruikt: Michał Wiśniewski", "Proefles 💪"]) {
+      assert.equal(await sendNotification(title, "Bericht"), true, title);
+      const sent = seen[seen.length - 1].headers.title;
+      assert.match(sent, /^[\x20-\x7E]+$/, "header is puur ASCII");
+      assert.equal(decodeRfc2047(sent), title);
+    }
+  });
+  // Tegen de echte fetch en de lokale server: zonder codering gooit undici
+  // op "ł" een TypeError (en dus false); met codering komt de titel aan.
+  mode = "ok";
+  const previousEnv = process.env.VERCEL_ENV;
+  try {
+    process.env.VERCEL_ENV = "preview";
+    assert.equal(await sendNotification("Michał", "Bericht", "key", { test: false }), true);
+    assert.equal(decodeRfc2047(lastTitle ?? ""), "TEST: Michał");
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test("puur ASCII-titel blijft byte voor byte gelijk", async () => {
+  const titles = [
+    "Incasso gefaald",
+    "TEST: Nieuwe proefles-boeking!",
+    "Akiles: token verversen mislukt",
+    "Hormoonprofiel: kennismaking aangevraagd!",
+    "~ !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}",
+    "",
+  ];
+  for (const title of titles) {
+    assert.equal(encodeTitleHeader(title), title);
+    assert.ok(Buffer.from(encodeTitleHeader(title), "latin1").equals(Buffer.from(title, "utf8")));
+  }
+  await withFakeNtfy({ ...PROD, NTFY_ACCESS_TOKEN: undefined }, () => 200, async (seen) => {
+    await sendNotification("Incasso gefaald", "Bericht");
+    assert.equal((seen[0].rawHeaders as Record<string, string>).Title, "Incasso gefaald");
+  });
 });

@@ -12,6 +12,9 @@ import {
   AKILES_OAUTH_REDIRECT_URI,
   AKILES_OAUTH_TOKEN_URL,
   AKILES_TOKEN_ID,
+  AKILES_WEBHOOK_EXPAND,
+  AKILES_WEBHOOK_FILTER,
+  AKILES_WEBHOOK_URL,
 } from "@/lib/access/constants";
 import {
   getAccessTokenCore,
@@ -476,6 +479,53 @@ const client: AkilesApi = {
     await request<unknown>("DELETE", `/members/${enc(memberId)}/tokens/${enc(tokenId)}`);
   },
 };
+
+// ---------------------------------------------------------------------------
+// Webhooks (eenmalige inrichting via /api/akiles/webhook)
+// ---------------------------------------------------------------------------
+
+export interface AkilesWebhookSummary {
+  id: string;
+  url: string;
+  is_enabled: boolean;
+}
+
+/**
+ * Niet-verwijderde webhooks van deze OAuth-applicatie. Akiles toont een app
+ * alleen zijn eigen webhooks. Bewust buiten AkilesApi: de sync kent geen
+ * webhooks en de fakes in scripts/access/ hoeven ze niet te implementeren.
+ * De aanroeper controleert vooraf isAkilesConfigured().
+ */
+export async function listAkilesWebhooks(): Promise<AkilesWebhookSummary[]> {
+  const all = await listAll<{
+    id: string;
+    url: string;
+    is_enabled?: boolean;
+    is_deleted?: boolean;
+  }>("/webhooks");
+  return all
+    .filter((w) => !w.is_deleted)
+    .map((w) => ({ id: w.id, url: w.url, is_enabled: w.is_enabled !== false }));
+}
+
+/**
+ * Maakt de webhook voor pincodegebruik aan. Het antwoord bevat het secret,
+ * en alleen dit antwoord: Akiles toont het daarna nooit meer. De waarde
+ * gaat een keer terug naar de aanroeper en wordt hier niet gelogd of
+ * opgeslagen.
+ */
+export async function createAkilesPinWebhook(): Promise<{ id: string; secret: string }> {
+  const res = await request<{ id?: string; secret?: string }>("POST", "/webhooks", {
+    url: AKILES_WEBHOOK_URL,
+    filter: AKILES_WEBHOOK_FILTER,
+    expand: AKILES_WEBHOOK_EXPAND,
+    is_enabled: true,
+  });
+  if (!res.id || !res.secret) {
+    throw new AkilesApiError(502, "POST /webhooks", "antwoord zonder id of secret");
+  }
+  return { id: res.id, secret: res.secret };
+}
 
 /**
  * null zolang de koppeling niet geconfigureerd is (zie isAkilesConfigured);
