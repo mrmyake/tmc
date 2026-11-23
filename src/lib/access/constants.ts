@@ -64,6 +64,17 @@ export const AKILES_OAUTH_SCOPE = "full_read_write offline";
 export const AKILES_OAUTH_REDIRECT_URI =
   "https://www.themovementclub.nl/api/akiles/oauth/callback";
 
+/**
+ * Webhook voor pincodegebruik (src/lib/access/pin-webhook-core.ts). De URL
+ * staat op www: het kale domein antwoordt met een 308 en Akiles belooft
+ * nergens dat het redirects volgt. De webhook kan niet filteren op
+ * access_method; de route selecteert zelf op "pin". De expands leveren de
+ * naam van de member en van de deur mee in de levering.
+ */
+export const AKILES_WEBHOOK_URL = "https://www.themovementclub.nl/api/webhooks/akiles";
+export const AKILES_WEBHOOK_FILTER = [{ "object.type": "gadget_action", verb: "use" }] as const;
+export const AKILES_WEBHOOK_EXPAND = ["subject_member", "object_gadget"] as const;
+
 /** Access token geldt als "nog goed" zolang er meer dan dit resteert. */
 export const ACCESS_TOKEN_MIN_REMAINING_MS = 10 * 60_000;
 /** Lease op de refresh-claim; een gecrashte verversing wordt hierna overgenomen. */
